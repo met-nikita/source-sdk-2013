@@ -73,7 +73,5 @@ sp/src/game/server/Debug_mod_episodic/
 sp/src/game/server/Debug_mod_hl2/
 sp/src/game/server/Release_mod_episodic/
 sp/src/game/server/Release_mod_hl2/
-sp/src/mathlib/Debug/
-sp/src/raytrace/Debug/
-sp/src/tier1/Debug/
-sp/src/vgui2/vgui_controls/Debug/
+sp/src/*/Debug/
+sp/src/*/Release/

@@ -1783,6 +1783,24 @@ AI_DEFINE_SCHEDULE
 //	Run to cover, but don't turn to face enemy and upon
 //  fail run around randomly
 //=========================================================
+#ifdef MAPBASE
+AI_DEFINE_SCHEDULE
+(
+	SCHED_RUN_FROM_ENEMY,
+
+	"	Tasks"
+	"		TASK_SET_FAIL_SCHEDULE			SCHEDULE:SCHED_RUN_FROM_ENEMY_FALLBACK"
+	"		TASK_STOP_MOVING				0"
+	"		TASK_FIND_COVER_FROM_ENEMY		0"
+	"		TASK_RUN_PATH					0"
+	"		TASK_WAIT_FOR_MOVEMENT			0"
+	"		TASK_REMEMBER					MEMORY:INCOVER" // Now that crouch nodes are fixed, this is necessary in case cover leads to a crouch node
+	""
+	"	Interrupts"
+	"		COND_NEW_ENEMY"
+	"		COND_ENEMY_DEAD"
+);
+#else
 AI_DEFINE_SCHEDULE
 (
 	SCHED_RUN_FROM_ENEMY,
@@ -1798,6 +1816,7 @@ AI_DEFINE_SCHEDULE
 	"		COND_NEW_ENEMY"
 	"		COND_ENEMY_DEAD"
 );
+#endif
 
 AI_DEFINE_SCHEDULE
 (
@@ -2360,6 +2379,19 @@ AI_DEFINE_SCHEDULE
 //=========================================================
 // > SCHED_INTERACTION_WAIT_FOR_PARTNER
 //=========================================================
+#ifdef MAPBASE
+AI_DEFINE_SCHEDULE  
+(
+ SCHED_INTERACTION_WAIT_FOR_PARTNER,
+
+ "	Tasks"
+ "		TASK_FACE_INTERACTION_ANGLES	0"	// New task to fix forced interaction anomalies
+ "		TASK_WAIT			1"
+ ""
+ "	Interrupts"
+ "		COND_NO_CUSTOM_INTERRUPTS"
+);
+#else
 AI_DEFINE_SCHEDULE  
 (
  SCHED_INTERACTION_WAIT_FOR_PARTNER,
@@ -2371,6 +2403,7 @@ AI_DEFINE_SCHEDULE
  "	Interrupts"
  "		COND_NO_CUSTOM_INTERRUPTS"
 );
+#endif
 
 //=========================================================
 // > SCHED_SLEEP
