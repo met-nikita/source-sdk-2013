@@ -362,7 +362,13 @@ void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecFo
 	state.m_Color[3] = r_flashlightambient.GetFloat();
 	state.m_NearZ = r_flashlightnear.GetFloat() + m_flDistMod;	// Push near plane out so that we don't clip the world when the flashlight pulls back 
 	state.m_FarZ = r_flashlightfar.GetFloat();
+#ifdef EZ1
+	// The NVG projected texture should not cast shadows
+	// TODO Make sure this only applies for NVG!
+	state.m_bEnableShadows = false;
+#else
 	state.m_bEnableShadows = r_flashlightdepthtexture.GetBool();
+#endif
 	state.m_flShadowMapResolution = r_flashlightdepthres.GetInt();
 
 	state.m_pSpotlightTexture = m_FlashlightTexture;

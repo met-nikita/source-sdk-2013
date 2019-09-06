@@ -6429,6 +6429,7 @@
 	spawnflags(flags) =
 	[
 		1  : "Enabled"				: 1
+		2  : "Always Update"		: 0
 	]
 
 	target(target_destination)	: "target" : : "target"	
@@ -6456,13 +6457,17 @@
 		0 : "No"
 		1 : "Yes"
 	]
+	texturename(material)	: "Texture" : : "path/texture to be projected. Relative to main/materials/"
 	lightcolor(color255)		: "Light Color" : "255 255 255 200" : "Light Color RGB-Intensity"
 	cameraspace(integer)		: "Camera Space" : 0 : "Angles are interpreted as being relative to camera."
 
 	// Inputs
-	input TurnOn(void)		: "Turn on the texture"
-	input TurnOff(void)		: "Turn off the texture"
-	input SetFOV(float)		: "Set FOV"
+	input TurnOn(void)					: "Turn on the texture"
+	input TurnOff(void)					: "Turn off the texture"
+	input SetFOV(float)					: "Set FOV"
+	input Ambient(color255)				: "Set ambient"
+	input SpotlightTexture(string)		: "Set the texture"
+	input LightColor(color255)			: "Set color"
 ]
 
 

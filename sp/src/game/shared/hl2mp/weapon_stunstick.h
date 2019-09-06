@@ -47,6 +47,9 @@ public:
 	DECLARE_PREDICTABLE();
 
 #ifndef CLIENT_DLL
+	#ifdef EZ
+		DECLARE_DATADESC();
+	#endif
 	DECLARE_ACTTABLE();
 #endif
 
@@ -72,13 +75,21 @@ public:
 	
 	void		Drop( const Vector &vecVelocity );
 	void		ImpactEffect( trace_t &traceHit );
+#ifndef EZ
 	void		SecondaryAttack( void )	{}
+#endif
 	void		SetStunState( bool state );
 	bool		GetStunState( void );
 
 #ifndef CLIENT_DLL
 	#ifdef EZ
-		virtual void	ItemPostFrame(void);
+		virtual void	ItemPostFrame( void );
+		void			SecondaryAttack( void );
+		void			Hit( trace_t & traceHit, Activity nHitActivity, bool bIsSecondary );
+	private:
+		// Fields for chargeup attack
+		float m_flLastChargeTime;
+		float m_flChargeAmount;
 	#endif
 	void		Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
 	int			WeaponMeleeAttack1Condition( float flDot, float flDist );

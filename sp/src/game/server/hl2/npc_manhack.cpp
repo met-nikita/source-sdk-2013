@@ -252,10 +252,10 @@ CNPC_Manhack::~CNPC_Manhack()
 //-----------------------------------------------------------------------------
 Class_T	CNPC_Manhack::Classify(void)
 {
-#ifdef EZ
-	return (m_bHeld || m_bHackedByAlyx) ? CLASS_CITIZEN_REBEL : CLASS_MANHACK; //  Breadman - Hacks are rebel class. Rebels are combine class. This inverse relationship makes them attack each other.
+#ifdef EZ1
+	return CLASS_MANHACK; // Manhacks are always CLASS_MANHACK in EZ1
 #else
-	return (m_bHeld||m_bHackedByAlyx) ? CLASS_PLAYER_ALLY : CLASS_MANHACK; 
+	return ( m_bHeld||m_bHackedByAlyx ) ? CLASS_PLAYER_ALLY : CLASS_MANHACK; 
 #endif
 
 }
@@ -900,6 +900,14 @@ void CNPC_Manhack::OnStateChange( NPC_STATE OldState, NPC_STATE NewState )
 		m_spawnflags &= ~SF_NPC_GAG;
 		SoundInit();
 	}
+
+#ifdef EZ
+	// Idle manhacks return to cyan eye color
+	if (NewState != NPC_STATE_COMBAT)
+	{
+		SetEyeState( MANHACK_EYE_STATE_IDLE );
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -2478,6 +2486,7 @@ void CNPC_Manhack::Spawn(void)
 
 #ifdef EZ
 	m_bHackedByAlyx = true;
+	SetEyeState( MANHACK_EYE_STATE_IDLE );
 #else
 #ifndef MAPBASE
 	m_bHackedByAlyx = false;
@@ -3466,7 +3475,33 @@ void CNPC_Manhack::SetEyeState( int state )
 
 			break;
 		}
-	
+#ifdef EZ
+	case MANHACK_EYE_STATE_CHASE:
+	case MANHACK_EYE_STATE_IDLE:
+	#ifdef EZ2
+	if( !m_bHackedByAlyx )
+	#endif
+	{
+		if ( m_pEyeGlow )
+		{
+			//Toggle our state
+			m_pEyeGlow->SetColor( 0, 255, 255 );
+			m_pEyeGlow->SetScale( 0.25f, 0.5f );
+			m_pEyeGlow->SetBrightness( 164, 0.1f );
+			m_pEyeGlow->m_nRenderFX = kRenderFxNone;
+		}
+
+		if ( m_pLightGlow )
+		{
+			m_pLightGlow->SetColor( 0, 255, 255 );
+			m_pLightGlow->SetScale( 0.25f, 0.5f );
+			m_pLightGlow->SetBrightness( 164, 0.1f );
+			m_pLightGlow->m_nRenderFX = kRenderFxNone;
+		}
+
+		break;
+	}
+#endif
 	default:
 		if ( m_pEyeGlow )
 			m_pEyeGlow->m_nRenderFX = kRenderFxNone;

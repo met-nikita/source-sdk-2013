@@ -46,11 +46,16 @@ public:
 
 protected:
 	virtual	void	ImpactEffect( trace_t &trace );
+#ifdef EZ
+	virtual void	Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSecondary );
+#endif
 
 private:
 	bool			ImpactWater( const Vector &start, const Vector &end );
 	void			Swing( int bIsSecondary );
+#ifndef EZ
 	void			Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSecondary );
+#endif
 	Activity		ChooseIntersectionPointAndActivity( trace_t &hitTrace, const Vector &mins, const Vector &maxs, CBasePlayer *pOwner );
 };
 

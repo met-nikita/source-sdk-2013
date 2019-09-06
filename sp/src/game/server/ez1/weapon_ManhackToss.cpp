@@ -263,7 +263,7 @@ void CWeaponManhackToss::PrimaryAttack(void)
 
 	PlayerManhacks->AddSpawnFlags(SF_MANHACK_PACKED_UP);
 	PlayerManhacks->KeyValue("squadname", "controllable_manhack_squad");
-	PlayerManhacks->Spawn();
+	DispatchSpawn( PlayerManhacks );
 	PlayerManhacks->Activate();
 	PlayerManhacks->ShouldFollowPlayer(true);
 

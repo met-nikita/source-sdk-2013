@@ -1805,7 +1805,7 @@ void CNPC_PlayerCompanion::HandleAnimEvent( animevent_t *pEvent )
 				{
 					CNPC_PlayerCompanion * pCombine = static_cast<CNPC_PlayerCompanion *>(pBCC);
 					if (pCombine && !pCombine->IsCommandable()) {
-						l_nKickDamage = pBCC->GetHealth();
+						l_nMeleeDamage = pBCC->GetHealth();
 					}
 				}
 #endif

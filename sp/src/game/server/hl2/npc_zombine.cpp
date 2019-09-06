@@ -589,8 +589,12 @@ void CNPC_Zombine::HandleAnimEvent( animevent_t *pEvent )
 				for ( int i = 0; i < g_AI_Manager.NumAIs(); i++ )
 				{
 					pNPC = ppAIs[i];
-
+#ifndef EZ
 					if( pNPC->Classify() == CLASS_PLAYER_ALLY || ( pNPC->Classify() == CLASS_PLAYER_ALLY_VITAL && pNPC->FVisible(this) ) )
+#else
+					// Citizens and Combine prioritize zombine with grenades pulled
+					if( pNPC->Classify() == CLASS_PLAYER_ALLY || pNPC->Classify() == CLASS_COMBINE || (pNPC->Classify() == CLASS_PLAYER_ALLY_VITAL && pNPC->FVisible( this ) ) )
+#endif
 					{
 						int priority;
 						Disposition_t disposition;

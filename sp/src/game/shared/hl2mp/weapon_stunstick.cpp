@@ -17,6 +17,12 @@
 #ifndef CLIENT_DLL
 	#include "npc_metropolice.h"
 	#include "te_effect_dispatch.h"
+	#include "in_buttons.h"
+	#ifdef EZ
+		#include "RagdollBoogie.h"
+	#include "rumble_shared.h"
+	#include "gamestats.h"
+	#endif
 #endif
 
 #ifdef CLIENT_DLL
@@ -286,7 +292,20 @@ void CWeaponStunStick::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseComba
 			if ( pHurt )
 			{
 				// play sound
+#ifndef EZ
 				WeaponSound( MELEE_HIT );
+#else
+				// If the stunstick is not charged, play the normal hit sound
+				if (m_flChargeAmount <= 1.0f)
+				{
+					WeaponSound( MELEE_HIT );
+				}
+				// If the stunstick has any change, play the new alternate hit sound
+				else
+				{
+					WeaponSound( SPECIAL2 );
+				}
+#endif
 
 				CBasePlayer *pPlayer = ToBasePlayer( pHurt );
 
@@ -351,16 +370,8 @@ void CWeaponStunStick::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseComba
 //-----------------------------------------------------------------------------
 bool CWeaponStunStick::InSwing(void)
 {
-	int activity = GetActivity();
-
-	// These are the swing activities this weapon can play
-	if (activity == GetPrimaryAttackActivity() ||
-		activity == GetSecondaryAttackActivity() ||
-		activity == ACT_VM_MISSCENTER ||
-		activity == ACT_VM_MISSCENTER2)
-		return true;
-
-	return false;
+	// If the alternate fire is charging up, glow
+	return m_flChargeAmount > 0.0f;
 }
 
 //-----------------------------------------------------------------------------
@@ -368,9 +379,114 @@ bool CWeaponStunStick::InSwing(void)
 //-----------------------------------------------------------------------------
 void CWeaponStunStick::ItemPostFrame(void)
 {
+	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+	if (  m_flChargeAmount > 0.0f && ( !( pOwner->m_nButtons & IN_ATTACK2 ) || ( pOwner->m_nButtons & IN_ATTACK ) ||  m_flChargeAmount > 3.0f ) )
+	{
+		if ( m_flNextPrimaryAttack <= gpGlobals->curtime )
+		{
+			PrimaryAttack();
+		}
+		else
+		{
+			m_flChargeAmount = 0.0f;
+			m_flLastChargeTime = 0.0f;
+		}
+	}
+
 	BaseClass::ItemPostFrame();
 	m_bInSwing = InSwing();
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: Charge up the swing
+//-----------------------------------------------------------------------------
+void CWeaponStunStick::SecondaryAttack()
+{
+	// Increase charge
+	if (m_flLastChargeTime > 0.0f)
+	{
+		float flChargeInterval = gpGlobals->curtime - m_flLastChargeTime;
+		m_flChargeAmount += flChargeInterval;
+	}
+	else {
+		// The charge is just starting, play the sound
+		WeaponSound( SPECIAL1 );
+	}
+	m_flLastChargeTime = gpGlobals->curtime;
+
+
+}
+
+//------------------------------------------------------------------------------
+// Purpose: Implement impact function
+//------------------------------------------------------------------------------
+void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSecondary )
+{
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	//Do view kick
+	AddViewKick();
+
+	//Make sound for the AI
+	CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, traceHit.endpos, 400, 0.2f, pPlayer );
+
+	// This isn't great, but it's something for when the crowbar hits.
+	pPlayer->RumbleEffect( RUMBLE_AR2, 0, RUMBLE_FLAG_RESTART );
+
+	CBaseEntity	*pHitEntity = traceHit.m_pEnt;
+
+	//Apply damage to a hit target
+	if (pHitEntity != NULL)
+	{
+		Vector hitDirection;
+		pPlayer->EyeVectors( &hitDirection, NULL, NULL );
+		VectorNormalize( hitDirection );
+
+		float flBaseDamage = GetDamageForActivity( nHitActivity );
+		// Stunstick charge damage function
+		// y = 1.5 * (x ^ 2) with a floor of flBaseDamage and a ceiling of 100
+		float flDamage = flBaseDamage * MIN( MAX( (m_flChargeAmount * m_flChargeAmount) * 1.5f, 1.0f ), 100.0f);
+
+		CTakeDamageInfo info( GetOwner(), GetOwner(), flDamage, DMG_CLUB );
+
+		if (pPlayer && pHitEntity->IsNPC())
+		{
+			// If bonking an NPC, adjust damage.
+			info.AdjustPlayerDamageInflictedForSkillLevel();
+		}
+
+		CalculateMeleeDamageForce( &info, hitDirection, traceHit.endpos );
+
+		// If the hit object is an NPC, and that NPC is now dead - become a server ragdoll and electrify!
+		CAI_BaseNPC * pNPC = pHitEntity->MyNPCPointer();
+		if ( flDamage > flBaseDamage && pHitEntity->IsNPC() && pNPC != NULL && pNPC->CanBecomeServerRagdoll() && !pNPC->IsEFlagSet( EFL_NO_MEGAPHYSCANNON_RAGDOLL ) && pNPC->m_iHealth - info.GetDamage() <= 0.0f)
+		{
+			pNPC->BecomeRagdollBoogie( GetOwner(), info.GetDamageForce(), 5.0f, SF_RAGDOLL_BOOGIE_ELECTRICAL );
+		}
+		else
+		{
+			pHitEntity->DispatchTraceAttack( info, hitDirection, &traceHit );
+			ApplyMultiDamage();
+		}
+
+		// Now hit all triggers along the ray that... 
+		TraceAttackToTriggers( info, traceHit.startpos, traceHit.endpos, hitDirection );
+
+		if (ToBaseCombatCharacter( pHitEntity ))
+		{
+			gamestats->Event_WeaponHit( pPlayer, !bIsSecondary, GetClassname(), info );
+		}
+	}
+
+	// Apply an impact effect
+	ImpactEffect( traceHit );
+}
+
+BEGIN_DATADESC( CWeaponStunStick )
+	DEFINE_FIELD( m_flLastChargeTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flChargeAmount, FIELD_INTEGER ),
+END_DATADESC()
+
 	#endif
 #endif
 
@@ -422,6 +538,14 @@ bool CWeaponStunStick::Holster( CBaseCombatWeapon *pSwitchingTo )
 
 	SetStunState( false );
 	SetWeaponVisible( false );
+
+#ifdef EZ
+#ifndef CLIENT_DLL
+	// Reset charge
+	m_flChargeAmount = 0.0f;
+	m_flLastChargeTime = 0.0f;
+#endif
+#endif
 
 	return true;
 }
@@ -827,6 +951,18 @@ void C_WeaponStunStick::DrawFirstPersonEffects( void )
 			DrawHalo( pMaterial, vecOrigin, scale, color );
 		}
 	}
+
+#ifdef EZ
+	// Create a "muzzle flash" light when the stunstick is "in swing" (glowing)
+	if ( InSwing() && GetOwner()->IsPlayer() )
+	{
+		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+		if ( pPlayer != NULL )
+		{
+			pPlayer->DoMuzzleFlash();
+		}
+	}
+#endif
 }
 
 #ifdef MAPBASE

@@ -613,9 +613,9 @@ void CNPC_Citizen::Spawn()
 	#endif
 #endif
 	m_flTimePlayerStare = FLT_MAX;
-
+#ifndef EZ
 	AddEFlags( EFL_NO_DISSOLVE | EFL_NO_MEGAPHYSCANNON_RAGDOLL | EFL_NO_PHYSCANNON_INTERACTION );
-
+#endif
 	NPCInit();
 
 	SetUse( &CNPC_Citizen::CommanderUse );
@@ -963,11 +963,7 @@ Class_T	CNPC_Citizen::Classify()
 	if (GlobalEntity_GetState("citizens_passive") == GLOBAL_ON)
 		return CLASS_CITIZEN_PASSIVE;
 
-#ifdef EZ1
-	return CLASS_COMBINE; // Breadman was CLASS_PLAYER_ALLY
-#else
 	return CLASS_PLAYER_ALLY;
-#endif
 }
 
 //-----------------------------------------------------------------------------
