@@ -4,8 +4,8 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-
 #include "cbase.h"
+#include "pointhurt.h"
 #include "entitylist.h"
 #include "gamerules.h"
 #include "basecombatcharacter.h"
@@ -16,35 +16,6 @@
 
 const int SF_PHURT_START_ON			= 1;
 
-class CPointHurt : public CPointEntity
-{
-	DECLARE_CLASS( CPointHurt, CPointEntity );
-
-public:
-	void	Spawn( void );
-	void	Precache( void );
-	void	HurtThink( void );
-
-	// Input handlers
-	void InputTurnOn(inputdata_t &inputdata);
-	void InputTurnOff(inputdata_t &inputdata);
-	void InputToggle(inputdata_t &inputdata);
-	void InputHurt(inputdata_t &inputdata);
-
-#ifdef MAPBASE
-	bool KeyValue( const char *szKeyName, const char *szValue );
-#endif
-	
-	DECLARE_DATADESC();
-
-	int			m_nDamage;
-	int			m_bitsDamageType;
-	float		m_flRadius;
-	float		m_flDelay;
-	string_t	m_strTarget;
-	EHANDLE		m_pActivator;
-};
-
 BEGIN_DATADESC( CPointHurt )
 
 	DEFINE_KEYFIELD( m_flRadius, FIELD_FLOAT, "DamageRadius" ),
@@ -52,7 +23,9 @@ BEGIN_DATADESC( CPointHurt )
 	DEFINE_KEYFIELD( m_flDelay, FIELD_FLOAT, "DamageDelay" ),
 	DEFINE_KEYFIELD( m_bitsDamageType, FIELD_INTEGER, "DamageType" ),
 	DEFINE_KEYFIELD( m_strTarget, FIELD_STRING, "DamageTarget" ),
-	
+	DEFINE_KEYFIELD( m_bDisabled, FIELD_BOOLEAN, "StartDisabled" ),
+	DEFINE_KEYFIELD( m_flLifetime, FIELD_FLOAT, "Lifetime"),
+
 	// Function Pointers
 	DEFINE_FUNCTION( HurtThink ),
 
@@ -63,27 +36,26 @@ BEGIN_DATADESC( CPointHurt )
 	DEFINE_INPUTFUNC( FIELD_VOID, "Hurt", InputHurt ),
 
 	DEFINE_FIELD( m_pActivator, FIELD_EHANDLE ),
-
+	DEFINE_FIELD( m_flExpirationTime, FIELD_TIME )
 END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( point_hurt, CPointHurt );
+#ifdef EZ // Blixibon - Unique classname for zombie puddle point_hurt
+LINK_ENTITY_TO_CLASS( zombie_goo_puddle, CPointHurt );
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void CPointHurt::Spawn(void)
 {
+	if (HasSpawnFlags(SF_PHURT_START_ON))
+		m_bDisabled = false;
+
 	SetThink( NULL );
 	SetUse( NULL );
 		
 	m_pActivator = NULL;
-
-	if ( HasSpawnFlags( SF_PHURT_START_ON ) )
-	{
-		SetThink( &CPointHurt::HurtThink );
-	}
-
-	SetNextThink( gpGlobals->curtime + 0.1f );
 	
 	if ( m_flRadius <= 0.0f )
 	{
@@ -111,6 +83,15 @@ void CPointHurt::Precache( void )
 	BaseClass::Precache();
 }
 
+void CPointHurt::Activate(void)
+{
+	if (!m_bDisabled) {
+		TurnOn(m_pActivator);
+	}
+
+	BaseClass::Activate();
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -132,7 +113,40 @@ void CPointHurt::HurtThink( void )
 		RadiusDamage( CTakeDamageInfo( this, this, m_nDamage, m_bitsDamageType ), GetAbsOrigin(), m_flRadius, CLASS_NONE, NULL );
 	}
 
-	SetNextThink( gpGlobals->curtime + m_flDelay );
+	if (m_flExpirationTime > 0 && m_flExpirationTime < gpGlobals->curtime)
+	{
+		m_bDisabled = true;
+		SetThink(NULL);
+	}
+	else 
+	{
+		SetNextThink(gpGlobals->curtime + m_flDelay);
+	}
+
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Trigger hurt that causes radiation will do a radius check and set
+//			the player's geiger counter level according to distance from center
+//			of trigger.
+//-----------------------------------------------------------------------------
+void CPointHurt::RadiationThink(void)
+{
+	// check to see if a player is in pvs
+	// if not, continue	
+	Vector vecSurroundMins, vecSurroundMaxs;
+	CollisionProp()->WorldSpaceSurroundingBounds(&vecSurroundMins, &vecSurroundMaxs);
+	CBasePlayer *pPlayer = static_cast<CBasePlayer *>(UTIL_FindClientInPVS(vecSurroundMins, vecSurroundMaxs));
+
+	if (pPlayer)
+	{
+		// get range to player;
+		float flRange = CollisionProp()->CalcDistanceFromPoint(pPlayer->WorldSpaceCenter());
+		flRange *= 3.0f;
+		pPlayer->NotifyNearbyRadiationSource(flRange);
+	}
+
+	HurtThink();
 }
 
 //-----------------------------------------------------------------------------
@@ -140,11 +154,29 @@ void CPointHurt::HurtThink( void )
 //-----------------------------------------------------------------------------
 void CPointHurt::InputTurnOn( inputdata_t &data )
 {
-	SetThink( &CPointHurt::HurtThink );
+	TurnOn(data.pActivator);
+}
 
-	SetNextThink( gpGlobals->curtime + 0.1f );
+void CPointHurt::TurnOn(CBaseEntity * activator)
+{
+	m_bDisabled = false;
 
-	m_pActivator = data.pActivator;
+	if (m_flLifetime > 0.0f)
+	{
+		m_flExpirationTime = gpGlobals->curtime + m_flLifetime;
+	}
+
+	if (m_bitsDamageType & DMG_RADIATION) 
+	{
+		SetThink(&CPointHurt::RadiationThink);
+	}
+	else 
+	{
+		SetThink(&CPointHurt::HurtThink);
+	}
+	
+	SetNextThink(gpGlobals->curtime + m_flDelay);
+	m_pActivator = activator;
 }
 
 //-----------------------------------------------------------------------------
@@ -152,6 +184,7 @@ void CPointHurt::InputTurnOn( inputdata_t &data )
 //-----------------------------------------------------------------------------
 void CPointHurt::InputTurnOff( inputdata_t &data )
 {
+	m_bDisabled = true;
 	SetThink( NULL );
 
 	m_pActivator = data.pActivator;
@@ -166,11 +199,12 @@ void CPointHurt::InputToggle( inputdata_t &data )
 
 	if ( m_pfnThink == (void (CBaseEntity::*)())&CPointHurt::HurtThink )
 	{
+		m_bDisabled = true;
 		SetThink( NULL );
 	}
 	else
 	{
-		SetThink( &CPointHurt::HurtThink );
+		TurnOn(data.pActivator);
 	}
 }
 

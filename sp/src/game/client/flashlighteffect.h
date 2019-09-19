@@ -17,7 +17,11 @@ class CFlashlightEffect
 {
 public:
 
+#ifdef EZ
+	CFlashlightEffect( int nEntIndex = 0, bool isNVG = false );
+#else
 	CFlashlightEffect(int nEntIndex = 0);
+#endif
 	virtual ~CFlashlightEffect();
 
 	virtual void UpdateLight(const Vector &vecPos, const Vector &vecDir, const Vector &vecRight, const Vector &vecUp, int nDistance);
@@ -28,6 +32,9 @@ public:
 	ClientShadowHandle_t GetFlashlightHandle( void ) { return m_FlashlightHandle; }
 	void SetFlashlightHandle( ClientShadowHandle_t Handle ) { m_FlashlightHandle = Handle;	}
 	
+#ifdef EZ
+	virtual bool IsNVG( void ) { return m_bIsNVG; }
+#endif
 protected:
 
 	void LightOff();
@@ -47,6 +54,9 @@ protected:
 
 	// Texture for flashlight
 	CTextureReference m_FlashlightTexture;
+
+	// Is this flashlight an NVG?
+	bool m_bIsNVG;
 };
 
 class CHeadlightEffect : public CFlashlightEffect

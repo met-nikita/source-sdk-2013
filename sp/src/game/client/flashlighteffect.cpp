@@ -37,10 +37,9 @@ static ConVar r_newflashlight( "r_newflashlight", "1", FCVAR_CHEAT, "", r_newfla
 static ConVar r_swingflashlight( "r_swingflashlight", "1", FCVAR_CHEAT );
 static ConVar r_flashlightlockposition( "r_flashlightlockposition", "0", FCVAR_CHEAT );
 #ifdef EZ
-static ConVar r_flashlightfov( "r_flashlightfov", "100", FCVAR_CHEAT ); // Breadman - Changed for NVG effect
-#else
-static ConVar r_flashlightfov( "r_flashlightfov", "45.0", FCVAR_CHEAT );
+static ConVar r_nvgfov( "r_nvgfov", "100", FCVAR_CHEAT ); // Breadman - Changed for NVG effect
 #endif
+static ConVar r_flashlightfov( "r_flashlightfov", "45.0", FCVAR_CHEAT );
 static ConVar r_flashlightoffsetx( "r_flashlightoffsetx", "10.0", FCVAR_CHEAT );
 static ConVar r_flashlightoffsety( "r_flashlightoffsety", "-20.0", FCVAR_CHEAT );
 static ConVar r_flashlightoffsetz( "r_flashlightoffsetz", "24.0", FCVAR_CHEAT );
@@ -72,6 +71,16 @@ void r_newflashlightCallback_f( IConVar *pConVar, const char *pOldString, float 
 	}	
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: Alternate constructor for Entropy : Zero.
+// Input  : isNVG - Whether or not this flashlight is NVG
+//			nEntIndex - The m_nEntIndex of the client entity that is creating us.
+//			vecPos - The position of the light emitter.
+//			vecDir - The direction of the light emission.
+//-----------------------------------------------------------------------------
+CFlashlightEffect::CFlashlightEffect( int nEntIndex, bool isNVG )
+#else
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : nEntIndex - The m_nEntIndex of the client entity that is creating us.
@@ -79,6 +88,7 @@ void r_newflashlightCallback_f( IConVar *pConVar, const char *pOldString, float 
 //			vecDir - The direction of the light emission.
 //-----------------------------------------------------------------------------
 CFlashlightEffect::CFlashlightEffect(int nEntIndex)
+#endif
 {
 	m_FlashlightHandle = CLIENTSHADOW_INVALID_HANDLE;
 	m_nEntIndex = nEntIndex;
@@ -89,7 +99,6 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex)
 	{
 		r_newflashlight.SetValue( 0 );
 	}
-
 #ifdef MAPBASE
 	if ( r_flashlighttextureoverride.GetString()[0] != '\0' )
 	{
@@ -97,16 +106,19 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex)
 	}
 	else
 #endif
-	if ( g_pMaterialSystemHardwareConfig->SupportsBorderColor() )
 #ifdef EZ
+	this->m_bIsNVG = isNVG;
+	if ( g_pMaterialSystemHardwareConfig->SupportsBorderColor() && isNVG )
 	{
 		m_FlashlightTexture.Init( "effects/Ez_MetroVision_border", TEXTURE_GROUP_OTHER, true );
 	}
-	else
+	else if ( isNVG )
 	{
 		m_FlashlightTexture.Init( "effects/Ez_MetroVision", TEXTURE_GROUP_OTHER, true );
 	}
-#else
+	else
+#endif
+	if (g_pMaterialSystemHardwareConfig->SupportsBorderColor())
 	{
 		m_FlashlightTexture.Init( "effects/flashlight_border", TEXTURE_GROUP_OTHER, true );
 	}
@@ -114,7 +126,6 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex)
 	{
 		m_FlashlightTexture.Init( "effects/flashlight001", TEXTURE_GROUP_OTHER, true );
 	}
-#endif
 }
 
 
@@ -125,7 +136,10 @@ CFlashlightEffect::~CFlashlightEffect()
 {
 	LightOff();
 #ifdef EZ
-	engine->ClientCmd("Ez_Nvg_On"); //Breadman - see View_scene.cpp for this Convar
+	if ( IsNVG() )
+	{
+		engine->ClientCmd( "Ez_Nvg_On" ); //Breadman - see View_scene.cpp for this Convar
+	}
 #endif
 }
 
@@ -138,7 +152,10 @@ void CFlashlightEffect::TurnOn()
 	m_bIsOn = true;
 	m_flDistMod = 1.0f;
 #ifdef EZ
-	engine->ClientCmd("Ez_Nvg_On"); //Breadman - see View_scene.cpp for this Convar
+	if ( IsNVG() )
+	{
+		engine->ClientCmd( "Ez_Nvg_On" ); //Breadman - see View_scene.cpp for this Convar
+	}
 #endif
 }
 
@@ -186,6 +203,19 @@ public:
 //-----------------------------------------------------------------------------
 void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecForward, const Vector &vecRight, const Vector &vecUp )
 {
+	float fov;
+#ifdef EZ
+	if ( IsNVG() )
+	{
+		fov = r_nvgfov.GetFloat();
+	}
+	else
+#endif
+	{
+		fov = r_flashlightfov.GetFloat();
+	}
+
+
 	VPROF_BUDGET( "CFlashlightEffect::UpdateLightNew", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
 
 	FlashlightState_t state;
@@ -340,8 +370,8 @@ void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecFo
 				state.m_fLinearAtten = r_flashlightlinear.GetFloat() * flScale + 1.5f * flNoise;
 			}
 
-			state.m_fHorizontalFOVDegrees = r_flashlightfov.GetFloat() - ( 16.0f * (1.0f-flScale) );
-			state.m_fVerticalFOVDegrees = r_flashlightfov.GetFloat() - ( 16.0f * (1.0f-flScale) );
+			state.m_fHorizontalFOVDegrees = fov - ( 16.0f * (1.0f-flScale) );
+			state.m_fVerticalFOVDegrees = fov - ( 16.0f * (1.0f-flScale) );
 			
 			bFlicker = true;
 		}
@@ -351,8 +381,8 @@ void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecFo
 	if ( bFlicker == false )
 	{
 		state.m_fLinearAtten = r_flashlightlinear.GetFloat();
-		state.m_fHorizontalFOVDegrees = r_flashlightfov.GetFloat();
-		state.m_fVerticalFOVDegrees = r_flashlightfov.GetFloat();
+		state.m_fHorizontalFOVDegrees = fov;
+		state.m_fVerticalFOVDegrees = fov;
 	}
 
 	state.m_fConstantAtten = r_flashlightconstant.GetFloat();
@@ -362,10 +392,9 @@ void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecFo
 	state.m_Color[3] = r_flashlightambient.GetFloat();
 	state.m_NearZ = r_flashlightnear.GetFloat() + m_flDistMod;	// Push near plane out so that we don't clip the world when the flashlight pulls back 
 	state.m_FarZ = r_flashlightfar.GetFloat();
-#ifdef EZ1
+#ifdef EZ
 	// The NVG projected texture should not cast shadows
-	// TODO Make sure this only applies for NVG!
-	state.m_bEnableShadows = false;
+	state.m_bEnableShadows = !IsNVG() && r_flashlightdepthtexture.GetBool();
 #else
 	state.m_bEnableShadows = r_flashlightdepthtexture.GetBool();
 #endif
@@ -421,9 +450,12 @@ void CFlashlightEffect::UpdateLightOld(const Vector &vecPos, const Vector &vecDi
 		m_pPointLight->flags = 0.0f;
 		m_pPointLight->radius = 80;
 #ifdef EZ
-		m_pPointLight->color.r = 5; // Breadman - Doesn't actually work here. Seems to be derived from the texture colour.
-		m_pPointLight->color.g = 230; // Breadman
-		m_pPointLight->color.b = 255; // Breadman
+		if ( IsNVG() )
+		{
+			m_pPointLight->color.r = 5; // Breadman - Doesn't actually work here. Seems to be derived from the texture colour.
+			m_pPointLight->color.g = 230; // Breadman
+			m_pPointLight->color.b = 255; // Breadman
+		}
 #endif
 	}
 	

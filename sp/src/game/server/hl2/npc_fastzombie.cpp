@@ -301,9 +301,13 @@ public:
 
 	virtual const char *GetHeadcrabClassname( void );
 	virtual const char *GetHeadcrabModel( void );
+#ifndef EZ
 	virtual const char *GetLegsModel( void );
 	virtual const char *GetTorsoModel( void );
-
+#else
+	virtual string_t GetLivingTorsoModelName( void ) { return m_iszLivingTorsoModel; };
+	virtual void SetLivingTorsoModelName( string_t modelName ) { m_iszLivingTorsoModel = modelName; };
+#endif
 //=============================================================================
 #ifdef HL2_EPISODIC
 
@@ -343,7 +347,9 @@ private:
 	bool	m_fJustJumped;
 	float	m_flJumpStartAltitude;
 	float	m_flTimeUpdateSound;
-
+#ifdef EZ
+	string_t m_iszLivingTorsoModel;
+#endif
 	CSoundPatch	*m_pLayer2; // used for climbing ladders, and when jumping (pre apex)
 
 public:
@@ -368,7 +374,9 @@ BEGIN_DATADESC( CFastZombie )
 	DEFINE_FIELD( m_fJustJumped, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flJumpStartAltitude, FIELD_FLOAT ),
 	DEFINE_FIELD( m_flTimeUpdateSound, FIELD_TIME ),
-
+#ifdef EZ
+	DEFINE_KEYFIELD( m_iszLivingTorsoModel, FIELD_MODELNAME, "LivingTorsoModel" ),
+#endif
 	// Function Pointers
 	DEFINE_ENTITYFUNC( LeapAttackTouch ),
 	DEFINE_ENTITYFUNC( ClimbTouch ),
@@ -386,12 +394,12 @@ const char *CFastZombie::pMoanSounds[] =
 {
 	"NPC_FastZombie.Moan1",
 };
-
+#ifndef EZ
 //-----------------------------------------------------------------------------
 // The model we use for our legs when we get blowed up.
 //-----------------------------------------------------------------------------
 static const char *s_pLegsModel = "models/gibs/fast_zombie_legs.mdl";
-
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -400,19 +408,124 @@ static const char *s_pLegsModel = "models/gibs/fast_zombie_legs.mdl";
 //-----------------------------------------------------------------------------
 void CFastZombie::Precache( void )
 {
-	PrecacheModel("models/zombie/fast.mdl");
+#ifdef EZ
+	char * modelVariant;
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		modelVariant = "fast_glowbie";
+		PrecacheScriptSound( "NPC_FastGlowbie.FootstepRight" );
+		PrecacheScriptSound( "NPC_FastGlowbie.FootstepLeft" );
+		PrecacheScriptSound( "NPC_FastGlowbie.AttackHit" );
+		PrecacheScriptSound( "NPC_FastGlowbie.AttackMiss" );
+		PrecacheScriptSound( "NPC_FastGlowbie.LeapAttack" );
+		PrecacheScriptSound( "NPC_FastGlowbie.Attack" );
+		PrecacheScriptSound( "NPC_FastGlowbie.Idle" );
+		PrecacheScriptSound( "NPC_FastGlowbie.AlertFar" );
+		PrecacheScriptSound( "NPC_FastGlowbie.AlertNear" );
+		PrecacheScriptSound( "NPC_FastGlowbie.GallopLeft" );
+		PrecacheScriptSound( "NPC_FastGlowbie.GallopRight" );
+		PrecacheScriptSound( "NPC_FastGlowbie.Scream" );
+		PrecacheScriptSound( "NPC_FastGlowbie.RangeAttack" );
+		PrecacheScriptSound( "NPC_FastGlowbie.Frenzy" );
+		PrecacheScriptSound( "NPC_FastGlowbie.NoSound" );
+		PrecacheScriptSound( "NPC_FastGlowbie.Die" );
+									  
+		PrecacheScriptSound( "NPC_FastGlowbie.Gurgle" );
+									  
+		PrecacheScriptSound( "NPC_FastGlowbie.Moan1" );
+
+		break;
+	case EZ_VARIANT_XEN:
+		modelVariant = "fast_xenbie";
+		PrecacheScriptSound( "NPC_FastXenbie.FootstepRight" );
+		PrecacheScriptSound( "NPC_FastXenbie.FootstepLeft" );
+		PrecacheScriptSound( "NPC_FastXenbie.AttackHit" );
+		PrecacheScriptSound( "NPC_FastXenbie.AttackMiss" );
+		PrecacheScriptSound( "NPC_FastXenbie.LeapAttack" );
+		PrecacheScriptSound( "NPC_FastXenbie.Attack" );
+		PrecacheScriptSound( "NPC_FastXenbie.Idle" );
+		PrecacheScriptSound( "NPC_FastXenbie.AlertFar" );
+		PrecacheScriptSound( "NPC_FastXenbie.AlertNear" );
+		PrecacheScriptSound( "NPC_FastXenbie.GallopLeft" );
+		PrecacheScriptSound( "NPC_FastXenbie.GallopRight" );
+		PrecacheScriptSound( "NPC_FastXenbie.Scream" );
+		PrecacheScriptSound( "NPC_FastXenbie.RangeAttack" );
+		PrecacheScriptSound( "NPC_FastXenbie.Frenzy" );
+		PrecacheScriptSound( "NPC_FastXenbie.NoSound" );
+		PrecacheScriptSound( "NPC_FastXenbie.Die" );
+								  
+		PrecacheScriptSound( "NPC_FastXenbie.Gurgle" );
+								  
+		PrecacheScriptSound( "NPC_FastXenbie.Moan1" );
+		break;
+	default:
+		modelVariant = "fast";;
+		PrecacheScriptSound( "NPC_FastZombie.FootstepRight" );
+		PrecacheScriptSound( "NPC_FastZombie.FootstepLeft" );
+		PrecacheScriptSound( "NPC_FastZombie.AttackHit" );
+		PrecacheScriptSound( "NPC_FastZombie.AttackMiss" );
+		PrecacheScriptSound( "NPC_FastZombie.LeapAttack" );
+		PrecacheScriptSound( "NPC_FastZombie.Attack" );
+		PrecacheScriptSound( "NPC_FastZombie.Idle" );
+		PrecacheScriptSound( "NPC_FastZombie.AlertFar" );
+		PrecacheScriptSound( "NPC_FastZombie.AlertNear" );
+		PrecacheScriptSound( "NPC_FastZombie.GallopLeft" );
+		PrecacheScriptSound( "NPC_FastZombie.GallopRight" );
+		PrecacheScriptSound( "NPC_FastZombie.Scream" );
+		PrecacheScriptSound( "NPC_FastZombie.RangeAttack" );
+		PrecacheScriptSound( "NPC_FastZombie.Frenzy" );
+		PrecacheScriptSound( "NPC_FastZombie.NoSound" );
+		PrecacheScriptSound( "NPC_FastZombie.Die" );
+
+		PrecacheScriptSound( "NPC_FastZombie.Gurgle" );
+
+		PrecacheScriptSound( "NPC_FastZombie.Moan1" );
+		break;
+	}
+
+	PrecacheScriptSound( "NPC_FastZombie.CarEnter1" );
+	PrecacheScriptSound( "NPC_FastZombie.CarEnter2" );
+	PrecacheScriptSound( "NPC_FastZombie.CarEnter3" );
+	PrecacheScriptSound( "NPC_FastZombie.CarEnter4" );
+	PrecacheScriptSound( "NPC_FastZombie.CarScream" );
+
+	if (GetModelName() == NULL_STRING)
+	{
+		SetModelName( AllocPooledString( UTIL_VarArgs( "models/zombie/%s.mdl", modelVariant ) ) );
+	}
+	if (GetTorsoModelName() == NULL_STRING && m_tEzVariant != EZ_VARIANT_XEN)
+	{
+		SetTorsoModelName( AllocPooledString( UTIL_VarArgs( "models/gibs/%s_zombie_torso.mdl", modelVariant ) ) );
+	}
+	if (GetLegsModelName() == NULL_STRING && m_tEzVariant != EZ_VARIANT_XEN)
+	{
+		SetLegsModelName( AllocPooledString( UTIL_VarArgs( "models/gibs/%s_zombie_legs.mdl", modelVariant ) ) );
+	}
+	if (GetLivingTorsoModelName() == NULL_STRING && m_tEzVariant != EZ_VARIANT_XEN)
+	{
+		SetLivingTorsoModelName ( AllocPooledString( UTIL_VarArgs( "models/zombie/%s_torso.mdl", modelVariant ) ) );
+	}
+
+	PrecacheModel( STRING( GetModelName() ) );
+
+	BaseClass::Precache();
+#else
+	PrecacheModel( "models/zombie/fast.mdl" );
+
 #ifdef HL2_EPISODIC
-	PrecacheModel("models/zombie/Fast_torso.mdl");
+	PrecacheModel( "models/zombie/Fast_torso.mdl" );
+
 	PrecacheScriptSound( "NPC_FastZombie.CarEnter1" );
 	PrecacheScriptSound( "NPC_FastZombie.CarEnter2" );
 	PrecacheScriptSound( "NPC_FastZombie.CarEnter3" );
 	PrecacheScriptSound( "NPC_FastZombie.CarEnter4" );
 	PrecacheScriptSound( "NPC_FastZombie.CarScream" );
 #endif
+
 	PrecacheModel( "models/gibs/fast_zombie_torso.mdl" );
 	PrecacheModel( "models/gibs/fast_zombie_legs.mdl" );
-	
-	PrecacheScriptSound( "NPC_FastZombie.LeapAttack" );
+
 	PrecacheScriptSound( "NPC_FastZombie.FootstepRight" );
 	PrecacheScriptSound( "NPC_FastZombie.FootstepLeft" );
 	PrecacheScriptSound( "NPC_FastZombie.AttackHit" );
@@ -435,6 +548,7 @@ void CFastZombie::Precache( void )
 	PrecacheScriptSound( "NPC_FastZombie.Moan1" );
 
 	BaseClass::Precache();
+#endif
 }
 
 //---------------------------------------------------------
@@ -599,10 +713,25 @@ void CFastZombie::SoundInit( void )
 
 	CPASAttenuationFilter filter( this );
 
-	if( !m_pLayer2 )
+	if (!m_pLayer2)
 	{
 		// Set up layer2
+#ifdef EZ
+		switch (m_tEzVariant)
+		{
+		case EZ_VARIANT_RAD:
+			m_pLayer2 = ENVELOPE_CONTROLLER.SoundCreate( filter, entindex(), CHAN_VOICE, "NPC_FastGlowbie.Gurgle", ATTN_NORM );
+			break;
+		case EZ_VARIANT_XEN:
+			m_pLayer2 = ENVELOPE_CONTROLLER.SoundCreate( filter, entindex(), CHAN_VOICE, "NPC_FastXenbie.Gurgle", ATTN_NORM );
+			break;
+		default:
+			m_pLayer2 = ENVELOPE_CONTROLLER.SoundCreate( filter, entindex(), CHAN_VOICE, "NPC_FastZombie.Gurgle", ATTN_NORM );
+			break;
+		}
+#else
 		m_pLayer2 = ENVELOPE_CONTROLLER.SoundCreate( filter, entindex(), CHAN_VOICE, "NPC_FastZombie.Gurgle", ATTN_NORM );
+#endif
 
 		// Start silent.
 		ENVELOPE_CONTROLLER.Play( m_pLayer2, 0.0, 100 );
@@ -642,7 +771,22 @@ void CFastZombie::SetAngrySoundState( void )
 		return;
 	}
 
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+		case EZ_VARIANT_RAD:
+			EmitSound( "NPC_FastGlowbie.LeapAttack" );
+			break;
+		case EZ_VARIANT_XEN:
+			EmitSound( "NPC_FastXenbie.LeapAttack" );
+			break;
+		default:
+			EmitSound( "NPC_FastZombie.LeapAttack" );
+			break;
+	}
+#else
 	EmitSound( "NPC_FastZombie.LeapAttack" );
+#endif
 
 	// Main looping sound
 	ENVELOPE_CONTROLLER.SoundChangePitch( m_pMoanSound, FASTZOMBIE_MIN_PITCH, 0.5 );
@@ -678,7 +822,16 @@ void CFastZombie::Spawn( void )
 		m_fIsTorso = true;
 	}
 
-#ifdef HL2_EPISODIC
+#ifdef EZ
+	if ( m_tEzVariant == EZ_VARIANT_RAD ) 
+	{
+		SetBloodColor( BLOOD_COLOR_BLUE );
+	}
+	else 
+	{
+		SetBloodColor( BLOOD_COLOR_ZOMBIE );
+	}
+#elif HL2_EPISODIC
 	SetBloodColor( BLOOD_COLOR_ZOMBIE );
 #else
 	SetBloodColor( BLOOD_COLOR_YELLOW );
@@ -730,7 +883,13 @@ const char *CFastZombie::GetHeadcrabClassname( void )
 
 const char *CFastZombie::GetHeadcrabModel( void )
 {
-	return "models/headcrab.mdl";
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		return "models/glowcrab.mdl";
+	default:
+		return "models/headcrab.mdl";
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -772,12 +931,20 @@ void CFastZombie::SetZombieModel( void )
 
 	if ( m_fIsTorso )
 	{
+#ifndef EZ
 		SetModel( "models/zombie/fast_torso.mdl" );
+#else
+		SetModel( STRING ( GetLivingTorsoModelName() ) );
+#endif
 		SetHullType(HULL_TINY);
 	}
 	else
 	{
+#ifndef EZ
 		SetModel( "models/zombie/fast.mdl" );
+#else
+		SetModel( STRING ( GetModelName() ) );
+#endif
 		SetHullType(HULL_HUMAN);
 	}
 
@@ -799,7 +966,7 @@ void CFastZombie::SetZombieModel( void )
 	}
 }
 
-
+#ifndef EZ
 //-----------------------------------------------------------------------------
 // Purpose: Returns the model to use for our legs ragdoll when we are blown in twain.
 //-----------------------------------------------------------------------------
@@ -812,6 +979,7 @@ const char *CFastZombie::GetTorsoModel( void )
 {
 	return "models/gibs/fast_zombie_torso.mdl";
 }
+#endif
 
 
 //-----------------------------------------------------------------------------
@@ -861,6 +1029,42 @@ const char *CFastZombie::GetMoanSound( int nSound )
 //-----------------------------------------------------------------------------
 void CFastZombie::FootstepSound( bool fRightFoot )
 {
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		if (fRightFoot)
+		{
+			EmitSound( "NPC_FastGlowbie.FootstepRight" );
+		}
+		else
+		{
+			EmitSound( "NPC_FastGlowbie.FootstepLeft" );
+		}
+		break;
+	case EZ_VARIANT_XEN:
+		if (fRightFoot)
+		{
+			EmitSound( "NPC_FastXenbie.FootstepRight" );
+		}
+		else
+		{
+			EmitSound( "NPC_FastXenbie.FootstepLeft" );
+		}
+
+		break;
+	default:
+		if (fRightFoot)
+		{
+			EmitSound( "NPC_FastZombie.FootstepRight" );
+		}
+		else
+		{
+			EmitSound( "NPC_FastZombie.FootstepLeft" );
+		}
+		break;
+	}
+#else
 	if( fRightFoot )
 	{
 		EmitSound( "NPC_FastZombie.FootstepRight" );
@@ -869,6 +1073,7 @@ void CFastZombie::FootstepSound( bool fRightFoot )
 	{
 		EmitSound( "NPC_FastZombie.FootstepLeft" );
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -876,7 +1081,22 @@ void CFastZombie::FootstepSound( bool fRightFoot )
 //-----------------------------------------------------------------------------
 void CFastZombie::AttackHitSound( void )
 {
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "NPC_FastGlowbie.AttackHit" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "NPC_FastXenbie.AttackHit" );
+		break;
+	default:
+		EmitSound( "NPC_FastZombie.AttackHit" );
+		break;
+	}
+#else
 	EmitSound( "NPC_FastZombie.AttackHit" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -884,8 +1104,23 @@ void CFastZombie::AttackHitSound( void )
 //-----------------------------------------------------------------------------
 void CFastZombie::AttackMissSound( void )
 {
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "NPC_FastGlowbie.AttackMiss" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "NPC_FastXenbie.AttackMiss" );
+		break;
+	default:
+		EmitSound( "NPC_FastZombie.AttackMiss" );
+		break;
+	}
+#else
 	// Play a random attack miss sound
 	EmitSound( "NPC_FastZombie.AttackMiss" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -893,7 +1128,22 @@ void CFastZombie::AttackMissSound( void )
 //-----------------------------------------------------------------------------
 void CFastZombie::LeapAttackSound( void )
 {
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "NPC_FastGlowbie.LeapAttack" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "NPC_FastXenbie.LeapAttack" );
+		break;
+	default:
+		EmitSound( "NPC_FastZombie.LeapAttack" );
+		break;
+	}
+#else
 	EmitSound( "NPC_FastZombie.LeapAttack" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -901,7 +1151,22 @@ void CFastZombie::LeapAttackSound( void )
 //-----------------------------------------------------------------------------
 void CFastZombie::AttackSound( void )
 {
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "NPC_FastGlowbie.Attack" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "NPC_FastXenbie.Attack" );
+		break;
+	default:
+		EmitSound( "NPC_FastZombie.Attack" );
+		break;
+	}
+#else
 	EmitSound( "NPC_FastZombie.Attack" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -909,7 +1174,22 @@ void CFastZombie::AttackSound( void )
 //-----------------------------------------------------------------------------
 void CFastZombie::IdleSound( void )
 {
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "NPC_FastGlowbie.Idle" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "NPC_FastXenbie.Idle" );
+		break;
+	default:
+		EmitSound( "NPC_FastZombie.Idle" );
+		break;
+	}
+#else
 	EmitSound( "NPC_FastZombie.Idle" );
+#endif
 	MakeAISpookySound( 360.0f );
 }
 
@@ -928,7 +1208,22 @@ void CFastZombie::PainSound( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CFastZombie::DeathSound( const CTakeDamageInfo &info ) 
 {
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "NPC_FastGlowbie.Idle" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "NPC_FastXenbie.Idle" );
+		break;
+	default:
+		EmitSound( "NPC_FastZombie.Idle" );
+		break;
+	}
+#else
 	EmitSound( "NPC_FastZombie.Die" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -949,11 +1244,41 @@ void CFastZombie::AlertSound( void )
 
 		if( flDist > 512 )
 		{
+#ifdef EZ
+			switch (m_tEzVariant)
+			{
+			case EZ_VARIANT_RAD:
+				EmitSound( "NPC_FastGlowbie.AlertFar" );
+				break;
+			case EZ_VARIANT_XEN:
+				EmitSound( "NPC_FastXenbie.AlertFar" );
+				break;
+			default:
+				EmitSound( "NPC_FastZombie.AlertFar" );
+				break;
+			}
+#else
 			EmitSound( "NPC_FastZombie.AlertFar" );
+#endif
 		}
 		else
 		{
+#ifdef EZ
+			switch (m_tEzVariant)
+			{
+			case EZ_VARIANT_RAD:
+				EmitSound( "NPC_FastGlowbie.AlertNear" );
+				break;
+			case EZ_VARIANT_XEN:
+				EmitSound( "NPC_FastXenbie.AlertNear" );
+				break;
+			default:
+				EmitSound( "NPC_FastZombie.AlertNear" );
+				break;
+			}
+#else
 			EmitSound( "NPC_FastZombie.AlertNear" );
+#endif
 		}
 	}
 
@@ -1837,8 +2162,8 @@ void CFastZombie::OnStateChange( NPC_STATE OldState, NPC_STATE NewState )
 void CFastZombie::Event_Killed( const CTakeDamageInfo &info )
 {
 	// Shut up my screaming sounds.
-	CPASAttenuationFilter filter( this );
-	EmitSound( filter, entindex(), "NPC_FastZombie.NoSound" );
+	CPASAttenuationFilter filter(this);
+	EmitSound(filter, entindex(), "NPC_FastZombie.NoSound");
 
 	CTakeDamageInfo dInfo = info;
 
@@ -1883,6 +2208,17 @@ void CFastZombie::Event_Killed( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 bool CFastZombie::ShouldBecomeTorso( const CTakeDamageInfo &info, float flDamageThreshold )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_XEN)
+	{
+		// Xenbies never split in half. This is because our assets do not have torso and leg models.
+		// However, I feel that it is justified because Half-Life 1 zombies never split in half
+		// or dropped their headcrabs.
+		// 1upD
+		return false;
+	}
+#endif
+
 	if( m_fIsTorso )
 	{
 		// Already split.

@@ -56,6 +56,10 @@ public:
 	void	Event_Killed( const CTakeDamageInfo &info );
 	void	BuildScheduleTestBits( void );
 	bool	FValidateHintType( CAI_Hint *pHint );
+	
+#ifdef EZ
+	virtual bool ShouldGib( const CTakeDamageInfo &info );
+#endif
 
 	bool	IsJumping( void ) { return m_bMidJump; }
 

@@ -104,7 +104,9 @@ public:
 	void		ZapThink( void );
 	void		BurrowUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	bool		CreateVPhysics();
-				
+#ifdef EZ2
+	EyeGlow_t	* GetEyeGlowData( int i ); // g l o w i n g    b u t t s
+#endif		
 	bool		IsJumpLegal( const Vector &startPos, const Vector &apex, const Vector &endPos ) const;
 	bool		HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sender = NULL );
 	bool		QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNPC = false );
@@ -117,7 +119,7 @@ public:
 	bool		ShouldHearBugbait( void ) { return ( m_bIgnoreBugbait == false ); }
 	int			SelectSchedule( void );
 
-#ifdef EZ2
+#ifdef EZ
 	bool		ShouldInvestigateSounds(void) { return true; } // 1upD - Antlions should investigate sounds in EZ2
 #endif
 

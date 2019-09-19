@@ -304,7 +304,10 @@ bool CBaseCombatCharacter::HasAlienGibs( void )
 		 myClass == CLASS_STALKER		 ||
 		 myClass == CLASS_ZOMBIE		 ||
 		 myClass == CLASS_VORTIGAUNT	 ||
-		 myClass == CLASS_HEADCRAB )
+#ifdef EZ
+		myClass == CLASS_BULLSQUID ||
+#endif
+		myClass == CLASS_HEADCRAB )
 	{
 		 return true;
 	}
@@ -3128,6 +3131,20 @@ Disposition_t CBaseCombatCharacter::GetDefaultRelationshipDisposition( Class_T n
 
 	return m_DefaultRelationship[Classify()][nClassTarget].disposition;
 }
+
+#ifdef HE_APC
+//-----------------------------------------------------------------------------
+// Purpose: Fetch the default (ignore ai_relationship changes) relationship, TERO
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+Disposition_t CBaseCombatCharacter::GetDefaultRelationshipDispositionBetweenClasses( Class_T nClassTarget1, Class_T nClassTarget2 )
+{
+	Assert( m_DefaultRelationship != NULL );
+
+	return m_DefaultRelationship[nClassTarget1][nClassTarget2].disposition;
+}
+#endif
 
 
 //-----------------------------------------------------------------------------

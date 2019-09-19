@@ -56,6 +56,9 @@ enum
 	SOUND_CONTEXT_DANGER_APPROACH   = 0x08000000, // Treat as a normal danger sound if you see the source, otherwise turn to face source.
 	SOUND_CONTEXT_ALLIES_ONLY		= 0x10000000, // Only player allies can hear this sound
 	SOUND_CONTEXT_PLAYER_VEHICLE	= 0x20000000, // HACK: need this because we're not treating the SOUND_xxx values as true bit values! See switch in OnListened.
+#ifdef EZ
+	SOUND_CONTEXT_EXCLUDE_ZOMBIE	= 0x80000000, // Zombies do NOT hear this
+#endif
 
 #ifdef MAPBASE
 	// You know, I wouldn't mind this approach of leaving types and contexts on the same int

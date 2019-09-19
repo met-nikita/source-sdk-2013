@@ -32,6 +32,9 @@
 #include "physics_npc_solver.h"
 #include "hl2_gamerules.h"
 #include "decals.h"
+#ifdef EZ
+#include "particle_parse.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -190,6 +193,9 @@ ConVar	sk_headcrab_fast_health( "sk_headcrab_fast_health","0");
 ConVar	sk_headcrab_poison_health( "sk_headcrab_poison_health","0");
 ConVar	sk_headcrab_melee_dmg( "sk_headcrab_melee_dmg","0");
 ConVar	sk_headcrab_poison_npc_damage( "sk_headcrab_poison_npc_damage", "0" );
+#ifdef EZ
+ConVar  sk_headcrab_carcass_smell ( "sk_headcrab_carcass_smell", "1" );
+#endif
 
 BEGIN_DATADESC( CBaseHeadcrab )
 
@@ -309,6 +315,11 @@ void CBaseHeadcrab::HeadcrabInit()
 //-----------------------------------------------------------------------------
 void CBaseHeadcrab::Precache( void )
 {
+#ifdef EZ
+	// Use a particle effect when crabs are gibbed
+	PrecacheParticleSystem( "headcrab_gib" );
+#endif
+
 	BaseClass::Precache();
 }	
 
@@ -1666,6 +1677,10 @@ int CBaseHeadcrab::RangeAttack1Conditions( float flDot, float flDist )
 bool CBaseHeadcrab::CorpseGib( const CTakeDamageInfo &info )
 {
 	EmitSound( "NPC_HeadCrab.Gib" );	
+#ifdef EZ
+	// Explode dramatically
+	DispatchParticleEffect( "headcrab_gib", WorldSpaceCenter(), GetAbsAngles() );
+#endif
 
 	return BaseClass::CorpseGib( info );
 }
@@ -1793,6 +1808,24 @@ void CBaseHeadcrab::ClampRagdollForce( const Vector &vecForceIn, Vector *vecForc
 //-----------------------------------------------------------------------------
 void CBaseHeadcrab::Event_Killed( const CTakeDamageInfo &info )
 {
+#ifdef EZ
+	// Create a little decal underneath the headcrab
+	if (
+		sk_headcrab_carcass_smell.GetBool() ||
+		// This type of damage combination happens from dynamic scripted sequences
+		info.GetDamageType() & (DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE)
+		)
+	{
+		trace_t	tr;
+		AI_TraceLine( GetAbsOrigin()+Vector( 0, 0, 1 ), GetAbsOrigin()-Vector( 0, 0, 64 ), MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );
+
+		UTIL_DecalTrace( &tr, "YellowBlood" );
+		if (sk_headcrab_carcass_smell.GetBool() && tr.fraction != 1.0f)
+		{
+			CSoundEnt::InsertSound( SOUND_CARCASS | SOUND_CONTEXT_EXCLUDE_ZOMBIE, tr.endpos, 256.0f, 10.0f, this );
+		}
+	}
+#else
 	// Create a little decal underneath the headcrab
 	// This type of damage combination happens from dynamic scripted sequences
 	if ( info.GetDamageType() & (DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE) )
@@ -1802,6 +1835,7 @@ void CBaseHeadcrab::Event_Killed( const CTakeDamageInfo &info )
 
 		UTIL_DecalTrace( &tr, "YellowBlood" );
 	}
+#endif
 
 	BaseClass::Event_Killed( info );
 }
@@ -2150,11 +2184,33 @@ bool CBaseHeadcrab::HandleInteraction(int interactionType, void *data, CBaseComb
 
 		return true;
 	}
+#ifdef EZ
+	else if ( interactionType == g_interactionBullsquidMonch )
+	{
+		m_nGibCount = HEADCRAB_ALL_GIB_COUNT;
+		OnTakeDamage ( CTakeDamageInfo( sourceEnt, sourceEnt, m_iHealth, DMG_CRUSH | DMG_ALWAYSGIB ) );
+		return true;
+	}
+#endif
 
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
 
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: In Entropy : Zero, headcrabs should gib if monched by squids
+//-----------------------------------------------------------------------------
+bool CBaseHeadcrab::ShouldGib( const CTakeDamageInfo & info )
+{
+	if (info.GetAttacker()->Classify() == CLASS_BULLSQUID  )
+	{
+		return true;
+	}
+
+	return BaseClass::ShouldGib( info );
+}
+#endif
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -2417,7 +2473,18 @@ void CBaseHeadcrab::CreateDust( bool placeDecal )
 //-----------------------------------------------------------------------------
 void CHeadcrab::Precache( void )
 {
-	PrecacheModel( "models/headcrabclassic.mdl" );
+	switch (m_tEzVariant) 
+	{
+		case EZ_VARIANT_XEN:
+			PrecacheModel( "models/xencrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_RAD:
+			PrecacheModel( "models/glowcrabclassic.mdl" );
+			break;
+		default:
+			PrecacheModel( "models/headcrabclassic.mdl" );
+			break;
+	}
 
 	PrecacheScriptSound( "NPC_HeadCrab.Gib" );
 	PrecacheScriptSound( "NPC_HeadCrab.Idle" );
@@ -2439,7 +2506,18 @@ void CHeadcrab::Precache( void )
 void CHeadcrab::Spawn( void )
 {
 	Precache();
-	SetModel( "models/headcrabclassic.mdl" );
+	switch (m_tEzVariant)
+	{
+		case EZ_VARIANT_XEN:
+			SetModel( "models/xencrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_RAD:
+			SetModel( "models/glowcrabclassic.mdl" );
+			break;
+		default:
+			SetModel( "models/headcrabclassic.mdl" );
+			break;
+	}
 
 	BaseClass::Spawn();
 
@@ -2554,7 +2632,20 @@ END_DATADESC()
 //-----------------------------------------------------------------------------
 void CFastHeadcrab::Precache( void )
 {
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_XEN:
+		PrecacheModel( "models/xencrab.mdl" );
+		break;
+	case EZ_VARIANT_RAD:
+		PrecacheModel( "models/glowcrab.mdl" );
+		break;
+	default:
+		PrecacheModel( "models/headcrab.mdl" );
+		break;
+	}
 	PrecacheModel( "models/headcrab.mdl" );
+	PrecacheModel( "models/glowcrab.mdl" );
 
 	PrecacheScriptSound( "NPC_FastHeadcrab.Idle" );
 	PrecacheScriptSound( "NPC_FastHeadcrab.Alert" );
@@ -2573,7 +2664,19 @@ void CFastHeadcrab::Precache( void )
 void CFastHeadcrab::Spawn( void )
 {
 	Precache();
-	SetModel( "models/headcrab.mdl" );
+
+	switch (m_tEzVariant)
+	{
+		case EZ_VARIANT_XEN:
+			SetModel( "models/xencrab.mdl" );
+			break;
+		case EZ_VARIANT_RAD:
+			SetModel("models/glowcrab.mdl");
+			break;
+		default:
+			SetModel("models/headcrab.mdl");
+			break;
+	}
 
 	BaseClass::Spawn();
 

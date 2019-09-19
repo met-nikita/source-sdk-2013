@@ -107,6 +107,9 @@ void ClientGamePrecache( void )
 {
 	CBaseEntity::PrecacheModel("models/player.mdl");
 	CBaseEntity::PrecacheModel( "models/gibs/agibs.mdl" );
+#ifdef EZ
+	CBaseEntity::PrecacheModel( "models/gibs/agibs2.mdl" );
+#endif
 	CBaseEntity::PrecacheModel ("models/weapons/v_hands.mdl");
 
 	CBaseEntity::PrecacheScriptSound( "HUDQuickInfo.LowAmmo" );

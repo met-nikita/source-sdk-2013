@@ -2603,6 +2603,14 @@ void CHL2_Player::FlashlightTurnOn( void )
 		return;
 #endif
 
+#ifdef EZ
+	// If Bad Cop is in a vehicle, don't use NVG!
+	if (IsInAVehicle())
+	{
+		return;
+	}
+#endif
+
 	AddEffects( EF_DIMLIGHT );
 	EmitSound( "HL2Player.FlashLightOn" );
 

@@ -415,6 +415,10 @@ public:
 #ifdef MAPBASE
 	virtual bool		RemoveClassRelationship( Class_T nClass );
 #endif
+#ifdef HE_APC
+	//TERO: this one added by me
+	static Disposition_t		GetDefaultRelationshipDispositionBetweenClasses( Class_T nClassTarget1, Class_T nClassTarget2 );
+#endif
 
 	virtual void		ChangeTeam( int iTeamNum );
 

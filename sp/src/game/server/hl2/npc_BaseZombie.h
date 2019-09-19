@@ -217,6 +217,9 @@ public:
 	virtual void AttackMissSound( void ) = 0;
 	virtual void FootstepSound( bool fRightFoot ) = 0;
 	virtual void FootscuffSound( bool fRightFoot ) = 0;
+#ifdef EZ
+	virtual bool QueryHearSound( CSound *pSound );
+#endif
 
 	// make a sound Alyx can hear when in darkness mode
 	void		 MakeAISpookySound( float volume, float duration = 0.5 );
@@ -227,8 +230,17 @@ public:
 
 	virtual const char *GetMoanSound( int nSound ) = 0;
 	virtual const char *GetHeadcrabClassname( void ) = 0;
+#ifndef EZ
 	virtual const char *GetLegsModel( void ) = 0;
 	virtual const char *GetTorsoModel( void ) = 0;
+#else
+	virtual const char *GetLegsModel( void ) { return STRING ( m_iszLegsModel ); };
+	virtual const char *GetTorsoModel( void ) { return STRING ( m_iszTorsoModel ); };
+	virtual string_t GetLegsModelName( void ) { return m_iszLegsModel; };
+	virtual string_t GetTorsoModelName( void ) { return m_iszTorsoModel; };
+	virtual void SetLegsModelName( string_t modelName ) { m_iszLegsModel = modelName; };
+	virtual void SetTorsoModelName( string_t modelName ) { m_iszTorsoModel = modelName; };
+#endif
 	virtual const char *GetHeadcrabModel( void ) = 0;
 
 	virtual Vector BodyTarget( const Vector &posSrc, bool bNoisy );
@@ -285,7 +297,10 @@ protected:
 	static int ACT_ZOM_SWATRIGHTLOW;
 	static int ACT_ZOM_RELEASECRAB;
 	static int ACT_ZOM_FALL;
-
+#ifdef EZ
+	string_t m_iszTorsoModel;
+	string_t m_iszLegsModel;
+#endif
 	DECLARE_DATADESC();
 
 	DEFINE_CUSTOM_AI;

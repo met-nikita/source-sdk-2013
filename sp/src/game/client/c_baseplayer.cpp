@@ -1243,8 +1243,13 @@ void C_BasePlayer::UpdateFlashlight()
 	{
 		if (!m_pFlashlight)
 		{
+#ifdef EZ
 			// Turned on the headlight; create it.
-			m_pFlashlight = new CFlashlightEffect(index);
+			m_pFlashlight = new CFlashlightEffect( true, index );
+#else
+			// Turned on the headlight; create it.
+			m_pFlashlight = new CFlashlightEffect( index );
+#endif
 
 			if (!m_pFlashlight)
 				return;

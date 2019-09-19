@@ -108,7 +108,9 @@ private:
 CBaseEntity *CreateLaserDot( const Vector &origin, CBaseEntity *pOwner, bool bVisibleDot );
 void SetLaserDotTarget( CBaseEntity *pLaserDot, CBaseEntity *pTarget );
 void EnableLaserDot( CBaseEntity *pLaserDot, bool bEnable );
-
+#ifdef HE_APC
+bool DoesLaserDotHaveTarget( CBaseEntity *pLaserDot );
+#endif // HE_APC
 
 //-----------------------------------------------------------------------------
 // Specialized mizzizzile

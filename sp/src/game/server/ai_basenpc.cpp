@@ -1720,6 +1720,12 @@ void CAI_BaseNPC::DoImpactEffect( trace_t &tr, int nDamageType )
 //-----------------------------------------------------------------------------
 void CAI_BaseNPC::StartEye(void)
 {
+	// If; they key value "No glows" is set, don't start any glows!
+	if (m_bNoGlow)
+	{
+		return;
+	}
+
 	for (int i = 0; i < GetNumGlows(); i++) 
 	{
 		EyeGlow_t * glowData = GetEyeGlowData(i);
@@ -11625,6 +11631,11 @@ BEGIN_DATADESC( CAI_BaseNPC )
 	DEFINE_KEYFIELD( m_iszEnemyFilterName,		FIELD_STRING, "enemyfilter" ),
 	DEFINE_FIELD( m_bImportanRagdoll,			FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bPlayerAvoidState,			FIELD_BOOLEAN ),
+#ifdef EZ
+		DEFINE_KEYFIELD( m_tEzVariant,			FIELD_INTEGER, "ezvariant" ),
+		DEFINE_KEYFIELD( m_bNoGlow,				FIELD_BOOLEAN, "noglow" ),
+#endif
+
 
 #ifdef MAPBASE
 	DEFINE_KEYFIELD( m_FriendlyFireOverride,	FIELD_INTEGER, "FriendlyFireOverride" ),
@@ -15138,6 +15149,15 @@ bool CAI_BaseNPC::InteractionCouldStart( CAI_BaseNPC *pOtherNPC, ScriptedNPCInte
 	if ( pInteraction->iFlags & SCNPC_FLAG_TEST_OTHER_VELOCITY )
 	{
 
+	}
+
+	// 1upD / Blixibon - Check commandable
+	if (pInteraction->iFlags & SCNPC_FLAG_TEST_SQUADMATE_HEALTH && pOtherNPC->IsCommandable())
+	{
+		if (((float)pOtherNPC->GetHealth() / (float)pOtherNPC->GetMaxHealth()) >= pInteraction->flHealthRatio)
+		{
+			return false;
+		}
 	}
 
 	// Valid so far. Now check to make sure there's nothing in the way.

@@ -369,7 +369,7 @@ int CAI_BaseNPC::TranslateSchedule( int scheduleType )
 			Assert( m_NPCState == NPC_STATE_COMBAT );
 		}
 		break;
-#ifdef EZ2
+#ifdef EZ
 	// 1upD - VDC suggests using this schedule instead of face bestound. I'm adding it to translateschedule. I think it will make encounters in EZ more dynamic.
 	case SCHED_ALERT_FACE_BESTSOUND:
 		if (ShouldInvestigateSounds())

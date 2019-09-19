@@ -105,7 +105,7 @@ bool CSound::FIsSound ( void )
 //=========================================================
 bool CSound::FIsScent ( void )
 {
-	switch( m_iType )
+	switch( SoundTypeNoContext() )
 	{
 	case SOUND_CARCASS:
 	case SOUND_MEAT:

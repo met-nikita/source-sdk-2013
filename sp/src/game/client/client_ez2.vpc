@@ -14,7 +14,7 @@ $Configuration
 	$Compiler
 	{
 		$AdditionalIncludeDirectories	".\hl2;.\hl2\elements;$SRCDIR\game\shared\hl2;$SRCDIR\game\shared\episodic;..\..\public;$BASE"
-		$PreprocessorDefinitions		"$BASE;HL2_CLIENT_DLL;HL2_EPISODIC;EZ;EZ2"
+		$PreprocessorDefinitions		"$BASE;HL2_CLIENT_DLL;HL2_EPISODIC;EZ;EZ;HE_APC;GLOWS_ENABLE"
 	}
 }
 
@@ -26,6 +26,10 @@ $Project "Client (Entropy Zero 2)"
 		$File	"c_team_objectiveresource.cpp"
 		$File	"c_team_objectiveresource.h"
 
+		$Folder "HE DLL"
+		{
+			$File	"Human_Error\c_vehicle_drivable_apc.cpp"
+		}
 		$Folder	"HL2 DLL"
 		{
 			$File	"$SRCDIR\game\shared\hl2\basehlcombatweapon_shared.cpp"

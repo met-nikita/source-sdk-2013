@@ -47,6 +47,7 @@
 #include "weapon_physcannon.h"
 #include "ammodef.h"
 #include "vehicle_base.h"
+#include "pointhurt.h"
  
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -224,6 +225,10 @@ BEGIN_DATADESC( CNPC_BaseZombie )
 	DEFINE_FIELD( m_hObstructor, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_bIsSlumped, FIELD_BOOLEAN ),
 
+#ifdef EZ
+	DEFINE_KEYFIELD( m_iszTorsoModel, FIELD_MODELNAME, "TorsoModel" ),
+	DEFINE_KEYFIELD( m_iszLegsModel, FIELD_MODELNAME, "LegsModel" ),
+#endif
 #ifdef MAPBASE
 	DEFINE_OUTPUT( m_OnSwattedProp, "OnSwattedProp" ),
 #endif
@@ -747,10 +752,48 @@ bool CNPC_BaseZombie::ShouldBecomeTorso( const CTakeDamageInfo &info, float flDa
 
 	// Break in half IF:
 	// 
-	// Take half or more of max health in DMG_BLAST
-	if( (info.GetDamageType() & DMG_BLAST) && flDamageThreshold >= 0.5 )
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_XEN)
 	{
-		return true;
+		// Xenbies never split in half. This is because our assets do not have torso and leg models.
+		// However, I feel that it is justified because Half-Life 1 zombies never split in half
+		// or dropped their headcrabs.
+		// 1upD
+		return false;
+
+	}
+	else if (m_tEzVariant == EZ_VARIANT_RAD) 
+	{
+		// 1upD - don't split in half if the damage is headshot damage!
+		if (m_bHeadShot)
+			return false;
+
+		// BREADMAN
+		// Zombies will sometimes cinematically split in half after blasting them with bombs or buckshot.
+
+		// Take half or more of max health in DMG_BUCKSHOT
+		if ((info.GetDamageType() & DMG_BUCKSHOT | DMG_BLAST) && flDamageThreshold >= 0.2)
+		{
+			m_iHealth = 0;
+			return true;
+		}
+
+		// BREADMAN
+		// When hit with an explosion, break in half
+		if (info.GetDamageType() & DMG_BLAST)
+		{
+			m_iHealth = 0;
+			return true;
+		}
+	}
+	else
+#endif
+	{
+		// Take half or more of max health in DMG_BLAST
+		if ((info.GetDamageType() & DMG_BLAST) && flDamageThreshold >= 0.5)
+		{
+			return true;
+		}
 	}
 
 	if ( hl2_episodic.GetBool() )
@@ -780,10 +823,26 @@ bool CNPC_BaseZombie::ShouldBecomeTorso( const CTakeDamageInfo &info, float flDa
 //-----------------------------------------------------------------------------
 HeadcrabRelease_t CNPC_BaseZombie::ShouldReleaseHeadcrab( const CTakeDamageInfo &info, float flDamageThreshold )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_XEN)
+	{
+		// Xenbies never release headcrabs. Headcrabs in the original Half-Life were
+		// permanently attached to their zombies. 
+		// Additionally, our assets do not support separating headcrabs.
+		// 1upD
+		return RELEASE_NO;
+	}
+	if (m_tEzVariant == EZ_VARIANT_RAD) 
+	{
+		//BREADMAN 
+		// Don't release crabs in EZA. It's too complicated to explain here why. Just don't do it.
+		return (m_iHealth <= 0 && m_fIsTorso && IsChopped(info)) ? RELEASE_RAGDOLL_SLICED_OFF : RELEASE_NO;
+	}
+#endif
 #ifdef MAPBASE
-	if ( m_iHealth <= 0 && !m_fIsHeadless )
+		if ( m_iHealth <= 0 && !m_fIsHeadless )
 #else
-	if ( m_iHealth <= 0 )
+		if ( m_iHealth <= 0 )
 #endif
 	{
 		if ( info.GetDamageType() & DMG_REMOVENORAGDOLL )
@@ -838,6 +897,11 @@ HeadcrabRelease_t CNPC_BaseZombie::ShouldReleaseHeadcrab( const CTakeDamageInfo 
 int CNPC_BaseZombie::OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo )
 {
 	CTakeDamageInfo info = inputInfo;
+
+	// If this is a slimy zombie, it does not take damage from radiation
+	if (m_tEzVariant == EZ_VARIANT_RAD && (inputInfo.GetDamageType() & DMG_RADIATION)) {
+		return 0;
+	}
 
 	if( inputInfo.GetDamageType() & DMG_BURN )
 	{
@@ -970,7 +1034,18 @@ int CNPC_BaseZombie::OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo )
 
 	return tookDamage;
 }
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: Return true if this NPC can hear the specified sound
+//-----------------------------------------------------------------------------
+bool CNPC_BaseZombie::QueryHearSound( CSound *pSound )
+{
+	if ( pSound->SoundContext() & SOUND_CONTEXT_EXCLUDE_ZOMBIE )
+		return false;
 
+	return BaseClass::QueryHearSound( pSound );
+}
+#endif
 //-----------------------------------------------------------------------------
 // Purpose: make a sound Alyx can hear when in darkness mode
 // Input  : volume (radius) of the sound.
@@ -1058,6 +1133,14 @@ void CNPC_BaseZombie::MoanSound( envelopePoint_t *pEnvelope, int iEnvelopeSize )
 //-----------------------------------------------------------------------------
 bool CNPC_BaseZombie::IsChopped( const CTakeDamageInfo &info )
 {
+#ifdef EZ
+	// Xen zombies don't get chopped
+	if (m_tEzVariant == EZ_VARIANT_XEN)
+	{
+		return false;
+	}
+#endif
+
 	float flDamageThreshold = MIN( 1, info.GetDamage() / m_iMaxHealth );
 
 	if ( m_iHealth > 0 || flDamageThreshold <= 0.5 )
@@ -1760,10 +1843,24 @@ void CNPC_BaseZombie::Precache( void )
 	PrecacheScriptSound( "NPC_BaseZombie.PoundDoor" );
 	PrecacheScriptSound( "NPC_BaseZombie.Swat" );
 
-	PrecacheModel( GetLegsModel() );
-	PrecacheModel( GetTorsoModel() );
-
-	PrecacheParticleSystem( "blood_impact_zombie_01" );
+#ifdef EZ
+	// Xenbies do not have torso or leg models
+	if ( m_tEzVariant != EZ_VARIANT_XEN )
+#endif
+	{
+		PrecacheModel( GetLegsModel() );
+		PrecacheModel( GetTorsoModel() );
+	}
+#ifdef EZ
+	if ( m_tEzVariant == EZ_VARIANT_RAD ) 
+	{
+		PrecacheParticleSystem( "blood_impact_blue_01" );
+	}
+	else 
+#endif
+	{
+		PrecacheParticleSystem( "blood_impact_zombie_01" );
+	}
 
 	BaseClass::Precache();
 }
@@ -2322,6 +2419,37 @@ void CNPC_BaseZombie::Event_Killed( const CTakeDamageInfo &info )
 		UTIL_BloodSpray( WorldSpaceCenter(), vecDamageDir, BLOOD_COLOR_YELLOW, 8, FX_BLOODSPRAY_CLOUD );
 	}
 
+#ifdef EZ
+	// TODO: Extract this into a Util method or base class!
+	if (m_tEzVariant == EZ_VARIANT_RAD)
+	{
+		// BREADMAN below
+		// Yeah so this splats a decal beneath the NPC when it dies. It's actually pretty effective. This is used on rebels now too.
+		trace_t tr;
+		AI_TraceLine(GetAbsOrigin() + Vector(0, 0, 1), GetAbsOrigin() - Vector(0, 0, 64), MASK_SOLID_BRUSHONLY | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, this, COLLISION_GROUP_NONE, &tr);
+		UTIL_DecalTrace(&tr, "Glowbie.Puddle");
+		// end BREADMAN
+		// 1upD- zombie goo puddle should emit radiation damage
+		CBaseEntity * pHurtEntity = CreateEntityByName("zombie_goo_puddle");
+		CPointHurt * pPointHurt = static_cast<CPointHurt *>(pHurtEntity);
+		if (pPointHurt)
+		{
+			pPointHurt->m_nDamage = 1;
+			pPointHurt->m_flRadius = 48;
+			pPointHurt->m_flDelay = 0.2f;
+			pPointHurt->m_flLifetime = 10.0f; // This radiation puddle should only last for 10 seconds
+			pPointHurt->m_bitsDamageType = DMG_RADIATION;
+			pPointHurt->SetAbsOrigin(tr.endpos);
+			DispatchSpawn(pPointHurt);
+			pPointHurt->Activate();
+			pPointHurt->TurnOn(this);
+		}
+
+		// Blxibon
+		// Brief danger sound, companion code stops NPCs from really running into it
+		CSoundEnt::InsertSound( SOUND_DANGER, GetAbsOrigin(), 64, 1.5f, this );
+	}
+#endif // EZ
    	BaseClass::Event_Killed( info );
 }
 
@@ -2358,7 +2486,11 @@ void CNPC_BaseZombie::StopLoopingSounds()
 //---------------------------------------------------------
 void CNPC_BaseZombie::RemoveHead( void )
 {
+#ifdef EZ
+	m_fIsHeadless = m_tEzVariant != EZ_VARIANT_RAD;
+#else
 	m_fIsHeadless = true;
+#endif
 	SetZombieModel();
 }
 
@@ -2496,6 +2628,10 @@ void CNPC_BaseZombie::ReleaseHeadcrab( const Vector &vecOrigin, const Vector &ve
 
 		pCrab->SetAbsOrigin( vecSpot );
 		pCrab->SetAbsAngles( GetAbsAngles() );
+#ifdef EZ
+		// Transfer EZ variant status
+		pCrab->m_tEzVariant = this->m_tEzVariant;
+#endif
 		DispatchSpawn( pCrab );
 
 		pCrab->GetMotor()->SetIdealYaw( GetAbsAngles().y );

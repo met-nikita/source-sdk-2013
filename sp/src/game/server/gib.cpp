@@ -317,7 +317,11 @@ void CGib::SpawnRandomGibs( CBaseEntity *pVictim, int cGibs, GibType_e eGibType 
 				break;
 			case GIB_ALIEN:
 				// alien pieces
+#ifdef EZ
+				pGib->Spawn( "models/gibs/agibs2.mdl" );
+#else
 				pGib->Spawn( "models/gibs/agibs.mdl" );
+#endif
 				pGib->m_nBody = random->RandomInt(0,ALIEN_GIB_COUNT-1);
 				break;
 			}
