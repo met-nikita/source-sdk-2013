@@ -162,14 +162,18 @@ public:
 
 	Disposition_t		IRelationType( CBaseEntity *pTarget )		{ return GetOuter()->IRelationType(pTarget); }
 	int					IRelationPriority( CBaseEntity *pTarget );	//{ return GetOuter()->IRelationPriority(pTarget); }
-	bool				FVisible ( CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL ) { return GetOuter()->FVisible(pEntity, traceMask, ppBlocker); }
-	bool				FVisible( const Vector &vecTarget, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL )	{ return GetOuter()->FVisible( vecTarget, traceMask, ppBlocker ); }
+	// NPCs seem to be able to see the player inappropriately with these overrides to FVisible()
+	//bool				FVisible ( CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL ) { return GetOuter()->FVisible(pEntity, traceMask, ppBlocker); }
+	//bool				FVisible( const Vector &vecTarget, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL )	{ return GetOuter()->FVisible( vecTarget, traceMask, ppBlocker ); }
 	bool				FInViewCone( CBaseEntity *pEntity ) { return GetOuter()->FInViewCone(pEntity); }
 	bool				FInViewCone( const Vector &vecSpot ) { return GetOuter()->FInViewCone(vecSpot); }
+
 	//---------------------------------------------------------------------------------------------
 	//---------------------------------------------------------------------------------------------
-	bool IsPlayerAlly(CBasePlayer *pPlayer = NULL) { return false; }
+	bool		IsPlayerAlly(CBasePlayer *pPlayer = NULL) { return false; }
 	bool		IsSilentSquadMember() const 	{ return true; }
+	bool		CanBeAnEnemyOf( CBaseEntity *pEnemy ) { return false; } // A sensing dummy is NEVER a valid enemy
+	bool		CanBeSeenBy( CAI_BaseNPC *pNPC ) { return false; } // A sensing dummy is NEVER visible
 
 	Class_T	Classify( void ) { return CLASS_NONE; }
 

@@ -1,0 +1,997 @@
+//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//
+// Purpose:		Gonome. Big scary-ass headcrab zombie, based heavily on the Bullsquid.+
+//				+++Repurposed into the Zombie Assassin
+//				++Can now Jump and Climb like the fast zombie
+//
+// 			Originally, the Gonome / Zombie Assassin was created by Sergeant Stacker
+// 			and provided to the EZ2 team. 
+//			It has been heavily modified for its role as the boss of EZ2 chapter 3. 
+//			It now inherits from a base class, CNPC_BasePredator			
+// $NoKeywords: $
+//=============================================================================//
+
+#include "cbase.h"
+#include "game.h"
+#include "AI_Default.h"
+#include "AI_Schedule.h"
+#include "AI_Hull.h"
+#include "AI_Route.h"
+#include "AI_Hint.h"
+#include "AI_Navigator.h"
+#include "AI_Senses.h"
+#include "NPCEvent.h"
+#include "animation.h"
+#include "npc_zassassin.h"
+#include "gib.h"
+#include "soundent.h"
+#include "ndebugoverlay.h"
+#include "vstdlib/random.h"
+#include "engine/IEngineSound.h"
+//#include "hl1_grenade_spit.h"
+#include "util.h"
+#include "shake.h"
+#include "movevars_shared.h"
+#include "decals.h"
+#include "hl2_shareddefs.h"
+#include "hl2_gamerules.h"
+#include "ammodef.h"
+
+
+#include "player.h"
+#include "ai_network.h"
+#include "ai_navigator.h"
+#include "ai_motor.h"
+#include "ai_default.h"
+#include "ai_schedule.h"
+#include "ai_hull.h"
+#include "ai_node.h"
+#include "ai_memory.h"
+#include "ai_senses.h"
+#include "bitstring.h"
+#include "EntityFlame.h"
+#include "hl2_shareddefs.h"
+#include "npcevent.h"
+#include "activitylist.h"
+#include "entitylist.h"
+#include "gib.h"
+#include "soundenvelope.h"
+#include "ndebugoverlay.h"
+#include "rope.h"
+#include "rope_shared.h"
+#include "igamesystem.h"
+#include "vstdlib/random.h"
+#include "engine/IEngineSound.h"
+#include "props.h"
+#include "hl2_gamerules.h"
+#include "weapon_physcannon.h"
+#include "ammodef.h"
+#include "vehicle_base.h"
+#include "ai_squad.h"
+
+#define ZOMBIE_BURN_TIME		10  // If ignited, burn for this many seconds
+#define ZOMBIE_BURN_TIME_NOISE	2   // Give or take this many seconds.
+#define MAX_SPIT_DISTANCE		512 // Maximum range of range attack 1 - was 784, adjusting to 512
+
+ConVar sk_zombie_assassin_health ( "sk_zombie_assassin_health", "1000" );
+ConVar sk_zombie_assassin_boss_health("sk_zombie_assassin_boss_health", "2000");
+ConVar sk_zombie_assassin_dmg_bite ( "sk_zombie_assassin_dmg_bite", "25" );
+ConVar sk_zombie_assassin_dmg_whip ( "sk_zombie_assassin_dmg_whip", "35" );
+ConVar sk_zombie_assassin_dmg_spit ( "sk_zombie_assassin_dmg_spit", "15" );
+ConVar sk_zombie_assassin_spawn_time( "sk_zombie_assassin_spawn_time", "5.0" );
+
+//=========================================================
+// monster-specific schedule types
+//=========================================================
+enum
+{
+	SCHED_GONOME_CHASE_ENEMY = LAST_SHARED_SCHEDULE_PREDATOR + 1,
+	SCHED_GONOME_RANGE_ATTACK1, // Like standard range attack, but with no interrupts for damage
+	SCHED_GONOME_SCHED_RUN_FROM_ENEMY, // Like standard run from enemy, but looks for a point to run to 512 units away
+};
+
+//=========================================================
+// Monster's Anim Events Go Here
+//=========================================================
+#define		GONOME_AE_TAILWHIP	( 4 )
+#define		GONOME_AE_PLAYSOUND ( 1011 )
+
+LINK_ENTITY_TO_CLASS( monster_gonome, CNPC_Gonome );
+LINK_ENTITY_TO_CLASS( npc_zassassin, CNPC_Gonome ); //For Zombie Assassin version -Stacker
+
+//=========================================================
+// Gonome's spit projectile
+//=========================================================
+class CGonomeSpit : public CBaseEntity
+{
+	DECLARE_CLASS( CGonomeSpit, CBaseEntity );
+public:
+	void Spawn( void );
+	void Precache( void );
+
+	static void Shoot( CBaseEntity *pOwner, Vector vecStart, Vector vecVelocity );
+	void Touch( CBaseEntity *pOther );
+	void Animate( void );
+
+	int m_nGonomeSpitSprite;
+
+	DECLARE_DATADESC();
+
+	void SetSprite( CBaseEntity *pSprite )
+	{
+		m_hSprite = pSprite;	
+	}
+
+	CBaseEntity *GetSprite( void )
+	{
+		return m_hSprite.Get();
+	}
+
+private:
+	EHANDLE m_hSprite;
+
+
+};
+
+LINK_ENTITY_TO_CLASS( squidspit, CGonomeSpit );
+
+BEGIN_DATADESC( CGonomeSpit )
+	DEFINE_FIELD( m_nGonomeSpitSprite, FIELD_INTEGER ),
+	DEFINE_FIELD( m_hSprite, FIELD_EHANDLE ),
+END_DATADESC()
+
+
+void CGonomeSpit::Precache( void )
+{
+	m_nGonomeSpitSprite = PrecacheModel("sprites/gonomespit.vmt");// client side spittle.
+
+	PrecacheScriptSound( "NPC_BigMomma.SpitTouch1" );
+	PrecacheScriptSound( "NPC_BigMomma.SpitHit1" );
+	PrecacheScriptSound( "NPC_BigMomma.SpitHit2" );
+
+	PrecacheScriptSound( "Zombie.AttackHit" );
+	PrecacheScriptSound( "Zombie.AttackMiss" );
+}
+
+void CGonomeSpit:: Spawn( void )
+{
+	Precache();
+
+	SetMoveType ( MOVETYPE_FLY );
+	SetClassname( "squidspit" );
+	
+	SetSolid( SOLID_BBOX );
+
+	m_nRenderMode = kRenderTransAlpha;
+	SetRenderColorA( 255 );
+	SetModel( "" );
+
+	SetSprite( CSprite::SpriteCreate( "sprites/gonomespit.vmt", GetAbsOrigin(), true ) );
+	SetRenderColor( 150, 0, 0, 255 );
+	
+	UTIL_SetSize( this, Vector( 0, 0, 0), Vector(0, 0, 0) );
+
+	SetCollisionGroup( HL2COLLISION_GROUP_SPIT );
+}
+
+void CGonomeSpit::Shoot( CBaseEntity *pOwner, Vector vecStart, Vector vecVelocity )
+{
+	CGonomeSpit *pSpit = CREATE_ENTITY( CGonomeSpit, "squidspit" );
+	pSpit->Spawn();
+	
+	UTIL_SetOrigin( pSpit, vecStart );
+	pSpit->SetAbsVelocity( vecVelocity );
+	pSpit->SetOwnerEntity( pOwner );
+
+	CSprite *pSprite = (CSprite*)pSpit->GetSprite();
+
+	if ( pSprite )
+	{
+		pSprite->SetAttachment( pSpit, 0 );
+		pSprite->SetOwnerEntity( pSpit );
+
+		pSprite->SetScale( 0.75 );
+		pSprite->SetTransparency( pSpit->m_nRenderMode, pSpit->m_clrRender->r, pSpit->m_clrRender->g, pSpit->m_clrRender->b, pSpit->m_clrRender->a, pSpit->m_nRenderFX );
+	}
+
+
+	CPVSFilter filter( vecStart );
+
+	VectorNormalize( vecVelocity );
+	te->SpriteSpray( filter, 0.0, &vecStart , &vecVelocity, pSpit->m_nGonomeSpitSprite, 210, 25, 15 );
+}
+
+void CGonomeSpit::Touch ( CBaseEntity *pOther )
+{
+	trace_t tr;
+	int		iPitch;
+
+	if ( pOther->GetSolidFlags() & FSOLID_TRIGGER )
+		 return;
+
+	if ( pOther->GetCollisionGroup() == HL2COLLISION_GROUP_SPIT)
+	{
+		return;
+	}
+
+	// splat sound
+	iPitch = random->RandomFloat( 90, 110 );
+
+	EmitSound( "NPC_BigMomma.SpitTouch1" );
+
+	switch ( random->RandomInt( 0, 1 ) )
+	{
+	case 0:
+		EmitSound( "NPC_BigMomma.SpitHit1" );
+		break;
+	case 1:
+		EmitSound( "NPC_BigMomma.SpitHit2" );
+		break;
+	}
+
+	if ( !pOther->m_takedamage )
+	{
+		// make a splat on the wall
+		UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + GetAbsVelocity() * 10, MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
+		UTIL_DecalTrace(&tr, "Blood" ); //BeerSplash
+
+		// make some flecks
+		CPVSFilter filter( tr.endpos );
+
+		te->SpriteSpray( filter, 0.0,	&tr.endpos, &tr.plane.normal, m_nGonomeSpitSprite, 30, 8, 5 );
+
+	}
+	else
+	{
+		CTakeDamageInfo info( this, this, sk_zombie_assassin_dmg_spit.GetFloat(), DMG_BULLET );
+		CalculateBulletDamageForce( &info, GetAmmoDef()->Index("9mmRound"), GetAbsVelocity(), GetAbsOrigin() );
+		pOther->TakeDamage( info );
+	}
+
+	UTIL_Remove( m_hSprite );
+	UTIL_Remove( this );
+}
+
+
+BEGIN_DATADESC(CNPC_Gonome)
+	DEFINE_FIELD(m_flBurnDamage, FIELD_FLOAT),
+	DEFINE_FIELD(m_flBurnDamageResetTime, FIELD_TIME),
+END_DATADESC()
+
+//=========================================================
+// Spawn
+//=========================================================
+void CNPC_Gonome::Spawn()
+{
+	Precache( );
+	
+	SetModel( STRING( GetModelName() ) );
+
+	SetHullType(HULL_HUMAN);
+	SetHullSizeNormal();
+
+	SetSolid( SOLID_BBOX );
+	AddSolidFlags( FSOLID_NOT_STANDABLE );
+	SetMoveType( MOVETYPE_STEP );
+
+	if (m_tEzVariant == EZ_VARIANT_RAD)
+	{
+		SetBloodColor( BLOOD_COLOR_BLUE );
+	}
+	else
+	{
+		SetBloodColor( BLOOD_COLOR_YELLOW );
+	}
+	
+	SetRenderColor( 255, 255, 255, 255 );
+	
+	m_iMaxHealth = IsBoss() ? sk_zombie_assassin_boss_health.GetFloat() : sk_zombie_assassin_health.GetFloat();
+	m_iHealth = m_iMaxHealth;
+	m_flFieldOfView		= 0.2;// indicates the width of this monster's forward view cone ( as a dotproduct result )
+	m_NPCState			= NPC_STATE_NONE;
+	
+	CapabilitiesClear();
+	CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK2 );
+	CapabilitiesAdd( bits_CAP_MOVE_JUMP | bits_CAP_MOVE_CLIMB );
+	CapabilitiesAdd( bits_CAP_OPEN_DOORS | bits_CAP_AUTO_DOORS | bits_CAP_DOORS_GROUP );
+	
+	m_fCanThreatDisplay	= TRUE;
+	m_flNextSpitTime = gpGlobals->curtime;
+
+	NPCInit();
+
+	m_flDistTooFar		= MAX_SPIT_DISTANCE;
+}
+
+//=========================================================
+// Precache - precaches all resources this monster needs
+//=========================================================
+void CNPC_Gonome::Precache()
+{
+	BaseClass::Precache();
+	
+	if (GetModelName() == NULL_STRING)
+	{
+		switch ( m_tEzVariant )
+		{
+		case EZ_VARIANT_XEN:
+			SetModelName( AllocPooledString( "models/xonome.mdl" ) );
+			break;
+		case EZ_VARIANT_RAD:
+			SetModelName( AllocPooledString( "models/glownome.mdl" ) );
+			break;
+		default:
+			SetModelName( AllocPooledString( "models/gonome.mdl" ) );
+			break;
+		}
+	}
+	PrecacheModel( STRING( GetModelName() ) );
+	
+	PrecacheModel("sprites/gonomespit.vmt");// spit projectile.
+
+	if ( m_tEzVariant == EZ_VARIANT_RAD )
+	{
+		PrecacheParticleSystem( "blood_impact_blue_01" );
+	}
+
+	PrecacheScriptSound( "Gonome.Idle" );
+	PrecacheScriptSound( "Gonome.Pain" );
+	PrecacheScriptSound( "Gonome.Alert" );
+	PrecacheScriptSound( "Gonome.Die" );
+	PrecacheScriptSound( "Gonome.Attack" );
+	PrecacheScriptSound( "Gonome.Bite" );
+	PrecacheScriptSound( "Gonome.Growl" );
+	PrecacheScriptSound( "Gonome.FoundEnemy");
+	PrecacheScriptSound( "Gonome.RetreatMode");
+	PrecacheScriptSound( "Gonome.BerserkMode");
+	PrecacheScriptSound("Gonome.Footstep");
+}
+
+int CNPC_Gonome::TranslateSchedule( int scheduleType )
+{	
+	switch	( scheduleType )
+	{
+		case SCHED_CHASE_ENEMY:
+			return SCHED_GONOME_CHASE_ENEMY;
+			break;
+		// 1upD - Gonome specific range attack cannot be interrupted by damage
+		case SCHED_RANGE_ATTACK1:
+			if (m_tBossState == BOSS_STATE_BERSERK) 
+			{
+				return SCHED_COMBAT_FACE; // Berserk gonomes cannot use a ranged attack
+			}
+			return SCHED_GONOME_RANGE_ATTACK1;
+			break;
+		case SCHED_RUN_FROM_ENEMY:
+			if (HasCondition( COND_HAVE_ENEMY_LOS ))
+			{
+				return SCHED_GONOME_SCHED_RUN_FROM_ENEMY;
+			}
+			break;
+	}
+
+	return BaseClass::TranslateSchedule( scheduleType );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Indicates this monster's place in the relationship table.
+// Output : 
+//-----------------------------------------------------------------------------
+Class_T	CNPC_Gonome::Classify( void )
+{
+	return CLASS_ZOMBIE; 
+}
+
+bool CNPC_Gonome::IsJumpLegal(const Vector &startPos, const Vector &apex, const Vector &endPos) const
+{
+	const float MAX_JUMP_RISE		= 400.0f;
+	const float MAX_JUMP_DISTANCE	= 1024.0f; // Was 800
+	const float MAX_JUMP_DROP		= 2048.0f;
+
+	if ( BaseClass::IsJumpLegal( startPos, apex, endPos, MAX_JUMP_RISE, MAX_JUMP_DROP, MAX_JUMP_DISTANCE ) )
+	{
+		// Hang onto the jump distance. The AI is going to want it.
+		m_flJumpDist = (startPos - endPos).Length();
+
+		return true;
+	}
+	return false;
+}
+
+//=========================================================
+// IdleSound 
+//=========================================================
+#define GONOME_ATTN_IDLE	(float)1.5
+void CNPC_Gonome::IdleSound( void )
+{
+	CPASAttenuationFilter filter( this, GONOME_ATTN_IDLE );
+	EmitSound( filter, entindex(), "Gonome.Idle" );	
+}
+
+//=========================================================
+// PainSound 
+//=========================================================
+void CNPC_Gonome::PainSound( const CTakeDamageInfo &info )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.Pain" );	
+}
+
+//=========================================================
+// AlertSound
+//=========================================================
+void CNPC_Gonome::AlertSound( void )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.Alert" );	
+}
+
+//=========================================================
+// DeathSound
+//=========================================================
+void CNPC_Gonome::DeathSound( const CTakeDamageInfo &info )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.Die" );	
+}
+
+//=========================================================
+// AttackSound
+//=========================================================
+void CNPC_Gonome::AttackSound( void )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.Attack" );	
+}
+
+//=========================================================
+// GrowlSound
+//=========================================================
+void CNPC_Gonome::GrowlSound( void )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.Growl" );
+}
+
+//=========================================================
+// Found Enemy
+//=========================================================
+void CNPC_Gonome::FoundEnemySound(void)
+{
+	CPASAttenuationFilter filter(this);
+	EmitSound(filter, entindex(), "Gonome.FoundEnemy");
+}
+
+//=========================================================
+//  RetreatModeSound
+//=========================================================
+void CNPC_Gonome::RetreatModeSound(void)
+{
+	CPASAttenuationFilter filter(this);
+	EmitSound(filter, entindex(), "Gonome.RetreatMode");
+}
+
+//=========================================================
+//  BerserkModeSound
+//=========================================================
+void CNPC_Gonome::BerserkModeSound(void)
+{
+	CPASAttenuationFilter filter(this);
+	EmitSound(filter, entindex(), "Gonome.BerserkMode");
+}
+
+bool CNPC_Gonome::ShouldIgnite( const CTakeDamageInfo &info )
+{
+ 	if ( IsOnFire() )
+	{
+		// Already burning!
+		return false;
+	}
+
+	if ( info.GetDamageType() & DMG_BURN )
+	{
+		//
+		// If we take more than ten percent of our health in burn damage within a five
+		// second interval, we should catch on fire.
+		//
+		m_flBurnDamage += info.GetDamage();
+		m_flBurnDamageResetTime = gpGlobals->curtime + 5;
+
+		if ( m_flBurnDamage >= m_iMaxHealth * 0.1 )
+		{
+			Ignite(100.0f);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void CNPC_Gonome::PrescheduleThink( void )
+{
+	BaseClass::PrescheduleThink();
+
+	if ( ( m_flBurnDamageResetTime ) && ( gpGlobals->curtime >= m_flBurnDamageResetTime ) )
+	{
+		m_flBurnDamage = 0;
+	}
+}
+
+//=========================================================
+// HandleAnimEvent - catches the monster-specific messages
+// that occur when tagged animation frames are played.
+//=========================================================
+void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
+{
+	switch( pEvent->event )
+	{
+		case PREDATOR_AE_SPIT:
+		{
+			if ( GetEnemy() )
+			{
+				Vector	vecSpitOffset;
+				Vector	vecSpitDir;
+				Vector  vRight, vUp, vForward;
+
+				AngleVectors ( GetAbsAngles(), &vForward, &vRight, &vUp );
+
+				// !!!HACKHACK - the spot at which the spit originates (in front of the mouth) was measured in 3ds and hardcoded here.
+				// we should be able to read the position of bones at runtime for this info.
+				vecSpitOffset = ( vRight * 8 + vForward * 60 + vUp * 50 );		
+				vecSpitOffset = ( GetAbsOrigin() + vecSpitOffset );
+				vecSpitDir = ( ( GetEnemy()->BodyTarget( GetAbsOrigin() ) ) - vecSpitOffset );
+
+				VectorNormalize( vecSpitDir );
+
+				vecSpitDir.x += random->RandomFloat( -0.05, 0.05 );
+				vecSpitDir.y += random->RandomFloat( -0.05, 0.05 );
+				vecSpitDir.z += random->RandomFloat( -0.05, 0 );
+						
+				AttackSound();
+			
+				CGonomeSpit::Shoot( this, vecSpitOffset, vecSpitDir * 900 );
+			}
+		}
+		break;
+
+		case PREDATOR_AE_BITE:
+		{
+		// SOUND HERE!
+			CPASAttenuationFilter filter( this );
+			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), sk_zombie_assassin_dmg_bite.GetFloat(), DMG_SLASH );
+			if ( pHurt )
+			{
+				Vector forward, up;
+				AngleVectors( GetAbsAngles(), &forward, NULL, &up );
+				pHurt->SetAbsVelocity( pHurt->GetAbsVelocity() - (forward * 100) );
+				pHurt->SetAbsVelocity( pHurt->GetAbsVelocity() + (up * 100) );
+				pHurt->SetGroundEntity( NULL );
+				EmitSound( filter, entindex(), "Zombie.AttackHit" );
+			}
+			else // Play a random attack miss sound
+			EmitSound( filter, entindex(), "Zombie.AttackMiss" );
+		}
+		break;
+
+		case GONOME_AE_TAILWHIP:
+		{
+			CPASAttenuationFilter filter( this );
+			EmitSound( filter, entindex(), "Gonome.Bite" );	
+			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), sk_zombie_assassin_dmg_whip.GetFloat(), DMG_SLASH | DMG_ALWAYSGIB );
+			if ( pHurt ) 
+			{
+				Vector right, up;
+				AngleVectors( GetAbsAngles(), NULL, &right, &up );
+
+				if ( pHurt->GetFlags() & ( FL_NPC | FL_CLIENT ) )
+					 pHurt->ViewPunch( QAngle( 20, 0, -20 ) );
+			
+				pHurt->SetAbsVelocity( pHurt->GetAbsVelocity() + (right * 200) );
+				pHurt->SetAbsVelocity( pHurt->GetAbsVelocity() + (up * 100) );
+			} 			
+			// Reusing this activity / animation event for headcrab spawning
+			else if ( m_bSpawningEnabled )
+			{
+				Vector forward, up, spawnPos;
+				AngleVectors( GetAbsAngles(), &forward, NULL, &up );
+				spawnPos = (forward * 32) + (up * 64) + GetAbsOrigin();
+				if ( SpawnNPC( spawnPos ) )
+				{
+					PredMsg( "npc_zassassin '%s' created a headcrab!" );
+				} 
+			}
+
+		}
+		break;
+
+		case PREDATOR_AE_BLINK:
+		{
+			// close eye. 
+			m_nSkin = 1;
+		}
+		break;
+
+		case PREDATOR_AE_HOP:
+		{
+			float flGravity = sv_gravity.GetFloat();
+
+			// throw the squid up into the air on this frame.
+			if ( GetFlags() & FL_ONGROUND )
+			{
+				SetGroundEntity( NULL );
+			}
+
+			// jump into air for 0.8 (24/30) seconds
+			Vector vecVel = GetAbsVelocity();
+			vecVel.z += ( 0.625 * flGravity ) * 0.5;
+			SetAbsVelocity( vecVel );
+		}
+		break;
+
+		case PREDATOR_AE_THROW:
+			{
+				// squid throws its prey IF the prey is a client. 
+				CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), 0, 0 );
+
+
+				if ( pHurt )
+				{
+					// croonchy bite sound
+					CPASAttenuationFilter filter( this );
+					EmitSound( filter, entindex(), "Gonome.Bite" );	
+
+					// screeshake transforms the viewmodel as well as the viewangle. No problems with seeing the ends of the viewmodels.
+					UTIL_ScreenShake( pHurt->GetAbsOrigin(), 25.0, 1.5, 0.7, 2, SHAKE_START );
+
+					if ( pHurt->IsPlayer() )
+					{
+						Vector forward, up;
+						AngleVectors( GetAbsAngles(), &forward, NULL, &up );
+				
+						pHurt->SetAbsVelocity( pHurt->GetAbsVelocity() + forward * 300 + up * 300 );
+					}
+				}
+			}
+		break;
+
+		case GONOME_AE_PLAYSOUND:
+		{
+			const char * soundname = pEvent->options;
+			// Hackhack - I want to use soundscripts, not wavs
+			// TODO At some point, we need to edit the model to fix this - should just use a footstep event
+			if (V_strcmp(soundname, "gonome/gonome_step1.wav") || V_strcmp(soundname, "gonome/gonome_step2.wav") || V_strcmp(soundname, "gonome/gonome_step3.wav") || V_strcmp(soundname, "common/npc_step3.wav"))
+			{
+				EmitSound("Gonome.Footstep");
+			}
+		}
+		break;
+
+		default:
+			BaseClass::HandleAnimEvent( pEvent );
+	}
+}
+
+//=========================================================
+// Damage for bullsquid whip attack
+//=========================================================
+float CNPC_Gonome::GetWhipDamage( void )
+{
+	return sk_zombie_assassin_dmg_whip.GetFloat();
+}
+
+// Overriden to play a sound when this NPC is killed by Hammer I/O
+bool CNPC_Gonome::BecomeRagdollOnClient(const Vector & force)
+{
+	CTakeDamageInfo info; // Need this to play death sound
+	DeathSound(info);
+	return BaseClass::BecomeRagdollOnClient(force);
+}
+
+void CNPC_Gonome::RemoveIgnoredConditions( void )
+{
+	BaseClass::RemoveIgnoredConditions();
+
+	if ( GetActivity() == ACT_MELEE_ATTACK1 )
+	{
+		ClearCondition( COND_LIGHT_DAMAGE );
+		ClearCondition( COND_HEAVY_DAMAGE );
+	}
+
+	if ( GetActivity() == ACT_MELEE_ATTACK2 )
+	{
+		ClearCondition( COND_LIGHT_DAMAGE );
+		ClearCondition( COND_HEAVY_DAMAGE );
+	}
+}
+
+static float DamageForce( const Vector &size, float damage )
+{ 
+	float force = damage * ((32 * 32 * 72.0) / (size.x * size.y * size.z)) * 5;
+	
+	if ( force > 1000.0) 
+	{
+		force = 1000.0;
+	}
+
+	return force;
+}
+
+//=========================================================
+// TakeDamage - overridden for gonome so we can keep track
+// of how much time has passed since it was last injured
+//=========================================================
+int CNPC_Gonome::OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo )
+{
+	CTakeDamageInfo info = inputInfo;
+
+	if( inputInfo.GetDamageType() & DMG_BURN )
+	{
+		// If a zombie is on fire it only takes damage from the fire that's attached to it. (DMG_DIRECT)
+		// This is to stop zombies from burning to death 10x faster when they're standing around
+		// 10 fire entities.
+		if( IsOnFire() && !(inputInfo.GetDamageType() & DMG_DIRECT) )
+		{
+			return 0;
+		}
+		
+		Scorch( 8, 50 );
+		Ignite( 100.0f );
+	}
+
+	if ( ShouldIgnite( info ) )
+	{
+		Ignite( 100.0f );
+	}
+
+	if ( info.GetDamageType() == DMG_BULLET )
+	{
+		// // Push the Gonome back based on damage received
+		// Vector vecDir = GetAbsOrigin() - info.GetInflictor()->WorldSpaceCenter();
+		// VectorNormalize( vecDir );
+		// float flForce = DamageForce( WorldAlignSize(), info.GetDamage() );
+		// SetAbsVelocity( GetAbsVelocity() + vecDir * flForce );
+		info.ScaleDamage( 0.25f );
+	}
+
+	return BaseClass::OnTakeDamage_Alive ( inputInfo );
+}
+
+//=========================================================
+// OnFed - Handles eating food and regenerating health
+//	Fires the output m_OnFed
+//=========================================================
+void CNPC_Gonome::OnFed()
+{
+	// Can produce a crab if capable of spawning one
+	m_bReadyToSpawn = m_bSpawningEnabled;
+	m_flNextSpawnTime = gpGlobals->curtime + sk_zombie_assassin_spawn_time.GetFloat();
+
+	BaseClass::OnFed();
+}
+
+void CNPC_Gonome::Ignite( float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner )
+{
+	BaseClass::Ignite( flFlameLifetime, bNPCOnly, flSize, bCalledByLevelDesigner );
+
+	// Set the zombie up to burn to death in about ten seconds.
+	if ( !IsBoss() )
+	{
+		SetHealth( MIN( m_iHealth, FLAME_DIRECT_DAMAGE_PER_SEC * (ZOMBIE_BURN_TIME + random->RandomFloat( -ZOMBIE_BURN_TIME_NOISE, ZOMBIE_BURN_TIME_NOISE )) ) );
+	}
+
+	Activity activity = GetActivity();
+	Activity burningActivity = activity;
+
+	if ( activity == ACT_WALK )
+	{
+		burningActivity = ACT_WALK_ON_FIRE;
+	}
+	else if ( activity == ACT_RUN )
+	{
+		burningActivity = ACT_RUN_ON_FIRE;
+	}
+	else if ( activity == ACT_IDLE )
+	{
+		burningActivity = ACT_IDLE_ON_FIRE;
+	}
+
+	if( HaveSequenceForActivity(burningActivity) )
+	{
+		// Make sure we have a sequence for this activity (torsos don't have any, for instance) 
+		// to prevent the baseNPC & baseAnimating code from throwing red level errors.
+		SetActivity( burningActivity );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Create a new baby bullsquid
+// Output : True if the new bullsquid is created
+//-----------------------------------------------------------------------------
+bool CNPC_Gonome::SpawnNPC( const Vector position )
+{
+	// Try to create entity
+	CAI_BaseNPC *pChild = dynamic_cast< CAI_BaseNPC * >(CreateEntityByName( "npc_headcrab" ));
+	// Make a second crab to explode
+	CAI_BaseNPC *pChild2 = dynamic_cast< CAI_BaseNPC * >(CreateEntityByName( "npc_headcrab" ));
+	if (pChild)
+	{
+		pChild->m_tEzVariant = this->m_tEzVariant;
+		pChild->AddSpawnFlags( SF_NPC_FALL_TO_GROUND );
+		pChild2->AddSpawnFlags( SF_NPC_FALL_TO_GROUND );
+		pChild->Precache();
+
+		DispatchSpawn( pChild );
+		DispatchSpawn( pChild2 );
+
+
+		// Now attempt to drop into the world
+		pChild->Teleport( &position, NULL, NULL );
+
+		// Now check that this is a valid location for the new npc to be
+		Vector	vUpBit = pChild->GetAbsOrigin();
+		vUpBit.z += 1;
+
+		trace_t tr;
+		AI_TraceHull( pChild->GetAbsOrigin(), vUpBit, pChild->GetHullMins(), pChild->GetHullMaxs(),
+			MASK_NPCSOLID, pChild, COLLISION_GROUP_NONE, &tr );
+		if (tr.startsolid || (tr.fraction < 1.0))
+		{
+			pChild->SUB_Remove();
+			pChild2->SUB_Remove();
+			DevMsg( "Can't create baby headcrab. Bad Position!\n" );
+			return false;
+		}
+
+		pChild2->Teleport( &position, NULL, NULL );
+
+		if ( this->GetSquad() != NULL )
+		{
+			this->GetSquad()->AddToSquad( pChild );
+		}
+		pChild->Activate();
+		pChild2->CorpseGib( CTakeDamageInfo() ); // Hackhack - gib a crab at the same position
+		pChild2->SUB_Remove();
+
+		// Decrement feeding counter
+		m_iTimesFed--;
+		if (m_iTimesFed <= 0)
+		{
+			m_bReadyToSpawn = false;
+		}
+
+		// Fire output
+		variant_t value;
+		value.SetEntity( pChild );
+		m_OnSpawnNPC.CBaseEntityOutput::FireOutput( value, this, this );
+
+		return true;
+	}
+
+	// Couldn't instantiate NPC
+	return false;
+}
+
+//=========================================================
+// Start task - selects the correct activity and performs
+// any necessary calculations to start the next task on the
+// schedule. 
+//
+// Overridden for predators to play specific activities
+//=========================================================
+void CNPC_Gonome::StartTask( const Task_t *pTask )
+{
+	switch (pTask->iTask)
+	{
+	case TASK_PREDATOR_PLAY_EXCITE_ACT:
+	{
+		SetIdealActivity( (Activity) ACT_HOP );
+		break;
+	}
+	case TASK_PREDATOR_PLAY_EAT_ACT:
+	{
+		SetIdealActivity( (Activity) ACT_VICTORY_DANCE );
+		break;
+	}
+	case TASK_PREDATOR_PLAY_SNIFF_ACT:
+	{
+		SetIdealActivity( (Activity)ACT_HOP );
+		break;
+	}
+	case TASK_PREDATOR_PLAY_INSPECT_ACT:
+	{
+		SetIdealActivity( (Activity) ACT_IDLE );
+		break;
+	}
+	case TASK_PREDATOR_SPAWN:
+	{
+		m_flNextSpawnTime = gpGlobals->curtime + sk_zombie_assassin_spawn_time.GetFloat();
+		SetIdealActivity( (Activity)ACT_MELEE_ATTACK1 );
+		break;
+	}
+	default:
+	{
+		BaseClass::StartTask( pTask );
+		break;
+	}
+	}
+}
+
+//------------------------------------------------------------------------------
+//
+// Schedules
+//
+//------------------------------------------------------------------------------
+
+AI_BEGIN_CUSTOM_NPC( monster_gonome, CNPC_Gonome )
+		
+	//=========================================================
+	// > SCHED_GONOME_CHASE_ENEMY
+	//=========================================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_GONOME_CHASE_ENEMY,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE			SCHEDULE:SCHED_RUN_RANDOM" // If the path to a target is blocked, run randomly
+		"		TASK_GET_PATH_TO_ENEMY			0"
+		"		TASK_RUN_PATH					0"
+		"		TASK_WAIT_FOR_MOVEMENT			0"
+		"	"
+		"	Interrupts"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+		"		COND_NEW_ENEMY"
+		"		COND_ENEMY_DEAD"
+		"		COND_SMELL"
+		"		COND_CAN_RANGE_ATTACK1"
+		"		COND_CAN_MELEE_ATTACK1"
+		"		COND_CAN_MELEE_ATTACK2"
+		"		COND_TASK_FAILED"
+		"		COND_NEW_BOSS_STATE"
+	)
+
+	//===============================================
+	//	> SCHED_GONOME_RANGE_ATTACK1
+	//===============================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_GONOME_RANGE_ATTACK1,
+
+		"	Tasks"
+		"		TASK_STOP_MOVING		0"
+		"		TASK_FACE_ENEMY			0"
+		"		TASK_ANNOUNCE_ATTACK	1"	// 1 = primary attack
+		"		TASK_RANGE_ATTACK1		0"
+		""
+		"	Interrupts"
+		"		COND_NEW_ENEMY"
+		"		COND_ENEMY_DEAD"
+		//"		COND_LIGHT_DAMAGE"
+		//"		COND_HEAVY_DAMAGE"
+		"		COND_ENEMY_OCCLUDED"
+		//"		COND_NO_PRIMARY_AMMO"
+		//"		COND_HEAR_DANGER"
+		"		COND_WEAPON_BLOCKED_BY_FRIEND"
+		"		COND_WEAPON_SIGHT_OCCLUDED"
+		"		COND_NEW_BOSS_STATE"
+	)
+
+	//===============================================
+	//	> SCHED_GONOME_SCHED_RUN_FROM_ENEMY
+	//===============================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_GONOME_SCHED_RUN_FROM_ENEMY,
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE					SCHEDULE:SCHED_RUN_FROM_ENEMY"
+		"		TASK_STOP_MOVING						0"
+		"		TASK_FIND_FAR_NODE_COVER_FROM_ENEMY		2048" // Run at least 2048 units from the enemy
+		"		TASK_RUN_PATH							0"
+		"		TASK_WAIT_FOR_MOVEMENT					0"
+		""
+		"	Interrupts"
+		"		COND_NEW_ENEMY"
+		"		COND_ENEMY_DEAD"
+	)
+
+AI_END_CUSTOM_NPC()
