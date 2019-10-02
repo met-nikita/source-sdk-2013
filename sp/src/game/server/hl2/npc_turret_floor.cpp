@@ -40,6 +40,11 @@ ConVar	g_debug_turret( "g_debug_turret", "0" );
 
 extern ConVar physcannon_tracelength;
 
+#ifdef MAPBASE
+// m_iKeySkin has been replaced with the original m_nSkin so we can make it show up in Hammer, etc.
+#define m_iKeySkin m_nSkin
+#endif
+
 // Interactions
 int	g_interactionTurretStillStanding	= 0;
 
@@ -288,10 +293,12 @@ void CNPC_FloorTurret::Spawn( void )
 			// add one mod 4
 			nextSkin = (nextSkin + 1) & 0x03;
 		}
+#ifndef MAPBASE
 		else
 		{	// at least make sure that it's in the right range
 			m_nSkin = clamp(m_iKeySkin,1,4);
 		}
+#endif
 	}
 
 	BaseClass::Spawn();
@@ -1259,6 +1266,9 @@ void CNPC_FloorTurret::TippedThink( void )
 		{
 			if( m_spawnflags & SF_FLOOR_TURRET_OUT_OF_AMMO )
 			{
+#ifdef EZ2 // Blixibon - Needed for Wilson if he can tip and thrash like other turrets
+				SetActivity( (Activity) ACT_FLOOR_TURRET_OPEN_IDLE );
+#endif
 				DryFire();
 			}
 			else if ( IsCitizenTurret() == false )	// Citizen turrets don't wildly fire
@@ -2213,6 +2223,16 @@ void CTurretTipController::Activate( void )
 		return;
 	}
 
+#ifdef EZ2
+	m_pTippable = dynamic_cast<ITippableTurret*>(m_pParentTurret);
+	if (!m_pTippable)
+	{
+		Warning("WARNING: %s isn't an ITippableTurret!\n", m_pParentTurret->GetDebugName());
+		UTIL_Remove(this);
+		return;
+	}
+#endif
+
 	IPhysicsObject *pPhys = m_pParentTurret->VPhysicsGetObject();
 
 	if ( pPhys == NULL )
@@ -2243,13 +2263,21 @@ IMotionEvent::simresult_e CTurretTipController::Simulate( IPhysicsMotionControll
 		return SIM_NOTHING;
 
 	// Don't simulate if we're being carried by the player
+#ifdef EZ2
+	if ( m_pTippable->IsBeingCarriedByPlayer() )
+#else
 	if ( m_pParentTurret->IsBeingCarriedByPlayer() )
+#endif
 		return SIM_NOTHING;
 
 	float flAngularLimit = m_angularLimit;
 
 	// If we were just dropped by a friendly player, stabilise better
+#ifdef EZ2
+	if ( m_pTippable->WasJustDroppedByPlayer() )
+#else
 	if ( m_pParentTurret->WasJustDroppedByPlayer() )
+#endif
 	{
 		// Increase the controller strength a little
 		flAngularLimit += 20;

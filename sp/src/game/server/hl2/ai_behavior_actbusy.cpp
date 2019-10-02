@@ -899,6 +899,9 @@ void CAI_ActBusyBehavior::GatherConditions( void )
 		if( pWeapon )
 		{
 			pWeapon->Operator_ForceNPCFire( GetOuter(), false );
+#ifdef MAPBASE
+			pWeapon->DoMuzzleFlash();
+#endif
 		}
 	}
 
@@ -2316,6 +2319,9 @@ BEGIN_DATADESC( CAI_ActBusyGoal )
 	DEFINE_INPUTFUNC( FIELD_STRING, "ForceNPCToActBusy", InputForceNPCToActBusy ),
 	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ForceThisNPCToActBusy", InputForceThisNPCToActBusy ),
 	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ForceThisNPCToLeave", InputForceThisNPCToLeave ),
+#ifdef MAPBASE
+	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ForceThisNPCToStopBusy", InputForceThisNPCToStopBusy ),
+#endif
 
 	// Outputs
 	DEFINE_OUTPUT( m_OnNPCStartedBusy, "OnNPCStartedBusy" ),
@@ -2585,6 +2591,21 @@ void CAI_ActBusyGoal::InputForceThisNPCToLeave( inputdata_t &inputdata )
 	pBehavior->SetBusySearchRange( m_flBusySearchRange );
 	pBehavior->ForceActBusyLeave();
 }
+
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// Purpose: Forces a specific NPC to stop acting busy
+//-----------------------------------------------------------------------------
+void CAI_ActBusyGoal::InputForceThisNPCToStopBusy( inputdata_t &inputdata )
+{
+	CAI_ActBusyBehavior *pBehavior = GetBusyBehaviorForNPC( inputdata.value.Entity(), "InputForceThisNPCToStopBusy" );
+	if ( !pBehavior )
+		return;
+
+	// Just stop busying
+	pBehavior->StopBusying();
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 

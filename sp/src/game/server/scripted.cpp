@@ -2222,6 +2222,157 @@ int CAI_ScriptedSentence::StartSentence( CAI_BaseNPC *pTarget )
 }
 
 
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// This isn't exclusive to NPCs, so it could be moved if needed.
+//-----------------------------------------------------------------------------
+class CScriptedSound : public CPointEntity
+{
+public:
+	DECLARE_CLASS( CScriptedSound, CPointEntity );
+	DECLARE_DATADESC();
+
+	void Precache();
+
+	// Input handlers
+	void InputPlaySound( inputdata_t &inputdata );
+	void InputPlaySoundOnEntity( inputdata_t &inputdata );
+	void InputStopSound( inputdata_t &inputdata );
+	void InputSetSound( inputdata_t &inputdata );
+
+private:
+	string_t m_message;
+
+	bool m_bGrabAll;
+};
+
+
+BEGIN_DATADESC( CScriptedSound )
+
+	DEFINE_KEYFIELD( m_message, FIELD_STRING, "message" ),
+	DEFINE_KEYFIELD( m_bGrabAll, FIELD_BOOLEAN, "GrabAll" ),
+
+	// Inputs
+	DEFINE_INPUTFUNC(FIELD_VOID, "PlaySound", InputPlaySound),
+	DEFINE_INPUTFUNC(FIELD_EHANDLE, "PlaySoundOnEntity", InputPlaySoundOnEntity),
+	DEFINE_INPUTFUNC(FIELD_VOID, "StopSound", InputStopSound),
+	DEFINE_INPUTFUNC(FIELD_STRING, "SetSound", InputSetSound),
+
+END_DATADESC()
+
+
+
+LINK_ENTITY_TO_CLASS( scripted_sound, CScriptedSound );
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : 
+// Output : 
+//-----------------------------------------------------------------------------
+void CScriptedSound::Precache()
+{
+	PrecacheScriptSound(STRING(m_message));
+
+	BaseClass::Precache();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : 
+// Output : 
+//-----------------------------------------------------------------------------
+void CScriptedSound::InputPlaySound( inputdata_t &inputdata )
+{
+	PrecacheScriptSound(STRING(m_message));
+
+	CBaseEntity *pEntity = NULL;
+	if (m_target == NULL_STRING)
+	{
+		// Use this as the default source entity
+		pEntity = this;
+		m_bGrabAll = false;
+	}
+	else
+	{
+		pEntity = gEntList.FindEntityGeneric(NULL, STRING(m_target), this, inputdata.pActivator, inputdata.pCaller);
+	}
+
+	const char *sound = STRING(m_message);
+	if (m_bGrabAll)
+	{
+		//if (pEntity)
+		//{
+		//	pEntity->PrecacheScriptSound(sound);
+		//}
+
+		while (pEntity)
+		{
+			pEntity->EmitSound(sound);
+			pEntity = gEntList.FindEntityGeneric(pEntity, STRING(m_target), this, inputdata.pActivator, inputdata.pCaller);
+		}
+	}
+	else if (pEntity)
+	{
+		//pEntity->PrecacheScriptSound(sound);
+		pEntity->EmitSound(sound);
+	}
+	else
+	{
+		Warning("%s unable to find target entity %s!\n", GetDebugName(), STRING(m_target));
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : 
+// Output : 
+//-----------------------------------------------------------------------------
+void CScriptedSound::InputPlaySoundOnEntity( inputdata_t &inputdata )
+{
+	inputdata.value.Entity()->PrecacheScriptSound(STRING(m_message));
+	inputdata.value.Entity()->EmitSound(STRING(m_message));
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : 
+// Output : 
+//-----------------------------------------------------------------------------
+void CScriptedSound::InputStopSound( inputdata_t &inputdata )
+{
+	CBaseEntity *pEntity = gEntList.FindEntityGeneric(NULL, STRING(m_target), this, inputdata.pActivator, inputdata.pCaller);
+	const char *sound = STRING(m_message);
+	if (m_bGrabAll)
+	{
+		while (pEntity)
+		{
+			pEntity->StopSound(sound);
+			pEntity = gEntList.FindEntityGeneric(pEntity, STRING(m_target), this, inputdata.pActivator, inputdata.pCaller);
+		}
+	}
+	else if (pEntity)
+	{
+		pEntity->StopSound(sound);
+	}
+	else
+	{
+		Warning("%s unable to find target entity %s!\n", GetDebugName(), STRING(m_target));
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : 
+// Output : 
+//-----------------------------------------------------------------------------
+void CScriptedSound::InputSetSound( inputdata_t &inputdata )
+{
+	PrecacheScriptSound(inputdata.value.String());
+	m_message = inputdata.value.StringID();
+}
+#endif
+
+
 
 // HACKHACK: This is a little expensive with the dynamic_cast<> and all, but it lets us solve
 // the problem of matching scripts back to entities without new state.

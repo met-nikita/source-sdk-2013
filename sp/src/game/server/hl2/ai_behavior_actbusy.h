@@ -238,6 +238,9 @@ protected:
 	void		 InputForceNPCToActBusy( inputdata_t &inputdata );
 	void		 InputForceThisNPCToActBusy( inputdata_t &inputdata );
 	void		 InputForceThisNPCToLeave( inputdata_t &inputdata );
+#ifdef MAPBASE
+	void		InputForceThisNPCToStopBusy( inputdata_t &inputdata );
+#endif
 
 	DECLARE_DATADESC();
 

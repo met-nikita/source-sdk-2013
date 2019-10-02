@@ -593,6 +593,21 @@ void CAI_BaseNPC::Event_Killed( const CTakeDamageInfo &info )
 
 	m_lifeState = LIFE_DYING;
 
+#ifdef EZ2
+	// Bad Cop is going to be notified of the death of every single NPC in the game.
+	// Out of context, you might think this is insane, but in E:Z2, Bad Cop needs to respond to all kinds of things.
+	// Enemies dying. Allies dying. Enemies being killed by allies. All of that stuff.
+	// We have enemies killed by Bad Cop with Event_KilledOther, but Bad Cop being notified of allies being killed is a lot trickier, and don't get me started on that last one.
+	// We can avoid implementing tons of hacky spaghetti code in a bunch of specific classes with this.
+	// It's probably not that bad if you think about how many NPCs die at any given time and what the other solutions are like.
+	// 
+	// -Blixibon
+	if ( CBasePlayer *pPlayer = UTIL_GetLocalPlayer() )
+	{
+		pPlayer->Event_NPCKilled(this, info);
+	}
+#endif
+
 	CleanupOnDeath( info.GetAttacker() );
 
 	StopLoopingSounds();

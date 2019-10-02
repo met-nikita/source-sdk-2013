@@ -47,11 +47,28 @@ enum eyeState_t
 class CTurretTipController;
 class CBeam;
 class CSprite;
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// A new abstract class that allows us to use CTurretTipController on Wilson.
+// You might consider the implementation for this messy, but it was necessary.
+// -Blixibon
+//-----------------------------------------------------------------------------
+abstract_class ITippableTurret
+{
+public:
+	virtual bool IsBeingCarriedByPlayer( void ) = 0;
+	virtual bool WasJustDroppedByPlayer( void ) = 0;
+};
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Floor turret
 //-----------------------------------------------------------------------------
+#ifdef EZ2
+class CNPC_FloorTurret : public CNPCBaseInteractive<CAI_BaseNPC>, public CDefaultPlayerPickupVPhysics, public ITippableTurret
+#else
 class CNPC_FloorTurret : public CNPCBaseInteractive<CAI_BaseNPC>, public CDefaultPlayerPickupVPhysics
+#endif
 {
 	DECLARE_CLASS( CNPC_FloorTurret, CNPCBaseInteractive<CAI_BaseNPC> );
 public:
@@ -220,7 +237,9 @@ protected:
 	bool	m_bCarriedByPlayer;
 	bool	m_bUseCarryAngles;
 	float	m_flPlayerDropTime;
+#ifndef MAPBASE // Replaced with m_nSkin.
 	int		m_iKeySkin;
+#endif
 
 	CHandle<CBaseCombatCharacter> m_hLastNPCToKickMe;		// Stores the last NPC who tried to knock me over
 	float	m_flKnockOverFailedTime;						// Time at which we should tell the NPC that he failed to knock me over
@@ -276,16 +295,32 @@ public:
 
 	bool Enabled( void );
 
+#ifdef EZ2
+	static CTurretTipController	*CreateTipController( CBaseEntity *pOwner )
+#else
 	static CTurretTipController	*CreateTipController( CNPC_FloorTurret *pOwner )
+#endif
 	{
 		if ( pOwner == NULL )
 			return NULL;
+
+#ifdef EZ2
+		ITippableTurret *pTippable = dynamic_cast<ITippableTurret*>(pOwner);
+		if ( pTippable == NULL )
+		{
+			Warning("WARNING: %s isn't an ITippableTurret!\n", pOwner->GetDebugName());
+			return NULL;
+		}
+#endif
 
 		CTurretTipController *pController = (CTurretTipController *) Create( "floorturret_tipcontroller", pOwner->GetAbsOrigin(), pOwner->GetAbsAngles() );
 
 		if ( pController != NULL )
 		{
 			pController->m_pParentTurret = pOwner;
+#ifdef EZ2
+			pController->m_pTippable = pTippable;
+#endif
 		}
 
 		return pController;
@@ -301,7 +336,14 @@ private:
 	Vector						m_localTestAxis;
 	IPhysicsMotionController	*m_pController;
 	float						m_angularLimit;
+#ifdef EZ2
+	// Should still have ITippableTurret
+	CBaseEntity					*m_pParentTurret;
+	// So we don't have to use dynamic_cast
+	ITippableTurret				*m_pTippable;
+#else
 	CNPC_FloorTurret			*m_pParentTurret;
+#endif
 };
 
 #endif //#ifndef NPC_TURRET_FLOOR_H

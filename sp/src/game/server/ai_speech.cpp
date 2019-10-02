@@ -270,66 +270,88 @@ static const int LEN_SPECIFIC_SCENE_MODIFIER = strlen( AI_SPECIFIC_SCENE_MODIFIE
 //-----------------------------------------------------------------------------
 // Purpose: Searches for a possible response
 // Input  : concept - 
-//			NULL - 
+//            NULL - 
 // Output : AI_Response
 //-----------------------------------------------------------------------------
-AI_Response *CAI_Expresser::SpeakFindResponse( AIConcept_t concept, const char *modifiers /*= NULL*/ )
+AI_Response *CAI_Expresser::SpeakFindResponse(AIConcept_t concept, const char *modifiers /*= NULL*/)
+{
+	AI_CriteriaSet set;
+	// Even now, add the concept first in case it *must* be the first in the list
+	set.AppendCriteria("concept", concept, CONCEPT_WEIGHT);
+
+	if (modifiers)
+	{
+		MergeModifiers(set, modifiers);
+	}
+
+	// Now return the code in the new function.
+	return SpeakFindResponse(concept, set);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Merges modifiers with set.
+//-----------------------------------------------------------------------------
+void CAI_Expresser::MergeModifiers(AI_CriteriaSet& set, const char *modifiers)
+{
+	char copy_modifiers[255];
+	const char *pCopy;
+	char key[128] = { 0 };
+	char value[128] = { 0 };
+
+	Q_strncpy(copy_modifiers, modifiers, sizeof(copy_modifiers));
+	pCopy = copy_modifiers;
+
+	while (pCopy)
+	{
+		pCopy = SplitContext(pCopy, key, sizeof(key), value, sizeof(value), NULL);
+
+		if (*key && *value)
+		{
+			set.AppendCriteria(key, value, CONCEPT_WEIGHT);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Searches for a possible response, takes an AI_CriteriaSet instead.
+// Input  : concept - 
+//            NULL - 
+// Output : AI_Response
+//-----------------------------------------------------------------------------
+AI_Response *CAI_Expresser::SpeakFindResponse(AIConcept_t concept, AI_CriteriaSet &modifiers)
 {
 	IResponseSystem *rs = GetOuter()->GetResponseSystem();
-	if ( !rs )
+	if (!rs)
 	{
-		Assert( !"No response system installed for CAI_Expresser::GetOuter()!!!" );
+		Assert(!"No response system installed for CAI_Expresser::GetOuter()!!!");
 		return NULL;
 	}
 
-	AI_CriteriaSet set;
+	AI_CriteriaSet set(modifiers);
 	// Always include the concept name
-	set.AppendCriteria( "concept", concept, CONCEPT_WEIGHT );
-
-	// Always include any optional modifiers
-	if ( modifiers != NULL )
-	{
-		char copy_modifiers[ 255 ];
-		const char *pCopy;
-		char key[ 128 ] = { 0 };
-		char value[ 128 ] = { 0 };
-
-		Q_strncpy( copy_modifiers, modifiers, sizeof( copy_modifiers ) );
-		pCopy = copy_modifiers;
-
-		while( pCopy )
-		{
-			pCopy = SplitContext( pCopy, key, sizeof( key ), value, sizeof( value ), NULL );
-
-			if( *key && *value )
-			{
-				set.AppendCriteria( key, value, CONCEPT_WEIGHT );
-			}
-		}
-	}
+	set.AppendCriteria("concept", concept, CONCEPT_WEIGHT);
 
 	// Let our outer fill in most match criteria
-	GetOuter()->ModifyOrAppendCriteria( set );
+	GetOuter()->ModifyOrAppendCriteria(set);
 
 	// Append local player criteria to set, but not if this is a player doing the talking
-	if ( !GetOuter()->IsPlayer() )
+	if (!GetOuter()->IsPlayer())
 	{
-		CBasePlayer *pPlayer = UTIL_PlayerByIndex( 1 );
-		if( pPlayer )
-			pPlayer->ModifyOrAppendPlayerCriteria( set );
+		CBasePlayer *pPlayer = UTIL_PlayerByIndex(1);
+		if (pPlayer)
+			pPlayer->ModifyOrAppendPlayerCriteria(set);
 	}
 
 	// Now that we have a criteria set, ask for a suitable response
 	AI_Response *result = new AI_Response;
-	Assert( result && "new AI_Response: Returned a NULL AI_Response!" );
-	bool found = rs->FindBestResponse( set, *result, this );
-
-	if ( rr_debugresponses.GetInt() == 3 )
+	Assert(result && "new AI_Response: Returned a NULL AI_Response!");
+	bool found = rs->FindBestResponse(set, *result, this);
+	if (rr_debugresponses.GetInt() == 3)
 	{
-		if ( ( GetOuter()->MyNPCPointer() && GetOuter()->m_debugOverlays & OVERLAY_NPC_SELECTED_BIT ) || GetOuter()->IsPlayer() )
+		if ((GetOuter()->MyNPCPointer() && GetOuter()->m_debugOverlays & OVERLAY_NPC_SELECTED_BIT) || GetOuter()->IsPlayer())
 		{
 			const char *pszName;
-			if ( GetOuter()->IsPlayer() )
+			if (GetOuter()->IsPlayer())
 			{
 				pszName = ((CBasePlayer*)GetOuter())->GetPlayerName();
 			}
@@ -338,37 +360,37 @@ AI_Response *CAI_Expresser::SpeakFindResponse( AIConcept_t concept, const char *
 				pszName = GetOuter()->GetDebugName();
 			}
 
-			if ( found )
+			if (found)
 			{
-				char response[ 256 ];
-				result->GetResponse( response, sizeof( response ) );
+				char response[256];
+				result->GetResponse(response, sizeof(response));
 
-				Warning( "RESPONSERULES: %s spoke '%s'. Found response '%s'.\n", pszName, concept, response );
+				Warning("RESPONSERULES: %s spoke '%s'. Found response '%s'.\n", pszName, concept, response);
 			}
 			else
 			{
-				Warning( "RESPONSERULES: %s spoke '%s'. Found no matching response.\n", pszName, concept );
+				Warning("RESPONSERULES: %s spoke '%s'. Found no matching response.\n", pszName, concept);
 			}
 		}
 	}
 
-	if ( !found )
+	if (!found)
 	{
 		//Assert( !"rs->FindBestResponse: Returned a NULL AI_Response!" );
 		delete result;
 		return NULL;
 	}
 
-	char response[ 256 ];
-	result->GetResponse( response, sizeof( response ) );
+	char response[256];
+	result->GetResponse(response, sizeof(response));
 
-	if ( !response[0] )
+	if (!response[0])
 	{
 		delete result;
 		return NULL;
 	}
 
-	if ( result->GetOdds() < 100 && random->RandomInt( 1, 100 ) <= result->GetOdds() )
+	if (result->GetOdds() < 100 && random->RandomInt(1, 100) <= result->GetOdds())
 	{
 		delete result;
 		return NULL;
@@ -566,6 +588,30 @@ bool CAI_Expresser::Speak( AIConcept_t concept, const char *modifiers /*= NULL*/
 		result->GetResponse( pszOutResponseChosen, bufsize );
 	}
 	
+	return spoke;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Uses an AI_CriteriaSet directly instead of using context-format modifier text.
+// Input  : concept - 
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CAI_Expresser::Speak(AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen /* = NULL*/, size_t bufsize /* = 0 */, IRecipientFilter *filter /* = NULL */)
+{
+	AI_Response *result = SpeakFindResponse(concept, modifiers);
+	if (!result)
+	{
+		return false;
+	}
+
+	SpeechMsg(GetOuter(), "%s (%p) spoke %s (%f)\n", STRING(GetOuter()->GetEntityName()), GetOuter(), concept, gpGlobals->curtime);
+
+	bool spoke = SpeakDispatchResponse(concept, result, filter);
+	if (pszOutResponseChosen)
+	{
+		result->GetResponse(pszOutResponseChosen, bufsize);
+	}
+
 	return spoke;
 }
 

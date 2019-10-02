@@ -35,8 +35,10 @@
 #ifdef EZ
 #include "npc_antlion.h"
 #include "hl2_player.h"
-
 #include "npc_manhack.h"
+#endif
+#ifdef EZ2
+#include "ez2/ez2_player.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -273,6 +275,21 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 	if (pActivator == UTIL_GetLocalPlayer() && IsCommandable())
 	{
 		bool isInPlayerSquad = IsInPlayerSquad();
+#ifdef EZ2
+		CEZ2_Player *badcop = assert_cast<CEZ2_Player *>(pActivator);
+
+		if (badcop)
+		{
+			if (isInPlayerSquad)
+			{
+				badcop->SpeakIfAllowed(TLK_COMMAND_REMOVE);
+			}
+			else
+			{
+				badcop->SpeakIfAllowed(TLK_COMMAND_ADD);
+			}
+		}
+#endif
 
 		// I'm the target! Toggle follow!
 		if (isInPlayerSquad)

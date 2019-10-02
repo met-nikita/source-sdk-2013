@@ -59,6 +59,7 @@ public:
 		maxequals = false;
 		maxval = 0.0f;
 		minval = 0.0f;
+		isbit = false; // From Blixibon, for bitwise operations
 
 		token = UTL_INVAL_SYMBOL;
 		rawtoken = UTL_INVAL_SYMBOL;
@@ -118,6 +119,7 @@ public:
 	bool	minequals : 1;  //5
 	bool	usemax : 1;     //6
 	bool	maxequals : 1;  //7
+	bool	isbit : 1;		//8
 
 	void	SetToken( char const *s )
 	{
@@ -905,6 +907,9 @@ void CResponseSystem::ComputeMatcher( Criteria *c, Matcher& matcher )
 	bool lt = false;
 	bool eq = false;
 	bool nt = false;
+	#ifdef MAPBASE
+		bool bit = false;
+	#endif
 
 	bool done = false;
 	while ( !done )
@@ -936,6 +941,18 @@ void CResponseSystem::ComputeMatcher( Criteria *c, Matcher& matcher )
 
 				// Convert raw token to real token in case token is an enumerated type specifier
 				ResolveToken( matcher, token, sizeof( token ), rawtoken );
+
+#ifdef MAPBASE
+				// Bits are an entirely different and independent story
+				if (bit)
+				{
+					matcher.isbit = true;
+					matcher.notequal = nt;
+
+					matcher.isnumeric = true;
+				}
+				else
+#endif
 
 				// Fill in first data set
 				if ( gt )
@@ -978,6 +995,13 @@ void CResponseSystem::ComputeMatcher( Criteria *c, Matcher& matcher )
 		case '!':
 			nt = true;
 			break;
+#ifdef MAPBASE
+		case '~':
+			nt = true;
+		case '&':
+			bit = true;
+			break;
+#endif
 		default:
 			rawtoken[ n++ ] = *in;
 			break;
@@ -1002,6 +1026,19 @@ bool CResponseSystem::CompareUsingMatcher( const char *setValue, Matcher& m, boo
 		bool found = false;
 		v = LookupEnumeration( setValue, found );
 	}
+
+#ifdef MAPBASE
+	// Bits are always a different story
+	if (m.isbit)
+	{
+		int v1 = v;
+		int v2 = atoi(m.GetToken());
+		if (m.notequal)
+			return (v1 & v2) == 0;
+		else
+			return (v1 & v2) != 0;
+	}
+#endif
 	
 	int minmaxcount = 0;
 

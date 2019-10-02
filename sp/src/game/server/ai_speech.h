@@ -157,6 +157,11 @@ public:
 	// --------------------------------
 	
 	bool Speak( AIConcept_t concept, const char *modifiers = NULL, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL );
+	// Methods to speak using an AI_CriteriaSet instead of a modifier string - Thanks Blixibon!
+	bool Speak( AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL);
+	AI_Response *SpeakFindResponse(AIConcept_t concept, AI_CriteriaSet& modifiers);
+	void MergeModifiers(AI_CriteriaSet& set, const char *modifiers);
+
 
 	// These two methods allow looking up a response and dispatching it to be two different steps
 	AI_Response *SpeakFindResponse( AIConcept_t concept, const char *modifiers = NULL );
@@ -281,9 +286,14 @@ public:
 	virtual void	NoteSpeaking( float duration, float delay );
 
 	virtual bool 	Speak( AIConcept_t concept, const char *modifiers = NULL, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL );
+	virtual bool    Speak( AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL); // Blixibon
+
 
 	// These two methods allow looking up a response and dispatching it to be two different steps
 	AI_Response *	SpeakFindResponse( AIConcept_t concept, const char *modifiers = NULL );
+#ifdef MAPBASE
+	AI_Response *	SpeakFindResponse( AIConcept_t concept, AI_CriteriaSet& modifiers );
+#endif
 	bool 			SpeakDispatchResponse( AIConcept_t concept, AI_Response *response );
 	virtual void	PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response ) { return; }
 	float 			GetResponseDuration( AI_Response *response );
@@ -322,6 +332,17 @@ inline bool CAI_ExpresserHost<BASE_NPC>::Speak( AIConcept_t concept, const char 
 {
 	AssertOnce( this->GetExpresser()->GetOuter() == this );
 	return this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ); 
+}
+
+//-----------------------------------------------------------------------------
+// Version of Speak() that takes a direct AI_CriteriaSet for modifiers.
+//		Thanks Blixibon!
+//-----------------------------------------------------------------------------
+template <class BASE_NPC>
+inline bool CAI_ExpresserHost<BASE_NPC>::Speak(AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen /*=NULL*/, size_t bufsize /* = 0 */, IRecipientFilter *filter /* = NULL */)
+{
+	AssertOnce(this->GetExpresser()->GetOuter() == this);
+	return this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter);
 }
 
 //-----------------------------------------------------------------------------
@@ -364,6 +385,16 @@ inline AI_Response *CAI_ExpresserHost<BASE_NPC>::SpeakFindResponse( AIConcept_t 
 {
 	return this->GetExpresser()->SpeakFindResponse( concept, modifiers );
 }
+
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+template <class BASE_NPC>
+inline AI_Response *CAI_ExpresserHost<BASE_NPC>::SpeakFindResponse( AIConcept_t concept, AI_CriteriaSet& modifiers )
+{
+	return this->GetExpresser()->SpeakFindResponse( concept, modifiers );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

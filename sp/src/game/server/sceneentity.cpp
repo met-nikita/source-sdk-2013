@@ -4848,6 +4848,15 @@ void CInstancedSceneEntity::OnLoaded()
 {
 	BaseClass::OnLoaded();
 	SetBackground( m_bIsBackground );
+
+#ifdef MAPBASE
+	// It looks like !Target1 in those default NPC scenes was a freaking lie.
+	if (m_hOwner)
+	{
+		m_hTarget1 = m_hOwner;
+		m_iszTarget1 = m_hOwner->GetEntityName();
+	}
+#endif
 }
 
 bool g_bClientFlex = true;

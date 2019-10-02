@@ -33,10 +33,15 @@ $Project "Server (Entropy Zero 2)"
 		}
 		$Folder	"EZ2 DLL"
 		{
+			$File	"ez2\ai_sensorydummy.h"
+			$File	"ez2\ez2_player.h"
+			$File	"ez2\ez2_player.cpp"
 			$File	"ez2\npc_basepredator.h"
 			$File	"ez2\npc_basepredator.cpp"
 			$File	"ez2\npc_bullsquid.h"
 			$File	"ez2\npc_bullsquid.cpp"
+			$File	"ez2\npc_wilson.h"
+			$File	"ez2\npc_wilson.cpp"
 			$File	"ez2\prop_command_point.cpp"
 		}
 		$File	"ai_eventresponse.cpp"
