@@ -164,7 +164,6 @@ bool CNPC_PlayerCompanion::gm_bFindingCoverFromAllEnemies;
 #ifdef MAPBASE
 string_t CNPC_PlayerCompanion::gm_iszMortarClassname;
 string_t CNPC_PlayerCompanion::gm_iszGroundTurretClassname;
-string_t CNPC_PlayerCompanion::gm_iszRollerMineClassname;
 #else
 string_t CNPC_PlayerCompanion::gm_iszMortarClassname;
 string_t CNPC_PlayerCompanion::gm_iszFloorTurretClassname;
@@ -210,9 +209,8 @@ bool CNPC_PlayerCompanion::CreateBehaviors()
 void CNPC_PlayerCompanion::Precache()
 {
 #ifdef MAPBASE
-	SetGlobalString(gm_iszMortarClassname, "func_tankmortar");
-	SetGlobalString(gm_iszGroundTurretClassname, "npc_turret_ground");
-	SetGlobalString(gm_iszRollerMineClassname, "npc_rollermine");
+	gm_iszMortarClassname = AllocPooledString( "func_tankmortar" );
+	gm_iszGroundTurretClassname = AllocPooledString( "npc_turret_ground" );
 #else
 	gm_iszMortarClassname = AllocPooledString( "func_tankmortar" );
 	gm_iszFloorTurretClassname = AllocPooledString( "npc_turret_floor" );
@@ -1036,7 +1034,7 @@ int CNPC_PlayerCompanion::SelectScheduleCombat()
 		//Msg("Time: %f   Dist: %f\n", flTime, flDist );
 		if ( flTime <= COMBINE_GRENADE_FLUSH_TIME && flDist <= COMBINE_GRENADE_FLUSH_DIST && CanGrenadeEnemy( false ) && OccupyStrategySlot( SQUAD_SLOT_SPECIAL_ATTACK ) )
 		{
-			return SCHED_RANGE_ATTACK2;
+			return SCHED_PC_RANGE_ATTACK2;
 		}
 	}
 #endif
@@ -1241,7 +1239,7 @@ int CNPC_PlayerCompanion::TranslateSchedule( int scheduleType )
 			{
 				if ( OccupyStrategySlot( SQUAD_SLOT_SPECIAL_ATTACK ) )
 				{
-					return SCHED_RANGE_ATTACK2;
+					return SCHED_PC_RANGE_ATTACK2;
 				}
 			}
 

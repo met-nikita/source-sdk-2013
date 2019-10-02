@@ -125,7 +125,7 @@ ConVar ai_willpower_translate_schedules("ai_willpower_translate_schedules", "1",
 #ifdef MAPBASE
 ConVar npc_citizen_resupplier_adjust_ammo("npc_citizen_resupplier_adjust_ammo", "1", FCVAR_NONE, "If what ammo we give to the player would go over their max, should we adjust what we give accordingly (1) or cancel it altogether? (0)" );
 
-ConVar npc_citizen_nocollide_player( "npc_citizen_nocollide_player", "1" );
+ConVar npc_citizen_nocollide_player( "npc_citizen_nocollide_player", "0" );
 #endif
 
 #define ShouldAutosquad() (npc_citizen_auto_player_squad.GetBool())

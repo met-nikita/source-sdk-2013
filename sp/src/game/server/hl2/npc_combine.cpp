@@ -42,7 +42,7 @@ int g_fCombineQuestion;				// true if an idle grunt asked a question. Cleared wh
 #ifdef MAPBASE
 ConVar npc_combine_idle_walk_easy("npc_combine_idle_walk_easy", "1");
 ConVar npc_combine_unarmed_anims("npc_combine_unarmed_anims", "1");
-ConVar npc_combine_altfire_alliesonly("npc_combine_altfire_alliesonly", "0");
+ConVar npc_combine_altfire_not_allies_only( "npc_combine_altfire_not_allies_only", "1" );
 #endif
 
 #define COMBINE_SKIN_DEFAULT		0
@@ -190,6 +190,7 @@ DEFINE_FIELD( m_flStopMoveShootTime, FIELD_TIME ),
 DEFINE_KEYFIELD( m_iNumGrenades, FIELD_INTEGER, "NumGrenades" ),
 #else
 DEFINE_INPUT( m_bUnderthrow, FIELD_BOOLEAN, "UnderthrowGrenades" ),
+DEFINE_INPUT( m_bAlternateCapable, FIELD_BOOLEAN, "SetAlternateCapable" ),
 #endif
 #ifndef COMBINE_SOLDIER_USES_RESPONSE_SYSTEM
 DEFINE_EMBEDDED( m_Sentences ),
@@ -698,19 +699,23 @@ Class_T	CNPC_Combine::Classify ( void )
 //-----------------------------------------------------------------------------
 inline bool CNPC_Combine::IsElite( void )
 {
-	//if (m_bUnderthrow)
-	//	return false;
-
 	return m_fIsElite;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Function for gauging whether we're capable of alt-firing.
-// It just returns IsElite() right now, but you could change it here.
 //-----------------------------------------------------------------------------
-inline bool CNPC_Combine::IsAltFireCapable( void )
+bool CNPC_Combine::IsAltFireCapable( void )
 {
-	return IsElite();
+	return IsElite() || m_bAlternateCapable;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Function for gauging whether we're capable of throwing grenades.
+//-----------------------------------------------------------------------------
+bool CNPC_Combine::IsGrenadeCapable( void )
+{
+	return !IsElite() || m_bAlternateCapable;
 }
 #endif
 
@@ -2021,10 +2026,9 @@ int CNPC_Combine::SelectSchedule( void )
 			Vector vecTarget = m_hForcedGrenadeTarget->WorldSpaceCenter();
 
 #ifdef MAPBASE
-			if ( IsAltFireCapable() )
-#else
-			if ( IsElite() )
+			// I switched this to IsAltFireCapable() before, but m_bAlternateCapable makes it necessary to use IsElite() again.
 #endif
+			if ( IsElite() )
 			{
 				if ( FVisible( m_hForcedGrenadeTarget ) )
 				{
@@ -2051,6 +2055,12 @@ int CNPC_Combine::SelectSchedule( void )
 			return SCHED_COMBINE_MOVE_TO_FORCED_GREN_LOS;
 		}
 	}
+
+#ifdef MAPBASE
+	// Drop a grenade?
+	if ( HasCondition( COND_COMBINE_DROP_GRENADE ) )
+		return SCHED_COMBINE_DROP_GRENADE;
+#endif
 
 	if ( m_NPCState != NPC_STATE_SCRIPT)
 	{
@@ -2243,9 +2253,11 @@ bool CNPC_Combine::ShouldChargePlayer()
 
 int CNPC_Combine::SelectScheduleAttack()
 {
+#ifndef MAPBASE // Moved to SelectSchedule()
 	// Drop a grenade?
 	if ( HasCondition( COND_COMBINE_DROP_GRENADE ) )
 		return SCHED_COMBINE_DROP_GRENADE;
+#endif
 
 	// Kick attack?
 	if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
@@ -2273,18 +2285,14 @@ int CNPC_Combine::SelectScheduleAttack()
 			}
 		}
 
-#ifdef MAPBASE
-		if (IsUsingTacticalVariant(TACTICAL_VARIANT_GRENADE_HAPPY))
-		{
-			// Don't do turret charging during grenade happiness.
-			// I guess just do nothing and let the rest of the AI handle it.
-		}
-		else
-#endif
-
 		// If we're not in the viewcone of the turret, run up and hit it. Do this a bit later to
 		// give other squadmembers a chance to throw a grenade before I run in.
+#ifdef MAPBASE
+		// Don't do turret charging of we're just grenade happy.
+		if ( !IsUsingTacticalVariant(TACTICAL_VARIANT_GRENADE_HAPPY) && !GetEnemy()->MyNPCPointer()->FInViewCone( this ) && OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
+#else
 		if ( !GetEnemy()->MyNPCPointer()->FInViewCone( this ) && OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
+#endif
 			return SCHED_COMBINE_CHARGE_TURRET;
 	}
 
@@ -3430,7 +3438,7 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 	// "Our weapons alone cannot take down the antlion guard!"
 	// "Wait, you're an elite, don't you have, like, disintegration balls or somethi--"
 	// "SHUT UP!"
-	if ( npc_combine_altfire_alliesonly.GetBool() && !pEnemy->IsPlayer() && (!pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) )
+	if ( !npc_combine_altfire_not_allies_only.GetBool() && !pEnemy->IsPlayer() && (!pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) )
 #else
 	if( !pEnemy->IsPlayer() && (!pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) )
 #endif
@@ -3497,7 +3505,7 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 bool CNPC_Combine::CanGrenadeEnemy( bool bUseFreeKnowledge )
 {
 #ifdef MAPBASE
-	if ( IsAltFireCapable() )
+	if ( !IsGrenadeCapable() )
 #else
 	if ( IsElite() )
 #endif

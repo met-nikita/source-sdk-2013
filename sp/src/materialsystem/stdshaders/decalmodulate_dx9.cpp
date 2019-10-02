@@ -22,7 +22,7 @@
 #include "tier0/memdbgon.h"
 
 #ifdef MAPBASE
-ConVar mat_decalmodulate_noflashdraw( "mat_decalmodulate_noflashdraw", "0" );
+ConVar mat_decalmodulate_flashdraw( "mat_decalmodulate_flashdraw", "0" );
 #endif
 
 DEFINE_FALLBACK_SHADER( SDK_DecalModulate, SDK_DecalModulate_DX9 )
@@ -72,12 +72,12 @@ BEGIN_VS_SHADER( SDK_DecalModulate_dx9,
 	SHADER_DRAW
 	{
 #ifdef MAPBASE
-		// TEST 1 - Check game DLL stuff since the issue is that mod2x is modding flashlight brightness because it's not gray
-		// 
-		// NOTE: Maybe the decals not appearing is a SORTING issue!
-		// The flashlight part is transparent and overlaid on top of the decal!
-		// 
+		// It is now believed the decals not appearing is a sorting issue.
+		// The flashlight part is transparent and overlaid on top of the decal.
+		// When a fix is found, this flashlight code could be removed.
 		bool bHasFlashlight = UsingFlashlight( params );
+		if (bHasFlashlight && !mat_decalmodulate_flashdraw.GetBool())
+			return;
 #endif
 		SHADOW_STATE
 		{

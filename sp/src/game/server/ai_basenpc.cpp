@@ -721,9 +721,9 @@ bool CAI_BaseNPC::PassesDamageFilter( const CTakeDamageInfo &info )
 		if ( IServerVehicle *pVehicle = info.GetAttacker()->GetServerVehicle() )
 		{
 			m_fNoDamageDecal = true;
-			if (pVehicle->GetPassenger() && pVehicle->GetPassenger()->IRelationType(this) != D_LI)
+			if (pVehicle->GetPassenger() && pVehicle->GetPassenger()->IRelationType(this) == D_LI)
 			{
-				// MAPBASE FIXME: Players could probably bail from their cars to kill NPCs with this!
+				// Players could bail from their cars to kill NPCs with this!
 				// Is there a "last passenger" variable we could use?
 				return false;
 			}
@@ -4663,6 +4663,20 @@ void CAI_BaseNPC::SetState( NPC_STATE State )
 	// Notify the character that its state has changed.
 	if( fNotifyChange )
 	{
+#ifdef MAPBASE
+		// Doing OnStateChange here instead of in OnStateChange() to prevent override shenanigans.
+
+		// Assume our enemy is the activator.
+		// States that don't have an enemy have a NULL activator, which is fine.
+		CBaseEntity *pActivator = GetEnemy();
+		
+		// If we entered a script, use the scripted_sequence as the activator
+		if (m_NPCState == NPC_STATE_SCRIPT)
+			pActivator = m_hCine;
+
+		m_OnStateChange.Set(m_NPCState, pActivator, this);
+#endif
+
 		OnStateChange( OldState, m_NPCState );
 	}
 }
@@ -7893,14 +7907,41 @@ void CAI_BaseNPC::InputPickupWeapon( inputdata_t &inputdata )
 	if (iszWeaponName == NULL_STRING)
 		return;
 
-	// Searching "generically" could potentially get a weapon already held by someone.
-	CBaseEntity *pEntity = gEntList.FindEntityByNameNearest(STRING(iszWeaponName), GetLocalOrigin(), 0, this, inputdata.pActivator, inputdata.pCaller);
+	// Doing a custom search implementation to prevent us from trying to pick up other people's weapons
+	// Also works generically so you could do things like "PickupWeapon > weapon_smg1" to pick up the nearest SMG
+	float flCurDist = MAX_TRACE_LENGTH;
 	CBaseCombatWeapon *pWeapon = NULL;
-	if (pEntity)
-		pWeapon = pEntity->MyCombatWeaponPointer();
 
-	if (!pEntity || !pWeapon)
+	CBaseEntity *pSearch = NULL;
+	while ((pSearch = gEntList.FindEntityGeneric(pSearch, STRING(iszWeaponName), this, inputdata.pActivator, inputdata.pCaller)) != NULL)
+	{
+		if (!pSearch->edict())
+			continue;
+
+		// Don't pick up non-weapons or weapons we can't use
+		CBaseCombatWeapon *pSearchWeapon = pSearch->MyCombatWeaponPointer();
+		if (!pSearchWeapon || pSearchWeapon->GetOwner() || pSearchWeapon->IsLocked(this))
+			continue;
+
+		// If the weapon is marked to deny NPC pickup, only reject it if we're not searching for this weapon specifically.
+		// It might only have that spawnflag to prevent other NPCs from picking it up automatically.
+		// If we're searching for any weapon in general though (classnames or wildcards), don't use it.
+		if (pSearchWeapon->HasSpawnFlags( SF_WEAPON_NO_NPC_PICKUP ) && iszWeaponName != pSearchWeapon->GetEntityName())
+			continue;
+
+		float flDist = (pSearch->GetAbsOrigin() - GetAbsOrigin()).LengthSqr();
+		if (flDist < flCurDist)
+		{
+			pWeapon = pSearchWeapon;
+			flCurDist = flDist;
+		}
+	}
+
+	if (!pWeapon)
+	{
+		Msg("%s couldn't find %s to pick up\n", GetDebugName(), STRING(iszWeaponName));
 		return;
+	}
 
 	m_flNextWeaponSearchTime = gpGlobals->curtime + 10.0;
 	// Now lock the weapon for several seconds while we go to pick it up.
@@ -7918,8 +7959,8 @@ void CAI_BaseNPC::InputPickupItem( inputdata_t &inputdata )
 	if (iszItemName == NULL_STRING)
 		return;
 
-	// Searching "generically" could potentially get a weapon already held by someone.
-	CBaseEntity *pEntity = gEntList.FindEntityByNameNearest(STRING(iszItemName), GetLocalOrigin(), 0, this, inputdata.pActivator, inputdata.pCaller);
+	// Searching generically allows for things like "PickupItem > item_health*" to pick up the nearest healthkit
+	CBaseEntity *pEntity = gEntList.FindEntityGenericNearest(STRING(iszItemName), GetLocalOrigin(), 0, this, inputdata.pActivator, inputdata.pCaller);
 	if (!pEntity)
 		return;
 
@@ -11739,6 +11780,8 @@ BEGIN_DATADESC( CAI_BaseNPC )
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetHintGroup", InputSetHintGroup ),
 
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetThinkNPC", InputSetThinkNPC ),
+
+	DEFINE_OUTPUT( m_OnStateChange,	"OnStateChange" ),
 #endif
 
 	// Function pointers
@@ -14198,17 +14241,6 @@ void CAI_BaseNPC::ParseScriptedNPCInteractions( void )
 					else
 					{
 						szCriteria = UTIL_VarArgs("%s,%s:%s", szCriteria, szName, szValue);
-
-						/*
-						ResponseContext_t context;
-						context.m_iszName = AllocPooledString(szName);
-						context.m_iszValue = AllocPooledString(szValue);
-						context.m_fExpirationTime = 0.0;
-
-						DevMsg("ADDING CONTEXT: \"%s, %s\"\n", szName, szValue);
-
-						sInteraction.MiscCriteria.AddToTail(context);
-						*/
 					}
 
 					pCurNode = pCurNode->GetNextKey();
@@ -14749,7 +14781,12 @@ void CAI_BaseNPC::CalculateValidEnemyInteractions( void )
 		// If we have a damage filter that prevents us hurting the enemy,
 		// don't interact with him, since most interactions kill the enemy.
 		// Create a fake damage info to test it with.
+#ifdef MAPBASE
+		// DMG_PREVENT_PHYSICS_FORCE can be used to identify dynamic interaction tests
+		CTakeDamageInfo tempinfo( this, this, vec3_origin, vec3_origin, 1.0, DMG_BULLET | DMG_PREVENT_PHYSICS_FORCE );
+#else
 		CTakeDamageInfo tempinfo( this, this, vec3_origin, vec3_origin, 1.0, DMG_BULLET );
+#endif
 		if ( !pNPC->PassesDamageFilter( tempinfo ) )
 			continue;
 

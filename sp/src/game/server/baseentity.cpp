@@ -278,6 +278,10 @@ IMPLEMENT_SERVERCLASS_ST_NOBASE( CBaseEntity, DT_BaseEntity )
 	SendPropInt		(SENDINFO(m_nRenderMode),	8, SPROP_UNSIGNED ),
 	SendPropInt		(SENDINFO(m_fEffects),		EF_MAX_BITS, SPROP_UNSIGNED),
 	SendPropInt		(SENDINFO(m_clrRender),	32, SPROP_UNSIGNED),
+#ifdef MAPBASE
+	// Keep consistent with VIEW_ID_COUNT in viewrender.h
+	SendPropInt		(SENDINFO(m_iViewHideFlags),	9, SPROP_UNSIGNED ),
+#endif
 	SendPropInt		(SENDINFO(m_iTeamNum),		TEAMNUM_NUM_BITS, 0),
 	SendPropInt		(SENDINFO(m_CollisionGroup), 5, SPROP_UNSIGNED),
 	SendPropFloat	(SENDINFO(m_flElasticity), 0, SPROP_COORD),
@@ -1822,6 +1826,9 @@ BEGIN_DATADESC_NO_BASE( CBaseEntity )
 	DEFINE_KEYFIELD( m_fEffects, FIELD_INTEGER, "effects" ),
 	DEFINE_KEYFIELD( m_clrRender, FIELD_COLOR32, "rendercolor" ),
 	DEFINE_GLOBAL_KEYFIELD( m_nModelIndex, FIELD_SHORT, "modelindex" ),
+#ifdef MAPBASE
+	DEFINE_KEYFIELD( m_iViewHideFlags, FIELD_INTEGER, "viewhideflags" ),
+#endif
 #if !defined( NO_ENTITY_PREDICTION )
 	// DEFINE_FIELD( m_PredictableID, CPredictableId ),
 #endif
@@ -2037,6 +2044,7 @@ BEGIN_DATADESC_NO_BASE( CBaseEntity )
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "RemoveSpawnFlags", InputRemoveSpawnFlags ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetRenderMode", InputSetRenderMode ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetRenderFX", InputSetRenderFX ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetViewHideFlags", InputSetViewHideFlags ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "AddEffects", InputAddEffects ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "RemoveEffects", InputRemoveEffects ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableDraw", InputDrawEntity ),
@@ -5677,7 +5685,11 @@ public:
 		{
 			const char *target = "", *action = "Use";
 			variant_t value;
+#ifdef MAPBASE
+			float delay = 0;
+#else
 			int delay = 0;
+#endif
 
 			target = STRING( AllocPooledString(command.Arg( 1 ) ) );
 
@@ -5715,7 +5727,11 @@ public:
 			}
 			if ( command.ArgC() >= 5 )
 			{
+#ifdef MAPBASE
+				delay = atof( command.Arg( 4 ) );
+#else
 				delay = atoi( command.Arg( 4 ) );
+#endif
 			}
 
 			g_EventQueue.AddEvent( target, action, value, delay, pPlayer, pPlayer );
@@ -7597,6 +7613,14 @@ void CBaseEntity::InputSetRenderFX( inputdata_t& inputdata )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Sets our view hide flags.
+//-----------------------------------------------------------------------------
+void CBaseEntity::InputSetViewHideFlags( inputdata_t& inputdata )
+{
+	m_iViewHideFlags = inputdata.value.Int();
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Adds effects.
 //-----------------------------------------------------------------------------
 void CBaseEntity::InputAddEffects( inputdata_t& inputdata )
@@ -7988,10 +8012,31 @@ void CBaseEntity::DispatchResponse( const char *conceptName )
 #ifdef MAPBASE
 	if (response[0] == '$')
 	{
-		response[0] = '\0';
-		DevMsg("Replacing %s with %s...\n", response, GetContextValue(response));
-		Q_strncpy(response, GetContextValue(response), sizeof(response));
-		PrecacheScriptSound( response );
+		const char *context = response + 1;
+		const char *replace = GetContextValue(context);
+
+		if (replace)
+		{
+			DevMsg("Replacing %s with %s...\n", response, replace);
+			Q_strncpy(response, replace, sizeof(response));
+
+			// Precache it now because it may not have been precached before
+			switch ( result.GetType() )
+			{
+			case RESPONSE_SPEAK:
+				{
+					PrecacheScriptSound( response );
+				}
+				break;
+
+			case RESPONSE_SCENE:
+				{
+					// TODO: Gender handling?
+					PrecacheInstancedScene( response );
+				}
+				break;
+			}
+		}
 	}
 #endif
 	switch ( result.GetType() )

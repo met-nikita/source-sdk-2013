@@ -24,6 +24,10 @@
 
 extern ConVar sk_auto_reload_time;
 extern ConVar sk_plr_num_shotgun_pellets;
+#ifdef MAPBASE
+extern ConVar sk_plr_num_shotgun_pellets_double;
+extern ConVar sk_npc_num_shotgun_pellets;
+#endif
 
 class CWeaponShotgun : public CBaseHLCombatWeapon
 {
@@ -183,7 +187,11 @@ void CWeaponShotgun::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool
 		vecShootDir = npc->GetActualShootTrajectory( vecShootOrigin );
 	}
 
+#ifdef MAPBASE
+	pOperator->FireBullets( sk_npc_num_shotgun_pellets.GetInt(), vecShootOrigin, vecShootDir, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0 );
+#else
 	pOperator->FireBullets( 8, vecShootOrigin, vecShootDir, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0 );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -530,7 +538,11 @@ void CWeaponShotgun::SecondaryAttack( void )
 	Vector vecAiming = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
 
 	// Fire the bullets
+#ifdef MAPBASE
+	pPlayer->FireBullets( sk_plr_num_shotgun_pellets_double.GetInt(), vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
+#else
 	pPlayer->FireBullets( 12, vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
+#endif
 #ifdef EZ
 	pPlayer->ViewPunch(QAngle(random->RandomFloat(-7, -7), random->RandomFloat(-6, 6), 0)); // Breadman - was 5 5 and second bit wasn't present
 #else
