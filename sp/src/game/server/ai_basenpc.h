@@ -1692,6 +1692,14 @@ public:
 	virtual float		GetReactionDelay( CBaseEntity *pEnemy );
 	
 	void				SetLastAttackTime( float time)	{ m_flLastAttackTime = time; }
+#ifdef EZ2
+	// Tragically, CAI_BaseNPC's implementation of m_flLastDamageTime doesn't work with trigger_hurts because it doesn't register with non-NPC/player attackers.
+	// I can't access m_flLastDamageTime directly from CNPC_Wilson. I could create my own timer variable, but that's just so...wasteful!
+	// As a result, I decided to add a "SetLastDamageTime" function that Wilson sets himself when he's damaged.
+	// 
+	// I mean, there's not really any harm to this except that I like to avoid changing existing base classes for new derivatives.
+	void				SetLastDamageTime( float time)	{ m_flLastDamageTime = time; }
+#endif
 
 	float				GetLastAttackTime() const { return m_flLastAttackTime; }
 	float				GetLastDamageTime() const { return m_flLastDamageTime; }

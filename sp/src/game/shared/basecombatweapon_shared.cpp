@@ -828,6 +828,9 @@ void CBaseCombatWeapon::OnPickedUp( CBaseCombatCharacter *pNewOwner )
 	{
 		m_OnNPCPickup.FireOutput(pNewOwner, this);
 	}
+#ifdef EZ2
+	pNewOwner->OnPickupWeapon(this); // 1upD - Event to handle new picked up weapons to be used by expressive player
+#endif // EZ2
 
 #ifdef HL2MP
 	HL2MPRules()->RemoveLevelDesignerPlacedObject( this );
@@ -2285,6 +2288,15 @@ bool CBaseCombatWeapon::DefaultReload( int iClipSize1, int iClipSize2, int iActi
 
 	if ( !bReload )
 		return false;
+
+#ifdef EZ2
+#ifndef CLIENT_DLL
+	if (pOwner->IsPlayer())
+	{
+		pOwner->DispatchResponse("TLK_HIDEANDRELOAD");
+	}
+#endif // CLIENT_DLL
+#endif // EZ2
 
 #ifdef CLIENT_DLL
 	// Play reload

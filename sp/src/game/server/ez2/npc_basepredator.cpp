@@ -855,36 +855,46 @@ bool CNPC_BasePredator::OverrideMove( float flInterval )
 //------------------------------------------------------------------------------
 void CNPC_BasePredator::InputEnterNormalMode( inputdata_t & inputdata )
 {
-	// Set the state to normal
-	m_tBossState = BOSS_STATE_NORMAL;
-	// Add removed capabilities
-	CapabilitiesAdd( bits_CAP_INNATE_RANGE_ATTACK1 );
-	// Set a condition to play an animation
-	SetCondition( COND_NEW_BOSS_STATE );
+	if ( m_tBossState != BOSS_STATE_NORMAL )
+	{
+		// Set the state to normal
+		m_tBossState = BOSS_STATE_NORMAL;
+
+		// Add removed capabilities
+		CapabilitiesAdd( bits_CAP_INNATE_RANGE_ATTACK1 );
+		// Set a condition to play an animation
+		SetCondition( COND_NEW_BOSS_STATE );
+	}
 }
 
 void CNPC_BasePredator::InputEnterRetreatMode( inputdata_t & inputdata )
 {
-	// Play appropriate sound script
-	RetreatModeSound();
-	// Remove ranged attack
-	CapabilitiesRemove( bits_CAP_INNATE_RANGE_ATTACK1 );
-	// Set the state to normal
-	m_tBossState = BOSS_STATE_RETREAT;
-	// Set a condition to play an animation
-	SetCondition( COND_NEW_BOSS_STATE );
+	if ( m_tBossState != BOSS_STATE_RETREAT )
+	{
+		// Play appropriate sound script
+		RetreatModeSound();
+		// Remove ranged attack
+		CapabilitiesRemove( bits_CAP_INNATE_RANGE_ATTACK1 );
+		// Set the state to normal
+		m_tBossState = BOSS_STATE_RETREAT;
+		// Set a condition to play an animation
+		SetCondition( COND_NEW_BOSS_STATE );
+	}
 }
 
 void CNPC_BasePredator::InputEnterBerserkMode( inputdata_t & inputdata )
 {
-	// Play appropriate sound script
-	BerserkModeSound();
-	// Remove ranged attack
-	CapabilitiesRemove( bits_CAP_INNATE_RANGE_ATTACK1 );
-	// Set the state to normal
-	m_tBossState = BOSS_STATE_BERSERK;
-	// Set a condition to play an animation
-	SetCondition( COND_NEW_BOSS_STATE );
+	if ( m_tBossState != BOSS_STATE_BERSERK )
+	{
+		// Play appropriate sound script
+		BerserkModeSound();
+		// Remove ranged attack
+		CapabilitiesRemove( bits_CAP_INNATE_RANGE_ATTACK1 );
+		// Set the state to normal
+		m_tBossState = BOSS_STATE_BERSERK;
+		// Set a condition to play an animation
+		SetCondition( COND_NEW_BOSS_STATE );
+	}
 }
 
 void CNPC_BasePredator::InputSetWanderAlways( inputdata_t & inputdata )

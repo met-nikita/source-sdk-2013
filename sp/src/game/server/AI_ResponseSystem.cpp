@@ -994,6 +994,7 @@ void CResponseSystem::ComputeMatcher( Criteria *c, Matcher& matcher )
 				}
 				else
 #endif
+
 				// Fill in first data set
 				if ( gt )
 				{

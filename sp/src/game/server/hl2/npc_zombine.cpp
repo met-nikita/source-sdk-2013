@@ -1200,7 +1200,7 @@ void CNPC_Zombine::ReadyGrenadeSound( void )
 //-----------------------------------------------------------------------------
 const char *CNPC_Zombine::GetHeadcrabModel( void )
 {
-	switch (m_tEzVariant)
+	switch ( m_tEzVariant )
 	{
 		case EZ_VARIANT_RAD:
 			return "models/glowcrabclassic.mdl";

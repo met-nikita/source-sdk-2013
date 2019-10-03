@@ -500,7 +500,9 @@ static ConCommand toggle_duck("toggle_duck", CC_ToggleDuck, "Toggles duck" );
 
 #ifndef HL2MP
 #ifndef PORTAL
+#ifndef EZ2
 LINK_ENTITY_TO_CLASS( player, CHL2_Player );
+#endif
 #endif
 #endif
 

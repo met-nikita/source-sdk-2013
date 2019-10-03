@@ -436,6 +436,7 @@ public:
 	void SetActiveWeapon( CBaseCombatWeapon *pNewWeapon );
 	void ClearActiveWeapon() { SetActiveWeapon( NULL ); }
 	virtual void OnChangeActiveWeapon( CBaseCombatWeapon *pOldWeapon, CBaseCombatWeapon *pNewWeapon ) {}
+	virtual void OnPickupWeapon(CBaseCombatWeapon *pNewWeapon) {} // 1upD - stub for event when a weapon is picked up
 
 	// I can't use my current weapon anymore. Switch me to the next best weapon.
 	bool SwitchToNextBestWeapon(CBaseCombatWeapon *pCurrent);

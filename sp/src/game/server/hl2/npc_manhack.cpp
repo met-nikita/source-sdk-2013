@@ -2631,8 +2631,13 @@ void CNPC_Manhack::StartEye( void )
 		}
 		else
 		{
+#ifdef EZ2
+			m_pLightGlow->SetTransparency( kRenderTransAdd, 0, 255, 255, 128, kRenderFxNoDissipation );
+			m_pLightGlow->SetColor(0, 255, 255);
+#else
 			m_pLightGlow->SetTransparency( kRenderTransAdd, 255, 0, 0, 128, kRenderFxNoDissipation );
 			m_pLightGlow->SetColor( 255, 0, 0 );
+#endif
 		}
 
 		m_pLightGlow->SetBrightness( 164, 0.1f );
