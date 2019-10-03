@@ -286,6 +286,32 @@ void CNPC_CombineS::OnListened()
 //-----------------------------------------------------------------------------
 void CNPC_CombineS::Event_Killed( const CTakeDamageInfo &info )
 {
+#ifdef EZ
+	// 1upD - Drop extra health and grenades if commandable combine killed by the player
+	if (info.GetAttacker()->IsPlayer() && IsCommandable() && GetState() < NPC_STATE_COMBAT)
+	{
+		DevMsg("EZ2 - Combine soldier killed by player outside of combat. Giving extra items. \n");
+		DropItem("item_healthvial", WorldSpaceCenter() + RandomVector(-4, 4), RandomAngle(0, 360));
+		DropItem("weapon_frag", WorldSpaceCenter() + RandomVector(-4, 4), RandomAngle(0, 360));
+		CBaseCombatWeapon * pWeapon = GetActiveWeapon();
+		if (pWeapon)
+		{
+			if (!Q_stricmp(pWeapon->GetClassname(), "weapon_smg1"))
+			{
+				DropItem("item_ammo_smg1", WorldSpaceCenter() + RandomVector(-4, 4), RandomAngle(0, 360));
+			}
+			else if (!Q_stricmp(pWeapon->GetClassname(), "weapon_ar2"))
+			{
+				DropItem("item_ammo_ar2", WorldSpaceCenter() + RandomVector(-4, 4), RandomAngle(0, 360));
+			}
+			else if (!Q_stricmp(pWeapon->GetClassname(), "weapon_shotgun"))
+			{
+				DropItem("item_box_buckshot", WorldSpaceCenter() + RandomVector(-4, 4), RandomAngle(0, 360));
+			}
+		}
+	}
+#endif
+
 	// Don't bother if we've been told not to, or the player has a megaphyscannon
 	if ( combine_spawn_health.GetBool() == false || PlayerHasMegaPhysCannon() )
 	{
@@ -440,6 +466,9 @@ Activity CNPC_CombineS::NPC_TranslateActivity( Activity eNewActivity )
 BEGIN_DATADESC( CNPC_CombineS )
 
 	DEFINE_KEYFIELD( m_iUseMarch, FIELD_INTEGER, "usemarch" ),
+#ifdef EZ
+	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" )
+#endif
 
 END_DATADESC()
 #endif

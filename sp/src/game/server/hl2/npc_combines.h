@@ -44,8 +44,13 @@ public:
 
 	virtual	bool		AllowedToIgnite( void ) { return true; }
 
+
 private:
 	bool		ShouldHitPlayer( const Vector &targetDir, float targetDist );
+
+#ifdef EZ
+	COutputEvent	m_OnPlayerUse;
+#endif
 
 #if HL2_EPISODIC
 public:

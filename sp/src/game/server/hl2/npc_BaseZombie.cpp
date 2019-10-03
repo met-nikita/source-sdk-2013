@@ -2551,6 +2551,14 @@ bool CNPC_BaseZombie::HeadcrabFits( CBaseAnimating *pCrab )
 //-----------------------------------------------------------------------------
 void CNPC_BaseZombie::ReleaseHeadcrab( const Vector &vecOrigin, const Vector &vecVelocity, bool fRemoveHead, bool fRagdollBody, bool fRagdollCrab )
 {
+#ifdef EZ
+	// Since Xenbies don't drop headcrabs, we need to make sure nothing happens here for when dynamic interactions cause a headcrab to drop.
+	if ( m_tEzVariant == EZ_VARIANT_XEN )
+	{
+		return;
+	}
+#endif
+
 	CAI_BaseNPC		*pCrab;
 	Vector vecSpot = vecOrigin;
 

@@ -911,6 +911,25 @@ const char *CNPC_Zombine::GetMoanSound( int nSound )
 //-----------------------------------------------------------------------------
 void CNPC_Zombine::FootstepSound( bool fRightFoot )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_RAD && fRightFoot)
+	{
+		EmitSound( "Glowbie.FootstepRight" );
+	}
+	else if (m_tEzVariant == EZ_VARIANT_RAD)
+	{
+		EmitSound( "Glowbie.FootstepLeft" );
+	}
+	if (m_tEzVariant == EZ_VARIANT_XEN && fRightFoot)
+	{
+		EmitSound( "Xenbie.FootstepRight" );
+	}
+	else if (m_tEzVariant == EZ_VARIANT_XEN)
+	{
+		EmitSound( "Xenbie.FootstepLeft" );
+	}
+	else
+#endif
 	if( fRightFoot )
 	{
 		EmitSound( "Zombie.FootstepRight" );
@@ -924,6 +943,7 @@ void CNPC_Zombine::FootstepSound( bool fRightFoot )
 //-----------------------------------------------------------------------------
 // Purpose: Overloaded so that explosions don't split the zombine in twain.
 //-----------------------------------------------------------------------------
+
 bool CNPC_Zombine::ShouldBecomeTorso( const CTakeDamageInfo &info, float flDamageThreshold )
 {
 	return false;
@@ -968,7 +988,22 @@ void CNPC_Zombine::FootscuffSound( bool fRightFoot )
 //-----------------------------------------------------------------------------
 void CNPC_Zombine::AttackHitSound( void )
 {
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbie.AttackHit" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbie.AttackHit" );
+		break;
+	default:
+		EmitSound( "Zombie.AttackHit" );
+		break;
+	}
+#else
 	EmitSound( "Zombie.AttackHit" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -976,8 +1011,23 @@ void CNPC_Zombine::AttackHitSound( void )
 //-----------------------------------------------------------------------------
 void CNPC_Zombine::AttackMissSound( void )
 {
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbie.AttackMiss" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbie.AttackMiss" );
+		break;
+	default:
+		EmitSound( "Zombie.AttackMiss" );
+		break;
+	}
+#else
 	// Play a random attack miss sound
 	EmitSound( "Zombie.AttackMiss" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -991,14 +1041,44 @@ void CNPC_Zombine::PainSound( const CTakeDamageInfo &info )
 		return;
 	}
 
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbine.Pain" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbine.Pain" );
+		break;
+	default:
+		EmitSound( "Zombine.Pain" );
+		break;
+	}
+#else
 	EmitSound( "Zombine.Pain" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CNPC_Zombine::DeathSound( const CTakeDamageInfo &info ) 
 {
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbine.Die" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbine.Die" );
+		break;
+	default:
+		EmitSound( "Zombine.Die" );
+		break;
+	}
+#else
 	EmitSound( "Zombine.Die" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1006,8 +1086,22 @@ void CNPC_Zombine::DeathSound( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CNPC_Zombine::AlertSound( void )
 {
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbine.Alert" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbine.Alert" );
+		break;
+	default:
+		EmitSound( "Zombine.Alert" );
+		break;
+	}
+#else
 	EmitSound( "Zombine.Alert" );
-
+#endif
 	// Don't let a moan sound cut off the alert sound.
 	m_flNextMoanSound += random->RandomFloat( 2.0, 4.0 );
 }
@@ -1029,7 +1123,22 @@ void CNPC_Zombine::IdleSound( void )
 		return;
 	}
 
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbine.Idle" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbine.Idle" );
+		break;
+	default:
+		EmitSound( "Zombine.Idle" );
+		break;
+	}
+#else
 	EmitSound( "Zombine.Idle" );
+#endif
 	MakeAISpookySound( 360.0f );
 }
 
@@ -1046,7 +1155,22 @@ void CNPC_Zombine::AttackSound( void )
 //-----------------------------------------------------------------------------
 void CNPC_Zombine::ChargeSound( void )
 {
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbine.Charge" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbine.Charge" );
+		break;
+	default:
+		EmitSound( "Zombine.Charge" );
+		break;
+	}
+#else
 	EmitSound( "Zombine.Charge" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1054,7 +1178,22 @@ void CNPC_Zombine::ChargeSound( void )
 //-----------------------------------------------------------------------------
 void CNPC_Zombine::ReadyGrenadeSound( void )
 {
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbine.ReadyGrenade" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbine.ReadyGrenade" );
+		break;
+	default:
+		EmitSound( "Zombine.ReadyGrenade" );
+		break;
+	}
+#else
 	EmitSound( "Zombine.ReadyGrenade" );
+#endif
 }
 #endif
 //-----------------------------------------------------------------------------

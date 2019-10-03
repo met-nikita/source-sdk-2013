@@ -1145,6 +1145,7 @@ AI_DEFINE_SCHEDULE
 	""
 	"	Interrupts"
 	"		COND_HEAR_DANGER"
+	"		COND_CAN_MELEE_ATTACK1" // 1upD
 );
 
 //=========================================================
@@ -1160,6 +1161,7 @@ AI_DEFINE_SCHEDULE
 	""
 	"	Interrupts"
 	"		COND_HEAR_DANGER"
+	"		COND_CAN_MELEE_ATTACK1" // 1upD
 );
 
 //=========================================================

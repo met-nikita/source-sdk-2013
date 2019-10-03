@@ -349,11 +349,11 @@ struct UnreachableEnt_t
 #define SCNPC_FLAG_DONT_TELEPORT_AT_END_THEM	( 1 << 7 )
 #ifdef MAPBASE
 #define SCNPC_FLAG_MAPBASE_ADDITION				( 1 << 8 )
-#define SCNPC_FLAG_TEST_END_POSITION			( 1 << 9 )
+#define SCNPC_FLAG_TEST_END_POSITION            ( 1 << 9 )
 #endif
-#ifdef EZ
-#define SCNPC_FLAG_TEST_SQUADMATE_HEALTH		( 1 << 10 )
-#endif
+// If Mapbase adds more flags for some reason, we'd have to bump this up to prevent conflicts.
+// That's not really a problem, but to prevent this, I'm starting E:Z2-specific flags at 16. No harm in it.
+#define SCNPC_FLAG_TEST_SQUADMATE_HEALTH		( 1 << 16 )
 
 // -----------------------------------------
 //	Scripted NPC interaction trigger methods
@@ -1324,6 +1324,9 @@ public:
 	virtual void		AlertSound( void )							{ return; };
 	virtual void		IdleSound( void )							{ return; };
 	virtual void		PainSound( const CTakeDamageInfo &info )	{ return; };
+#ifdef EZ
+	virtual void		RegenSound()		{ return; }; // Added by 1upD
+#endif
 	virtual void		FearSound( void )				 			{ return; };
 	virtual void		LostEnemySound( void ) 						{ return; };
 	virtual void		FoundEnemySound( void ) 					{ return; };

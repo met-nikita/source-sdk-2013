@@ -117,16 +117,6 @@ void CNPC_Bullsquid::Spawn()
 		// Baby squids can't spit yet!
 		CapabilitiesRemove( bits_CAP_INNATE_RANGE_ATTACK1 );
 	}
-	else if (m_tEzVariant == EZ_VARIANT_XEN)
-	{
-		// Xen bullsquids are beefier - they are solitary predators
-		SetModelScale( 1.25f );
-	}
-	else
-	{
-		// Earth bullsquids are smaller - they hunt in packs
-		SetModelScale( 1.0f );
-	}
 
 	m_fCanThreatDisplay	= TRUE;
 	m_flNextSpitTime = gpGlobals->curtime;
@@ -750,7 +740,7 @@ void CNPC_Bullsquid::StartTask( const Task_t *pTask )
 
 		ExplosionEffect();
 
-		if ( ( GetModelScale() >= 1.0f && m_tEzVariant != EZ_VARIANT_XEN ) || GetModelScale() >= 1.25f )
+		if ( GetModelScale() >= 1.0f )
 		{
 			m_bIsBaby = false;
 			CapabilitiesAdd( bits_CAP_INNATE_RANGE_ATTACK1 );

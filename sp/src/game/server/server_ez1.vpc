@@ -39,6 +39,7 @@ $Project "Server (Entropy Zero)"
 			$File	"ez2\npc_basepredator.cpp"
 			$File	"ez2\npc_bullsquid.h"
 			$File	"ez2\npc_bullsquid.cpp"
+			$File	"ez2\prop_command_point.cpp"
 		}
 		
 		$Folder	"Mod"

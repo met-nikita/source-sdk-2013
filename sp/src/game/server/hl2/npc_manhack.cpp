@@ -2484,7 +2484,7 @@ void CNPC_Manhack::Spawn(void)
 
 	m_bHeld = false;
 
-#ifdef EZ
+#ifdef EZ1
 	m_bHackedByAlyx = true;
 	SetEyeState( MANHACK_EYE_STATE_IDLE );
 #else
@@ -2546,7 +2546,11 @@ EyeGlow_t * CNPC_Manhack::GetEyeGlowData(int index)
 		{
 			eyeGlow->red = 0;
 			eyeGlow->green = 255;
+#ifdef EZ1
 			eyeGlow->blue = 255;
+#else
+			eyeGlow->blue = 0;
+#endif
 		}
 		else
 		{
@@ -2567,7 +2571,11 @@ EyeGlow_t * CNPC_Manhack::GetEyeGlowData(int index)
 		{
 			eyeGlow->red = 0;
 			eyeGlow->green = 255;
+#ifdef EZ1
 			eyeGlow->blue = 255;
+#else
+			eyeGlow->blue = 0;
+#endif
 		}
 		else
 		{
@@ -3196,7 +3204,11 @@ void CNPC_Manhack::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reaso
 	}
 	else
 	{
+#ifdef EZ2
+		if( !m_bHackedByAlyx && !GetEnemy() )
+#else
 		if( m_bHackedByAlyx && !GetEnemy() )
+#endif
 		{
 			// If a hacked manhack is released in peaceable conditions, 
 			// just loiter, don't zip off.
@@ -3234,7 +3246,11 @@ CBasePlayer *CNPC_Manhack::HasPhysicsAttacker( float dt )
 //-----------------------------------------------------------------------------
 float CNPC_Manhack::GetMaxEnginePower()
 {
+#ifdef EZ2
+	if( !m_bHackedByAlyx )
+#else
 	if( m_bHackedByAlyx )
+#endif
 	{
 		return 2.0f;
 	}

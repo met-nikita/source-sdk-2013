@@ -40,7 +40,7 @@ ConVar ai_debug_readiness("ai_debug_readiness", "0" );
 ConVar ai_use_readiness("ai_use_readiness", "1" ); // 0 = off, 1 = on, 2 = on for player squad only
 ConVar ai_readiness_decay( "ai_readiness_decay", "120" );// How many seconds it takes to relax completely
 ConVar ai_new_aiming( "ai_new_aiming", "1" );
-#ifdef EZ2
+#ifdef EZ
 ConVar ai_jump_rise("ai_jump_rise", "64"); // How high can player companions jump
 ConVar ai_jump_drop("ai_jump_drop", "384"); // How high can player companions fall
 ConVar ai_jump_distance("ai_jump_distance", "160"); // How high can player companions jump
@@ -317,7 +317,11 @@ int CNPC_PlayerCompanion::Restore( IRestore &restore )
 
 	if ( gpGlobals->eLoadType == MapLoad_Transition )
 	{
+#ifndef EZ
 		m_StandoffBehavior.SetActive( false );
+#else
+		GetStandoffBehavior().SetActive( false );
+#endif
 	}
 
 #ifdef HL2_EPISODIC
@@ -362,7 +366,12 @@ Disposition_t CNPC_PlayerCompanion::IRelationType( CBaseEntity *pTarget )
 		{
 			// Citizens are afeared of turrets, so long as the turret
 			// is active... that is, not classifying itself as CLASS_NONE
+#ifdef EZ
+			// Soldiers, however, are not afraid of turrets. They have special behavior towards them.
+			if( !IsCombine() && pTarget->Classify() != CLASS_NONE )
+#else
 			if( pTarget->Classify() != CLASS_NONE )
+#endif
 			{
 				if( !hl2_episodic.GetBool() && IsSafeFromFloorTurret(GetAbsOrigin(), pTarget) )
 				{
@@ -1059,8 +1068,12 @@ bool CNPC_PlayerCompanion::ShouldDeferToFollowBehavior()
 {
 	if ( !GetFollowBehavior().CanSelectSchedule() || !GetFollowBehavior().FarFromFollowTarget() )
 		return false;
-		
+
+#ifndef EZ
 	if ( m_StandoffBehavior.CanSelectSchedule() && !m_StandoffBehavior.IsBehindBattleLines( GetFollowBehavior().GetFollowTarget()->GetAbsOrigin() ) )
+#else
+	if ( GetStandoffBehavior().CanSelectSchedule() && !GetStandoffBehavior().IsBehindBattleLines( GetFollowBehavior().GetFollowTarget()->GetAbsOrigin() ) )
+#endif
 		return false;
 
 	if ( HasCondition(COND_BETTER_WEAPON_AVAILABLE) && !GetActiveWeapon() )
@@ -1797,7 +1810,7 @@ void CNPC_PlayerCompanion::HandleAnimEvent( animevent_t *pEvent )
 				}
 				
 				float l_nMeleeDamage = m_nMeleeDamage;
-#ifdef EZ2
+#ifdef EZ
 				// Rebels should 1-hit noncommandable Combine soldiers
 				if (pBCC->ClassMatches("npc_combine_s"))
 				{
@@ -2343,7 +2356,11 @@ bool CNPC_PlayerCompanion::FindNewAimTarget()
 		return false;
 	}
 
+#ifdef EZ // Blixibon - Combine soldiers don't use readiness but they could use aim target.
+	if ( (!m_bReadinessCapable || GetReadinessLevel() == AIRL_RELAXED) && !IsCombine() )
+#else
 	if( !m_bReadinessCapable || GetReadinessLevel() == AIRL_RELAXED )
+#endif
 	{
 		// If I'm relaxed (don't want to aim), or physically incapable,
 		// don't run this hint node searching code.
@@ -3400,6 +3417,10 @@ bool CNPC_PlayerCompanion::OverrideMove( float flInterval )
 		string_t iszEntityFlame = AllocPooledString( "entityflame" );
 #endif // HL2_EPISODIC
 
+#ifdef EZ // Blixibon
+		string_t iszZombieGoo = AllocPooledString( "zombie_goo_puddle" );
+#endif
+
 		if ( IsCurSchedule( SCHED_TAKE_COVER_FROM_BEST_SOUND ) )
 		{
 			CSound *pSound = GetBestSound( SOUND_DANGER );
@@ -3435,8 +3456,22 @@ bool CNPC_PlayerCompanion::OverrideMove( float flInterval )
 				UTIL_TraceLine( WorldSpaceCenter(), pEntity->WorldSpaceCenter(), MASK_BLOCKLOS, pEntity, COLLISION_GROUP_NONE, &tr );
 				if (tr.fraction == 1.0 && !tr.startsolid)
 				{
+#ifdef EZ
+					// Soldiers need to be able to run up behind turrets and punt them, so don't mark turrets they hate or fear as obstacles.
+					// I am, however, allowing them to avoid turrets they like or are neutral towards since I think the original point of this was
+					// to prevent allies from knocking them over while moving.
+					// 
+					// I don't know what kind of overhead this could have, but it's definitely needed now that soldiers are based on from the companion class.
+					// 
+					// - Blixibon
+					if (!IsCombine() || IRelationType(pEntity) > D_FR)
+					{
+#endif
 					float radius = 1.4 * pEntity->CollisionProp()->BoundingRadius2D(); 
 					GetLocalNavigator()->AddObstacle( pEntity->WorldSpaceCenter(), radius, AIMST_AVOID_OBJECT );
+#ifdef EZ
+					}
+#endif
 				}
 			}
 			else if( pEntity->m_iClassname == iszEntityFlame && pEntity->GetParent() && !pEntity->GetParent()->IsNPC() )
@@ -3467,6 +3502,22 @@ bool CNPC_PlayerCompanion::OverrideMove( float flInterval )
 					}
 				}
 			}
+#ifdef EZ
+			else if ( pEntity->m_iClassname == iszZombieGoo )
+			{
+				float flDist = pEntity->WorldSpaceCenter().DistTo( WorldSpaceCenter() );
+				if( flDist > 50.0f )
+				{
+					// If I'm not in the goo, prevent me from getting close to it.
+					// If I AM in the goo, avoid placing an obstacle until the goo frightens me away from itself.
+					UTIL_TraceLine( WorldSpaceCenter(), pEntity->WorldSpaceCenter(), MASK_BLOCKLOS, pEntity, COLLISION_GROUP_NONE, &tr );
+					if (tr.fraction == 1.0 && !tr.startsolid)
+					{
+						GetLocalNavigator()->AddObstacle( pEntity->WorldSpaceCenter(), 50.0f, AIMST_AVOID_OBJECT );
+					}
+				}
+			}
+#endif
 		}
 	}
 
@@ -3570,7 +3621,7 @@ bool CNPC_PlayerCompanion::OnObstructionPreSteer( AILocalMoveGoal_t *pMoveGoal, 
 
 	return BaseClass::OnObstructionPreSteer( pMoveGoal, distClear, pResult );
 }
-#ifdef EZ2
+#ifdef EZ
 //-----------------------------------------------------------------------------
 // Purpose: Returns true if a reasonable jumping distance
 //		1upD - Copied this from FastZombie to add jumping to soldiers and rebels!
@@ -4388,6 +4439,23 @@ bool CNPC_PlayerCompanion::IsNavigationUrgent( void )
 	return bBase;
 }
 
+#ifdef EZ // Blixibon - Moved to CNPC_PlayerCompanion so soldiers can use it
+int __cdecl SquadSortFunc( const SquadMemberInfo_t *pLeft, const SquadMemberInfo_t *pRight )
+{
+	if ( pLeft->bSeesPlayer && !pRight->bSeesPlayer )
+	{
+		return -1;
+	}
+
+	if ( !pLeft->bSeesPlayer && pRight->bSeesPlayer )
+	{
+		return 1;
+	}
+
+	return ( pLeft->distSq - pRight->distSq );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 //
 // Schedules
@@ -4657,7 +4725,11 @@ AI_END_CUSTOM_NPC()
 // Special movement overrides for player companions
 //
 
+#ifdef EZ // Blixibon
+#define NUM_OVERRIDE_MOVE_CLASSNAMES	5
+#else
 #define NUM_OVERRIDE_MOVE_CLASSNAMES	4
+#endif
 
 class COverrideMoveCache : public IEntityListener
 {
@@ -4770,6 +4842,9 @@ private:
 		m_Classname[1] = AllocPooledString( "combine_mine" );
 		m_Classname[2] = AllocPooledString( "npc_turret_floor" );
 		m_Classname[3] = AllocPooledString( "entityflame" );
+#ifdef EZ2 // Blixibon - Prevents soldiers from running into zombie goo
+		m_Classname[4] = AllocPooledString( "zombie_goo_puddle" );
+#endif
 	}
 
 	CUtlLinkedList<EHANDLE>	m_Cache;

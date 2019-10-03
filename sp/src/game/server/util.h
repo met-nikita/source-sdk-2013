@@ -417,6 +417,11 @@ void UTIL_PrecacheOther( const char *szClassname, const char *modelName = NULL )
 bool UTIL_TestPrecacheOther( const char *szClassname, const char *modelName = NULL );
 #endif
 
+#ifdef EZ
+// allows precacheing of other entities with a specific Entropy : Zero variant
+void UTIL_PrecacheXenVariant( const char *szClassname );
+#endif
+
 // prints a message to each client
 void			UTIL_ClientPrintAll( int msg_dest, const char *msg_name, const char *param1 = NULL, const char *param2 = NULL, const char *param3 = NULL, const char *param4 = NULL );
 inline void		UTIL_CenterPrintAll( const char *msg_name, const char *param1 = NULL, const char *param2 = NULL, const char *param3 = NULL, const char *param4 = NULL ) 

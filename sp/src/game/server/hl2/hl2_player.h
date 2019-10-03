@@ -330,10 +330,18 @@ protected:
 	virtual void		ItemPostFrame();
 	virtual void		PlayUseDenySound();
 
+#ifndef EZ
 private:
-	bool				CommanderExecuteOne( CAI_BaseNPC *pNpc, const commandgoal_t &goal, CAI_BaseNPC **Allies, int numAllies );
-
 	void				OnSquadMemberKilled( inputdata_t &data );
+#else
+	virtual void		CleanUpSquadMarker( void ); // 1upD - remove squad marker if all squadmates are dead
+	virtual void		OnSquadMemberKilled( inputdata_t &data ); // 1upD - made protected and virtual so EZ2 player can override							
+#endif
+	virtual bool		CommanderExecuteOne( CAI_BaseNPC *pNpc, const commandgoal_t &goal, CAI_BaseNPC **Allies, int numAllies ); // 1upD - made protected and virtual so EZ2 player can override
+#ifdef EZ
+private:
+	void				helperFireSquadCommandOuput( const char * outputName,CAI_BaseNPC ** Allies ); // 1upD - fire player proxy output for squad control changes
+#endif
 
 	Class_T				m_nControlClass;			// Class when player is controlling another entity
 	// This player's HL2 specific data that should only be replicated to 

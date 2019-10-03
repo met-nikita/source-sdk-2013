@@ -321,7 +321,7 @@ public:
 	float			GetIdealSpeed() const;
 	float			GetIdealAccel() const;
 	bool			OnObstructionPreSteer( AILocalMoveGoal_t *pMoveGoal, float distClear, AIMoveResult_t *pResult );
-#ifdef EZ2
+#ifdef EZ
 	bool			IsJumpLegal(const Vector &startPos, const Vector &apex, const Vector &endPos, float maxUp, float maxDown, float maxDist) const; // For inheritance reasons, need to pass this through to base class
 	bool			IsJumpLegal(const Vector & startPos, const Vector & apex, const Vector & endPos) const; // Added by 1upD - all 'player companions' should be able to jump
 #endif
@@ -422,6 +422,10 @@ private:
 
 	CSimpleSimTimer		m_FakeOutMortarTimer;
 
+#ifdef EZ
+// In EZ, soldiers need to access GetExpresser()
+protected:
+#endif
 	// Derived classes should not use the expresser directly
 	virtual CAI_Expresser *GetExpresser()	{ return BaseClass::GetExpresser(); }
 
@@ -429,6 +433,7 @@ protected:
 	//-----------------------------------------------------
 
 	virtual CAI_FollowBehavior &GetFollowBehavior( void ) { return m_FollowBehavior; }
+	virtual CAI_StandoffBehavior &GetStandoffBehavior( void ) { return m_StandoffBehavior; } // Blixibon - Added because soldiers have their own special standoff behavior
 
 	CAI_AssaultBehavior				m_AssaultBehavior;
 	CAI_FollowBehavior				m_FollowBehavior;
@@ -515,6 +520,20 @@ protected:
 	DECLARE_DATADESC();
 	DEFINE_CUSTOM_AI;
 };
+
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Blixibon - Moved to CNPC_PlayerCompanion so soldiers can use it
+//-----------------------------------------------------------------------------
+struct SquadMemberInfo_t
+{
+	CNPC_PlayerCompanion *pMember;
+	bool			bSeesPlayer;
+	float			distSq;
+};
+
+int __cdecl SquadSortFunc( const SquadMemberInfo_t *pLeft, const SquadMemberInfo_t *pRight );
+#endif
 
 // Used for quick override move searches against certain types of entities
 void OverrideMoveCache_ForceRepopulateList( void );

@@ -61,6 +61,10 @@
 #define TLK_SELECTED		"TLK_SELECTED"	// selected by player in command mode.
 #define TLK_COMMANDED		"TLK_COMMANDED" // received orders from player in command mode
 #define TLK_COMMAND_FAILED	"TLK_COMMAND_FAILED" 
+#define TLK_COMMAND_SEND	"TLK_COMMAND_SEND" // 1upD - issuing order to send squad
+#define TLK_COMMAND_RECALL	"TLK_COMMAND_RECALL" // 1upD - issuing order to recall squad
+#define TLK_COMMAND_ADD		"TLK_COMMAND_ADD" // 1upD - issuing order to join squad
+#define TLK_COMMAND_REMOVE	"TLK_COMMAND_REMOVE" // 1upD - issuing order to leave squad
 #define TLK_DENY_COMMAND	"TLK_DENY_COMMAND" // designer has asked this NPC to politely deny player commands to move the squad
 #define TLK_BETRAYED		"TLK_BETRAYED"	// player killed an ally in front of me.
 #define TLK_ALLY_KILLED		"TLK_ALLY_KILLED" // witnessed an ally die some other way.
@@ -425,6 +429,12 @@ public:
 	void			InputDisableSpeakWhileScripting( inputdata_t &inputdata );
 	
 	void			AnswerQuestion( CAI_PlayerAlly *pQuestioner, int iQARandomNum, bool bAnsweringHello );
+
+#ifdef EZ
+	// Blixibon - I wanted a more efficient and fool-proof solution than just "Classify() == CLASS_COMBINE" when it comes to
+	// using/deactivating certain code on soldiers since they derive from this now.
+	virtual bool	IsCombine() { return false; }
+#endif
 
 protected:
 	

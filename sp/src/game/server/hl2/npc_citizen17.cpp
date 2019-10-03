@@ -3933,6 +3933,7 @@ bool CNPC_Citizen::IsFollowingCommandPoint()
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
+#ifndef EZ
 struct SquadMemberInfo_t
 {
 	CNPC_Citizen *	pMember;
@@ -3954,6 +3955,7 @@ int __cdecl SquadSortFunc( const SquadMemberInfo_t *pLeft, const SquadMemberInfo
 
 	return ( pLeft->distSq - pRight->distSq );
 }
+#endif
 
 CAI_BaseNPC *CNPC_Citizen::GetSquadCommandRepresentative()
 {
@@ -5184,8 +5186,8 @@ bool CNPC_Citizen::IsJumpLegal(const Vector &startPos, const Vector &apex, const
 {
 	if (m_Type == CT_LONGFALL) 
 	{
-		const float MAX_JUMP_RISE = 256.0f; // This one might need some adjustment - how high is too high?
-		const float MAX_JUMP_DISTANCE = 256.0f;
+		const float MAX_JUMP_RISE = 1024.0f; // This one might need some adjustment - how high is too high?
+		const float MAX_JUMP_DISTANCE = 1024.0f;
 		const float MAX_JUMP_DROP = 8192.0f; // Basically any height
 
 		return BaseClass::IsJumpLegal(startPos, apex, endPos, MAX_JUMP_RISE, MAX_JUMP_DROP, MAX_JUMP_DISTANCE);

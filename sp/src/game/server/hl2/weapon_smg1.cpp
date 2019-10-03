@@ -39,9 +39,13 @@ public:
 	void	Precache( void );
 	void	AddViewKick( void );
 	void	SecondaryAttack( void );
-
+#ifndef EZ2
 	int		GetMinBurst() { return 2; }
 	int		GetMaxBurst() { return 5; }
+#else
+	int		GetMinBurst() { return 8; } // BREADMAN
+	int		GetMaxBurst() { return 15; }
+#endif
 
 	virtual void Equip( CBaseCombatCharacter *pOwner );
 	bool	Reload( void );

@@ -136,6 +136,9 @@ public:
 	virtual bool ShouldFindMate();
 	virtual bool CanMateWithTarget( CNPC_BasePredator * pTarget, bool receiving );
 
+	virtual bool IsBaby() { return m_bIsBaby; };
+	virtual void setIsBaby( bool bIsBaby ) { m_bIsBaby = bIsBaby; };
+
 	int GetSoundInterests ( void );
 	void RunAI ( void );
 	virtual void OnListened ( void );

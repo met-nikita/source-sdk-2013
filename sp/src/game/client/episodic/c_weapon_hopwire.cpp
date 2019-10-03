@@ -137,7 +137,11 @@ void C_HopwireExplosion::AddParticles( void )
 		m_pSimpleEmitter->SetSortOrigin( GetRenderOrigin() );
 
 		// Base of the core effect
+#ifdef EZ2
+		sParticle = (SimpleParticle *) m_pSimpleEmitter->AddParticle( sizeof(SimpleParticle), m_pSimpleEmitter->GetPMaterial( "effects/XenGrenadeFlash" ), GetRenderOrigin() );
+#else
 		sParticle = (SimpleParticle *) m_pSimpleEmitter->AddParticle( sizeof(SimpleParticle), m_pSimpleEmitter->GetPMaterial( "effects/strider_muzzle" ), GetRenderOrigin() );
+#endif
 
 		if ( sParticle == NULL )
 			return;
@@ -263,9 +267,11 @@ int C_HopwireExplosion::DrawModel( int flags )
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->Flush();
 	UpdateRefractTexture();
-
+#ifdef EZ
+	IMaterial *pMat = materials->FindMaterial( "effects/strider_bulge_dudv", TEXTURE_GROUP_CLIENT_EFFECTS );
+#else
 	IMaterial *pMat = materials->FindMaterial( "effects/strider_pinch_dudv", TEXTURE_GROUP_CLIENT_EFFECTS );
-
+#endif
 	float refract = m_FXCoreAlpha.Interp( gpGlobals->curtime );
 	float scale = m_FXCoreScale.Interp( gpGlobals->curtime );
 

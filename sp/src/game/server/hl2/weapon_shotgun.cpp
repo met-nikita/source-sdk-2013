@@ -754,9 +754,17 @@ CWeaponShotgun::CWeaponShotgun( void )
 	m_bDelayedFire2 = false;
 
 	m_fMinRange1		= 0.0;
+#ifndef EZ2
 	m_fMaxRange1		= 500;
+#else
+	m_fMaxRange1		= 1400; // BREADMAN
+#endif;
 	m_fMinRange2		= 0.0;
+#ifndef EZ2
 	m_fMaxRange2		= 200;
+#else
+	m_fMaxRange2		= 1400; // BREADMAN
+#endif
 }
 
 //-----------------------------------------------------------------------------

@@ -1582,11 +1582,16 @@ void CAI_FollowBehavior::StartTask( const Task_t *pTask )
 		{
 			if ( GetHintNode() && !ShouldIgnoreFollowPointFacing() )
 			{
+			// 1upD - The check of the distance to wait node is causing NPCs to awkwardly 'snap' out of wait mode.
+			// I'm going to disable this check for now to see if it improves the behavior
+#ifndef EZ2
 				float distSqToPoint = (GetHintNode()->GetAbsOrigin() - GetAbsOrigin()).LengthSqr();
 				if ( distSqToPoint < WAIT_HINT_MIN_DIST )
 				{
+#endif // EZ2
 					GetOuter()->SetSchedule( SCHED_FOLLOWER_STAND_AT_WAIT_POINT );
-				}
+#ifndef EZ2
+			}
 				else
 				{
 					GetHintNode()->Unlock();
@@ -1594,6 +1599,7 @@ void CAI_FollowBehavior::StartTask( const Task_t *pTask )
 					m_TimeBlockUseWaitPoint.Reset();
 					TaskFail("Couldn't get to wait node." );
 				}
+#endif // EZ2
 			}
 			else
 			{

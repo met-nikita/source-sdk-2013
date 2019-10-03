@@ -249,11 +249,20 @@ public:
 		if( !m_bTurnedOn )
 			return CLASS_NONE;
 
+#ifdef EZ // Blixibon
+		// While detonating, we're now just CLASS_NONE so we could damage all factions.
+		// This is because we do no damage to the player as a Combine unit and no damage to citizens as a hacked unit.
+		if ( m_flPowerDownDetonateTime > 0.0f && m_flPowerDownDetonateTime <= gpGlobals->curtime )
+			return CLASS_NONE;
+
+		return m_bHackedByAlyx ? CLASS_HACKED_ROLLERMINE : CLASS_COMBINE;
+#else
 		//About to blow up after being hacked so do damage to the player.
 		if ( m_bHackedByAlyx && ( m_flPowerDownDetonateTime > 0.0f && m_flPowerDownDetonateTime <= gpGlobals->curtime ) )
 			return CLASS_COMBINE;
 
 		return ( m_bHeld || m_bHackedByAlyx ) ? CLASS_HACKED_ROLLERMINE : CLASS_COMBINE; 
+#endif
 	}
 
 	virtual bool ShouldGoToIdleState() 
@@ -287,6 +296,33 @@ public:
 
 	virtual unsigned int	PhysicsSolidMaskForEntity( void ) const;
 
+#ifdef EZ
+	// Blixibon -- Allows Bad Cop to pick up friendly rollermines.
+	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
+	{
+		CBasePlayer *pPlayer = ToBasePlayer( pActivator );
+		if ( pPlayer )
+		{
+			// Only allow pickup if we like the player or we're too busy exploding.
+			// If not, shock them for trying.
+			if (IRelationType(pPlayer) < D_FR && m_flPowerDownDetonateTime == 0.0f)
+			{
+				UnstickFromVehicle();
+				ShockTouch(pPlayer);
+			}
+			else
+			{
+				Close();
+				pPlayer->PickupObject( this, false );
+			}
+		}
+	}
+
+	int ObjectCaps()
+	{
+		return BaseClass::ObjectCaps() | FCAP_IMPULSE_USE;
+	}
+#endif
 	void		SetRollerSkin( void );
 
 	COutputEvent m_OnPhysGunDrop;
@@ -935,6 +971,15 @@ int CNPC_RollerMine::SelectSchedule( void )
 //-----------------------------------------------------------------------------
 int CNPC_RollerMine::GetHackedIdleSchedule( void )
 {
+#ifdef EZ // Blixibon - Re-using hacked rollermine code
+	if ( !HasSpawnFlags(SF_ROLLERMINE_FOLLOW_PLAYER) || m_bHeld )
+		return SCHED_NONE;
+
+	// Don't look through the entity list for a single "!player" if you have a pointer right here.
+	CBaseEntity *pPlayer = UTIL_GetLocalPlayer();
+	if ( !pPlayer )
+		return SCHED_NONE;
+#else
 	// If we've been hacked, return to the player
 	if ( !m_bHackedByAlyx || m_bHeld )
 		return SCHED_NONE;
@@ -943,6 +988,7 @@ int CNPC_RollerMine::GetHackedIdleSchedule( void )
 	CBaseEntity *pPlayer = gEntList.FindEntityByName( NULL, "!player" );
 	if ( !pPlayer )
 		return SCHED_NONE;
+#endif
 
 	if ( !HasCondition(COND_SEE_PLAYER) )
 		return SCHED_ROLLERMINE_PATH_TO_PLAYER;
@@ -1365,7 +1411,15 @@ void CNPC_RollerMine::RunTask( const Task_t *pTask )
 				m_RollerController.m_vecAngular = WorldToLocalRotation( SetupMatrixAngles(GetLocalAngles()), vecCompensate, m_flForwardSpeed * -0.75 );
 			}
 
+#ifdef EZ // Blixibon
+			// By default, all rollermines have the hacked rollermine's buffed speed,
+			// which is necessary for regular rollermines becoming companions
+			// and for keeping hacked rollermines "hardcore" as per Entropy : Zero.
+			// On Easy, however, hacked rollermines use the original rollermine speed.
+			if( !g_pGameRules->IsSkillLevel(SKILL_EASY) || !m_bHackedByAlyx )
+#else
 			if( m_bHackedByAlyx )
+#endif
 			{
 				// Move faster. 
 				m_RollerController.m_vecAngular += WorldToLocalRotation( SetupMatrixAngles(GetLocalAngles()), vecRight, m_flForwardSpeed * 2.0f );
@@ -2031,6 +2085,40 @@ void CNPC_RollerMine::ShockTouch( CBaseEntity *pOther )
 	Vector vecForce = ( -impulse * pPhysics->GetMass() * 10 );
 	CTakeDamageInfo	info( this, this, vecForce, out, sk_rollermine_shock.GetFloat(), DMG_SHOCK );
 
+#ifdef EZ // Blixibon -- Rollermine boogie for everyone!
+
+	// Rather than dealing a specific amount of damage to citizens or soldiers, I decided to just have them deal twice as much damage to all NPCs.
+	// If rollermine shock damage is set to 20, this would amount to 40, which conveniently
+	// kills citizens in two hits and soldiers in 2-3, depending on how good they are at keeping them away/regenerating health.
+	if ( pOther->IsNPC() )
+	{
+		info.ScaleDamage( 2.0f );
+	}
+
+	if ( pOther->GetHealth() <= info.GetDamage() )
+	{
+		CBaseCombatCharacter *pBCC = pOther->MyCombatCharacterPointer();
+		if (pBCC && pBCC->CanBecomeRagdoll() && pBCC->CanBecomeServerRagdoll())
+		{
+			// Instant special death for anyone who can become a ragdoll.
+			Vector vecDamageForce = pOther->WorldSpaceCenter() - WorldSpaceCenter();
+			VectorNormalize( vecDamageForce );
+
+			IPhysicsObject *pPhysics = pOther->VPhysicsGetObject();
+
+			if( pPhysics )
+			{
+				vecDamageForce *= (pPhysics->GetMass() * 200.0f);
+
+				// Slam Z component with some good, reliable upwards velocity.
+				vecDamageForce.z = pPhysics->GetMass() * 200.0f;
+			}
+
+			pBCC->BecomeRagdollBoogie( this, vecDamageForce, 5.0f, SF_RAGDOLL_BOOGIE_ELECTRICAL );
+			return;
+		}
+	}
+#else
 	if( FClassnameIs( pOther, "npc_combine_s" ) )
 	{
 		if( pOther->GetHealth() <= (pOther->GetMaxHealth() / 2) ) 
@@ -2057,6 +2145,7 @@ void CNPC_RollerMine::ShockTouch( CBaseEntity *pOther )
 			info.SetDamage( pOther->GetMaxHealth()/2 );
 		}
 	}
+#endif
 
 	pOther->TakeDamage( info );
 
@@ -2581,6 +2670,10 @@ float CNPC_RollerMine::RollingSpeed()
 //-----------------------------------------------------------------------------
 float CNPC_RollerMine::GetStunDelay()
 {
+#ifdef EZ // Blixibon
+	// Should be 0.1 by default now
+	return sk_rollermine_stun_delay.GetFloat();
+#else
 	if( m_bHackedByAlyx )
 	{
 		return 0.1f;
@@ -2589,6 +2682,7 @@ float CNPC_RollerMine::GetStunDelay()
 	{
 		return sk_rollermine_stun_delay.GetFloat();
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------

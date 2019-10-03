@@ -3180,8 +3180,18 @@ void CNPC_CombineGunship::StopLoopingSounds( void )
 bool CNPC_CombineGunship::IsValidEnemy( CBaseEntity *pEnemy )
 {
 	// Always track missiles
+#ifdef EZ
+	// when they're not friendly
+	if ( pEnemy->IsAlive() && !pEnemy->MyNPCPointer() && FClassnameIs( pEnemy, "rpg_missile" ) )
+	{
+		if (pEnemy->GetOwnerEntity() && IRelationType(pEnemy->GetOwnerEntity()) == D_LI)
+			return false;
+		return true;
+	}
+#else
 	if ( pEnemy->IsAlive() && !pEnemy->MyNPCPointer() && FClassnameIs( pEnemy, "rpg_missile" ) )
 		return true;
+#endif
 
 	// If we're shooting off a burst, don't pick up a new enemy
 	if ( ( m_bIsFiring ) && ( ( GetEnemy() == NULL ) || ( GetEnemy() != pEnemy ) ) )

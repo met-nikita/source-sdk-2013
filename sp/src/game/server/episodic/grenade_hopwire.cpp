@@ -14,6 +14,13 @@
 #include "explode.h"
 #include "physics_prop_ragdoll.h"
 #include "movevars_shared.h"
+#ifdef EZ2
+#include "ai_basenpc.h"
+#include "npc_barnacle.h"
+#include "ez2/npc_basepredator.h"
+#include "hl2_player.h"
+#include "particle_parse.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -28,9 +35,23 @@ ConVar hopwire_hopheight( "hopwire_hopheight", "400" );
 
 ConVar hopwire_minheight("hopwire_minheight", "100");
 ConVar hopwire_radius("hopwire_radius", "300");
-ConVar hopwire_strength("hopwire_strength", "150");
+#ifndef EZ2
+ConVar hopwire_strength( "hopwire_strength", "150" );
+#endif
 ConVar hopwire_duration("hopwire_duration", "3.0");
 ConVar hopwire_pull_player("hopwire_pull_player", "1");
+#ifdef EZ2
+ConVar hopwire_strength( "hopwire_strength", "256" );
+ConVar hopwire_ragdoll_radius( "hopwire_ragdoll_radius", "96" );
+ConVar hopwire_spawn_life("hopwire_spawn_life", "1");
+ConVar hopwire_guard_mass("hopwire_guard_mass", "1500");
+ConVar hopwire_zombine_mass( "hopwire_zombine_mass", "800" );
+ConVar hopwire_bullsquid_mass("hopwire_bullsquid_mass", "500");
+ConVar hopwire_antlion_mass("hopwire_antlion_mass", "375");
+ConVar hopwire_zombie_mass( "hopwire_zombie_mass", "250" ); // TODO Zombies should require a rebel as an ingredient
+ConVar hopwire_babysquid_mass( "hopwire_babysquid_mass", "200" );
+ConVar hopwire_headcrab_mass("hopwire_headcrab_mass", "100");
+#endif
 
 ConVar g_debug_hopwire( "g_debug_hopwire", "0" );
 
@@ -57,6 +78,10 @@ private:
 	void	PullPlayersInRange( void );
 	bool	KillNPCInRange( CBaseEntity *pVictim, IPhysicsObject **pPhysObj );
 	void	CreateDenseBall( void );
+#ifdef EZ2
+	void	CreateXenLife( void ); // 1upD - Create headcrab or bullsquid 
+	bool	TryCreateNPC(const char *className, bool isBaby); // 1upD - Try to spawn an NPC
+#endif
 	void	PullThink( void );
 	void	StartPull( const Vector &origin, float radius, float strength, float duration );
 
@@ -82,6 +107,15 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	// Don't try to consume the player! What would even happen!?
 	if (pEnt->IsPlayer())
 		return;
+
+#ifdef EZ
+	// Don't consume barnacle parts! (Weird edge case)
+	CBarnacleTongueTip *pBarnacleTongueTip = dynamic_cast< CBarnacleTongueTip* >(pEnt);
+	if (pBarnacleTongueTip != NULL)
+	{
+		return;
+	}
+#endif
 
 	// Get our base physics object
 	IPhysicsObject *pPhysObject = pEnt->VPhysicsGetObject();
@@ -123,13 +157,22 @@ void CGravityVortexController::PullPlayersInRange( void )
 	if ( dist < 128.0f )
 	{
 		// Kill the player (with falling death sound and effects)
+#ifndef EZ2
 		CTakeDamageInfo deathInfo( this, this, GetAbsOrigin(), GetAbsOrigin(), 200, DMG_FALL );
+#else
+		CTakeDamageInfo deathInfo( this, this, GetAbsOrigin(), GetAbsOrigin(), 5, DMG_FALL );
+#endif
 		pPlayer->TakeDamage( deathInfo );
 		
 		if ( pPlayer->IsAlive() == false )
 		{
+#ifdef EZ2
+			color32 green = { 32, 252, 0, 255 };
+			UTIL_ScreenFade( pPlayer, green, 0.1f, 0.0f, (FFADE_OUT|FFADE_STAYOUT) );
+#else
 			color32 black = { 0, 0, 0, 255 };
 			UTIL_ScreenFade( pPlayer, black, 0.1f, 0.0f, (FFADE_OUT|FFADE_STAYOUT) );
+#endif
 			return;
 		}
 	}
@@ -211,6 +254,113 @@ void CGravityVortexController::CreateDenseBall( void )
 		pObj->SetMass( GetConsumedMass() );
 	}
 }
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: Creates a xen lifeform with a mass equal to the aggregate mass consumed by the vortex
+//-----------------------------------------------------------------------------
+void CGravityVortexController::CreateXenLife(void)
+{
+	if ( GetConsumedMass() >= hopwire_guard_mass.GetFloat() )
+	{
+		if ( TryCreateNPC( "npc_antlionguard", false ) )
+			return;
+	}
+	if ( GetConsumedMass() >= hopwire_zombine_mass.GetFloat() )
+	{
+		if ( TryCreateNPC( "npc_zombine", false ) )
+			return;
+	}
+	if ( GetConsumedMass() >= hopwire_bullsquid_mass.GetFloat() )
+	{
+		if ( TryCreateNPC( "npc_bullsquid", false ) )
+			return;
+	}
+	if ( GetConsumedMass() >= hopwire_antlion_mass.GetFloat() )
+	{
+		if ( TryCreateNPC( "npc_antlion", false ) )
+			return;
+	}
+	if ( GetConsumedMass() >= hopwire_zombie_mass.GetFloat() )
+	{
+		if ( TryCreateNPC( "npc_zombie", false ) )
+			return;
+	}
+	if (GetConsumedMass() >= hopwire_babysquid_mass.GetFloat())
+	{
+		if ( TryCreateNPC( "npc_bullsquid", true ) )
+			return;
+	}
+	if ( GetConsumedMass() >= hopwire_headcrab_mass.GetFloat() )
+	{
+		if ( TryCreateNPC( "npc_headcrab", false ) )
+			return;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Create an NPC if possible.
+//	Returns true if the NPC was created, false if no NPC created
+//-----------------------------------------------------------------------------
+bool CGravityVortexController::TryCreateNPC( const char *className, bool isBaby ) {
+	CBaseEntity * pEntity = CreateEntityByName( className );
+	CAI_BaseNPC * baseNPC = pEntity->MyNPCPointer();
+	if ( pEntity == NULL || baseNPC == NULL ) {
+		return false;
+	}
+
+	baseNPC->SetAbsOrigin( GetAbsOrigin() );
+	baseNPC->SetAbsAngles( GetAbsAngles() );
+	baseNPC->AddSpawnFlags( SF_NPC_FALL_TO_GROUND );
+	baseNPC->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
+	// Set the squad name of a new Xen NPC to 'xenpc_headcrab', 'xenpc_bullsquid', etc
+	char * squadname = UTIL_VarArgs( "xe%s", className );
+	DevMsg( "Adding xenpc '%s' to squad '%s' \n", baseNPC->GetDebugName(), squadname );
+	baseNPC->SetSquadName( AllocPooledString( squadname ) );
+	
+	// If the created NPC is a bullsquid or other predatory alien, make sure it has the appropriate fields set
+	CNPC_BasePredator * pPredator = dynamic_cast< CNPC_BasePredator * >( baseNPC );
+	if ( pPredator != NULL )
+	{
+		pPredator->setIsBaby( isBaby );
+		pPredator->InputSetWanderAlways( inputdata_t() );
+		pPredator->InputEnableSpawning( inputdata_t() );
+	}
+	
+	DispatchSpawn( baseNPC );
+
+	Vector vUpBit = baseNPC->GetAbsOrigin();
+	vUpBit.z += 1;
+	trace_t tr;
+	AI_TraceHull( baseNPC->GetAbsOrigin(), vUpBit, baseNPC->GetHullMins(), baseNPC->GetHullMaxs(),
+		MASK_NPCSOLID, baseNPC, COLLISION_GROUP_NONE, &tr );
+	if ( tr.startsolid || ( tr.fraction < 1.0 ) )
+	{
+		DevMsg( "Xen grenade can't create %s.  Bad Position!\n", className );
+		baseNPC->SUB_Remove();		
+		NDebugOverlay::Box( baseNPC->GetAbsOrigin(), baseNPC->GetHullMins(), baseNPC->GetHullMaxs(), 255, 0, 0, 0, 0 );
+		return false;
+	}
+
+	// Now that the XenPC was created successfully, play a sound and display a particle effect
+	EmitSound( "WeaponXenGrenade.SpawnXenPC" );
+	DispatchParticleEffect( "xenpc_spawn", baseNPC->WorldSpaceCenter(), baseNPC->GetAbsAngles(), baseNPC );
+
+	// XenPC - ACTIVATE! Especially important for antlion glows
+	baseNPC->Activate();
+
+	// Notify the NPC of the player's position
+	// Sometimes Xen grenade spawns just kind of hang out in one spot. They should always have at least one potential enemy to aggro
+	// XenPCs that are 'predators' don't need this because they already wander
+	CHL2_Player *pPlayer = (CHL2_Player *)UTIL_GetLocalPlayer();
+	if ( pPredator == NULL && pPlayer != NULL )
+	{
+		DevMsg( "Updating xenpc '%s' enemy memory \n", baseNPC->GetDebugName(), squadname );
+		baseNPC->UpdateEnemyMemory( pPlayer, pPlayer->GetAbsOrigin(), this );
+	}
+
+	return true;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Pulls physical objects towards the vortex center, killing them if they come too near
@@ -241,6 +391,62 @@ void CGravityVortexController::PullThink( void )
 
 		IPhysicsObject *pPhysObject = NULL;
 
+#ifdef EZ2
+		Vector	vecForce = GetAbsOrigin() - pEnts[i]->WorldSpaceCenter();
+		Vector	vecForce2D = vecForce;
+		vecForce2D[2] = 0.0f;
+		float	dist2D = VectorNormalize( vecForce2D );
+		float	dist = VectorNormalize( vecForce );
+		
+		// First, pull npcs outside of the ragdoll radius towards the vortex
+		if ( abs( dist ) > hopwire_ragdoll_radius.GetFloat() ) 
+		{
+			CAI_BaseNPC * pNPC = pEnts[i]->MyNPCPointer();
+			if (pEnts[i]->IsNPC() && pNPC != NULL && pNPC->CanBecomeRagdoll())
+			{
+				// Find the pull force
+				vecForce *= (1.0f - (dist2D / m_flRadius)) * m_flStrength;
+				pNPC->ApplyAbsVelocityImpulse( vecForce );
+				// We already handled this NPC, move on
+				continue;
+			}
+		}
+		if ( KillNPCInRange( pEnts[i], &pPhysObject ) )
+		{
+			DevMsg( "Xen grenade turned NPC '%s' into a ragdoll! \n", pEnts[i]->GetDebugName() );
+		}
+		else
+		{
+			// If we didn't have a valid victim, see if we can just get the vphysics object
+			pPhysObject = pEnts[i]->VPhysicsGetObject();
+			if ( pPhysObject == NULL )
+			{
+				continue;
+			}
+		}
+
+		float mass = 0.0f;
+
+		CRagdollProp * pRagdoll = dynamic_cast< CRagdollProp* >( pEnts[i] );
+		ragdoll_t * pRagdollPhys = NULL;
+		if (pRagdoll != NULL)
+		{
+			pRagdollPhys = pRagdoll->GetRagdoll();
+		}
+
+		if( pRagdollPhys != NULL)
+		{			
+			// Find the aggregate mass of the whole ragdoll
+			for ( int j = 0; j < pRagdollPhys->listCount; ++j )
+			{
+				mass += pRagdollPhys->list[j].pObject->GetMass();
+			}
+		}
+		else if ( pPhysObject != NULL )
+		{
+			mass = pPhysObject->GetMass();
+		}
+#else
 		// Attempt to kill and ragdoll any victims in range
 		if ( KillNPCInRange( pEnts[i], &pPhysObject ) == false )
 		{	
@@ -268,13 +474,12 @@ void CGravityVortexController::PullThink( void )
 		{
 			mass = pPhysObject->GetMass();
 		}
-
 		Vector	vecForce = GetAbsOrigin() - pEnts[i]->WorldSpaceCenter();
 		Vector	vecForce2D = vecForce;
 		vecForce2D[2] = 0.0f;
 		float	dist2D = VectorNormalize( vecForce2D );
 		float	dist = VectorNormalize( vecForce );
-		
+#endif
 		// FIXME: Need a more deterministic method here
 		if ( dist < 48.0f )
 		{
@@ -304,8 +509,15 @@ void CGravityVortexController::PullThink( void )
 	}
 	else
 	{
+#ifdef EZ2
+		DevMsg( "Consumed %.2f kilograms\n", m_flMass );
+		// Spawn Xen lifeform
+		if ( hopwire_spawn_life.GetBool() )
+			CreateXenLife();
+#else
 		//Msg( "Consumed %.2f kilograms\n", m_flMass );
 		//CreateDenseBall();
+#endif
 	}
 }
 
@@ -318,6 +530,11 @@ void CGravityVortexController::StartPull( const Vector &origin, float radius, fl
 	m_flEndTime	= gpGlobals->curtime + duration;
 	m_flRadius	= radius;
 	m_flStrength= strength;
+
+#ifdef EZ2
+	// Play a danger sound throughout the duration of the vortex so that NPCs run away
+	CSoundEnt::InsertSound ( SOUND_DANGER, GetAbsOrigin(), radius, duration, this );
+#endif
 
 	SetThink( &CGravityVortexController::PullThink );
 	SetNextThink( gpGlobals->curtime + 0.1f );
@@ -350,8 +567,13 @@ END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( vortex_controller, CGravityVortexController );
 
+#ifdef EZ2
+#define GRENADE_MODEL_CLOSED	"models/weapons/w_XenGrenade.mdl" // was roller.mdl
+#define GRENADE_MODEL_OPEN		"models/weapons/w_XenGrenade.mdl" // was roller_spikes.mdl
+#else
 #define GRENADE_MODEL_CLOSED	"models/roller.mdl"
 #define GRENADE_MODEL_OPEN		"models/roller_spikes.mdl"
+#endif
 
 BEGIN_DATADESC( CGrenadeHopwire )
 	DEFINE_FIELD( m_hVortexController, FIELD_EHANDLE ),
@@ -409,9 +631,23 @@ void CGrenadeHopwire::Precache( void )
 	//PrecacheSound("d3_citadel.weapon_zapper_beam_loop2");
 
 	PrecacheModel( szWorldModelOpen );
-	PrecacheModel(szWorldModelClosed );
-	
+	PrecacheModel( szWorldModelClosed );
+
+#ifndef EZ2	
 	PrecacheModel( DENSE_BALL_MODEL );
+#else
+	PrecacheScriptSound( "WeaponXenGrenade.Explode" );
+	PrecacheScriptSound( "WeaponXenGrenade.SpawnXenPC" );
+
+	PrecacheParticleSystem( "xenpc_spawn" );
+
+	UTIL_PrecacheXenVariant( "npc_headcrab" );
+	UTIL_PrecacheXenVariant( "npc_zombie" );
+	UTIL_PrecacheXenVariant( "npc_antlion" );
+	UTIL_PrecacheXenVariant( "npc_bullsquid" );
+	UTIL_PrecacheXenVariant( "npc_zombine" );
+	UTIL_PrecacheXenVariant( "npc_antlionguard" );
+#endif
 
 	BaseClass::Precache();
 }
@@ -512,17 +748,26 @@ void CGrenadeHopwire::CombatThink( void )
 	SetAbsVelocity( vec3_origin );
 	SetMoveType( MOVETYPE_NONE );
 
+#ifndef EZ2 // No special behavior for striders in EZ2 - wouldn't want to Xen Grenade our allies!
 	// Do special behaviors if there are any striders in the area
 	KillStriders();
+#endif
 
 	// FIXME: Replace
+#ifndef EZ2
 	EmitSound("NPC_Strider.Charge"); // Sound to emit during detonation
+#endif
 	//EmitSound("d3_citadel.weapon_zapper_beam_loop2");
 
 	// Quick screen flash
 	CBasePlayer *pPlayer = ToBasePlayer( GetThrower() );
+#ifdef EZ2
+	color32 green = { 32,252,0,100 }; // my bits Xen Green - was 255,255,255,255
+	UTIL_ScreenFade( pPlayer, green, 0.2f, 0.0f, FFADE_IN );
+#else
 	color32 white = { 255,255,255,255 };
 	UTIL_ScreenFade( pPlayer, white, 0.2f, 0.0f, FFADE_IN );
+#endif
 
 	// Create the vortex controller to pull entities towards us
 	if ( hopwire_vortex.GetBool() )
@@ -564,14 +809,23 @@ void CGrenadeHopwire::SetVelocity( const Vector &velocity, const AngularImpulse 
 //-----------------------------------------------------------------------------
 void CGrenadeHopwire::Detonate( void )
 {
+#ifndef EZ2
 	EmitSound("NPC_Strider.Shoot"); // Sound to emit before detonating
-	SetModel(szWorldModelOpen);
+	SetModel( szWorldModelOpen );
+#else
+	EmitSound("WeaponXenGrenade.Explode");
+	SetModel( szWorldModelOpen );
+#endif
 
 	AngularImpulse	hopAngle = RandomAngularImpulse( -300, 300 );
 
 	//Find out how tall the ceiling is and always try to hop halfway
 	trace_t	tr;
+#ifndef EZ2
 	UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + Vector( 0, 0, MAX_HOP_HEIGHT*2 ), MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
+#else
+	UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + Vector( 0, 0, MAX_HOP_HEIGHT*2 ), MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
+#endif
 
 	// Jump half the height to the found ceiling
 	float hopHeight = MIN( MAX_HOP_HEIGHT, (MAX_HOP_HEIGHT*tr.fraction) );

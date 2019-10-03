@@ -42,6 +42,10 @@
 //#include "Portal_PhysicsEnvironmentMgr.h"
 #endif
 
+#ifdef EZ
+#include "ai_basenpc.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -1801,6 +1805,40 @@ void UTIL_PrecacheOther( const char *szClassname, const char *modelName )
 
 	UTIL_RemoveImmediate( pEntity );
 }
+
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *szClassname - 
+//			*modelName - 
+//-----------------------------------------------------------------------------
+void UTIL_PrecacheXenVariant( const char *szClassname )
+{
+#if defined( PRECACHE_OTHER_ONCE )
+	// already done this one?, if not, mark as done
+	if (!g_PrecacheOtherList.AddOrMarkPrecached( szClassname ))
+		return;
+#endif
+
+	CBaseEntity	*pEntity = CreateEntityByName( szClassname );
+	if (!pEntity)
+	{
+		Warning( "NULL Ent in UTIL_PrecacheOther\n" );
+		return;
+	}
+
+	// If this entity is an NPC, apply the EZ variant to the NPC before precaching
+	if (pEntity->MyNPCPointer() != NULL)
+	{
+		pEntity->MyNPCPointer()->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
+	}
+
+	if (pEntity)
+		pEntity->Precache();
+
+	UTIL_RemoveImmediate( pEntity );
+}
+#endif
 
 #ifdef MAPBASE
 //-----------------------------------------------------------------------------

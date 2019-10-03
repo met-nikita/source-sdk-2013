@@ -6861,6 +6861,13 @@ void CAI_HunterEscortBehavior::StartTask( const Task_t *pTask )
 		{
 			if ( GetEnemy() )
 			{
+				// 1upD - GetOuter()->GetSquad() should be null safe
+				if (GetOuter()->GetSquad() == NULL)
+				{
+					DevMsg("Hunter %s escort behavior tried to access NULL squad! Hunter %s will refuse to escort until given a squad!\n", GetOuter()->GetDebugName(), GetOuter()->GetDebugName());
+					break;
+				}
+
 				if ( GetOuter()->OccupyStrategySlot( SQUAD_SLOT_RUN_SHOOT ) )
 				{
 					if ( GetOuter()->GetSquad()->GetSquadMemberNearestTo( GetEnemy()->GetAbsOrigin() ) == GetOuter() )
@@ -6916,7 +6923,12 @@ void CAI_HunterEscortBehavior::RunTask( const Task_t *pTask )
 							{
 								if ( !bHasSlot )
 								{
-									if ( GetOuter()->OccupyStrategySlot( SQUAD_SLOT_RUN_SHOOT ) )
+									// 1upD - GetOuter()->GetSquad() should be null safe
+									if (GetOuter()->GetSquad() == NULL)
+									{
+										DevMsg("Hunter %s escort behavior tried to access NULL squad! Hunter %s will refuse to escort until given a squad!\n", GetOuter()->GetDebugName(), GetOuter()->GetDebugName());
+									}
+									else if ( GetOuter()->OccupyStrategySlot( SQUAD_SLOT_RUN_SHOOT ) )
 									{
 										if ( GetOuter()->GetSquad()->GetSquadMemberNearestTo( GetEnemy()->GetAbsOrigin() ) == GetOuter() )
 										{
