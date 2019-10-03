@@ -268,8 +268,8 @@ public:
 				this->m_bSilenced = true;
 			}
 
-			this->m_flNextSecondaryAttack = gpGlobals->curtime + SequenceDuration();
-			this->m_flNextPrimaryAttack = gpGlobals->curtime + SequenceDuration();
+			this->m_flNextSecondaryAttack = gpGlobals->curtime + this->SequenceDuration();
+			this->m_flNextPrimaryAttack = gpGlobals->curtime + this->SequenceDuration();
 		}
 	}
 
@@ -389,10 +389,10 @@ public:
 
 			// Call the think function directly so that the first round gets fired immediately.
 			this->BurstThink();
-			SetThink( &CBase_CSS_HL2_BurstableWeapon<BASE_WEAPON>::BurstThink );
+			this->SetThink( &CBase_CSS_HL2_BurstableWeapon<BASE_WEAPON>::BurstThink );
 
 			// Pick up the rest of the burst through the think function.
-			this->SetNextThink( gpGlobals->curtime + GetFireRate() );
+			this->SetNextThink( gpGlobals->curtime + this->GetFireRate() );
 		}
 		else
 		{
@@ -442,7 +442,7 @@ public:
 		if( this->m_iBurstSize == 0 )
 		{
 			// The burst is over!
-			SetThink(NULL);
+			this->SetThink(NULL);
 
 			FinishBurst();
 
@@ -451,7 +451,7 @@ public:
 			return;
 		}
 
-		SetNextThink( gpGlobals->curtime + this->GetFireRate() );
+		this->SetNextThink( gpGlobals->curtime + this->GetFireRate() );
 	}
 
 	void InputSetBurstMode( inputdata_t &inputdata )
@@ -537,7 +537,7 @@ public:
 		if (this->CanUseScope() == false)
 			return;
 
-		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+		CBasePlayer *pPlayer = ToBasePlayer( this->GetOwner() );
 
 		if (pPlayer->m_afButtonPressed & IN_ATTACK2)
 		{
@@ -616,7 +616,7 @@ public:
 			}
 		}
 
-		WeaponSound( SPECIAL3 );
+		this->WeaponSound( SPECIAL3 );
 
 		// Scope overlay handled by CBase_CSS_HL2_SniperRifle
 	}

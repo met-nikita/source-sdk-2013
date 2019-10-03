@@ -170,7 +170,7 @@ enum SquadSlot_T
 #ifdef EZ
 	SQUAD_SLOT_CITIZEN_INVESTIGATE,
 	SQUAD_SLOT_CITIZEN_ADVANCE
-#endif EZ
+#endif
 };
 
 const float HEAL_MOVE_RANGE = 30*12;
