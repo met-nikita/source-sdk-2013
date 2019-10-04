@@ -49,6 +49,10 @@ class CNPC_Wilson : public CAI_WilsonBase, public CDefaultPlayerPickupVPhysics, 
 	DECLARE_DATADESC();
 public:
 	CNPC_Wilson();
+	~CNPC_Wilson();
+
+	static CNPC_Wilson *GetWilson( void );
+	CNPC_Wilson *m_pNext;
 
 	void	Precache();
 	void	Spawn();
@@ -88,6 +92,7 @@ public:
 	void			NPCThink();
 	void			PrescheduleThink( void );
 	void			GatherConditions( void );
+	void			GatherEnemyConditions( CBaseEntity *pEnemy );
 
 	// Wilson hardly cares about his NPC state because he's just a vessel for choreography and player attachment, not a useful combat ally.
 	// This means we redirect SelectIdleSpeech() and SelectAlertSpeech() to the same function. Sure, we could've marked SelectNonCombatSpeech() virtual
@@ -124,6 +129,8 @@ public:
 	virtual void    PostConstructor(const char *szClassname);
 	virtual CAI_Expresser *CreateExpresser(void);
 	virtual CAI_Expresser *GetExpresser() { return m_pExpresser;  }
+
+	void			InputAnswerQuestion( inputdata_t &inputdata );
 
 	int		BloodColor( void ) { return DONT_BLEED; }
 

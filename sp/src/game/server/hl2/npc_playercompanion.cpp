@@ -1977,11 +1977,10 @@ bool CNPC_PlayerCompanion::IsReadinessCapable()
 			pWeapon->ActivityOverride( ACT_IDLE_AGITATED, NULL ) == ACT_IDLE_AGITATED )
 			return false;
 
-#ifdef MAPBASE
+		if (LookupActivity( "ACT_IDLE_AIM_RIFLE_STIMULATED" ) == ACT_INVALID)
+			return false;
+
 		if (EntIsClass(GetActiveWeapon(), gm_isz_class_RPG))
-#else
-		if (FClassnameIs( GetActiveWeapon(), "weapon_rpg" ))
-#endif
 			return false;
 	}
 #else

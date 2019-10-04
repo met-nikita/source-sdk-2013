@@ -2,6 +2,9 @@
 #include "ez2_player.h"
 #include "ai_squad.h"
 #include "basegrenade_shared.h"
+#include "in_buttons.h"
+#include "npc_wilson.h"
+#include "eventqueue.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -17,6 +20,10 @@ BEGIN_DATADESC(CEZ2_Player)
 	DEFINE_FIELD(m_hNPCComponent, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flNextSpeechTime, FIELD_TIME),
 	DEFINE_FIELD(m_hSpeechFilter, FIELD_EHANDLE),
+
+	DEFINE_EMBEDDED( m_MemoryComponent ),
+
+	DEFINE_FIELD(m_hSpeechTarget, FIELD_EHANDLE),
 
 	// These don't need to be saved
 	//DEFINE_FIELD(m_iVisibleEnemies, FIELD_INTEGER),
@@ -37,7 +44,7 @@ END_SEND_TABLE()
 #define PLAYER_MIN_MOB_DIST_SQR Square(192)
 
 // How many close enemies there has to be before it's considered a "mob".
-#define PLAYER_ENEMY_MOB_COUNT 3
+#define PLAYER_ENEMY_MOB_COUNT 4
 
 #define SPEECH_AI_INTERVAL_IDLE 0.5f
 #define SPEECH_AI_INTERVAL_ALERT 0.25f
@@ -93,13 +100,13 @@ void CEZ2_Player::UpdateOnRemove( void )
 //-----------------------------------------------------------------------------
 // Purpose: Event fired upon picking up a new weapon
 //-----------------------------------------------------------------------------
-void CEZ2_Player::OnPickupWeapon(CBaseCombatWeapon * pNewWeapon)
+void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 {
-	AI_CriteriaSet modifiers;
-	ModifyOrAppendWeaponCriteria(modifiers, pNewWeapon);
-	SpeakIfAllowed(TLK_NEWWEAPON, modifiers);
+	BaseClass::Weapon_Equip( pWeapon );
 
-	BaseClass::OnPickupWeapon(pNewWeapon);
+	AI_CriteriaSet modifiers;
+	ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
+	SpeakIfAllowed(TLK_NEWWEAPON, modifiers);
 }
 
 //-----------------------------------------------------------------------------
@@ -107,6 +114,10 @@ void CEZ2_Player::OnPickupWeapon(CBaseCombatWeapon * pNewWeapon)
 //-----------------------------------------------------------------------------
 int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 {
+	// Record memory stuff
+	GetMemoryComponent()->RecordEngagementStart();
+	GetMemoryComponent()->InitLastDamage(info);
+
 	AI_CriteriaSet modifiers;
 	ModifyOrAppendDamageCriteria(modifiers, info);
 	SpeakIfAllowed(TLK_WOUND, modifiers);
@@ -232,6 +243,15 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 		}
 	}
 
+	if (IsInAVehicle())
+		criteriaSet.AppendCriteria("in_vehicle", GetVehicleEntity()->GetClassname());
+	else
+		criteriaSet.AppendCriteria("in_vehicle", "0");
+
+	// Use our speech target's criteris if we should
+	if (GetSpeechTarget() && !IsCriteriaModified(PLAYERCRIT_SPEECHTARGET))
+		ModifyOrAppendSpeechTargetCriteria(criteriaSet, GetSpeechTarget());
+
 	// Reset this now that we're appending general criteria
 	ResetPlayerCriteria();
 
@@ -254,12 +274,16 @@ void CEZ2_Player::ModifyOrAppendDamageCriteria(AI_CriteriaSet & set, const CTake
 	set.AppendCriteria("damage", UTIL_VarArgs("%i", (int)info.GetDamage()));
 	set.AppendCriteria("damage_type", UTIL_VarArgs("%i", info.GetDamageType()));
 
+	if (info.GetInflictor())
+	{
+		CBaseEntity *pInflictor = info.GetInflictor();
+		set.AppendCriteria("inflictor", pInflictor->GetClassname());
+		set.AppendCriteria("inflictor_is_physics", pInflictor->GetMoveType() == MOVETYPE_VPHYSICS ? "1" : "0");
+	}
+
 	// Are we the one getting damaged?
 	if (bPlayer)
 	{
-		if (info.GetInflictor())
-			set.AppendCriteria("inflictor_is_physics", info.GetInflictor()->GetMoveType() == MOVETYPE_VPHYSICS ? "1" : "0");
-
 		// This technically doesn't need damage info, but whatever.
 		set.AppendCriteria("hitgroup", UTIL_VarArgs("%i", LastHitGroup()));
 
@@ -278,9 +302,19 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 	{
 		set.AppendCriteria("enemy", pEnemy->GetClassname());
 		set.AppendCriteria("distancetoenemy", UTIL_VarArgs("%f", GetAbsOrigin().DistTo((pEnemy->GetAbsOrigin()))));
-		set.AppendCriteria("enemy_is_npc", pEnemy->IsNPC() ? "1" : "0" );
-
 		set.AppendCriteria("enemy_visible", (FInViewCone(pEnemy) && FVisible(pEnemy)) ? "1" : "0");
+
+		CAI_BaseNPC *pNPC = pEnemy->MyNPCPointer();
+		if (pNPC)
+		{
+			set.AppendCriteria("enemy_is_npc", "1");
+
+			set.AppendCriteria("ezvariant", UTIL_VarArgs("%i", pNPC->m_tEzVariant));
+		}
+		else
+		{
+			set.AppendCriteria("enemy_is_npc", "0");
+		}
 	}
 	else
 	{
@@ -297,9 +331,32 @@ void CEZ2_Player::ModifyOrAppendSquadCriteria(AI_CriteriaSet& set)
 {
 	MarkCriteria(PLAYERCRIT_SQUAD);
 
-	if (GetSquadCommandRepresentative() != NULL)
+	CAI_BaseNPC *pRepresentative = GetSquadCommandRepresentative();
+	if (pRepresentative != NULL)
 	{
-		set.AppendCriteria("squadmembers", UTIL_VarArgs("%i", GetNumSquadCommandables()));
+		if (pRepresentative->GetCommandGoal() != vec3_invalid)
+			set.AppendCriteria("squad_mode", "1"); // Send
+		else
+			set.AppendCriteria("squad_mode", "0"); // Follow
+
+		// Get criteria related to individual squad members
+		int iNumSquadCommandables = 0;
+		//bool bSquadInPVS = false;
+		AISquadIter_t iter;
+		for (CAI_BaseNPC *pAllyNpc = GetPlayerSquad()->GetFirstMember( &iter ); pAllyNpc; pAllyNpc = GetPlayerSquad()->GetNextMember( &iter ))
+		{
+			// Non-commandable player squad members count here
+			//if (pAllyNpc->HasCondition( COND_IN_PVS ))
+			//	bSquadInPVS = true;
+
+			if (pAllyNpc->IsCommandable())
+				iNumSquadCommandables++;
+		}
+
+		set.AppendCriteria("squadmembers", UTIL_VarArgs("%i", iNumSquadCommandables));
+
+		//if (bSquadInPVS)
+		//	set.AppendCriteria("squad_in_pvs", "1");
 	}
 	else
 	{
@@ -314,15 +371,24 @@ void CEZ2_Player::ModifyOrAppendWeaponCriteria(AI_CriteriaSet& set, CBaseEntity 
 {
 	MarkCriteria(PLAYERCRIT_WEAPON);
 
+	// If pWeapon is valid, it means we're supposed to use a specific weapon
+	// If it's not valid, it means we're supposed to use our currently active weapon
 	if (pWeapon)
 	{
-		if (pWeapon != GetActiveWeapon())
-		{
-			// Re-append weapon criteria normally already created by
-			// the active weapon
-			set.AppendCriteria("weapon", pWeapon->GetClassname());
-		}
+		if (pWeapon == GetActiveWeapon())
+			return;
+
+		// Re-append weapon criteria normally already created by
+		// the active weapon
+		set.AppendCriteria( "weapon", pWeapon->GetClassname() );
 	}
+	else
+		pWeapon = GetActiveWeapon();
+
+	//if (pWeapon)
+	//{
+	//	// More weapon criteria here
+	//}
 }
 
 //-----------------------------------------------------------------------------
@@ -339,6 +405,9 @@ void CEZ2_Player::ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseE
 
 	set.AppendCriteria( "speechtarget_visible", (FInViewCone(pTarget) && FVisible(pTarget)) ? "1" : "0" );
 
+	// Append their contexts
+	pTarget->AppendContextToCriteria(set, "speechtarget_");
+
 	if (pTarget->IsNPC())
 	{
 		CAI_BaseNPC *pNPC = pTarget->MyNPCPointer();
@@ -351,6 +420,54 @@ void CEZ2_Player::ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseE
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CBaseEntity *CEZ2_Player::FindSpeechTarget()
+{
+	const Vector &	vAbsOrigin = GetAbsOrigin();
+	float 			closestDistSq = FLT_MAX;
+	CBaseEntity *	pNearest = NULL;
+	float			distSq;
+
+	// First, search for Will-E
+	for (CNPC_Wilson *pWilson = CNPC_Wilson::GetWilson(); pWilson != NULL; pWilson = pWilson->m_pNext)
+	{
+		if (!pWilson->IsPlayerAlly())
+			continue;
+
+		distSq = (vAbsOrigin - pWilson->GetAbsOrigin()).LengthSqr();
+		if ( distSq > Square(TALKRANGE_MIN) || distSq > closestDistSq )
+			continue;
+
+		if (pWilson->IsAlive() && !pWilson->IsInAScript() && !pWilson->HasSpawnFlags(SF_NPC_GAG))
+		{
+			closestDistSq = distSq;
+			pNearest = pWilson;
+		}
+	}
+
+	// Next, search our squad
+	AISquadIter_t iter;
+	for (CAI_BaseNPC *pAllyNpc = GetPlayerSquad()->GetFirstMember( &iter ); pAllyNpc; pAllyNpc = GetPlayerSquad()->GetNextMember( &iter ))
+	{
+		if (!pAllyNpc->HasCondition( COND_IN_PVS ))
+			continue;
+
+		distSq = (vAbsOrigin - pAllyNpc->GetAbsOrigin()).LengthSqr();
+		if ( distSq > Square(TALKRANGE_MIN) || distSq > closestDistSq )
+			continue;
+
+		if (pAllyNpc->IsAlive() && pAllyNpc->CanBeUsedAsAFriend() && !pAllyNpc->IsInAScript() && !pAllyNpc->HasSpawnFlags(SF_NPC_GAG))
+		{
+			closestDistSq = distSq;
+			pNearest = pAllyNpc;
+		}
+	}
+
+	return pNearest;
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Check if the given concept can be spoken
 //-----------------------------------------------------------------------------
 bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
@@ -359,7 +476,7 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 		return false;
 
 	if (!GetExpresser()->CanSpeak())
-			return false;
+		return false;
 
 	if (concept)
 	{
@@ -432,6 +549,43 @@ bool CEZ2_Player::SelectSpeechResponse( AIConcept_t concept, AI_CriteriaSet *mod
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CEZ2_Player::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response )
+{
+	if (GetSpeechTarget() && GetSpeechTarget()->IsAlive())
+	{
+		// Notify the speech target for a response
+		variant_t variant;
+		variant.SetString(AllocPooledString(concept));
+		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerQuestion", variant, (GetExpresser()->GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.5f, 1.0f), this, this);
+	}
+
+	// Clear our speech target for the next concept
+	SetSpeechTarget( NULL );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::InputAnswerQuestion( inputdata_t &inputdata )
+{
+	// Complex Q&A
+	if (inputdata.pActivator)
+	{
+		AI_CriteriaSet modifiers;
+
+		SetSpeechTarget(inputdata.pActivator);
+		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
+
+		// Speech target contexts are now appended automatically. Use "speechtarget_question_id"
+		//modifiers.AppendCriteria("target_question_id", inputdata.pActivator->GetContextValue("question_id"));
+
+		SpeakIfAllowed(TLK_ANSWER, modifiers);
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 CAI_Expresser *CEZ2_Player::CreateExpresser(void)
 {
 	m_pExpresser = new CAI_Expresser(this);
@@ -450,6 +604,8 @@ void CEZ2_Player::PostConstructor(const char *szClassname)
 	BaseClass::PostConstructor(szClassname);
 	CreateExpresser();
 	CreateNPCComponent();
+
+	GetMemoryComponent()->SetOuter(this);
 }
 
 //-----------------------------------------------------------------------------
@@ -473,7 +629,7 @@ void CEZ2_Player::CreateNPCComponent()
 	}
 	else
 	{
-		// Their outer isn't saved
+		// Their outer is saved now, but double-check
 		m_hNPCComponent->SetOuter(this);
 	}
 }
@@ -513,18 +669,50 @@ void CEZ2_Player::Event_KilledOther(CBaseEntity *pVictim, const CTakeDamageInfo 
 
 	AI_CriteriaSet modifiers;
 
-	// Don't apply enemy criteria from the attacker! WE'RE the attacker!
+	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 	ModifyOrAppendDamageCriteria(modifiers, info, false);
 
-	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
-
-	if (pVictim->IsNPC() && pVictim->MyNPCPointer()->GetExpresser())
+	// Combat character stuff
+	if (CBaseCombatCharacter *pBCC = pVictim->MyCombatCharacterPointer())
 	{
-		// That's enough outta you.
-		if (pVictim->MyNPCPointer()->GetExpresser()->IsSpeaking())
-			modifiers.AppendCriteria("enemy_is_speaking", "1");
+		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", pBCC->LastHitGroup()));
+
+		// Was the enemy afraid of Bad Cop?
+		// (also used to find citizens with low willpower)
+		if (pBCC->IRelationType(this) == D_FR)
+			modifiers.AppendCriteria("enemy_fears_me", "1");
+
+		if (pBCC->IsOnFire())
+			modifiers.AppendCriteria("enemy_on_fire", "1");
+
+		// NPC stuff
+		if (CAI_BaseNPC *pNPC = pVictim->MyNPCPointer())
+		{
+			if (pNPC->GetExpresser())
+			{
+				// That's enough outta you.
+				if (pNPC->GetExpresser()->IsSpeaking())
+					modifiers.AppendCriteria("enemy_is_speaking", "1");
+			}
+		}
 	}
 
+	// Is this the last enemy we know about?
+	if (m_iVisibleEnemies <= 1 && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
+	{
+		// Append our pre-engagement conditions
+		modifiers.AppendCriteria( "prev_health_diff", UTIL_VarArgs( "%i", GetHealth() - GetMemoryComponent()->GetPrevHealth() ) );
+
+		// Was this the one who made Bad Cop pissed 5 seconds ago?
+		if (pVictim == GetMemoryComponent()->GetLastDamageAttacker() && gpGlobals->curtime - GetLastDamageTime() < 5.0f)
+		{
+			modifiers.AppendCriteria("enemy_revenge", "1");
+			GetMemoryComponent()->AppendLastDamageCriteria( modifiers );
+		}
+	}
+
+	// Find us a random speech target
+	SetSpeechTarget(FindSpeechTarget());
 
 	SpeakIfAllowed(TLK_ENEMY_DEAD, modifiers);
 }
@@ -557,7 +745,7 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 		AI_CriteriaSet modifiers;
 		ModifyOrAppendDamageCriteria(modifiers, info, false);
 		ModifyOrAppendEnemyCriteria(modifiers, pVictim);
-		ModifyOrAppendSpeechTargetCriteria(modifiers, info.GetAttacker());
+		SetSpeechTarget(info.GetAttacker());
 
 		// Look, I know the roles are supposed to be swapped for this concept, but
 		// just interpret "TLK_PLAYER_KILLED_NPC" as a "player TLK" that fires when
@@ -577,7 +765,7 @@ void CEZ2_Player::AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info)
 
 	ModifyOrAppendDamageCriteria(modifiers, info, false);
 	ModifyOrAppendEnemyCriteria(modifiers, info.GetAttacker());
-	ModifyOrAppendSpeechTargetCriteria(modifiers, pVictim);
+	SetSpeechTarget(pVictim);
 
 	SpeakIfAllowed(TLK_ALLY_KILLED, modifiers);
 }
@@ -585,11 +773,21 @@ void CEZ2_Player::AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info)
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEZ2_Player::InputAnswerQuestion( inputdata_t &inputdata )
+void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )
 {
 	AI_CriteriaSet modifiers;
-	modifiers.AppendCriteria("target_concept", inputdata.value.String());
-	SpeakIfAllowed(TLK_ANSWER, modifiers);
+
+	ModifyOrAppendEnemyCriteria(modifiers, pEnemy);
+
+	SpeakIfAllowed(TLK_STARTCOMBAT, modifiers);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Event_ThrewGrenade()
+{
+	SpeakIfAllowed("TLK_THROWGRENADE");
 }
 
 //-----------------------------------------------------------------------------
@@ -693,6 +891,9 @@ void CEZ2_Player::DoSpeechAI( void )
 
 		if (iChance >= RandomInt(0, 10))
 		{
+			// Find us a random speech target
+			SetSpeechTarget(FindSpeechTarget());
+
 			switch (iState)
 			{
 				case NPC_STATE_IDLE:
@@ -712,8 +913,11 @@ void CEZ2_Player::DoSpeechAI( void )
 bool CEZ2_Player::DoIdleSpeech()
 {
 	float flHealthPerc = ((float)m_iHealth / (float)m_iMaxHealth);
-	if ( flHealthPerc < 1.0 )
+	if ( flHealthPerc < 0.5f )
 	{
+		// Find us a random speech target
+		SetSpeechTarget(FindSpeechTarget());
+
 		// Bad Cop could be feeling pretty shit.
 		if ( SpeakIfAllowed( TLK_PLHURT ) )
 			return true;
@@ -777,11 +981,25 @@ bool CEZ2_Player::DoCombatSpeech()
 		if (SpeakIfAllowed( TLK_MOBBED ))
 			return true;
 	}
-	else if ( m_iVisibleEnemies > 4 )
+	else if ( m_iVisibleEnemies >= 5 )
 	{
-		// 4 probably isn't a lot for Bad Cop, but this can be adjusted in response criteria
-		if (SpeakIfAllowed( TLK_MANY_ENEMIES ))
-			return true;
+		if (GetEnemy() && GetEnemy()->GetEnemy() == this)
+		{
+			// Bad Cop sees 5+ enemies and they (or at least one) are targeting him in particular
+			// (indicates they're not idle and not distracted)
+			if (SpeakIfAllowed( TLK_MANY_ENEMIES ))
+				return true;
+		}
+	}
+
+	if ( m_nButtons & IN_RELOAD && GetActiveWeapon() )
+	{
+		if (GetActiveWeapon()->m_bInReload)
+		{
+			// Bad Cop announces reloading
+			if (SpeakIfAllowed( TLK_HIDEANDRELOAD ))
+				return true;
+		}
 	}
 
 	return false;
@@ -803,12 +1021,12 @@ void CEZ2_Player::MeasureEnemies(int &iVisibleEnemies, int &iCloseEnemies)
 	iCloseEnemies = 0;
 
 	// This is a simplified version of Alyx's mobbed AI found in CNPC_Alyx::DoMobbedCombatAI().
-	// This isn't expensive. I recommend taking a look at Alyx's version for yourself and keep in mind this doesn't run as often as her's.
+	// This isn't as expensive as it looks.
 	AIEnemiesIter_t iter;
 	for ( AI_EnemyInfo_t *pEMemory = pEnemies->GetFirst(&iter); pEMemory != NULL; pEMemory = pEnemies->GetNext(&iter) )
 	{
 		if ( IRelationType( pEMemory->hEnemy ) <= D_FR && pEMemory->hEnemy->GetAbsOrigin().DistToSqr(GetAbsOrigin()) <= PLAYER_MIN_ENEMY_CONSIDER_DIST &&
-			pEMemory->hEnemy->IsAlive() && gpGlobals->curtime - pEMemory->timeLastSeen <= 0.5f && pEMemory->hEnemy->Classify() != CLASS_BULLSEYE )
+			pEMemory->hEnemy->IsAlive() && gpGlobals->curtime - pEMemory->timeLastSeen <= 5.0f && pEMemory->hEnemy->Classify() != CLASS_BULLSEYE )
 		{
 			iVisibleEnemies += 1;
 
@@ -881,6 +1099,59 @@ bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 	}
 
 	return false;
+}
+
+//=============================================================================
+// Bad Cop Memory Component
+// By Blixibon
+// 
+// Carries miscellaneous "memory" information that Bad Cop should remember later on for dialogue.
+// For example, the player's health is recorded before they begin combat.
+// When combat ends, the response system subtracts the current health from the health recorded here.
+//=============================================================================
+BEGIN_SIMPLE_DATADESC( CEZ2_PlayerMemory )
+	DEFINE_FIELD( m_bInEngagement, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_iPrevHealth, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iLastDamageType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iLastDamageAmount, FIELD_INTEGER ),
+	DEFINE_FIELD( m_hLastDamageAttacker, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hOuter, FIELD_EHANDLE ),
+END_DATADESC()
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_PlayerMemory::InitLastDamage(const CTakeDamageInfo &info)
+{
+	m_iLastDamageType = info.GetDamageType();
+	m_iLastDamageAmount = (int)(info.GetDamage());
+	m_hLastDamageAttacker = info.GetAttacker();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_PlayerMemory::RecordEngagementStart()
+{
+	if (!InEngagement())
+	{
+		m_iPrevHealth = GetOuter()->GetHealth();
+		m_bInEngagement = true;
+	}
+}
+
+void CEZ2_PlayerMemory::RecordEngagementEnd()
+{
+	m_bInEngagement = false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_PlayerMemory::AppendLastDamageCriteria( AI_CriteriaSet& set )
+{
+	set.AppendCriteria( "lasttaken_damagetype", UTIL_VarArgs( "%i", GetLastDamageType() ) );
+	set.AppendCriteria( "lasttaken_damage", UTIL_VarArgs( "%i", GetLastDamageAmount() ) );
 }
 
 //=============================================================================
@@ -958,8 +1229,14 @@ int CAI_PlayerNPCDummy::IRelationPriority( CBaseEntity *pTarget )
 //-----------------------------------------------------------------------------
 void CAI_PlayerNPCDummy::ModifyOrAppendOuterCriteria( AI_CriteriaSet & set )
 {
-	// Considering the damage type enum works fine, I think the NPC state criteria appended in CAI_ExpresserHost is from another era.
+	// CAI_ExpresserHost uses its own complicated take on NPC state, but
+	// considering the other response enums works fine, I think it might be from another era.
 	set.AppendCriteria( "npcstate", UTIL_VarArgs( "%i", m_NPCState ) );
+
+	if ( GetLastEnemyTime() == 0.0 )
+		set.AppendCriteria( "timesincecombat", "999999.0" );
+	else
+		set.AppendCriteria( "timesincecombat", UTIL_VarArgs( "%f", gpGlobals->curtime - GetLastEnemyTime() ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -987,10 +1264,7 @@ void CAI_PlayerNPCDummy::GatherEnemyConditions( CBaseEntity *pEnemy )
 	{
 		if ( HasCondition( COND_SEE_ENEMY ) && pEnemy->Classify() != CLASS_BULLSEYE && !(GetOuter()->GetFlags() & FL_NOTARGET) )
 		{
-			// Consider making this a function on CEZ2_Player itself if this gets more complicated
-			AI_CriteriaSet modifiers;
-			GetOuter()->ModifyOrAppendEnemyCriteria(modifiers, pEnemy);
-			GetOuter()->SpeakIfAllowed(TLK_STARTCOMBAT, modifiers);
+			GetOuter()->Event_SeeEnemy(pEnemy);
 		}
 	}
 }
@@ -1008,6 +1282,28 @@ int CAI_PlayerNPCDummy::TranslateSchedule( int scheduleType )
 	}
 
 	return scheduleType;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_PlayerNPCDummy::OnStateChange( NPC_STATE OldState, NPC_STATE NewState )
+{
+	BaseClass::OnStateChange( OldState, NewState );
+
+	if (GetOuter())
+	{
+		if (NewState == NPC_STATE_COMBAT && OldState < NPC_STATE_COMBAT)
+		{
+			// The player is entering combat
+			GetOuter()->GetMemoryComponent()->RecordEngagementStart();
+		}
+		else if (NewState == NPC_STATE_IDLE)
+		{
+			// The player is probably exiting combat
+			GetOuter()->GetMemoryComponent()->RecordEngagementEnd();
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

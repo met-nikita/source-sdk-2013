@@ -170,6 +170,9 @@ public:
 	CAI_BaseNPC *GetSquadCommandRepresentative();
 	int GetNumSquadCommandables();
 	int GetNumSquadCommandableMedics();
+#ifdef EZ2
+	inline CAI_Squad	*GetPlayerSquad() { return m_pPlayerAISquad; } // Blixibon - Needed for Bad Cop responses
+#endif
 
 #ifdef MAPBASE
 	void InputSquadForceSummon( inputdata_t &inputdata );

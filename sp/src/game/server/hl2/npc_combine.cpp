@@ -2248,8 +2248,6 @@ Activity CNPC_Combine::Weapon_TranslateActivity( Activity eNewActivity, bool *pR
 //-----------------------------------------------------------------------------
 Activity CNPC_Combine::NPC_BackupActivity( Activity eNewActivity )
 {
-	DevMsg( "NPC_BackUpActivity: Translating activity %i for '%s'\n ", eNewActivity, GetDebugName() );
-
 	// Otherwise we move around, T-posing.
 	if (eNewActivity == ACT_WALK)
 		return ACT_WALK_UNARMED;
@@ -2302,14 +2300,6 @@ Activity CNPC_Combine::NPC_TranslateActivity( Activity eNewActivity )
 		}
 	}
 #ifdef EZ
-	// Blixibon - Unarmed animations
-	else if (!GetActiveWeapon())
-	{
-		if (eNewActivity == ACT_IDLE || eNewActivity == ACT_IDLE_ANGRY)
-			eNewActivity = ACT_IDLE_UNARMED;
-		else if (eNewActivity == ACT_WALK)
-			eNewActivity = ACT_WALK_UNARMED;
-	}
 	// Blixibon - Visually interesting aiming support
 	else if (!GetEnemy() && GetAimTarget() && !m_bReadinessCapable)
 	{
@@ -2319,11 +2309,6 @@ Activity CNPC_Combine::NPC_TranslateActivity( Activity eNewActivity )
 		case ACT_WALK:		eNewActivity = ACT_WALK_AIM; break;
 		case ACT_RUN:		eNewActivity = ACT_RUN_AIM; break;
 		}
-	}
-	// Blixibon - Idle walk animation
-	else if (m_NPCState == NPC_STATE_IDLE && eNewActivity == ACT_WALK)
-	{
-		eNewActivity = ACT_WALK_EASY;
 	}
 #endif
 
@@ -2357,15 +2342,6 @@ Activity CNPC_Combine::NPC_TranslateActivity( Activity eNewActivity )
 	{
 		eNewActivity = ACT_WALK_EASY;
 	}
-#endif
-
-#ifdef EZ
-	// Because Combine soldiers now inherit from player companion, there were issues with them trying to use ACT_WALK and ACT_RUN that were not caught by NPC_BackupActivity()
-	// For now, I am going to add the cases from NPC_BackupActivity() into NPC_TranslateActivity()
-	if ( eNewActivity == ACT_WALK )
-		return ACT_WALK_UNARMED;
-	else if ( eNewActivity == ACT_RUN )
-		return ACT_RUN_RIFLE;
 #endif
 
 	return BaseClass::NPC_TranslateActivity( eNewActivity );

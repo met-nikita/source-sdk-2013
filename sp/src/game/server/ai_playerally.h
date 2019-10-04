@@ -423,6 +423,10 @@ public:
 	bool			AskQuestionNow( CBaseEntity *pSpeechTarget = NULL, int iQARandomNumber = -1, const char *concept = TLK_QUESTION );
 	void			InputAskQuestion( inputdata_t &inputdata );
 #endif
+#ifdef EZ2
+	// Blixibon - Complex Q&A needs this to be overridable for Will-E and Combine soldiers
+	virtual
+#endif
 	void			InputAnswerQuestion( inputdata_t &inputdata );
 	void			InputAnswerQuestionHello( inputdata_t &inputdata );
 	void			InputEnableSpeakWhileScripting( inputdata_t &inputdata );

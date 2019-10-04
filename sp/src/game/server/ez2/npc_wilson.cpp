@@ -31,6 +31,14 @@ int	g_interactionConsumedByXenGrenade	= 0;
 int g_interactionArbeitScannerStart		= 0;
 int g_interactionArbeitScannerEnd		= 0;
 
+// Global pointer to Will-E for fast lookups
+CEntityClassList<CNPC_Wilson> g_WillieList;
+template <> CNPC_Wilson *CEntityClassList<CNPC_Wilson>::m_pClassList = NULL;
+CNPC_Wilson *CNPC_Wilson::GetWilson( void )
+{
+	return g_WillieList.m_pClassList;
+}
+
 #define WILSON_MODEL "models/props/will_e.mdl"
 
 #define FLOOR_TURRET_GLOW_SPRITE	"sprites/glow1.vmt"
@@ -84,6 +92,12 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	m_bTipped( false ),
 	m_pMotionController( NULL )
 {
+	g_WillieList.Insert(this);
+}
+
+CNPC_Wilson::~CNPC_Wilson( void )
+{
+	g_WillieList.Remove(this);
 }
 
 //-----------------------------------------------------------------------------
@@ -462,6 +476,22 @@ void CNPC_Wilson::GatherConditions( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
+{
+	BaseClass::GatherEnemyConditions( pEnemy );
+
+	if ( GetLastEnemyTime() == 0 || gpGlobals->curtime - GetLastEnemyTime() > 30 )
+	{
+		if ( HasCondition( COND_SEE_ENEMY ) && pEnemy->Classify() != CLASS_BULLSEYE )
+		{
+			SpeakIfAllowed(TLK_WILLE_SEE_ENEMY);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState )
 {
 	// From SelectAlertSpeech()
@@ -762,6 +792,26 @@ void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
 		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerQuestion", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.5f, 1.0f), this, this);
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::InputAnswerQuestion( inputdata_t &inputdata )
+{
+	// Complex Q&A
+	if (inputdata.pActivator)
+	{
+		AI_CriteriaSet modifiers;
+
+		SetSpeechTarget(inputdata.pActivator);
+		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
+
+		// Speech target contexts are now appended automatically. Use "speechtarget_question_id"
+		//modifiers.AppendCriteria("target_question_id", inputdata.pActivator->GetContextValue("question_id"));
+
+		SpeakIfAllowed(TLK_ANSWER, modifiers);
 	}
 }
 

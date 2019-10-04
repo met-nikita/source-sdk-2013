@@ -18,6 +18,9 @@
 #include "sceneentity.h"
 #ifdef MAPBASE
 #include "ai_squad.h"
+#ifdef EZ2
+#include "hl2_player.h"
+#endif
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -691,6 +694,23 @@ bool CAI_Expresser::SpeakDispatchResponse( AIConcept_t concept, AI_Response *res
 						pSquadmate = pNPC->GetSquad()->GetNextMember( &iter );
 					}
 				}
+#ifdef EZ2
+				// Apply to the player's squad too
+				else if (GetOuter()->IsPlayer())
+				{
+					CHL2_Player *pPlayer = static_cast<CHL2_Player*>(GetOuter());
+					Assert(pPlayer);
+
+					AISquadIter_t iter;
+					CAI_BaseNPC *pSquadmate = pPlayer->GetPlayerSquad()->GetFirstMember( &iter );
+					while ( pSquadmate )
+					{
+						pSquadmate->AddContext( pszContext );
+
+						pSquadmate = pNPC->GetSquad()->GetNextMember( &iter );
+					}
+				}
+#endif
 			}
 			if ( iContextFlags & APPLYCONTEXT_ENEMY )
 			{
