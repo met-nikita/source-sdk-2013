@@ -19,7 +19,8 @@ class CEZ2_Player;
 // 
 // Bad Cop-specific concepts
 // 
-#define TLK_LAST_ENEMY "TLK_LAST_ENEMY" // Last enemy was killed after a long engagement
+#define TLK_LAST_ENEMY_DEAD "TLK_LAST_ENEMY_DEAD" // Last enemy was killed after a long engagement (separate from TLK_ENEMY_DEAD to bypass respeak delays)
+#define TLK_WOUND_REMARK "TLK_WOUND_REMARK" // Do a long, almost cheesy remark about taking a certain type of damage
 #define TLK_THROWGRENADE "TLK_THROWGRENADE" // Grenade was thrown
 
 //=============================================================================
@@ -38,6 +39,7 @@ public:
 
 	// Are we in combat?
 	bool			InEngagement() { return m_bInEngagement; }
+	float			GetEngagementTime() { return gpGlobals->curtime - m_flEngagementStartTime; }
 	int				GetPrevHealth() { return m_iPrevHealth; }
 
 	int				GetLastDamageType() { return m_iLastDamageType; }
@@ -54,6 +56,7 @@ private:
 
 	// Conditions before combat engagement
 	bool	m_bInEngagement;
+	float	m_flEngagementStartTime;
 	int		m_iPrevHealth;
 
 	// Last damage stuff (for "revenge")
@@ -93,6 +96,7 @@ public:
 	void			ModifyOrAppendEnemyCriteria(AI_CriteriaSet & set, CBaseEntity * pEnemy);
 	void			ModifyOrAppendSquadCriteria(AI_CriteriaSet & set);
 	void			ModifyOrAppendWeaponCriteria(AI_CriteriaSet & set, CBaseEntity * pWeapon = NULL);
+	void			ModifyOrAppendSoundCriteria(AI_CriteriaSet & set, CSound *pSound, float flDist);
 
 	// "Speech target" is a thing from CAI_PlayerAlly mostly used for things like Q&A.
 	// I'm using it here to refer to the player's allies in player dialogue. (shouldn't be used for enemies)
@@ -131,8 +135,6 @@ public:
 
 	void				MeasureEnemies(int &iVisibleEnemies, int &iCloseEnemies);
 
-	AI_CriteriaSet	GetSoundCriteria( CSound *pSound, float flDist );
-
 	bool				ReactToSound( CSound *pSound, float flDist );
 
 	void				SetSpeechFilter( CAI_SpeechFilter *pFilter )	{ m_hSpeechFilter = pFilter; }
@@ -163,6 +165,7 @@ protected:
 		PLAYERCRIT_SQUAD,
 		PLAYERCRIT_WEAPON,
 		PLAYERCRIT_SPEECHTARGET,
+		PLAYERCRIT_SOUND,
 	};
 
 	inline void			MarkCriteria(PlayerCriteria_t crit) { m_iCriteriaAppended |= (1 << crit); }

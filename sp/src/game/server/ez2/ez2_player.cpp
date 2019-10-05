@@ -5,6 +5,7 @@
 #include "in_buttons.h"
 #include "npc_wilson.h"
 #include "eventqueue.h"
+#include "iservervehicle.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -120,7 +121,14 @@ int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 
 	AI_CriteriaSet modifiers;
 	ModifyOrAppendDamageCriteria(modifiers, info);
-	SpeakIfAllowed(TLK_WOUND, modifiers);
+
+	if (IsAllowedToSpeak(TLK_WOUND))
+	{
+		// Complain about taking damage from an enemy.
+		// If that doesn't work, just do a regular wound. (we know we're allowed to speak it)
+		if (info.GetAttacker() == this || !SpeakIfAllowed(TLK_WOUND_REMARK, modifiers))
+			Speak(TLK_WOUND, modifiers);
+	}
 
 	return BaseClass::OnTakeDamage_Alive(info);
 }
@@ -243,6 +251,11 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 		}
 	}
 
+	if (GetMemoryComponent()->InEngagement())
+	{
+		criteriaSet.AppendCriteria("combat_length", UTIL_VarArgs("%f", GetMemoryComponent()->GetEngagementTime()));
+	}
+
 	if (IsInAVehicle())
 		criteriaSet.AppendCriteria("in_vehicle", GetVehicleEntity()->GetClassname());
 	else
@@ -308,6 +321,16 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 		if (pNPC)
 		{
 			set.AppendCriteria("enemy_is_npc", "1");
+
+			if (pNPC->GetEnemy() == this)
+			{
+				set.AppendCriteria("enemy_attacking_me", "1");
+				set.AppendCriteria("enemy_sees_me", pNPC->HasCondition(COND_SEE_ENEMY) ? "1" : "0");
+			}
+			else
+			{
+				set.AppendCriteria("enemy_sees_me", (pNPC->FInViewCone(this) && pNPC->FVisible(this)) ? "1" : "0");
+			}
 
 			set.AppendCriteria("ezvariant", UTIL_VarArgs("%i", pNPC->m_tEzVariant));
 		}
@@ -496,9 +519,12 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 		// End player ally manager content
 	}
 
-	// Do this once we've replaced gagging in all of the maps and talker files
-	//if (IsInAScript())
-	//	return false;
+	// Remove this once we've replaced gagging in all of the maps and talker files
+	if (HasContext( "gag", "1" ))
+		return false;
+
+	if (IsInAScript())
+		return false;
 
 	return true;
 }
@@ -510,10 +536,6 @@ bool CEZ2_Player::SpeakIfAllowed(AIConcept_t concept, AI_CriteriaSet& modifiers,
 {
 	if (!IsAllowedToSpeak(concept))
 		return false;
-
-	// Remove this once we've replaced gagging in all of the maps and talker files
-	if (IsInAScript())
-		modifiers.AppendCriteria("gag", "1");
 
 	return Speak(concept, modifiers, pszOutResponseChosen, bufsize, filter);
 }
@@ -667,10 +689,13 @@ void CEZ2_Player::Event_KilledOther(CBaseEntity *pVictim, const CTakeDamageInfo 
 {
 	BaseClass::Event_KilledOther(pVictim, info);
 
+	if (!IsAlive())
+		return;
+
 	AI_CriteriaSet modifiers;
 
-	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 	ModifyOrAppendDamageCriteria(modifiers, info, false);
+	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 
 	// Combat character stuff
 	if (CBaseCombatCharacter *pBCC = pVictim->MyCombatCharacterPointer())
@@ -697,6 +722,8 @@ void CEZ2_Player::Event_KilledOther(CBaseEntity *pVictim, const CTakeDamageInfo 
 		}
 	}
 
+	bool bSpoken = false;
+
 	// Is this the last enemy we know about?
 	if (m_iVisibleEnemies <= 1 && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
 	{
@@ -709,12 +736,21 @@ void CEZ2_Player::Event_KilledOther(CBaseEntity *pVictim, const CTakeDamageInfo 
 			modifiers.AppendCriteria("enemy_revenge", "1");
 			GetMemoryComponent()->AppendLastDamageCriteria( modifiers );
 		}
+
+		// If the enemy was targeting one of our allies, use said ally as the speech target.
+		// Otherwise, just look for a random one.
+		if (pVictim->GetEnemy() && pVictim->GetEnemy() != this && IRelationType(pVictim->GetEnemy()) > D_FR)
+			SetSpeechTarget(pVictim->GetEnemy());
+		else
+			SetSpeechTarget( FindSpeechTarget() );
+
+		// Check if we should say something now that the situation is apparently over.
+		// Separate concepts are used to bypass respeak delays.
+		bSpoken = SpeakIfAllowed(TLK_LAST_ENEMY_DEAD, modifiers);
 	}
 
-	// Find us a random speech target
-	SetSpeechTarget(FindSpeechTarget());
-
-	SpeakIfAllowed(TLK_ENEMY_DEAD, modifiers);
+	if (!bSpoken)
+		SpeakIfAllowed(TLK_ENEMY_DEAD, modifiers);
 }
 
 //-----------------------------------------------------------------------------
@@ -754,6 +790,15 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 		// It's basically filling out the same purpose anyway.
 		SpeakIfAllowed(TLK_PLAYER_KILLED_NPC, modifiers);
 	}
+
+	// Finally, see if they were an ignited NPC we were attacking.
+	// Entity flames don't credit their igniters, so we can only guess that immediate enemies
+	// dying on fire were lit up by the player.
+	if (pVictim->IsOnFire() && GetNPCComponent() && GetNPCComponent()->GetEnemy() == pVictim)
+	{
+		// Pretend we killed it.
+		Event_KilledOther(pVictim, info);
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -787,7 +832,7 @@ void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )
 //-----------------------------------------------------------------------------
 void CEZ2_Player::Event_ThrewGrenade()
 {
-	SpeakIfAllowed("TLK_THROWGRENADE");
+	SpeakIfAllowed(TLK_THROWGRENADE);
 }
 
 //-----------------------------------------------------------------------------
@@ -992,9 +1037,9 @@ bool CEZ2_Player::DoCombatSpeech()
 		}
 	}
 
-	if ( m_nButtons & IN_RELOAD && GetActiveWeapon() )
+	if ( GetActiveWeapon() )
 	{
-		if (GetActiveWeapon()->m_bInReload)
+		if (GetActiveWeapon()->m_bInReload && (GetActiveWeapon()->Clip1() / GetActiveWeapon()->GetMaxClip1()) < 0.5f && !GetExpresser()->IsSpeaking())
 		{
 			// Bad Cop announces reloading
 			if (SpeakIfAllowed( TLK_HIDEANDRELOAD ))
@@ -1049,19 +1094,17 @@ void CEZ2_Player::MeasureEnemies(int &iVisibleEnemies, int &iCloseEnemies)
 	}
 }
 
-// Turn this into a regular "ModifyOrAppend ___ Criteria" function if this ends up being used for more later.
-FORCEINLINE AI_CriteriaSet CEZ2_Player::GetSoundCriteria( CSound *pSound, float flDist )
+//-----------------------------------------------------------------------------
+// Purpose: Appends sound criteria
+//-----------------------------------------------------------------------------
+void CEZ2_Player::ModifyOrAppendSoundCriteria(AI_CriteriaSet & set, CSound *pSound, float flDist)
 {
-	AI_CriteriaSet set;
-
 	set.AppendCriteria( "sound_distance", UTIL_VarArgs("%f", flDist ) );
 
 	set.AppendCriteria( "sound_type", UTIL_VarArgs("%i", pSound->SoundType()) );
 
 	if (pSound->m_hOwner)
 		set.AppendCriteria( "sound_owner", UTIL_VarArgs("%s", pSound->m_hOwner->GetClassname()) );
-
-	return set;
 }
 
 //-----------------------------------------------------------------------------
@@ -1069,7 +1112,9 @@ FORCEINLINE AI_CriteriaSet CEZ2_Player::GetSoundCriteria( CSound *pSound, float 
 //-----------------------------------------------------------------------------
 bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 {
-	AI_CriteriaSet set = GetSoundCriteria(pSound, flDist);
+	AI_CriteriaSet set;
+		
+	ModifyOrAppendSoundCriteria(set, pSound, flDist);
 
 	if (pSound->m_iType & SOUND_DANGER)
 	{
@@ -1111,6 +1156,7 @@ bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 //=============================================================================
 BEGIN_SIMPLE_DATADESC( CEZ2_PlayerMemory )
 	DEFINE_FIELD( m_bInEngagement, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_flEngagementStartTime, FIELD_TIME ),
 	DEFINE_FIELD( m_iPrevHealth, FIELD_INTEGER ),
 	DEFINE_FIELD( m_iLastDamageType, FIELD_INTEGER ),
 	DEFINE_FIELD( m_iLastDamageAmount, FIELD_INTEGER ),
@@ -1137,6 +1183,7 @@ void CEZ2_PlayerMemory::RecordEngagementStart()
 	{
 		m_iPrevHealth = GetOuter()->GetHealth();
 		m_bInEngagement = true;
+		m_flEngagementStartTime = gpGlobals->curtime;
 	}
 }
 
@@ -1298,7 +1345,7 @@ void CAI_PlayerNPCDummy::OnStateChange( NPC_STATE OldState, NPC_STATE NewState )
 			// The player is entering combat
 			GetOuter()->GetMemoryComponent()->RecordEngagementStart();
 		}
-		else if (NewState == NPC_STATE_IDLE)
+		else if (GetOuter()->GetMemoryComponent()->InEngagement() && (NewState == NPC_STATE_ALERT || NewState == NPC_STATE_IDLE))
 		{
 			// The player is probably exiting combat
 			GetOuter()->GetMemoryComponent()->RecordEngagementEnd();
@@ -1311,9 +1358,17 @@ void CAI_PlayerNPCDummy::OnStateChange( NPC_STATE OldState, NPC_STATE NewState )
 //-----------------------------------------------------------------------------
 bool CAI_PlayerNPCDummy::QueryHearSound( CSound *pSound )
 {
-	// We can't hear sounds emitted directly by our player.
-	if ( pSound->m_hOwner.Get() == GetOuter() )
-		return false;
+	if ( pSound->m_hOwner != NULL )
+	{
+		// We can't hear sounds emitted directly by our player.
+		if ( pSound->m_hOwner.Get() == GetOuter() )
+			return false;
+
+		// We can't hear sounds emitted directly by a vehicle driven by our player or by nobody.
+		IServerVehicle *pVehicle = pSound->m_hOwner->GetServerVehicle();
+		if ( pVehicle && (!pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER) || pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER) == GetOuter()) )
+			return false;
+	}
 
 	return BaseClass::QueryHearSound( pSound );
 }
