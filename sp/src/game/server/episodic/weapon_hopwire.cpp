@@ -16,6 +16,7 @@
 #include "soundent.h"
 #include "gamestats.h"
 #include "grenade_hopwire.h"
+#include "ez2/ez2_player.h" // Blixibon - temp until we redo the file
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -458,6 +459,13 @@ void CWeaponHopwire::ThrowGrenade( CBasePlayer *pPlayer )
 	m_bRedraw = true;
 
 	WeaponSound( SINGLE );
+
+	// Blixibon - Temp until we redo the file
+	CEZ2_Player *pEZ2Player = assert_cast<CEZ2_Player*>(pPlayer);
+	if (pEZ2Player)
+	{
+		pEZ2Player->Event_ThrewGrenade(this);
+	}
 
 	m_iPrimaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );

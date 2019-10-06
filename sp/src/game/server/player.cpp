@@ -868,13 +868,11 @@ void CBasePlayer::DeathSound( const CTakeDamageInfo &info )
 		EmitSound( "Player.Death" );
 	}
 
-#ifndef EZ2 // Blixibon - Bad Cop uses the response system now
 	// play one of the suit death alarms
 	if ( IsSuitEquipped() )
 	{
 		UTIL_EmitGroupnameSuit(edict(), "HEV_DEAD");
 	}
-#endif
 }
 
 // override takehealth

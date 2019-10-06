@@ -15,6 +15,7 @@
 #include "props.h"
 #include "particle_parse.h"
 #include "eventqueue.h"
+#include "ez2_player.h"
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -39,7 +40,7 @@ CNPC_Wilson *CNPC_Wilson::GetWilson( void )
 	return g_WillieList.m_pClassList;
 }
 
-#define WILSON_MODEL "models/props/will_e.mdl"
+#define WILSON_MODEL "models/will_e.mdl"
 
 #define FLOOR_TURRET_GLOW_SPRITE	"sprites/glow1.vmt"
 
@@ -63,13 +64,20 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_FIELD( m_hLaser,			FIELD_EHANDLE ),
 	DEFINE_FIELD( m_pMotionController,FIELD_EHANDLE),
 
+	DEFINE_FIELD( m_hPhysicsAttacker, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flLastPhysicsInfluenceTime, FIELD_TIME ),
+
 	DEFINE_FIELD( m_fNextFidgetSpeechTime, FIELD_TIME ),
 
 	DEFINE_KEYFIELD( m_bStatic, FIELD_BOOLEAN, "static" ),
 
+	DEFINE_INPUT( m_bOmniscient, FIELD_BOOLEAN, "SetOmniscient" ),
+
 	DEFINE_USEFUNC( SimpleUse ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
+
+	DEFINE_INPUTFUNC( FIELD_STRING, "AnswerConcept", InputAnswerConcept ),
 
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
@@ -301,7 +309,7 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 	{
 		AI_CriteriaSet modifiers;
 		ModifyOrAppendDamageCriteria(modifiers, info);
-		SpeakIfAllowed( TLK_WILLE_DAMAGE, modifiers );
+		SpeakIfAllowed( TLK_WOUND, modifiers );
 	}
 
 	if (bTriggerHurt || (m_hDamageFilter && static_cast<CBaseFilter*>(m_hDamageFilter.Get())->PassesDamageFilter(info)))
@@ -328,11 +336,68 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::Event_Killed( const CTakeDamageInfo &info )
 {
-	// Just explode
-	inputdata_t inputdata;
-	inputdata.pActivator = info.GetAttacker();
-	inputdata.pCaller = this;
-	InputSelfDestruct(inputdata);
+	Vector vecUp;
+	GetVectors( NULL, NULL, &vecUp );
+	Vector vecOrigin = WorldSpaceCenter() + ( vecUp * 12.0f );
+
+	// Our effect
+	DispatchParticleEffect( "explosion_turret_break", vecOrigin, GetAbsAngles() );
+
+	// Ka-boom!
+	RadiusDamage( CTakeDamageInfo( this, this, 15.0f, DMG_BLAST ), vecOrigin, (10*12), CLASS_NONE, this );
+
+	EmitSound( "NPC_FloorTurret.Destruct" );
+
+	breakablepropparams_t params( GetAbsOrigin(), GetAbsAngles(), vec3_origin, RandomAngularImpulse( -800.0f, 800.0f ) );
+	params.impactEnergyScale = 1.0f;
+	params.defCollisionGroup = COLLISION_GROUP_INTERACTIVE;
+
+	// no damage/damage force? set a burst of 100 for some movement
+	params.defBurstScale = 100;
+	PropBreakableCreateAll( GetModelIndex(), VPhysicsGetObject(), params, this, -1, true );
+
+	// Throw out some small chunks too obscure the explosion even more
+	CPVSFilter filter( vecOrigin );
+	for ( int i = 0; i < 4; i++ )
+	{
+		Vector gibVelocity = RandomVector(-100,100);
+		int iModelIndex = modelinfo->GetModelIndex( g_PropDataSystem.GetRandomChunkModel( "MetalChunks" ) );	
+		te->BreakModel( filter, 0.0, vecOrigin, GetAbsAngles(), Vector(40,40,40), gibVelocity, iModelIndex, 150, 4, 2.5, BREAK_METAL );
+	}
+
+	// WILSOOOOON!!!
+	m_OnDestroyed.FireOutput( info.GetAttacker(), this );
+
+	if (info.GetAttacker())
+	{
+		info.GetAttacker()->Event_KilledOther(this, info);
+	}
+
+	if ( CBasePlayer *pPlayer = UTIL_GetLocalPlayer() )
+	{
+		pPlayer->Event_NPCKilled(this, info);
+	}
+
+	// We're done!
+	UTIL_Remove( this );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Will-E got involved in a bloody accident!
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info )
+{
+	if (!IsAlive())
+		return;
+
+	AI_CriteriaSet modifiers;
+
+	SetSpeechTarget( FindSpeechTarget( AIST_PLAYERS ) );
+
+	ModifyOrAppendDamageCriteria(modifiers, info);
+	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
+
+	SpeakIfAllowed(TLK_ENEMY_DEAD, modifiers);
 }
 
 //-----------------------------------------------------------------------------
@@ -365,7 +430,7 @@ QAngle CNPC_Wilson::PreferredCarryAngles( void )
 	return g_prefAngles;
 }
 
-//----------------------------------------------------b-------------------------
+//-----------------------------------------------------------------------------
 // Purpose: Determines whether the turret is upright enough to function
 // Output : Returns true if the turret is tipped over
 //-----------------------------------------------------------------------------
@@ -374,7 +439,21 @@ inline bool CNPC_Wilson::OnSide( void )
 	Vector	up;
 	GetVectors( NULL, NULL, &up );
 
-	return ( DotProduct( up, Vector(0,0,1) ) < 0.5f );
+	return ( DotProduct( up, Vector(0,0,1) ) < 0.40f );
+}
+
+//------------------------------------------------------------------------------
+// Do we have a physics attacker?
+//------------------------------------------------------------------------------
+CBasePlayer *CNPC_Wilson::HasPhysicsAttacker( float dt )
+{
+	// If the player is holding me now, or I've been recently thrown
+	// then return a pointer to that player
+	if ( IsHeldByPhyscannon( ) || (gpGlobals->curtime - dt <= m_flLastPhysicsInfluenceTime) )
+	{
+		return m_hPhysicsAttacker;
+	}
+	return NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -419,7 +498,7 @@ void CNPC_Wilson::NPCThink()
 
 				modifiers.AppendCriteria( "distancetoground", UTIL_VarArgs("%f", (tr.fraction * WILSON_MAX_TIPPED_HEIGHT)) );
 
-				SpeakIfAllowed( TLK_WILLE_TIPPED, modifiers );
+				SpeakIfAllowed( TLK_TIPPED, modifiers );
 
 				// Might want to get a real activator... (e.g. a last physics attacker)
 				m_OnTipped.FireOutput( AI_GetSinglePlayer(), this );
@@ -484,7 +563,7 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 	{
 		if ( HasCondition( COND_SEE_ENEMY ) && pEnemy->Classify() != CLASS_BULLSEYE )
 		{
-			SpeakIfAllowed(TLK_WILLE_SEE_ENEMY);
+			SpeakIfAllowed(TLK_STARTCOMBAT);
 		}
 	}
 }
@@ -498,11 +577,13 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 	CBasePlayer *pTarget = assert_cast<CBasePlayer *>(FindSpeechTarget( AIST_PLAYERS | AIST_FACING_TARGET ));
 	if ( pTarget )
 	{
+		SetSpeechTarget(pTarget);
+
 		// IsValidSpeechTarget() already verified the player is alive
 		float flHealthPerc = ((float)pTarget->m_iHealth / (float)pTarget->m_iMaxHealth);
 		if ( flHealthPerc < 1.0 )
 		{
-			if ( SelectSpeechResponse( TLK_WILLE_PLHURT, NULL, pTarget, pSelection ) )
+			if ( SelectSpeechResponse( TLK_PLHURT, NULL, pTarget, pSelection ) )
 				return true;
 		}
 
@@ -516,15 +597,15 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 				pWeapon->Clip1() < ( pWeapon->GetMaxClip1() * .5 ) &&
 				pTarget->GetAmmoCount( pWeapon->GetPrimaryAmmoType() ) )
 			{
-				if ( SelectSpeechResponse( TLK_WILLE_PLRELOAD, NULL, pTarget, pSelection ) )
+				if ( SelectSpeechResponse( TLK_PLRELOAD, NULL, pTarget, pSelection ) )
 					return true;
 			}
 		}
 	}
 
-	if ( HasCondition(COND_TALKER_PLAYER_DEAD) && HasCondition(COND_SEE_PLAYER) && !GetExpresser()->SpokeConcept(TLK_WILLE_PLDEAD) )
+	if ( HasCondition(COND_TALKER_PLAYER_DEAD) && HasCondition(COND_SEE_PLAYER) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
 	{
-		if ( SelectSpeechResponse( TLK_WILLE_PLDEAD, NULL, pTarget, pSelection ) )
+		if ( SelectSpeechResponse( TLK_PLDEAD, NULL, pTarget, pSelection ) )
 			return true;
 	}
 
@@ -535,7 +616,7 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 		m_fNextFidgetSpeechTime = gpGlobals->curtime + random->RandomFloat(MIN_IDLE_SPEECH, MAX_IDLE_SPEECH);
 
 		//SpeakIfAllowed(TLK_WILLE_FIDGET);
-		if ( SelectSpeechResponse( TLK_WILLE_FIDGET, NULL, NULL, pSelection ) )
+		if ( SelectSpeechResponse( TLK_FIDGET, NULL, NULL, pSelection ) )
 			return true;
 	}
 
@@ -547,40 +628,8 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::InputSelfDestruct( inputdata_t &inputdata )
 {
-	Vector vecUp;
-	GetVectors( NULL, NULL, &vecUp );
-	Vector vecOrigin = WorldSpaceCenter() + ( vecUp * 12.0f );
-
-	// Our effect
-	DispatchParticleEffect( "explosion_turret_break", vecOrigin, GetAbsAngles() );
-
-	// Ka-boom!
-	RadiusDamage( CTakeDamageInfo( this, this, 15.0f, DMG_BLAST ), vecOrigin, (10*12), CLASS_NONE, this );
-
-	EmitSound( "NPC_FloorTurret.Destruct" );
-
-	breakablepropparams_t params( GetAbsOrigin(), GetAbsAngles(), vec3_origin, RandomAngularImpulse( -800.0f, 800.0f ) );
-	params.impactEnergyScale = 1.0f;
-	params.defCollisionGroup = COLLISION_GROUP_INTERACTIVE;
-
-	// no damage/damage force? set a burst of 100 for some movement
-	params.defBurstScale = 100;
-	PropBreakableCreateAll( GetModelIndex(), VPhysicsGetObject(), params, this, -1, true );
-
-	// Throw out some small chunks too obscure the explosion even more
-	CPVSFilter filter( vecOrigin );
-	for ( int i = 0; i < 4; i++ )
-	{
-		Vector gibVelocity = RandomVector(-100,100);
-		int iModelIndex = modelinfo->GetModelIndex( g_PropDataSystem.GetRandomChunkModel( "MetalChunks" ) );	
-		te->BreakModel( filter, 0.0, vecOrigin, GetAbsAngles(), Vector(40,40,40), gibVelocity, iModelIndex, 150, 4, 2.5, BREAK_METAL );
-	}
-
-	// WILSOOOOON!!!
-	m_OnDestroyed.FireOutput( inputdata.pActivator, this );
-
-	// We're done!
-	UTIL_Remove( this );
+	const CTakeDamageInfo info(this, inputdata.pActivator, NULL, DMG_GENERIC);
+	Event_Killed(info);
 }
 
 //-----------------------------------------------------------------------------
@@ -588,6 +637,9 @@ void CNPC_Wilson::InputSelfDestruct( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason )
 {
+	m_hPhysicsAttacker = pPhysGunUser;
+	m_flLastPhysicsInfluenceTime = gpGlobals->curtime;
+
 	if ( reason != PUNTED_BY_CANNON )
 	{
 		m_bCarriedByPlayer = true;
@@ -615,6 +667,9 @@ void CNPC_Wilson::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t re
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t reason )
 {
+	m_hPhysicsAttacker = pPhysGunUser;
+	m_flLastPhysicsInfluenceTime = gpGlobals->curtime;
+
 	m_bCarriedByPlayer = false;
 	m_bUseCarryAngles = false;
 	m_OnPhysGunDrop.FireOutput( pPhysGunUser, this );
@@ -653,13 +708,25 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 	// TODO: grenade_hopwire doesn't use this interaction yet, awaiting Xen Grenade being turned into a unique entity
 	if ( interactionType == g_interactionConsumedByXenGrenade )
 	{
-		// Maybe have the grenade-thrower as an activator, passed through *data
-		// Also, WILSOOOOON!!!
-		m_OnDestroyed.FireOutput(this, this);
+		if (true)
+		{
+			// "Don't be sucked up" case, which is default
 
-		// Return false to indicate we should still be sucked up
-		// (assuming the Xen Grenade has a thing where it doesn't consume if DispatchInteraction returns true)
-		return false;
+			// Return true to indicate we shouldn't be sucked up
+			return true;
+		}
+		else
+		{
+			// "Let suck" case, which could be random or something
+
+			// Maybe have the grenade-thrower as an activator, passed through *data
+			// Also, WILSOOOOON!!!
+			m_OnDestroyed.FireOutput(this, this);
+
+			// Return false to indicate we should still be sucked up
+			// (assuming the Xen Grenade has a thing where it doesn't consume if DispatchInteraction returns true)
+			return false;
+		}
 	}
 
 	if ( interactionType == g_interactionCombineBash )
@@ -740,6 +807,16 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 {
     set.AppendCriteria("being_held", IsBeingCarriedByPlayer() ? "1" : "0");
 
+	if (m_hPhysicsAttacker)
+	{
+		set.AppendCriteria("physics_attacker", m_hPhysicsAttacker->GetClassname());
+		set.AppendCriteria("last_physics_attack", UTIL_VarArgs("%f", gpGlobals->curtime - m_flLastPhysicsInfluenceTime));
+	}
+	else
+	{
+		set.AppendCriteria("physics_attacker", "0");
+	}
+
 	// Assume that if we're not using carrying angles, Will-E is not looking at the player.
     set.AppendCriteria("facing_player", m_bUseCarryAngles ? "1" : "0");
 
@@ -791,14 +868,14 @@ void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		// Notify the player so they could respond
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
-		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerQuestion", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.5f, 1.0f), this, this);
+		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.5f, 1.0f), this, this);
 	}
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CNPC_Wilson::InputAnswerQuestion( inputdata_t &inputdata )
+void CNPC_Wilson::InputAnswerConcept( inputdata_t &inputdata )
 {
 	// Complex Q&A
 	if (inputdata.pActivator)
@@ -808,10 +885,9 @@ void CNPC_Wilson::InputAnswerQuestion( inputdata_t &inputdata )
 		SetSpeechTarget(inputdata.pActivator);
 		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
 
-		// Speech target contexts are now appended automatically. Use "speechtarget_question_id"
-		//modifiers.AppendCriteria("target_question_id", inputdata.pActivator->GetContextValue("question_id"));
+		// Tip: Speech target contexts are appended automatically. (try applyContext)
 
-		SpeakIfAllowed(TLK_ANSWER, modifiers);
+		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers);
 	}
 }
 

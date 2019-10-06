@@ -128,6 +128,10 @@ public:
 	void InputSetManhacks( inputdata_t &inputdata );
 	COutputEHANDLE	m_OutManhack;
 
+#ifdef EZ2
+	void InputAnswerConcept( inputdata_t &inputdata ); // Blixibon - For responding to Bad Cop
+#endif
+
 	//-----------------------------------------------------
 	//	Outputs
 	//-----------------------------------------------------	
@@ -170,7 +174,12 @@ public:
 	bool			IsElite();
 	bool			IsAltFireCapable();
 	bool			IsGrenadeCapable();
+#ifdef EZ2
+	// Blixibon - Soldier cops use grenades
+	const char*		GetGrenadeAttachment() { return Q_strstr(STRING(GetModelName()), "police") ? "LHand" : "lefthand"; }
+#else
 	const char*		GetGrenadeAttachment() { return "lefthand"; }
+#endif
 #else
 	bool			IsElite() { return m_fIsElite; }
 #endif

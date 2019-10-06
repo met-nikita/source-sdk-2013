@@ -275,6 +275,10 @@ DEFINE_INPUTFUNC(FIELD_STRING, "SetNonCommandable", InputSetNonCommandable),
 DEFINE_INPUTFUNC( FIELD_VOID,	"RemoveFromPlayerSquad", InputRemoveFromPlayerSquad ),
 DEFINE_INPUTFUNC( FIELD_VOID,	"AddToPlayerSquad", InputAddToPlayerSquad ),
 
+#ifdef EZ2
+DEFINE_INPUTFUNC( FIELD_STRING, "AnswerConcept", InputAnswerConcept ), // Blixibon - For responding to Bad Cop
+#endif
+
 DEFINE_KEYFIELD( m_iManhacks, FIELD_INTEGER, "manhacks" ),
 DEFINE_FIELD( m_hManhack, FIELD_EHANDLE ),
 DEFINE_INPUTFUNC( FIELD_VOID, "EnableManhackToss", InputEnableManhackToss ),
@@ -832,6 +836,27 @@ void CNPC_Combine::InputSetNonCommandable(inputdata_t & inputdata)
 	this->RemoveSpawnFlags(SF_COMBINE_COMMANDABLE);
 	RemoveFromPlayerSquad();
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Combine::InputAnswerConcept( inputdata_t &inputdata )
+{
+	// Complex Q&A
+	if (inputdata.pActivator)
+	{
+		AI_CriteriaSet modifiers;
+
+		SetSpeechTarget(inputdata.pActivator);
+		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
+
+		// Tip: Speech target contexts are appended automatically. (try applyContext)
+
+		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers);
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Enables manhack toss

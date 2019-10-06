@@ -136,6 +136,11 @@
 #define TLK_TGCATCHUP 	"TLK_TGCATCHUP"
 #define TLK_TGENDTOUR 	"TLK_TGENDTOUR"
 
+#ifdef EZ2
+// Blixibon - Complex Q&A used by Bad Cop, Wilson, and Combine soldiers
+#define TLK_CONCEPT_ANSWER "TLK_CONCEPT_ANSWER"
+#endif
+
 //-----------------------------------------------------------------------------
 
 #define TALKRANGE_MIN 500.0				// don't talk to anyone farther away than this
@@ -422,10 +427,6 @@ public:
 #ifdef MAPBASE
 	bool			AskQuestionNow( CBaseEntity *pSpeechTarget = NULL, int iQARandomNumber = -1, const char *concept = TLK_QUESTION );
 	void			InputAskQuestion( inputdata_t &inputdata );
-#endif
-#ifdef EZ2
-	// Blixibon - Complex Q&A needs this to be overridable for Will-E and Combine soldiers
-	virtual
 #endif
 	void			InputAnswerQuestion( inputdata_t &inputdata );
 	void			InputAnswerQuestionHello( inputdata_t &inputdata );

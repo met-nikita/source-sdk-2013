@@ -411,7 +411,7 @@ void CWeaponFrag::ThrowGrenade( CBasePlayer *pPlayer )
 	CEZ2_Player *pEZ2Player = assert_cast<CEZ2_Player*>(pPlayer);
 	if (pEZ2Player)
 	{
-		pEZ2Player->Event_ThrewGrenade();
+		pEZ2Player->Event_ThrewGrenade(this);
 	}
 #endif
 

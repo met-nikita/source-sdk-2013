@@ -105,7 +105,7 @@ public:
 	void			SetSpeechTarget( CBaseEntity *pEntity ) { m_hSpeechTarget.Set( pEntity ); }
 	CBaseEntity		*GetSpeechTarget() { return m_hSpeechTarget.Get(); }
 
-	void			InputAnswerQuestion( inputdata_t &inputdata );
+	void			InputAnswerConcept( inputdata_t &inputdata );
 
 	// TODO: Remove instances of OnPickupWeapon()
 	void			Weapon_Equip( CBaseCombatWeapon *pWeapon );
@@ -113,6 +113,7 @@ public:
 	virtual int		OnTakeDamage_Alive(const CTakeDamageInfo &info);
 	void			TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator );
 	void			Event_KilledOther(CBaseEntity * pVictim, const CTakeDamageInfo & info);
+	void			Event_KilledEnemy(CBaseEntity * pVictim, const CTakeDamageInfo & info);
 	void			Event_Killed( const CTakeDamageInfo &info );
 	bool			CommanderExecuteOne(CAI_BaseNPC *pNpc, const commandgoal_t &goal, CAI_BaseNPC **Allies, int numAllies);
 
@@ -120,7 +121,7 @@ public:
 	void			AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info);
 
 	void			Event_SeeEnemy( CBaseEntity *pEnemy );
-	void			Event_ThrewGrenade();
+	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
 
 	// Blixibon - StartScripting for gag replacement
 	inline bool			IsInAScript( void ) { return m_bInAScript; }
@@ -148,6 +149,15 @@ public:
 
 	DECLARE_SERVERCLASS();
 	DECLARE_DATADESC();
+
+public:
+
+	// Expresser shortcuts
+	bool IsSpeaking()				{ return GetExpresser()->IsSpeaking(); }
+
+	// NPC component shortcuts
+	// (remember to make sure NPC component is valid first)
+	CBaseEntity*		GetEnemy();
 
 protected:
 	virtual	void	PostThink(void);
@@ -219,6 +229,8 @@ public:
 	// Base class's sound interests include combat and danger, add relevant scents onto it
 	int		GetSoundInterests( void ) { return BaseClass::GetSoundInterests() | SOUND_PHYSICS_DANGER | SOUND_CARCASS | SOUND_MEAT; }
 	bool	QueryHearSound( CSound *pSound );
+
+	void	DrawDebugGeometryOverlays( void );
 
 	//---------------------------------------------------------------------------------------------
 	// Override a bunch of stuff to redirect to our outer.

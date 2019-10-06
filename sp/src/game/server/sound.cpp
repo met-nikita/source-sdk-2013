@@ -1525,6 +1525,10 @@ int UTIL_EmitGroupIDSuit(edict_t *entity, int isentenceg)
 
 int UTIL_EmitGroupnameSuit(edict_t *entity, const char *groupname)
 {
+#ifdef EZ2
+	// Blixibon - Bad Cop uses the response system now
+	return -1;
+#else
 	float fvol;
 	int pitch = PITCH_NORM;
 	int sentenceIndex = -1;
@@ -1543,6 +1547,7 @@ int UTIL_EmitGroupnameSuit(edict_t *entity, const char *groupname)
 		sentenceIndex = SENTENCEG_PlayRndSz(entity, groupname, fvol, SNDLVL_NORM, 0, pitch);
 
 	return sentenceIndex;
+#endif
 }
 
 // ===================== MATERIAL TYPE DETECTION, MAIN ROUTINES ========================
