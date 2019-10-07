@@ -174,7 +174,7 @@ void CEZ2_Player::TraceAttack( const CTakeDamageInfo &inputInfo, const Vector &v
 				// We could do either leg with matrix calculations if we want, but we don't need that right now.
 				hitgroup = HITGROUP_LEFTLEG;
 			}
-			else if (vecDamagePos.z >= GetViewOffset()[2])
+			else if (vecDamagePos.z >= (GetViewOffset()[2] - 1.0f))
 			{
 				// Head
 				hitgroup = HITGROUP_HEAD;
@@ -323,7 +323,8 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 		{
 			set.AppendCriteria("enemy_is_npc", "1");
 
-			if (pNPC->GetEnemy() == this)
+			// Bypass split-second reactions
+			if (pNPC->GetEnemy() == this && (pNPC->GetLastEnemyTime() + 0.1f) < gpGlobals->curtime)
 			{
 				set.AppendCriteria("enemy_attacking_me", "1");
 				set.AppendCriteria("enemy_sees_me", pNPC->HasCondition(COND_SEE_ENEMY) ? "1" : "0");
@@ -341,6 +342,9 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 		{
 			set.AppendCriteria("enemy_is_npc", "0");
 		}
+
+		// Append their contexts
+		pEnemy->AppendContextToCriteria( set, "enemy_" );
 	}
 	else
 	{
@@ -398,6 +402,9 @@ void CEZ2_Player::ModifyOrAppendWeaponCriteria(AI_CriteriaSet& set, CBaseEntity 
 	MarkCriteria(PLAYERCRIT_WEAPON);
 
 	set.AppendCriteria( "weapon", pWeapon->GetClassname() );
+
+	// Append its contexts
+	pWeapon->AppendContextToCriteria( set, "weapon_" );
 }
 
 //-----------------------------------------------------------------------------
@@ -414,9 +421,6 @@ void CEZ2_Player::ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseE
 
 	set.AppendCriteria( "speechtarget_visible", (FInViewCone(pTarget) && FVisible(pTarget)) ? "1" : "0" );
 
-	// Append their contexts
-	pTarget->AppendContextToCriteria(set, "speechtarget_");
-
 	if (pTarget->IsNPC())
 	{
 		CAI_BaseNPC *pNPC = pTarget->MyNPCPointer();
@@ -426,6 +430,9 @@ void CEZ2_Player::ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseE
 
 		set.AppendCriteria( "speechtarget_inplayersquad", pNPC->IsInPlayerSquad() ? "1" : "0" );
 	}
+
+	// Append their contexts
+	pTarget->AppendContextToCriteria( set, "speechtarget_" );
 }
 
 //-----------------------------------------------------------------------------
@@ -689,9 +696,11 @@ void CEZ2_Player::Event_KilledEnemy(CBaseEntity *pVictim, const CTakeDamageInfo 
 	if (!IsAlive())
 		return;
 
-	// Wilson responds to these things himself
 	if (CNPC_Wilson::GetWilson() && info.GetInflictor() == CNPC_Wilson::GetWilson())
 	{
+		// TODO: Achievement?
+
+		// Wilson responds to these things himself
 		info.GetInflictor()->Event_KilledOther(pVictim, info);
 		return;
 	}
@@ -940,15 +949,12 @@ void CEZ2_Player::DoSpeechAI( void )
 
 	float flRandomSpeechModifier = GetSpeechFilter() ? GetSpeechFilter()->GetIdleModifier() : 1.0f;
 
-	// Non-idle states call DoSpeechAI() more often, so the random-ness is based partially on the next time we'll do our speech AI.
-	// TLK_IDLE originally spoke at any time at random intervals in between 10 and 30.
-	flRandomSpeechModifier *= (m_flNextSpeechTime - gpGlobals->curtime);
-
 	if ( flRandomSpeechModifier > 0.0f )
 	{
 		int iChance = (int)floor(RandomFloat(0, 10) * flRandomSpeechModifier);
 
-		if (iChance > RandomInt(0, 30))
+		// 10% chance by default
+		if (iChance > RandomInt(0, 100))
 		{
 			DevMsg("flRandomSpeechModifier: %f; iChance = %i\n", flRandomSpeechModifier, iChance);
 

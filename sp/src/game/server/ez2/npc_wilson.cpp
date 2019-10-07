@@ -344,9 +344,9 @@ void CNPC_Wilson::Event_Killed( const CTakeDamageInfo &info )
 	DispatchParticleEffect( "explosion_turret_break", vecOrigin, GetAbsAngles() );
 
 	// Ka-boom!
-	RadiusDamage( CTakeDamageInfo( this, this, 15.0f, DMG_BLAST ), vecOrigin, (10*12), CLASS_NONE, this );
+	RadiusDamage( CTakeDamageInfo( this, info.GetAttacker(), 25.0f, DMG_BLAST ), vecOrigin, (10*12), CLASS_NONE, this );
 
-	EmitSound( "NPC_FloorTurret.Destruct" );
+	EmitSound( "NPC_Wilson.Destruct" );
 
 	breakablepropparams_t params( GetAbsOrigin(), GetAbsAngles(), vec3_origin, RandomAngularImpulse( -800.0f, 800.0f ) );
 	params.impactEnergyScale = 1.0f;
