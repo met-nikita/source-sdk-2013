@@ -1253,6 +1253,17 @@ bool CPropCombineBall::DissolveEntity( CBaseEntity *pEntity )
 	if( pEntity->IsEFlagSet( EFL_NO_DISSOLVE ) )
 		return false;
 
+#ifdef EZ1
+	// Hackhack!
+	// The final boss of Entropy : Zero has a different health value and is not dissolvable by Combine energy balls.
+	// Not using EFL_NO_DISSOLVE because of strange behavior in testing
+	if (pEntity->NameMatches( "Zilazane" ))
+	{
+		return false;
+	}
+#endif
+
+
 #ifdef HL2MP
 	if ( pEntity->IsPlayer() )
 	{

@@ -138,6 +138,12 @@ public:
 	// used so a grub can notify me that I stepped on it. Says a line.
 	void	OnSquishedGrub( const CBaseEntity *pGrub );
 
+#ifdef EZ
+	virtual float GetNextRangeAttackTime( void ) { return gpGlobals->curtime + random->RandomFloat( 2.0f, 3.0f ); }
+	// Copied from BaseZombie for now
+	virtual CBaseEntity *ClawAttack( float flDist, int iDamage, QAngle &qaViewPunch, Vector &vecVelocityPunch, int BloodOrigin, int dmgType );
+#endif
+
 private:
 
 	int		NumAntlionsInRadius( float flRadius );
@@ -207,6 +213,10 @@ private:
 	void			ZapBeam( int nHand );
 	int				m_nLightningSprite;
 
+
+#ifdef EZ
+protected:
+#endif
 	// ---------------
 	//  Glow
 	// ----------------
@@ -217,13 +227,12 @@ private:
 	int				m_nCurGlowIndex;
 	
 	CHandle<CVortigauntEffectDispel>	m_hHandEffect[2];
-	
+
 	void			StartHandGlow( int beamType, int nHand );
 	void			EndHandGlow( int beamType = VORTIGAUNT_BEAM_ALL );
 	void			MaintainGlows( void );
 
 #ifdef EZ
-protected:
 	// Glowing eyes
 	EyeGlow_t	* GetEyeGlowData(int i);
 	int			  GetNumGlows();

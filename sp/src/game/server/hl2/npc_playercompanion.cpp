@@ -2860,8 +2860,13 @@ bool CNPC_PlayerCompanion::KeyValue( const char *szKeyName, const char *szValue 
 //-----------------------------------------------------------------------------
 int CNPC_PlayerCompanion::MeleeAttack1Conditions ( float flDot, float flDist )
 {
+#ifndef EZ
 	if (!GetActiveWeapon())
 		return COND_NONE;
+#else
+	if ( !GetActiveWeapon() && !( CapabilitiesGet() & bits_CAP_INNATE_MELEE_ATTACK1 ) )
+		return COND_NONE;
+#endif{
 
 	if (IsMoving())
 	{
