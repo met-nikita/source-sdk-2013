@@ -698,6 +698,9 @@ public:
 
 	void	SetArmorValue( int value );
 	void	IncrementArmorValue( int nCount, int nMaxValue = -1 );
+#ifdef EZ
+	void	DecrementArmorValue( int nCount );
+#endif
 
 	void	SetConnected( PlayerConnectedState iConnected ) { m_iConnected = iConnected; }
 	virtual void EquipSuit( bool bPlayEffects = true );
