@@ -515,6 +515,16 @@ void CNPC_Citizen::PrecacheAllOfType( CitizenType_t type )
 			}
 		}
 	}
+
+#ifdef EZ
+	// Blixibon - Long-fall sounds
+	if ( m_Type == CT_LONGFALL )
+	{
+		// TEMP
+		PrecacheScriptSound("NPC_Citizen_JumpRebel.Jump");
+		PrecacheScriptSound("NPC_Citizen_JumpRebel.Land");
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -2422,6 +2432,35 @@ Activity CNPC_Citizen::NPC_TranslateActivity( Activity activity )
 	return BaseClass::NPC_TranslateActivity( activity );
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::OnChangeActivity( Activity eNewActivity )
+{
+	BaseClass::OnChangeActivity( eNewActivity );
+
+	if (m_Type == CT_LONGFALL)
+	{
+		switch (eNewActivity)
+		{
+			case ACT_JUMP:
+			{
+				EmitSound("NPC_Citizen_JumpRebel.Jump");
+			} break;
+
+			//case ACT_GLIDE:
+			//	break;
+
+			case ACT_LAND:
+			{
+				EmitSound("NPC_Citizen_JumpRebel.Land");
+			} break;
+		}
+	}
+}
+#endif
+
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 void CNPC_Citizen::HandleAnimEvent( animevent_t *pEvent )
@@ -2921,6 +2960,18 @@ void CNPC_Citizen::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 
 	// No need to tell me.
 	set.AppendCriteria("medic", IsMedic() ? "1" : "0");
+
+	set.AppendCriteria("citizentype", UTIL_VarArgs("%i", m_Type));
+}
+#endif
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set )
+{
+	BaseClass::ModifyOrAppendCriteriaForPlayer( pPlayer, set );
 
 	set.AppendCriteria("citizentype", UTIL_VarArgs("%i", m_Type));
 }

@@ -340,11 +340,11 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 		{
 			if (isInPlayerSquad)
 			{
-				badcop->SpeakIfAllowed(TLK_COMMAND_REMOVE);
+				badcop->HandleRemoveFromPlayerSquad(this);
 			}
 			else
 			{
-				badcop->SpeakIfAllowed(TLK_COMMAND_ADD);
+				badcop->HandleAddToPlayerSquad(this);
 			}
 		}
 #endif
@@ -992,6 +992,14 @@ void CNPC_Combine::Spawn( void )
 	m_flNextAltFireTime = gpGlobals->curtime;
 
 	NPCInit();
+
+#ifdef EZ
+	// Start us with a visible manhack if we have one
+	if ( m_iManhacks )
+	{
+		SetBodygroup( COMBINE_BODYGROUP_MANHACK, true );
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -3009,7 +3017,7 @@ int CNPC_Combine::SelectScheduleAttack()
 	}
 
 #ifdef EZ
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_COMBINE_DEPLOY_MANHACK ) )
+	if( GetEnemy() && CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_COMBINE_DEPLOY_MANHACK ) )
 		return SCHED_COMBINE_DEPLOY_MANHACK;
 #endif
 
@@ -3849,6 +3857,18 @@ void CNPC_Combine::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 	{
 		set.AppendCriteria( "elite", "0" );
 	}
+}
+#endif
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Combine::ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set )
+{
+	BaseClass::ModifyOrAppendCriteriaForPlayer( pPlayer, set );
+
+	set.AppendCriteria( "elite", IsElite() ? "1" : "0" );
 }
 #endif
 

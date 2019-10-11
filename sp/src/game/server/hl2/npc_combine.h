@@ -290,6 +290,10 @@ public:
 	void			ModifyOrAppendCriteria( AI_CriteriaSet& set );
 #endif
 
+#ifdef EZ2
+	void			ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set );
+#endif
+
 	virtual int		TranslateSchedule( int scheduleType );
 	void			OnStartSchedule( int scheduleType );
 

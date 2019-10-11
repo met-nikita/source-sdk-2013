@@ -139,6 +139,9 @@ public:
 	void 			RunTask( const Task_t *pTask );
 	
 	Activity		NPC_TranslateActivity( Activity eNewActivity );
+#ifdef EZ
+	void			OnChangeActivity( Activity eNewActivity );
+#endif
 	void 			HandleAnimEvent( animevent_t *pEvent );
 	void			TaskFail( AI_TaskFailureCode_t code );
 
@@ -204,6 +207,11 @@ public:
 #ifdef MAPBASE
 	//---------------------------------
 	void			ModifyOrAppendCriteria( AI_CriteriaSet& set );
+#endif
+
+#ifdef EZ2
+	// Blixibon - Gets criteria the player should use in speech
+	virtual void		ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set );
 #endif
 	
 	//---------------------------------

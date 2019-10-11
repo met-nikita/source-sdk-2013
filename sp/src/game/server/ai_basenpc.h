@@ -1355,6 +1355,11 @@ public:
 	virtual void		ModifyOrAppendDamageCriteria( AI_CriteriaSet& set, const CTakeDamageInfo &info );
 #endif
 
+#ifdef EZ2
+	// Blixibon - Gets criteria the player should use in speech
+	virtual void		ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set );
+#endif
+
 protected:
 	float		SoundWaitTime() const { return m_flSoundWaitTime; }
 

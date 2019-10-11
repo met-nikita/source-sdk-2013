@@ -6,6 +6,7 @@
 #include "npc_wilson.h"
 #include "eventqueue.h"
 #include "iservervehicle.h"
+#include "ai_interactions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -17,6 +18,9 @@ PRECACHE_REGISTER(player);
 
 BEGIN_DATADESC(CEZ2_Player)
 	DEFINE_FIELD(m_bInAScript, FIELD_BOOLEAN),
+
+	DEFINE_FIELD(m_hStaringEntity, FIELD_EHANDLE),
+	DEFINE_FIELD(m_flCurrentStaringTime, FIELD_TIME),
 
 	DEFINE_FIELD(m_hNPCComponent, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flNextSpeechTime, FIELD_TIME),
@@ -91,6 +95,18 @@ void CEZ2_Player::PostThink(void)
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CEZ2_Player::Spawn( void )
+{
+	// Must do this here because PostConstructor() is called before save/restore,
+	// which causes duplicates to be created.
+	CreateNPCComponent();
+
+	BaseClass::Spawn();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CEZ2_Player::UpdateOnRemove( void )
 {
 	RemoveNPCComponent();
@@ -108,6 +124,26 @@ void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 	AI_CriteriaSet modifiers;
 	ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
 	SpeakIfAllowed(TLK_NEWWEAPON, modifiers);
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
+{
+	if ( interactionType == g_interactionBarnacleVictimGrab )
+	{
+		AI_CriteriaSet modifiers;
+
+		if (sourceEnt)
+			ModifyOrAppendEnemyCriteria(modifiers, sourceEnt);
+
+		SpeakIfAllowed(TLK_SELF_IN_BARNACLE, modifiers);
+
+		// Fall in on base
+		//return true;
+	}
+
+	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
 
 //-----------------------------------------------------------------------------
@@ -207,18 +243,23 @@ void CEZ2_Player::TraceAttack( const CTakeDamageInfo &inputInfo, const Vector &v
 //-----------------------------------------------------------------------------
 bool CEZ2_Player::CommanderExecuteOne(CAI_BaseNPC * pNpc, const commandgoal_t & goal, CAI_BaseNPC ** Allies, int numAllies)
 {
-	if (goal.m_pGoalEntity)
+	// This is called for each NPC, so make sure we haven't already spoken yet
+	if (GetExpresser()->GetTimeSpokeConcept(TLK_COMMAND_RECALL) != gpGlobals->curtime &&
+		GetExpresser()->GetTimeSpokeConcept(TLK_COMMAND_SEND) != gpGlobals->curtime)
 	{
-		SpeakIfAllowed(TLK_COMMAND_RECALL);
-	}
-	else if (pNpc->IsInPlayerSquad())
-	{
-		AI_CriteriaSet modifiers;
+		if (goal.m_pGoalEntity)
+		{
+			SpeakIfAllowed(TLK_COMMAND_RECALL);
+		}
+		else if (pNpc->IsInPlayerSquad())
+		{
+			AI_CriteriaSet modifiers;
 
-		modifiers.AppendCriteria("commandpoint_dist_to_player", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - GetAbsOrigin()).Length()));
-		modifiers.AppendCriteria("commandpoint_dist_to_npc", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - pNpc->GetAbsOrigin()).Length()));
+			modifiers.AppendCriteria("commandpoint_dist_to_player", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - GetAbsOrigin()).Length()));
+			modifiers.AppendCriteria("commandpoint_dist_to_npc", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - pNpc->GetAbsOrigin()).Length()));
 
-		SpeakIfAllowed(TLK_COMMAND_SEND, modifiers);
+			SpeakIfAllowed(TLK_COMMAND_SEND, modifiers);
+		}
 	}
 
 	return BaseClass::CommanderExecuteOne(pNpc, goal, Allies, numAllies);
@@ -264,6 +305,10 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 	// Use our speech target's criteris if we should
 	if (GetSpeechTarget() && !IsCriteriaModified(PLAYERCRIT_SPEECHTARGET))
 		ModifyOrAppendSpeechTargetCriteria(criteriaSet, GetSpeechTarget());
+
+	// Use criteria from our active weapon
+	if (!IsCriteriaModified(PLAYERCRIT_WEAPON) && GetActiveWeapon())
+		ModifyOrAppendWeaponCriteria(criteriaSet, GetActiveWeapon());
 
 	// Reset this now that we're appending general criteria
 	ResetPlayerCriteria();
@@ -326,17 +371,18 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 			// Bypass split-second reactions
 			if (pNPC->GetEnemy() == this && (pNPC->GetLastEnemyTime() + 0.1f) < gpGlobals->curtime)
 			{
-				set.AppendCriteria("enemy_attacking_me", "1");
-				set.AppendCriteria("enemy_sees_me", pNPC->HasCondition(COND_SEE_ENEMY) ? "1" : "0");
+				set.AppendCriteria( "enemy_attacking_me", "1" );
+				set.AppendCriteria( "enemy_sees_me", pNPC->HasCondition( COND_SEE_ENEMY ) ? "1" : "0" );
 			}
 			else
 			{
-				set.AppendCriteria("enemy_sees_me", (pNPC->FInViewCone(this) && pNPC->FVisible(this)) ? "1" : "0");
+				set.AppendCriteria( "enemy_sees_me", (pNPC->FInViewCone( this ) && pNPC->FVisible( this )) ? "1" : "0" );
 			}
 
-			set.AppendCriteria("ezvariant", UTIL_VarArgs("%i", pNPC->m_tEzVariant));
+			set.AppendCriteria( "enemy_activity", CAI_BaseNPC::GetActivityName( pNPC->GetActivity() ) );
 
-			set.AppendCriteria("enemy_activity", CAI_BaseNPC::GetActivityName(pNPC->GetActivity()));
+			// NPC and class-specific criteria
+			pNPC->ModifyOrAppendCriteriaForPlayer(this, set);
 		}
 		else
 		{
@@ -429,6 +475,9 @@ void CEZ2_Player::ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseE
 			set.AppendCriteria( "speechtarget_weapon", pNPC->GetActiveWeapon()->GetClassname() );
 
 		set.AppendCriteria( "speechtarget_inplayersquad", pNPC->IsInPlayerSquad() ? "1" : "0" );
+
+		// NPC and class-specific criteria
+		pNPC->ModifyOrAppendCriteriaForPlayer(this, set);
 	}
 
 	// Append their contexts
@@ -513,7 +562,13 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 	}
 
 	// Remove this once we've replaced gagging in all of the maps and talker files
-	if (HasContext( "gag", "1" ))
+	int iGag = FindContextByName("gag");
+	if (iGag != -1)
+	{
+		if (FStrEq(GetContextValue( iGag ), "1"))
+			return false;
+	}
+	else
 		return false;
 
 	if (IsInAScript())
@@ -568,6 +623,14 @@ void CEZ2_Player::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 {
 	if (GetSpeechTarget() && GetSpeechTarget()->IsAlive())
 	{
+		// Get them to look at us (at least if it's a soldier)
+		if (GetSpeechTarget()->MyNPCPointer() && GetSpeechTarget()->MyNPCPointer()->CapabilitiesGet() & bits_CAP_TURN_HEAD)
+		{
+			CAI_BaseActor *pActor = dynamic_cast<CAI_BaseActor*>(GetSpeechTarget());
+			if (pActor)
+				pActor->AddLookTarget( this, 0.75, GetExpresser()->GetTimeSpeechComplete() + 3.0f );
+		}
+
 		// Notify the speech target for a response
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
@@ -617,7 +680,6 @@ void CEZ2_Player::PostConstructor(const char *szClassname)
 {
 	BaseClass::PostConstructor(szClassname);
 	CreateExpresser();
-	CreateNPCComponent();
 
 	GetMemoryComponent()->SetOuter(this);
 }
@@ -681,17 +743,24 @@ void CEZ2_Player::Event_KilledOther(CBaseEntity *pVictim, const CTakeDamageInfo 
 {
 	BaseClass::Event_KilledOther(pVictim, info);
 
-	// Event_KilledOther is called later than Event_NPCKilled in the NPC dying process,
-	// meaning some pre-death conditions are retained in Event_NPCKilled that are not retained in Event_KilledOther,
-	// such as the activity they were playing when they died.
-	// As a result, NPCs always call through to Event_KilledEnemy through Event_NPCKilled and Event_KilledOther is not used.
-	if (!pVictim->IsNPC())
-		Event_KilledEnemy(pVictim, info);
+	if (pVictim->IsCombatCharacter())
+	{
+		// Event_KilledOther is called later than Event_NPCKilled in the NPC dying process,
+		// meaning some pre-death conditions are retained in Event_NPCKilled that are not retained in Event_KilledOther,
+		// such as the activity they were playing when they died.
+		// As a result, NPCs always call through to Event_KilledEnemy through Event_NPCKilled and Event_KilledOther is not used.
+		if (!pVictim->IsNPC())
+			Event_KilledEnemy(pVictim->MyCombatCharacterPointer(), info);
+	}
+	else
+	{
+		// Killed a non-NPC (we don't do anything for this yet)
+	}
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-void CEZ2_Player::Event_KilledEnemy(CBaseEntity *pVictim, const CTakeDamageInfo &info)
+void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDamageInfo &info)
 {
 	if (!IsAlive())
 		return;
@@ -710,17 +779,15 @@ void CEZ2_Player::Event_KilledEnemy(CBaseEntity *pVictim, const CTakeDamageInfo 
 	ModifyOrAppendDamageCriteria(modifiers, info, false);
 	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 
-	// Combat character stuff
-	if (CBaseCombatCharacter *pBCC = pVictim->MyCombatCharacterPointer())
+	// This code used to check for CBaseCombatCharacter before,
+	// but now the function specifically takes that kind of class.
+	// Maybe an if statement related to optimization could be added here?
 	{
-		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", pBCC->LastHitGroup()));
+		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", pVictim->LastHitGroup()));
 
-		// Was the enemy afraid of Bad Cop?
-		// (also used to find citizens with low willpower)
-		if (pBCC->IRelationType(this) == D_FR)
-			modifiers.AppendCriteria("enemy_fears_me", "1");
+		modifiers.AppendCriteria("enemy_relationship", UTIL_VarArgs("%f", pVictim->IRelationType(this)));
 
-		if (pBCC->IsOnFire())
+		if (pVictim->IsOnFire())
 			modifiers.AppendCriteria("enemy_on_fire", "1");
 
 		// NPC stuff
@@ -733,6 +800,11 @@ void CEZ2_Player::Event_KilledEnemy(CBaseEntity *pVictim, const CTakeDamageInfo 
 					modifiers.AppendCriteria("enemy_is_speaking", "1");
 			}
 		}
+
+		// Bad Cop needs to differentiate between human-like opponents (rebels, zombies, vorts, etc.)
+		// and non-human opponents (antlions, bullsquids, headcrabs, etc.) for some responses.
+		if (pVictim->GetHullType() == HULL_HUMAN || pVictim->GetHullType() == HULL_WIDE_HUMAN)
+			modifiers.AppendCriteria("enemy_humanoid", "1");
 	}
 
 	bool bSpoken = false;
@@ -802,12 +874,7 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 		ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 		SetSpeechTarget(info.GetAttacker());
 
-		// Look, I know the roles are supposed to be swapped for this concept, but
-		// just interpret "TLK_PLAYER_KILLED_NPC" as a "player TLK" that fires when
-		// a NPC is killed. That's simple, isn't it?
-		// 
-		// It's basically filling out the same purpose anyway.
-		SpeakIfAllowed(TLK_PLAYER_KILLED_NPC, modifiers);
+		SpeakIfAllowed(TLK_ALLY_KILLED_NPC, modifiers);
 	}
 
 	// Finally, see if they were an ignited NPC we were attacking.
@@ -861,9 +928,32 @@ void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
+{
+	SetSpeechTarget(pNPC);
+
+	SpeakIfAllowed(TLK_COMMAND_ADD);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
+{
+	SetSpeechTarget(pNPC);
+
+	SpeakIfAllowed(TLK_COMMAND_REMOVE);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CEZ2_Player::InputStartScripting( inputdata_t &inputdata )
 {
 	m_bInAScript = true;
+
+	// Remove this once we've replaced gagging in all of the maps and talker files
+	AddContext("gag", "1");
 }
 
 //-----------------------------------------------------------------------------
@@ -872,6 +962,9 @@ void CEZ2_Player::InputStartScripting( inputdata_t &inputdata )
 void CEZ2_Player::InputStopScripting( inputdata_t &inputdata )
 {
 	m_bInAScript = false;
+
+	// Remove this once we've replaced gagging in all of the maps and talker files
+	AddContext("gag", "0");
 }
 
 //=============================================================================
@@ -1021,6 +1114,62 @@ bool CEZ2_Player::DoIdleSpeech()
 		}
 	}
 
+	// Check if we're staring at something
+	if (GetSmoothedVelocity().LengthSqr() < Square( 100 ) && !GetUseEntity())
+	{
+		// First, reset our staring entity
+		CBaseEntity *pLastStaring = GetStaringEntity();
+		SetStaringEntity( NULL );
+
+		// If our eye angles haven't changed much, it could mean we're intentionally looking at something
+		if (QAnglesAreEqual(EyeAngles(), m_angLastStaringEyeAngles, 5.0f))
+		{
+			// Trace a line 96 units in front of ourselves to see what we're staring at
+			trace_t tr;
+			Vector vecEyeDirection = EyeDirection3D();
+			UTIL_TraceLine(EyePosition(), EyePosition() + vecEyeDirection * 96.0f, MASK_BLOCKLOS_AND_NPCS, this, COLLISION_GROUP_NONE, &tr);
+
+			if (tr.m_pEnt && !tr.m_pEnt->IsWorld())
+			{
+				// Make sure we're looking at its "face" and not its center
+				if (!tr.m_pEnt->IsCombatCharacter() || (tr.m_pEnt->EyePosition() - tr.endpos).LengthSqr() < (tr.m_pEnt->WorldSpaceCenter() - tr.endpos).LengthSqr())
+				{
+					if (tr.m_pEnt != pLastStaring)
+					{
+						// We're staring at a new entity
+						m_flCurrentStaringTime = gpGlobals->curtime;
+					}
+
+					SetStaringEntity(tr.m_pEnt);
+				}
+			}
+		}
+
+		m_angLastStaringEyeAngles = EyeAngles();
+
+		if (GetStaringEntity())
+		{
+			// Check if we've been staring for longer than 3 seconds
+			if (gpGlobals->curtime - m_flCurrentStaringTime > 3.0f)
+			{
+				// We're staring at something
+				AI_CriteriaSet modifiers;
+
+				SetSpeechTarget(GetStaringEntity());
+
+				modifiers.AppendCriteria("staretime", UTIL_VarArgs("%f", gpGlobals->curtime - m_flCurrentStaringTime));
+
+				if (SpeakIfAllowed(TLK_STARE, modifiers))
+					return true;
+			}
+		}
+		else
+		{
+			// Reset staring time
+			m_flCurrentStaringTime = FLT_MAX;
+		}
+	}
+
 	// TLK_IDLE is handled in DoSpeechAI(), so there's nothing else we could say.
 	return false;
 
@@ -1062,6 +1211,7 @@ bool CEZ2_Player::DoCombatSpeech()
 		}
 	}
 
+#if 0 // Bad Cop doesn't announce reloading for now.
 	if ( GetActiveWeapon() )
 	{
 		if (GetActiveWeapon()->m_bInReload && (GetActiveWeapon()->Clip1() / GetActiveWeapon()->GetMaxClip1()) < 0.5f && !IsSpeaking())
@@ -1071,6 +1221,7 @@ bool CEZ2_Player::DoCombatSpeech()
 				return true;
 		}
 	}
+#endif
 
 	return false;
 }
@@ -1295,7 +1446,7 @@ int CAI_PlayerNPCDummy::IRelationPriority( CBaseEntity *pTarget )
 	Vector facingDir = EyeDirection3D();
 	float flDot = DotProduct( los, facingDir );
 
-	if ( flDot > 0.8f )
+	if ( flDot > 0.75f )
 		iPriority += 1;
 	if ( flDot > 0.9f )
 		iPriority += 1;

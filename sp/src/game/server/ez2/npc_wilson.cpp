@@ -161,7 +161,9 @@ void CNPC_Wilson::Spawn()
 	AddClassRelationship( CLASS_PLAYER, D_LI, 0 );
 
 	AddEFlags( EFL_NO_DISSOLVE );
-	CapabilitiesAdd( bits_CAP_TURN_HEAD | bits_CAP_ANIMATEDFACE );
+
+	// Will-E has no "head turning", but he does have gestures, which counts as an animated face.
+	CapabilitiesAdd( /*bits_CAP_TURN_HEAD |*/ bits_CAP_ANIMATEDFACE );
 
 	//NPCInit();
 

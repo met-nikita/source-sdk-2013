@@ -22,6 +22,7 @@ class CEZ2_Player;
 #define TLK_LAST_ENEMY_DEAD "TLK_LAST_ENEMY_DEAD" // Last enemy was killed after a long engagement (separate from TLK_ENEMY_DEAD to bypass respeak delays)
 #define TLK_WOUND_REMARK "TLK_WOUND_REMARK" // Do a long, almost cheesy remark about taking a certain type of damage
 #define TLK_THROWGRENADE "TLK_THROWGRENADE" // Grenade was thrown
+#define TLK_ALLY_KILLED_NPC "TLK_ALLY_KILLED_NPC" // Ally killed a NPC
 
 //=============================================================================
 // >> EZ2_PLAYERMEMORY
@@ -80,6 +81,7 @@ class CEZ2_Player : public CAI_ExpresserHost<CHL2_Player>
 {
 	DECLARE_CLASS(CEZ2_Player, CAI_ExpresserHost<CHL2_Player>);
 public:
+	void			Spawn( void );
 	void			UpdateOnRemove( void );
 
 	virtual void    ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet);
@@ -110,10 +112,12 @@ public:
 	// TODO: Remove instances of OnPickupWeapon()
 	void			Weapon_Equip( CBaseCombatWeapon *pWeapon );
 
+	bool			HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+
 	virtual int		OnTakeDamage_Alive(const CTakeDamageInfo &info);
 	void			TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator );
 	void			Event_KilledOther(CBaseEntity * pVictim, const CTakeDamageInfo & info);
-	void			Event_KilledEnemy(CBaseEntity * pVictim, const CTakeDamageInfo & info);
+	void			Event_KilledEnemy(CBaseCombatCharacter * pVictim, const CTakeDamageInfo & info);
 	void			Event_Killed( const CTakeDamageInfo &info );
 	bool			CommanderExecuteOne(CAI_BaseNPC *pNpc, const commandgoal_t &goal, CAI_BaseNPC **Allies, int numAllies);
 
@@ -122,6 +126,8 @@ public:
 
 	void			Event_SeeEnemy( CBaseEntity *pEnemy );
 	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
+	void			HandleAddToPlayerSquad( CAI_BaseNPC *pNPC );
+	void			HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC );
 
 	// Blixibon - StartScripting for gag replacement
 	inline bool			IsInAScript( void ) { return m_bInAScript; }
@@ -137,6 +143,9 @@ public:
 	void				MeasureEnemies(int &iVisibleEnemies, int &iCloseEnemies);
 
 	bool				ReactToSound( CSound *pSound, float flDist );
+
+	CBaseEntity*		GetStaringEntity() { return m_hStaringEntity.Get(); }
+	void				SetStaringEntity(CBaseEntity *pEntity) { return m_hStaringEntity.Set(pEntity); }
 
 	void				SetSpeechFilter( CAI_SpeechFilter *pFilter )	{ m_hSpeechFilter = pFilter; }
 	CAI_SpeechFilter	*GetSpeechFilter( void )						{ return m_hSpeechFilter; }
@@ -186,6 +195,10 @@ private:
 	CAI_Expresser * m_pExpresser;
 
 	bool			m_bInAScript;
+
+	EHANDLE			m_hStaringEntity;
+	float			m_flCurrentStaringTime;
+	QAngle			m_angLastStaringEyeAngles;
 
 	CHandle<CAI_PlayerNPCDummy> m_hNPCComponent;
 	float			m_flNextSpeechTime;
