@@ -16,6 +16,7 @@
 #include "particle_parse.h"
 #include "eventqueue.h"
 #include "ez2_player.h"
+#include "te_effect_dispatch.h"
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -40,6 +41,8 @@ CNPC_Wilson *CNPC_Wilson::GetWilson( void )
 	return g_WillieList.m_pClassList;
 }
 
+static const char *g_DamageZapContext = "DamageZapEffect";
+
 #define WILSON_MODEL "models/will_e.mdl"
 
 #define FLOOR_TURRET_GLOW_SPRITE	"sprites/glow1.vmt"
@@ -56,6 +59,7 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_FIELD( m_bCarriedByPlayer, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bUseCarryAngles, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flPlayerDropTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flTeslaStopTime, FIELD_TIME ),
 
 	DEFINE_FIELD( m_iEyeAttachment,	FIELD_INTEGER ),
 	//DEFINE_FIELD( m_iMuzzleAttachment,	FIELD_INTEGER ),
@@ -86,6 +90,9 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_OUTPUT( m_OnDestroyed, "OnDestroyed" ),
 
 END_DATADESC()
+
+IMPLEMENT_SERVERCLASS_ST( CNPC_Wilson, DT_NPC_Wilson )
+END_SEND_TABLE()
 
 LINK_ENTITY_TO_CLASS( npc_wilson, CNPC_Wilson );
 
@@ -136,7 +143,9 @@ void CNPC_Wilson::Precache()
 	//PrecacheScriptSound( "NPC_FloorTurret.Alarm");
 	//PrecacheScriptSound( "NPC_FloorTurret.Ping");
 	//PrecacheScriptSound( "NPC_FloorTurret.DryFire");
-	PrecacheScriptSound( "NPC_FloorTurret.Destruct" );
+	PrecacheScriptSound( "NPC_Wilson.Destruct" );
+
+	PrecacheScriptSound( "RagdollBoogie.Zap" );
 
 	if (!m_bStatic)
 	{
@@ -164,6 +173,12 @@ void CNPC_Wilson::Spawn()
 
 	// Will-E has no "head turning", but he does have gestures, which counts as an animated face.
 	CapabilitiesAdd( /*bits_CAP_TURN_HEAD |*/ bits_CAP_ANIMATEDFACE );
+
+	CapabilitiesAdd( bits_CAP_SQUAD );
+
+	// Add to the player's squad if we have no squad name
+	if (!GetSquad())
+		AddToSquad( GetPlayerSquadName() );
 
 	//NPCInit();
 
@@ -329,7 +344,32 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 		}
 	}
 
+	if (info.GetDamageType() & (DMG_SHOCK | DMG_ENERGYBEAM | DMG_CRUSH))
+	{
+		// Get a tesla effect on our hitboxes for a little while.
+		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime, g_DamageZapContext );
+		m_flTeslaStopTime = gpGlobals->curtime + 2.0f;
+	}
+
 	return BaseClass::OnTakeDamage(info);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Make Will-E look like he's about to explode.
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::TeslaThink()
+{
+	CEffectData data;
+	data.m_nEntIndex = entindex();
+	data.m_flMagnitude = 3;
+	data.m_flScale = 0.5f;
+	DispatchEffect( "TeslaHitboxes", data );
+	EmitSound( "RagdollBoogie.Zap" );
+
+	if ( gpGlobals->curtime < m_flTeslaStopTime )
+	{
+		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime + random->RandomFloat( 0.1f, 0.3f ), g_DamageZapContext );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -565,8 +605,69 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 	{
 		if ( HasCondition( COND_SEE_ENEMY ) && pEnemy->Classify() != CLASS_BULLSEYE )
 		{
-			SpeakIfAllowed(TLK_STARTCOMBAT);
+			AI_CriteriaSet modifiers;
+
+			if (pEnemy->IsNPC())
+			{
+				if (pEnemy->MyNPCPointer()->GetEnemy() && pEnemy->MyNPCPointer()->GetEnemy()->IsPlayer())
+					modifiers.AppendCriteria("enemy_attacking_player", "1");
+			}
+
+			SpeakIfAllowed(TLK_STARTCOMBAT, modifiers);
 		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Higher priority for enemies the player is actually aiming at
+//-----------------------------------------------------------------------------
+Disposition_t CNPC_Wilson::IRelationType( CBaseEntity *pTarget )
+{
+	if (!pTarget)
+		return D_NU;
+
+	Disposition_t base = BaseClass::IRelationType(pTarget);
+
+	// If we're in a squad and our base relationship is default, use the squad's relationships
+	if (GetSquad() && base == GetDefaultRelationshipDisposition(pTarget->Classify()))
+	{
+		if (IsInPlayerSquad() && UTIL_GetLocalPlayer())
+		{
+			// Get the player's disposition
+			CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+			if (pPlayer)
+				base = pPlayer->IRelationType(pTarget);
+		}
+		else if (!GetSquad()->IsLeader(this))
+		{
+			// Get the squad leader's disposition
+			CAI_BaseNPC *pLeader = GetSquad()->GetLeader();
+			if (pLeader)
+				base = pLeader->IRelationType(pTarget);
+		}
+	}
+
+	return base;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::AimGun()
+{
+	// Don't aim at enemies anymore. This instead just calls RelaxAim() to relax aim for the choreogrpahy.
+	//if (GetEnemy() && !IsRunningScriptedScene(this) && !OnSide())
+	//{
+	//	Vector vecShootOrigin;
+	//
+	//	vecShootOrigin = Weapon_ShootPosition();
+	//	Vector vecShootDir = GetShootEnemyDir( vecShootOrigin, false );
+	//
+	//	SetAim( vecShootDir );
+	//}
+	//else
+	{
+		RelaxAim();
 	}
 }
 
@@ -825,6 +926,15 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 	set.AppendCriteria("on_side", OnSide() ? "1" : "0");
 
     BaseClass::ModifyOrAppendCriteria(set);
+
+	if (GetSpeechTarget() && GetSpeechTarget()->IsPlayer())
+	{
+		// Ensures we don't respond to when Bad Cop has no "real" squad
+		CEZ2_Player *pPlayer = static_cast<CEZ2_Player*>(GetSpeechTarget());
+		CAI_BaseNPC *pRepresentative = pPlayer->GetSquadCommandRepresentative();
+		if (pPlayer && pRepresentative && pRepresentative->IsSilentCommandable())
+			set.AppendCriteria("only_silent_commandable", "1");
+	}
 }
 
 //-----------------------------------------------------------------------------

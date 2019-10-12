@@ -96,7 +96,6 @@ ConVar npc_combine_altfire_not_allies_only( "npc_combine_altfire_not_allies_only
 #define SQUAD_SLOT_COMBINE_DEPLOY_MANHACK SQUAD_SLOT_SPECIAL_ATTACK
 #endif
 
-ConVar	sv_visible_command_point("sv_visible_command_point", "1", FCVAR_REPLICATED);
 ConVar sv_combine_eye_tracers("sv_combine_eye_tracers", "1", FCVAR_REPLICATED);
 
 //-----------------------------------------------------------------------------
@@ -644,19 +643,11 @@ void CNPC_Combine::UpdateFollowCommandPoint()
 		{
 			CBaseEntity *pFollowTarget = m_FollowBehavior.GetFollowTarget();
 			CBaseEntity *pCommandPoint = gEntList.FindEntityByClassname(NULL, "info_target_command_point");
-			CBaseEntity *pCommandPointProp = gEntList.FindEntityByClassname(NULL, "prop_command_point");
 
 			if (!pCommandPoint)
 			{
 				DevMsg("**\nVERY BAD THING\nCommand point vanished! Creating a new one\n**\n");
 				pCommandPoint = CreateEntityByName("info_target_command_point");
-			}
-
-			if (sv_visible_command_point.GetBool() && !pCommandPointProp)
-			{
-				DevMsg("**\nCreating new command point prop");
-				pCommandPointProp = CreateEntityByName("prop_command_point");
-				pCommandPointProp->Spawn();
 			}
 
 			if (pFollowTarget != pCommandPoint)
@@ -669,12 +660,6 @@ void CNPC_Combine::UpdateFollowCommandPoint()
 			if ((pCommandPoint->GetAbsOrigin() - GetCommandGoal()).LengthSqr() > 0.01)
 			{
 				UTIL_SetOrigin(pCommandPoint, GetCommandGoal(), false);
-				if (sv_visible_command_point.GetBool() && pCommandPointProp)
-				{
-					UTIL_SetOrigin(pCommandPointProp, GetCommandGoal(), false);
-					pCommandPointProp->SetRenderMode(kRenderNormal);
-				}
-				
 			}
 		}
 		else
@@ -2401,6 +2386,12 @@ bool CNPC_Combine::QueryHearSound( CSound *pSound )
 
 	if ( pSound->SoundContext() & SOUND_CONTEXT_EXCLUDE_COMBINE )
 		return false;
+
+#ifdef EZ
+	// Blixibon - Don't be afraid of friendly manhacks
+	if (pSound->m_hOwner && IRelationType( pSound->m_hOwner ) > D_FR)
+		return false;
+#endif
 
 	return BaseClass::QueryHearSound( pSound );
 }

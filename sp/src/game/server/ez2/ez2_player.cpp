@@ -425,7 +425,7 @@ void CEZ2_Player::ModifyOrAppendSquadCriteria(AI_CriteriaSet& set)
 			//if (pAllyNpc->HasCondition( COND_IN_PVS ))
 			//	bSquadInPVS = true;
 
-			if (pAllyNpc->IsCommandable())
+			if (pAllyNpc->IsCommandable() && !pAllyNpc->IsSilentCommandable())
 				iNumSquadCommandables++;
 		}
 
@@ -474,7 +474,20 @@ void CEZ2_Player::ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseE
 		if (pNPC->GetActiveWeapon())
 			set.AppendCriteria( "speechtarget_weapon", pNPC->GetActiveWeapon()->GetClassname() );
 
-		set.AppendCriteria( "speechtarget_inplayersquad", pNPC->IsInPlayerSquad() ? "1" : "0" );
+		if (pNPC->IsInPlayerSquad())
+		{
+			if (pNPC->IsSilentCommandable())
+			{
+				// Silent commandable NPCs include rollermines, manhacks, etc.
+				set.AppendCriteria( "speechtarget_inplayersquad", "2" );
+			}
+			else
+				set.AppendCriteria( "speechtarget_inplayersquad", "1" );
+		}
+		else
+		{
+			set.AppendCriteria( "speechtarget_inplayersquad", "0" );
+		}
 
 		// NPC and class-specific criteria
 		pNPC->ModifyOrAppendCriteriaForPlayer(this, set);

@@ -1203,6 +1203,11 @@ public:
 	//
 	//-----------------------------------------------------
 	virtual bool IsCommandable()										{ return false; }
+#ifdef EZ
+	// Blixibon - Silent commandable NPCs follow move orders, but don't count towards squad tallies.
+	// For insignificant NPCs like rollermines or manhacks that the system shouldn't confuse with soldiers.
+	virtual bool IsSilentCommandable()										{ return false; }
+#endif
 	virtual bool IsPlayerAlly( CBasePlayer *pPlayer = NULL );
 	virtual bool IsMedic()												{ return false; }
 	virtual bool IsCommandMoving()										{ return false; }

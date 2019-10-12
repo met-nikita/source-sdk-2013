@@ -14,6 +14,11 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+#ifdef EZ
+ConVar ez2_goo_puddle_time_linger("ez2_goo_puddle_time_linger", "30");
+ConVar ez2_goo_puddle_time_fade("ez2_goo_puddle_time_fade", "10");
+#endif
+
 const int SF_PHURT_START_ON			= 1;
 
 BEGIN_DATADESC( CPointHurt )

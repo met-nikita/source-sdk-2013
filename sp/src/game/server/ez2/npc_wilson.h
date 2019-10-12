@@ -42,6 +42,7 @@ class CNPC_Wilson : public CAI_WilsonBase, public CDefaultPlayerPickupVPhysics, 
 {
 	DECLARE_CLASS(CNPC_Wilson, CAI_WilsonBase);
 	DECLARE_DATADESC();
+	DECLARE_SERVERCLASS();
 public:
 	CNPC_Wilson();
 	~CNPC_Wilson();
@@ -74,6 +75,7 @@ public:
 	//int		GetSensingFlags( void ) { return SENSING_FLAGS_DONT_LOOK | SENSING_FLAGS_DONT_LISTEN; }
 
 	int		OnTakeDamage( const CTakeDamageInfo &info );
+	void	TeslaThink();
 	void	Event_Killed( const CTakeDamageInfo &info );
 
 	void	Event_KilledOther( CBaseEntity * pVictim, const CTakeDamageInfo & info );
@@ -88,6 +90,8 @@ public:
 	void			PrescheduleThink( void );
 	void			GatherConditions( void );
 	void			GatherEnemyConditions( CBaseEntity *pEnemy );
+
+	void			AimGun();
 
 	// Wilson hardly cares about his NPC state because he's just a vessel for choreography and player attachment, not a useful combat ally.
 	// This means we redirect SelectIdleSpeech() and SelectAlertSpeech() to the same function. Sure, we could've marked SelectNonCombatSpeech() virtual
@@ -131,9 +135,11 @@ public:
 
 	int		BloodColor( void ) { return DONT_BLEED; }
 
-	// Will-E doesn't attack anyone and nobody attacks him.
+	// Will-E doesn't attack anyone and nobody attacks him. (although he does see enemies for BC, see IRelationType)
 	// You can make NPCs attack him with ai_relationship, but Will-E is literally incapable of combat.
 	Class_T		Classify( void ) { return CLASS_NONE; }
+
+	Disposition_t		IRelationType( CBaseEntity *pTarget );
 
 protected:
 
@@ -154,6 +160,7 @@ protected:
 	bool	m_bCarriedByPlayer;
 	bool	m_bUseCarryAngles;
 	float	m_flPlayerDropTime;
+	float	m_flTeslaStopTime;
 
 	CHandle<CBasePlayer>	m_hPhysicsAttacker;
 	float					m_flLastPhysicsInfluenceTime;

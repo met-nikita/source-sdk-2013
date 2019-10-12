@@ -34,6 +34,9 @@ $Project "Client (Entropy Zero 2)"
 		{
 			$File	"ez2\c_ez2_player.cpp"
 			$File	"ez2\c_ez2_player.h"
+			$File	"ez2\c_npc_wilson.cpp"
+			$File	"ez2\c_npc_wilson.h"
+			$File	"ez2\zombiegooproxy.cpp"
 		}
 		$Folder	"HL2 DLL"
 		{

@@ -38,6 +38,9 @@
 #include "mapentities.h"
 #include "RagdollBoogie.h"
 #include "physics_collisionevent.h"
+#ifdef EZ
+#include "hl2_player.h"
+#endif
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -154,6 +157,9 @@ enum
 	TASK_ROLLERMINE_UNBURROW,
 	TASK_ROLLERMINE_GET_PATH_TO_FLEE,
 	TASK_ROLLERMINE_NUDGE_TOWARDS_NODES,
+#ifdef EZ
+	TASK_ROLLERMINE_PATH_TO_PLAYER, // Blixibon - For crude rollermine commanding
+#endif
 	TASK_ROLLERMINE_RETURN_TO_PLAYER,
 	TASK_ROLLERMINE_POWERDOWN,
 };
@@ -171,9 +177,15 @@ enum rollingsoundstate_t { ROLL_SOUND_NOT_READY = 0, ROLL_SOUND_OFF, ROLL_SOUND_
 
 //=========================================================
 //=========================================================
+#ifdef EZ
+class CNPC_RollerMine : public CAI_SilentSquadMember< CNPCBaseInteractive<CAI_BaseNPC> >, public CDefaultPlayerPickupVPhysics
+{
+	DECLARE_CLASS( CNPC_RollerMine, CAI_SilentSquadMember< CNPCBaseInteractive<CAI_BaseNPC> > );
+#else
 class CNPC_RollerMine : public CNPCBaseInteractive<CAI_BaseNPC>, public CDefaultPlayerPickupVPhysics
 {
 	DECLARE_CLASS( CNPC_RollerMine, CNPCBaseInteractive<CAI_BaseNPC> );
+#endif
 	DECLARE_SERVERCLASS();
 
 public:
@@ -206,6 +218,11 @@ public:
 	int		SelectSchedule( void );
 	int		TranslateSchedule( int scheduleType );
 	int		GetHackedIdleSchedule( void );
+
+#ifdef EZ
+	// Blixibon - Crude rollermine commanding
+	bool	IsCommandable() { return HasSpawnFlags(SF_ROLLERMINE_FOLLOW_PLAYER); }
+#endif
 
 	bool	OverrideMove( float flInterval ) { return true; }
 	bool	IsValidEnemy( CBaseEntity *pEnemy );
@@ -979,6 +996,23 @@ int CNPC_RollerMine::GetHackedIdleSchedule( void )
 	CBaseEntity *pPlayer = UTIL_GetLocalPlayer();
 	if ( !pPlayer )
 		return SCHED_NONE;
+
+	if ( !HaveCommandGoal() )
+	{
+		if ( !HasCondition(COND_SEE_PLAYER) )
+			return SCHED_ROLLERMINE_PATH_TO_PLAYER;
+
+		if ( GetAbsOrigin().DistToSqr( pPlayer->GetAbsOrigin() ) > ROLLERMINE_RETURN_TO_PLAYER_DIST )
+			return SCHED_ROLLERMINE_ROLL_TO_PLAYER;
+	}
+	else
+	{
+		if ( !FVisible(GetCommandGoal()) )
+			return SCHED_ROLLERMINE_PATH_TO_PLAYER;
+
+		if ( GetAbsOrigin().DistToSqr( GetCommandGoal() ) > ROLLERMINE_RETURN_TO_PLAYER_DIST )
+			return SCHED_ROLLERMINE_ROLL_TO_PLAYER;
+	}
 #else
 	// If we've been hacked, return to the player
 	if ( !m_bHackedByAlyx || m_bHeld )
@@ -988,13 +1022,13 @@ int CNPC_RollerMine::GetHackedIdleSchedule( void )
 	CBaseEntity *pPlayer = gEntList.FindEntityByName( NULL, "!player" );
 	if ( !pPlayer )
 		return SCHED_NONE;
-#endif
 
 	if ( !HasCondition(COND_SEE_PLAYER) )
 		return SCHED_ROLLERMINE_PATH_TO_PLAYER;
 
 	if ( GetAbsOrigin().DistToSqr( pPlayer->GetAbsOrigin() ) > ROLLERMINE_RETURN_TO_PLAYER_DIST )
 		return SCHED_ROLLERMINE_ROLL_TO_PLAYER;
+#endif
 
 	return SCHED_NONE;
 }
@@ -1176,6 +1210,30 @@ void CNPC_RollerMine::StartTask( const Task_t *pTask )
 			pPhysicsObject->Wake();
 		}
 		break;
+
+#ifdef EZ
+	case TASK_ROLLERMINE_PATH_TO_PLAYER:
+		{
+			CBaseEntity *pPlayer = UTIL_GetLocalPlayer();
+
+			AI_NavGoal_t goal;
+
+			if (HaveCommandGoal())
+			{
+				goal.type = GOALTYPE_LOCATION;
+				goal.dest = GetCommandGoal();
+			}
+			else
+			{
+				goal.type = GOALTYPE_LOCATION;
+				goal.dest = pPlayer->WorldSpaceCenter();
+				goal.pTarget = pPlayer;
+			}
+
+			GetNavigator()->SetGoal( goal );
+			break;
+		}
+#endif
 
 	case TASK_ROLLERMINE_CHARGE_ENEMY:
 	case TASK_ROLLERMINE_RETURN_TO_PLAYER:
@@ -1618,6 +1676,25 @@ void CNPC_RollerMine::RunTask( const Task_t *pTask )
 				return;
 			}
 
+#ifdef EZ
+			Vector vecTargetPosition;
+
+			if (HaveCommandGoal())
+			{
+				vecTargetPosition = GetCommandGoal();
+			}
+			else
+			{
+				CBaseEntity *pPlayer = UTIL_GetLocalPlayer();
+				if ( !pPlayer || m_bHeld || m_hVehicleStuckTo )
+				{
+					TaskFail( FAIL_NO_TARGET );
+					return;
+				}
+
+				vecTargetPosition = pPlayer->GetAbsOrigin();
+			}
+#else
 			CBaseEntity *pPlayer = gEntList.FindEntityByName( NULL, "!player" );
 			if ( !pPlayer || m_bHeld || m_hVehicleStuckTo )
 			{
@@ -1626,6 +1703,7 @@ void CNPC_RollerMine::RunTask( const Task_t *pTask )
 			}
 
 			Vector vecTargetPosition = pPlayer->GetAbsOrigin();
+#endif
 			float flTorqueFactor;
 			Vector vecToTarget = vecTargetPosition - GetLocalOrigin();
 			float yaw = UTIL_VecToYaw( vecToTarget );
@@ -2956,6 +3034,9 @@ AI_BEGIN_CUSTOM_NPC( npc_rollermine, CNPC_RollerMine )
 	DECLARE_TASK( TASK_ROLLERMINE_UNBURROW )
 	DECLARE_TASK( TASK_ROLLERMINE_GET_PATH_TO_FLEE )
 	DECLARE_TASK( TASK_ROLLERMINE_NUDGE_TOWARDS_NODES )
+#ifdef EZ
+	DECLARE_TASK( TASK_ROLLERMINE_PATH_TO_PLAYER )
+#endif
 	DECLARE_TASK( TASK_ROLLERMINE_RETURN_TO_PLAYER )
 	DECLARE_TASK( TASK_ROLLERMINE_POWERDOWN )
 
@@ -3071,6 +3152,62 @@ AI_BEGIN_CUSTOM_NPC( npc_rollermine, CNPC_RollerMine )
 	""
 	)
 
+#ifdef EZ
+	DEFINE_SCHEDULE
+	(
+		SCHED_ROLLERMINE_PATH_TO_PLAYER,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE			SCHEDULE:SCHED_ROLLERMINE_ALERT_STAND"
+		"		TASK_SET_TOLERANCE_DISTANCE		200"
+		"		TASK_ROLLERMINE_PATH_TO_PLAYER			0" // Blixibon - Crude rollermine commanding
+		"		TASK_RUN_PATH					0"
+		"		TASK_WAIT_FOR_MOVEMENT			0"
+		""
+		"	Interrupts"
+		"		COND_NEW_ENEMY"
+		"		COND_SEE_ENEMY"
+		"		COND_SEE_FEAR"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+		"		COND_PROVOKED"
+		"		COND_SMELL"
+		"		COND_HEAR_COMBAT"		// sound flags
+		"		COND_HEAR_WORLD"
+		"		COND_HEAR_PLAYER"
+		"		COND_HEAR_DANGER"
+		"		COND_HEAR_BULLET_IMPACT"
+		"		COND_IDLE_INTERRUPT"
+		"		COND_SEE_PLAYER"
+		"		COND_RECEIVED_ORDERS" // Blixibon - Crude rollermine commanding
+	)
+
+	DEFINE_SCHEDULE
+	(
+		SCHED_ROLLERMINE_ROLL_TO_PLAYER,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE				SCHEDULE:SCHED_ROLLERMINE_ALERT_STAND"
+		"		TASK_SET_TOLERANCE_DISTANCE			200"
+		"		TASK_ROLLERMINE_RETURN_TO_PLAYER	0"
+		""
+		"	Interrupts"
+		"		COND_NEW_ENEMY"
+		"		COND_SEE_ENEMY"
+		"		COND_SEE_FEAR"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+		"		COND_PROVOKED"
+		"		COND_SMELL"
+		"		COND_HEAR_COMBAT"		// sound flags
+		"		COND_HEAR_WORLD"
+		"		COND_HEAR_PLAYER"
+		"		COND_HEAR_DANGER"
+		"		COND_HEAR_BULLET_IMPACT"
+		"		COND_IDLE_INTERRUPT"
+		"		COND_RECEIVED_ORDERS" // Blixibon - Crude rollermine commanding
+	)
+#else
 	DEFINE_SCHEDULE
 	(
 		SCHED_ROLLERMINE_PATH_TO_PLAYER,
@@ -3123,6 +3260,7 @@ AI_BEGIN_CUSTOM_NPC( npc_rollermine, CNPC_RollerMine )
 		"		COND_HEAR_BULLET_IMPACT"
 		"		COND_IDLE_INTERRUPT"
 	)
+#endif
 
 	DEFINE_SCHEDULE
 	(
