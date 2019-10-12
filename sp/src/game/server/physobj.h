@@ -138,6 +138,16 @@ private:
 	float		m_flInnerRadius;
 	
 	COutputEvent	m_OnPushedPlayer;	
+
+#ifdef EZ2
+	CBaseEntity *	pOwner; // Currently, this field is not a saved field because it is only used by vortigaunts
+	bool			m_bDispel;
+public:
+	void	SetOwner( CBaseEntity * pNewOwner ) { pOwner = pNewOwner; }
+
+	static CPhysExplosion * CreatePhysExplosion( const Vector &vecOrigin, CBaseEntity *pOwner, float flMagnitude, float flRadius, float flInnerRadius, bool bDispel );
+
+#endif
 };
 
 

@@ -5317,6 +5317,16 @@ void CBasePlayer::IncrementArmorValue( int nCount, int nMaxValue )
 	}
 }
 
+#ifdef EZ
+void CBasePlayer::DecrementArmorValue( int nCount )
+{
+	m_ArmorValue -= nCount;
+
+	if ( m_ArmorValue < 0 )
+		m_ArmorValue = 0;
+}
+#endif
+
 // used by the physics gun and game physics... is there a better interface?
 void CBasePlayer::SetPhysicsFlag( int nFlag, bool bSet )
 {

@@ -994,6 +994,18 @@ void CPhysExplosion::Explode( CBaseEntity *pActivator, CBaseEntity *pCaller )
 	// UNDONE: Try tracing world-only?
 	while ((pEntity = FindEntity( pEntity, pActivator, pCaller )) != NULL)
 	{
+#ifdef EZ2
+		// Don't push the Vortiguant that created this explosion!
+		if ( pEntity == pOwner )
+			continue;
+
+		// For the sake of Vortigaunt dispels, ignore antlions and vorts!
+		if ( m_bDispel && pEntity->Classify() == CLASS_ANTLION || pEntity->Classify() == CLASS_VORTIGAUNT )
+		{
+			continue;
+		}
+#endif
+
 		// UNDONE: Ask the object if it should get force if it's not MOVETYPE_VPHYSICS?
 		if ( pEntity->m_takedamage != DAMAGE_NO && (pEntity->GetMoveType() == MOVETYPE_VPHYSICS || (pEntity->VPhysicsGetObject() /*&& !pEntity->IsPlayer()*/)) )
 		{
@@ -1150,6 +1162,31 @@ int CPhysExplosion::DrawDebugTextOverlays( void )
 	}
 	return text_offset;
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: Create a physics explosion
+// Input: 
+//-----------------------------------------------------------------------------
+CPhysExplosion *CPhysExplosion::CreatePhysExplosion( const Vector &vecOrigin, CBaseEntity *pOwner, float flMagnitude, float flRadius, float flInnerRadius, bool bDispel  )
+{
+	CPhysExplosion * pPhysExplosion = (CPhysExplosion *)CreateEntityByName( "env_physexplosion" );
+	if (pPhysExplosion != NULL)
+	{
+		// Set up our internal data
+		UTIL_SetOrigin( pPhysExplosion, vecOrigin );
+		pPhysExplosion->SetOwner( pOwner );
+		pPhysExplosion->m_damage = flMagnitude;
+		pPhysExplosion->m_flInnerRadius = flInnerRadius;
+		pPhysExplosion->m_radius = flRadius;
+		pPhysExplosion->m_bDispel = bDispel;
+	}
+
+	return pPhysExplosion;
+}
+
+
+#endif
 
 
 //==================================================

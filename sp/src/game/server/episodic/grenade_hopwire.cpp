@@ -46,6 +46,7 @@ ConVar hopwire_ragdoll_radius( "hopwire_ragdoll_radius", "96" );
 ConVar hopwire_spawn_life("hopwire_spawn_life", "1");
 ConVar hopwire_guard_mass("hopwire_guard_mass", "1500");
 ConVar hopwire_zombine_mass( "hopwire_zombine_mass", "800" );
+ConVar hopwire_zombigaunt_mass( "hopwire_zombigaunt_mass", "1000" );
 ConVar hopwire_bullsquid_mass("hopwire_bullsquid_mass", "500");
 ConVar hopwire_antlion_mass("hopwire_antlion_mass", "375");
 ConVar hopwire_zombie_mass( "hopwire_zombie_mass", "250" ); // TODO Zombies should require a rebel as an ingredient
@@ -263,6 +264,11 @@ void CGravityVortexController::CreateXenLife(void)
 	if ( GetConsumedMass() >= hopwire_guard_mass.GetFloat() )
 	{
 		if ( TryCreateNPC( "npc_antlionguard", false ) )
+			return;
+	}
+	if (GetConsumedMass() >= hopwire_zombigaunt_mass.GetFloat())
+	{
+		if (TryCreateNPC( "npc_zombigaunt", false ))
 			return;
 	}
 	if ( GetConsumedMass() >= hopwire_zombine_mass.GetFloat() )
