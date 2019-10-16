@@ -144,6 +144,10 @@ enum
 	SCHED_ROLLERMINE_NUDGE_TOWARDS_NODES,
 	SCHED_ROLLERMINE_PATH_TO_PLAYER,
 	SCHED_ROLLERMINE_ROLL_TO_PLAYER,
+#ifdef EZ
+	// Blixibon - Lower tolerance distance for command point rolling
+	SCHED_ROLLERMINE_ROLL_TO_COMMAND_POINT,
+#endif
 	SCHED_ROLLERMINE_POWERDOWN,
 };
 
@@ -1010,8 +1014,8 @@ int CNPC_RollerMine::GetHackedIdleSchedule( void )
 		if ( !FVisible(GetCommandGoal()) )
 			return SCHED_ROLLERMINE_PATH_TO_PLAYER;
 
-		if ( GetAbsOrigin().DistToSqr( GetCommandGoal() ) > ROLLERMINE_RETURN_TO_PLAYER_DIST )
-			return SCHED_ROLLERMINE_ROLL_TO_PLAYER;
+		if ( GetAbsOrigin().DistToSqr( GetCommandGoal() ) > Square(96.0f) )
+			return SCHED_ROLLERMINE_ROLL_TO_COMMAND_POINT;
 	}
 #else
 	// If we've been hacked, return to the player
@@ -3179,16 +3183,15 @@ AI_BEGIN_CUSTOM_NPC( npc_rollermine, CNPC_RollerMine )
 		"		COND_HEAR_BULLET_IMPACT"
 		"		COND_IDLE_INTERRUPT"
 		"		COND_SEE_PLAYER"
-		"		COND_RECEIVED_ORDERS" // Blixibon - Crude rollermine commanding
 	)
 
 	DEFINE_SCHEDULE
 	(
-		SCHED_ROLLERMINE_ROLL_TO_PLAYER,
+		SCHED_ROLLERMINE_ROLL_TO_COMMAND_POINT,
 
 		"	Tasks"
 		"		TASK_SET_FAIL_SCHEDULE				SCHEDULE:SCHED_ROLLERMINE_ALERT_STAND"
-		"		TASK_SET_TOLERANCE_DISTANCE			200"
+		"		TASK_SET_TOLERANCE_DISTANCE			96" // Blixibon - Lower tolerance distance for command point rolling
 		"		TASK_ROLLERMINE_RETURN_TO_PLAYER	0"
 		""
 		"	Interrupts"
@@ -3205,7 +3208,6 @@ AI_BEGIN_CUSTOM_NPC( npc_rollermine, CNPC_RollerMine )
 		"		COND_HEAR_DANGER"
 		"		COND_HEAR_BULLET_IMPACT"
 		"		COND_IDLE_INTERRUPT"
-		"		COND_RECEIVED_ORDERS" // Blixibon - Crude rollermine commanding
 	)
 #else
 	DEFINE_SCHEDULE
@@ -3235,6 +3237,7 @@ AI_BEGIN_CUSTOM_NPC( npc_rollermine, CNPC_RollerMine )
 		"		COND_IDLE_INTERRUPT"
 		"		COND_SEE_PLAYER"
 	)
+#endif
 
 	DEFINE_SCHEDULE
 	(
@@ -3260,7 +3263,6 @@ AI_BEGIN_CUSTOM_NPC( npc_rollermine, CNPC_RollerMine )
 		"		COND_HEAR_BULLET_IMPACT"
 		"		COND_IDLE_INTERRUPT"
 	)
-#endif
 
 	DEFINE_SCHEDULE
 	(

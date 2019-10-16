@@ -476,13 +476,9 @@ void CEZ2_Player::ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseE
 
 		if (pNPC->IsInPlayerSquad())
 		{
-			if (pNPC->IsSilentCommandable())
-			{
-				// Silent commandable NPCs include rollermines, manhacks, etc.
-				set.AppendCriteria( "speechtarget_inplayersquad", "2" );
-			}
-			else
-				set.AppendCriteria( "speechtarget_inplayersquad", "1" );
+			// Silent commandable NPCs are rollermines, manhacks, etc. that are in the player's squad and can be commanded,
+			// but don't show up in the HUD, have primitive commanding schedules, and are meant to give priority to non-silent members.
+			set.AppendCriteria( "speechtarget_inplayersquad", pNPC->IsSilentCommandable() ? "2" : "1" );
 		}
 		else
 		{
