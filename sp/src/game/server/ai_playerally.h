@@ -136,6 +136,11 @@
 #define TLK_TGCATCHUP 	"TLK_TGCATCHUP"
 #define TLK_TGENDTOUR 	"TLK_TGENDTOUR"
 
+#ifdef EZ
+// Entropy : Zero 2 Citizen contexts
+#define TLK_SURRENDER	"TLK_SURRENDER"	// Citizen just dropped their weapon in fear
+
+#endif
 //-----------------------------------------------------------------------------
 
 #define TALKRANGE_MIN 500.0				// don't talk to anyone farther away than this
