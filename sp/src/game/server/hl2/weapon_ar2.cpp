@@ -381,13 +381,13 @@ void CWeaponAR2::DelayedAttack( void )
 	
 	pOwner->ViewPunch( QAngle( random->RandomInt( -8, -12 ), random->RandomInt( 1, 2 ), 0 ) );
 
-#ifndef EZ
+#ifndef EZ1
 	// Decrease ammo
 	pOwner->RemoveAmmo( 1, m_iSecondaryAmmoType );
 #endif
 
 	// Can shoot again immediately
-#ifdef EZ
+#ifdef EZ1
 	m_flNextPrimaryAttack = gpGlobals->curtime + 1.0f;
 #else
 	m_flNextPrimaryAttack = gpGlobals->curtime + 0.5f;
@@ -396,7 +396,7 @@ void CWeaponAR2::DelayedAttack( void )
 	// Can blow up after a short delay (so have time to release mouse button)
 	m_flNextSecondaryAttack = gpGlobals->curtime + 1.0f;
 
-#ifdef EZ
+#ifdef EZ1
 	// Add into our burst max
 	BurstMax = BurstMax + 1;
 
@@ -434,7 +434,7 @@ void CWeaponAR2::SecondaryAttack( void )
 	SendWeaponAnim( ACT_VM_FIDGET );
 	WeaponSound( SPECIAL1 );
 
-#ifdef EZ
+#ifdef EZ1
 	CBasePlayer *pOwner = ToBasePlayer(GetOwner());
 
 	// Decrease ammo - trying this down here.
