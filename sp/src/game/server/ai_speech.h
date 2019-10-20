@@ -185,6 +185,11 @@ public:
 	float GetTimeSpeechComplete() const 	{ return m_flStopTalkTime; }
 	void  BlockSpeechUntil( float time );
 
+#ifdef EZ2
+	// Blixibon - Needed for Bad Cop speech to accurately determine if a NPC is still speaking
+	float GetRealTimeSpeechComplete() const	{ return m_flStopTalkTimeWithoutDelay; }
+#endif
+
 	// --------------------------------
 	
 	bool CanSpeakConcept( AIConcept_t concept );

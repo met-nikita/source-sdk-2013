@@ -1041,11 +1041,13 @@ void CPlayerPickupController::Init( CBasePlayer *pPlayer, CBaseEntity *pObject )
 		}
 	}
 
+#ifndef EZ2
 	CHL2_Player *pOwner = (CHL2_Player *)ToBasePlayer( pPlayer );
 	if ( pOwner )
 	{
 		pOwner->EnableSprint( false );
 	}
+#endif
 
 	// If the target is debris, convert it to non-debris
 	if ( pObject->GetCollisionGroup() == COLLISION_GROUP_DEBRIS )
@@ -1101,11 +1103,13 @@ void CPlayerPickupController::Shutdown( bool bThrown )
 
 	if ( m_pPlayer )
 	{
+#ifndef EZ2
 		CHL2_Player *pOwner = (CHL2_Player *)ToBasePlayer( m_pPlayer );
 		if ( pOwner )
 		{
 			pOwner->EnableSprint( true );
 		}
+#endif
 
 		m_pPlayer->SetUseEntity( NULL );
 		if ( m_pPlayer->GetActiveWeapon() )

@@ -1447,6 +1447,27 @@ void CBounceBomb::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t re
 	}
 }
 
+#ifdef EZ2
+// Blixibon -- Allows Bad Cop to pick up friendly mines.
+void CBounceBomb::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
+{
+	CBasePlayer *pPlayer = ToBasePlayer( pActivator );
+	if ( pPlayer )
+	{
+		// Only allow pickup if we like the player or we're too busy exploding.
+		// If not, shock them for trying.
+		if (GetMineState() == MINE_STATE_DORMANT || IsPlayerPlaced())
+		{
+			//m_bDisarmed = false;
+			SetMineState( MINE_STATE_DEPLOY );
+			//m_bHeldByPhysgun = true;
+
+			pPlayer->PickupObject( this, false );
+		}
+	}
+}
+#endif
+
 
 LINK_ENTITY_TO_CLASS( bounce_bomb, CBounceBomb );
 LINK_ENTITY_TO_CLASS( combine_bouncemine, CBounceBomb );

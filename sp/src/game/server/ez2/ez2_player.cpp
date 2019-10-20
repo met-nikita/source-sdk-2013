@@ -369,14 +369,28 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 			set.AppendCriteria("enemy_is_npc", "1");
 
 			// Bypass split-second reactions
-			if (pNPC->GetEnemy() == this && (pNPC->GetLastEnemyTime() + 0.1f) < gpGlobals->curtime)
+			if (pNPC->GetEnemy() == this && (gpGlobals->curtime - pNPC->GetLastEnemyTime()) > 0.1f)
 			{
 				set.AppendCriteria( "enemy_attacking_me", "1" );
 				set.AppendCriteria( "enemy_sees_me", pNPC->HasCondition( COND_SEE_ENEMY ) ? "1" : "0" );
 			}
 			else
 			{
-				set.AppendCriteria( "enemy_sees_me", (pNPC->FInViewCone( this ) && pNPC->FVisible( this )) ? "1" : "0" );
+				// Some NPCs have tunnel vision and lose sight of their enemies often.
+				// If they remember us and last saw us less than 4 seconds ago,
+				// they probably know we're there.
+				// Sure, this means the response system thinks a NPC "sees me" when they technically do not,
+				// but it curbs false sneak attack cases.
+				AI_EnemyInfo_t *EnemyInfo = pNPC->GetEnemies()->Find( this );
+				if (EnemyInfo && (gpGlobals->curtime - EnemyInfo->timeLastSeen) < 4.0f)
+				{
+					set.AppendCriteria( "enemy_sees_me", "1" );
+				}
+				else
+				{
+					// Do a simple visibility check
+					set.AppendCriteria( "enemy_sees_me", pNPC->FInViewCone( this ) && pNPC->FVisible( this ) ? "1" : "0" );
+				}
 			}
 
 			set.AppendCriteria( "enemy_activity", CAI_BaseNPC::GetActivityName( pNPC->GetActivity() ) );
@@ -794,7 +808,7 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 	{
 		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", pVictim->LastHitGroup()));
 
-		modifiers.AppendCriteria("enemy_relationship", UTIL_VarArgs("%f", pVictim->IRelationType(this)));
+		modifiers.AppendCriteria("enemy_relationship", UTIL_VarArgs("%i", pVictim->IRelationType(this)));
 
 		if (pVictim->IsOnFire())
 			modifiers.AppendCriteria("enemy_on_fire", "1");
@@ -805,7 +819,8 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 			if (pNPC->GetExpresser())
 			{
 				// That's enough outta you.
-				if (pNPC->GetExpresser()->IsSpeaking())
+				// (IsSpeaking() accounts for the delay as well, so it lingers beyond actual speech time)
+				if (gpGlobals->curtime < pNPC->GetExpresser()->GetRealTimeSpeechComplete())
 					modifiers.AppendCriteria("enemy_is_speaking", "1");
 			}
 		}
