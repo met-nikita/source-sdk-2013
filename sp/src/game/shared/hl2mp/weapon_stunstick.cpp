@@ -112,6 +112,7 @@ CWeaponStunStick::CWeaponStunStick( void )
 #ifdef CLIENT_DLL
 	m_bSwungLastFrame = false;
 	m_flFadeTime = FADE_DURATION;	// Start off past the fade point
+	m_pStunstickLight = NULL;
 #endif
 }
 
@@ -959,7 +960,9 @@ void C_WeaponStunStick::DrawFirstPersonEffects( void )
 		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 		if ( pPlayer != NULL )
 		{
-			pPlayer->DoMuzzleFlash();
+			m_flLastMuzzleFlashTime = gpGlobals->curtime;
+			//// Not using actual muzzle flashes for now
+			//pPlayer->DoMuzzleFlash();
 		}
 	}
 #endif
@@ -1035,6 +1038,69 @@ void C_WeaponStunStick::ViewModelDrawn( C_BaseViewModel *pBaseViewModel )
 
 	BaseClass::ViewModelDrawn( pBaseViewModel );
 }
+
+#ifdef EZ
+
+ConVar    cl_stunstick_flashlight			( "cl_stunstick_flashlight", "1" );
+ConVar    cl_stunstick_flashlight_distance	( "cl_stunstick_flashlight", "512" );
+ConVar    cl_stunstick_flashlight_intensity	( "cl_stunstick_flashlight_intensity", "0.1" );
+
+//// Not using actual muzzle flashes for now
+//void C_WeaponStunStick::ProcessMuzzleFlashEvent()
+//{
+//	if (ShouldDrawUsingViewModel())
+//	{
+//		m_flLastMuzzleFlashTime = gpGlobals->curtime;
+//		return;
+//	}
+//
+//	BaseClass::ProcessMuzzleFlashEvent();
+//}
+
+// Override Simulate() to handle stunstick projected texture
+void C_WeaponStunStick::Simulate( void )
+{
+	if ( cl_stunstick_flashlight.GetBool() )
+	{
+		bool stunstickLight = gpGlobals->curtime < m_flLastMuzzleFlashTime +  0.05f;
+
+		// The dim light is the flashlight.
+		if (stunstickLight)
+		{
+			if (m_pStunstickLight == NULL)
+			{
+				// Turned on the headlight; create it.
+				m_pStunstickLight = new CFlashlightEffect( 0, MUZZLEFLASH );
+
+				if (m_pStunstickLight == NULL)
+					return;
+
+				m_pStunstickLight->TurnOn();
+			}
+
+			if (GetOwner()->IsPlayer())
+			{
+				CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+				if (pPlayer != NULL)
+				{
+					Vector vecForward, vecRight, vecUp;
+					pPlayer->EyeVectors( &vecForward, &vecRight, &vecUp );
+					m_pStunstickLight->UpdateLight( EyePosition(), vecForward, vecRight, vecUp, cl_stunstick_flashlight_distance.GetFloat() );
+				}
+			}
+		}
+		else if (m_pStunstickLight)
+		{
+			m_pStunstickLight->TurnOff();
+			// Turned off the flashlight; delete it.
+			delete m_pStunstickLight;
+			m_pStunstickLight = NULL;
+		}
+	}
+
+	BaseClass::Simulate();
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Draw a cheap glow quad at our impact point (with sparks)

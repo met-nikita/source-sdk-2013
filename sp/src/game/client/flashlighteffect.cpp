@@ -74,12 +74,12 @@ void r_newflashlightCallback_f( IConVar *pConVar, const char *pOldString, float 
 #ifdef EZ
 //-----------------------------------------------------------------------------
 // Purpose: Alternate constructor for Entropy : Zero.
-// Input  : isNVG - Whether or not this flashlight is NVG
+// Input  : type - flashlight, NVG, or muzzleflash
 //			nEntIndex - The m_nEntIndex of the client entity that is creating us.
 //			vecPos - The position of the light emitter.
 //			vecDir - The direction of the light emission.
 //-----------------------------------------------------------------------------
-CFlashlightEffect::CFlashlightEffect( int nEntIndex, bool isNVG )
+CFlashlightEffect::CFlashlightEffect( int nEntIndex, flashlighttype type )
 #else
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -107,12 +107,12 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex)
 	else
 #endif
 #ifdef EZ
-	this->m_bIsNVG = isNVG;
-	if ( g_pMaterialSystemHardwareConfig->SupportsBorderColor() && isNVG )
+	m_iFlashLightType = type;
+	if ( g_pMaterialSystemHardwareConfig->SupportsBorderColor() && IsNVG() )
 	{
 		m_FlashlightTexture.Init( "effects/Ez_MetroVision_border", TEXTURE_GROUP_OTHER, true );
 	}
-	else if ( isNVG )
+	else if ( IsNVG() )
 	{
 		m_FlashlightTexture.Init( "effects/Ez_MetroVision", TEXTURE_GROUP_OTHER, true );
 	}
@@ -198,21 +198,32 @@ public:
 	}
 };
 
+extern ConVar cl_stunstick_flashlight_distance;
+extern ConVar cl_stunstick_flashlight_intensity;
+
 //-----------------------------------------------------------------------------
 // Purpose: Do the headlight
 //-----------------------------------------------------------------------------
 void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecForward, const Vector &vecRight, const Vector &vecUp )
 {
-	float fov;
+	float fov, flashlightFar;
+
 #ifdef EZ
-	if ( IsNVG() )
+	if ( m_iFlashLightType == NVG )
 	{
-		fov = r_nvgfov.GetFloat();
+ 		fov = r_nvgfov.GetFloat();
+		flashlightFar =  r_flashlightfar.GetFloat();
+	}
+	else if ( m_iFlashLightType == MUZZLEFLASH )
+	{
+		fov = 179;
+		flashlightFar =  cl_stunstick_flashlight_distance.GetFloat();
 	}
 	else
 #endif
 	{
 		fov = r_flashlightfov.GetFloat();
+		flashlightFar =  r_flashlightfar.GetFloat();
 	}
 
 
@@ -264,7 +275,7 @@ void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecFo
 	iMask &= ~CONTENTS_HITBOX;
 	iMask |= CONTENTS_WINDOW;
 
-	Vector vTarget = vecPos + vecForward * r_flashlightfar.GetFloat();
+	Vector vTarget = vecPos + vecForward * flashlightFar;
 
 	// Work with these local copies of the basis for the rest of the function
 	Vector vDir   = vTarget - vOrigin;
@@ -386,15 +397,22 @@ void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecFo
 	}
 
 	state.m_fConstantAtten = r_flashlightconstant.GetFloat();
+#ifndef EZ
 	state.m_Color[0] = 1.0f;
 	state.m_Color[1] = 1.0f;
 	state.m_Color[2] = 1.0f;
+#else
+	state.m_Color[0] = m_iFlashLightType == MUZZLEFLASH ? cl_stunstick_flashlight_intensity.GetFloat() : 1.0f;
+	state.m_Color[1] = m_iFlashLightType == MUZZLEFLASH ? cl_stunstick_flashlight_intensity.GetFloat() : 1.0f;
+	state.m_Color[2] = m_iFlashLightType == MUZZLEFLASH ? cl_stunstick_flashlight_intensity.GetFloat() : 1.0f;
+#endif
+	
 	state.m_Color[3] = r_flashlightambient.GetFloat();
 	state.m_NearZ = r_flashlightnear.GetFloat() + m_flDistMod;	// Push near plane out so that we don't clip the world when the flashlight pulls back 
-	state.m_FarZ = r_flashlightfar.GetFloat();
+	state.m_FarZ = flashlightFar;
 #ifdef EZ
 	// The NVG projected texture should not cast shadows
-	state.m_bEnableShadows = !IsNVG() && r_flashlightdepthtexture.GetBool();
+	state.m_bEnableShadows = m_iFlashLightType == FLASHLIGHT && r_flashlightdepthtexture.GetBool();
 #else
 	state.m_bEnableShadows = r_flashlightdepthtexture.GetBool();
 #endif
@@ -615,4 +633,3 @@ void CHeadlightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir, 
 	
 	g_pClientShadowMgr->UpdateProjectedTexture( GetFlashlightHandle(), true );
 }
-

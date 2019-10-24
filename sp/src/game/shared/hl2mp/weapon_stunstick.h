@@ -27,6 +27,11 @@
 #ifdef CLIENT_DLL
 #define CWeaponStunStick C_WeaponStunStick
 #define CBaseHLBludgeonWeapon C_BaseHLBludgeonWeapon
+
+#ifdef EZ
+#include "flashlighteffect.h"
+#endif
+
 #endif
 
 #ifndef HL2MP
@@ -59,7 +64,20 @@ public:
 	virtual void			OnDataChanged( DataUpdateType_t updateType );
 	virtual RenderGroup_t	GetRenderGroup( void );
 	virtual void			ViewModelDrawn( C_BaseViewModel *pBaseViewModel );
-	
+
+#ifdef EZ
+	// This is called to do the actual muzzle flash effect.
+	//void ProcessMuzzleFlashEvent();
+	void Simulate( void );
+
+protected:
+	float m_flLastMuzzleFlashTime;
+
+	CFlashlightEffect *m_pStunstickLight;
+
+public:
+#endif
+
 #endif
 
 	virtual void Precache();
