@@ -12,13 +12,21 @@
 
 struct dlight_t;
 
+#ifdef EZ
+enum flashlighttype
+{
+	FLASHLIGHT,
+	NVG,
+	MUZZLEFLASH
+};
+#endif
 
 class CFlashlightEffect
 {
 public:
 
 #ifdef EZ
-	CFlashlightEffect( int nEntIndex = 0, bool isNVG = false );
+	CFlashlightEffect( int nEntIndex = 0, flashlighttype type = FLASHLIGHT );
 #else
 	CFlashlightEffect(int nEntIndex = 0);
 #endif
@@ -33,7 +41,7 @@ public:
 	void SetFlashlightHandle( ClientShadowHandle_t Handle ) { m_FlashlightHandle = Handle;	}
 	
 #ifdef EZ
-	virtual bool IsNVG( void ) { return m_bIsNVG; }
+	virtual bool IsNVG( void ) { return m_iFlashLightType == NVG; }
 #endif
 protected:
 
@@ -55,8 +63,9 @@ protected:
 	// Texture for flashlight
 	CTextureReference m_FlashlightTexture;
 
-	// Is this flashlight an NVG?
-	bool m_bIsNVG;
+#ifdef EZ
+	flashlighttype m_iFlashLightType;
+#endif
 };
 
 class CHeadlightEffect : public CFlashlightEffect
@@ -68,7 +77,5 @@ public:
 
 	virtual void UpdateLight(const Vector &vecPos, const Vector &vecDir, const Vector &vecRight, const Vector &vecUp, int nDistance);
 };
-
-
 
 #endif // FLASHLIGHTEFFECT_H

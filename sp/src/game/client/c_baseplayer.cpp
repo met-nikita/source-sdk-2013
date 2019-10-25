@@ -1245,7 +1245,7 @@ void C_BasePlayer::UpdateFlashlight()
 		{
 #ifdef EZ
 			// Turned on the headlight; create it.
-			m_pFlashlight = new CFlashlightEffect( true, index );
+			m_pFlashlight = new CFlashlightEffect( index, NVG );
 #else
 			// Turned on the headlight; create it.
 			m_pFlashlight = new CFlashlightEffect( index );

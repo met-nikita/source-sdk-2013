@@ -71,6 +71,7 @@ ConVar	sk_citizen_stare_heal_time		( "sk_citizen_stare_heal_time",			"5" );
 ConVar  sk_citizen_ar2_proficiency("sk_citizen_ar2_proficiency", "2"); // Added by 1upD. Skill rating 0 - 4 of how accurate the AR2 should be
 ConVar  sk_citizen_default_proficiency("sk_citizen_default_proficiency", "1"); // Added by 1upD. Skill rating 0 - 4 of how accurate all weapons but the AR2 should be
 ConVar  sk_citizen_default_willpower("sk_citizen_default_willpower", "1"); // Added by 1upD. Amount of mental stress damage citizen can take before panic
+ConVar  sk_citizen_very_low_willpower( "sk_citizen_very_low_willpower", "-3" ); // Added by 1upD. Amount of willpower below which citizens might flee
 #endif
 
 ConVar	g_ai_citizen_show_enemy( "g_ai_citizen_show_enemy", "0" );
@@ -339,6 +340,13 @@ int	ACT_CIT_BLINDED;		// Blinded by scanner photo
 int ACT_CIT_SHOWARMBAND;
 int ACT_CIT_HEAL;
 int	ACT_CIT_STARTLED;		// Startled by sneaky scanner
+
+#ifdef EZ2
+// "Panicked" activities normally used by readiness, hijacked for EZ2 for unarmed citizens
+int ACT_CROUCH_PANICKED;
+int ACT_WALK_PANICKED;
+int ACT_RUN_PANICKED;
+#endif
 
 //---------------------------------------------------------
 
@@ -1051,10 +1059,15 @@ void CNPC_Citizen::GatherWillpowerConditions()
 
 	int l_iWillpower = sk_citizen_default_willpower.GetInt() + m_iWillpowerModifier;
 
+	bool typeCanPanic = m_Type != CT_BRUTE && m_Type != CT_LONGFALL;
+
 	if( pWeapon->UsesClipsForAmmo1() && ((float)pWeapon->m_iClip1 / (float)pWeapon->GetMaxClip1()) > 0.75) // ratio of rounds left in magazine
 		l_iWillpower++;
 
 	if (HasCondition(COND_LOW_PRIMARY_AMMO))
+		l_iWillpower--;
+
+	if (HasCondition(COND_NO_PRIMARY_AMMO))
 		l_iWillpower--;
 
 	if(pWeapon->ClassMatches("weapon_shotgun"))
@@ -1104,9 +1117,31 @@ void CNPC_Citizen::GatherWillpowerConditions()
 	if (HasCondition(COND_HEAR_PHYSICS_DANGER))
 		l_iWillpower--;
 
-	if (l_iWillpower <= 0)
+#ifdef EZ2
+	// If this citizen is not a brute or a jump rebel, their willpower is below a certain threshold, the enemy can see them, and the enemy is Bad Cop,
+	// try to surrender
+	if (typeCanPanic && l_iWillpower <= sk_citizen_very_low_willpower.GetInt() && HasCondition( COND_ENEMY_FACING_ME ) && GetEnemy() && GetEnemy()->IsPlayer() )
 	{
-		if (!HasCondition(COND_CIT_WILLPOWER_LOW))
+		if (!HasCondition( COND_CIT_WILLPOWER_VERY_LOW ))
+		{
+			if (m_pSquad && m_pSquad->NumMembers() == 1) // Last one
+			{
+				MsgWillpower( "%s is now panicked and is the last squadmate!\tWillpower: %i\n", l_iWillpower );
+			}
+			else
+			{
+				MsgWillpower( "%s is now panicked!\tWillpower: %i\n", l_iWillpower );
+			}
+		}
+		ClearCondition( COND_CIT_WILLPOWER_HIGH );
+		SetCondition( COND_CIT_WILLPOWER_LOW );
+		SetCondition( COND_CIT_WILLPOWER_VERY_LOW );
+	}
+	else
+#endif
+	if (typeCanPanic && l_iWillpower <= 0 )
+	{
+		if ( !HasCondition(COND_CIT_WILLPOWER_LOW) )
 		{
 			if (m_pSquad && m_pSquad->NumMembers() == 1) // Last one
 			{
@@ -1117,6 +1152,7 @@ void CNPC_Citizen::GatherWillpowerConditions()
 				MsgWillpower("%s is now scared!\tWillpower: %i\n", l_iWillpower);
 			}
 		}
+		ClearCondition(COND_CIT_WILLPOWER_VERY_LOW);
 		ClearCondition(COND_CIT_WILLPOWER_HIGH);
 		SetCondition(COND_CIT_WILLPOWER_LOW);
 	}
@@ -1124,13 +1160,14 @@ void CNPC_Citizen::GatherWillpowerConditions()
 	{
 		if (!HasCondition(COND_CIT_WILLPOWER_HIGH))
 			MsgWillpower("%s is now brave!\tWillpower: %i\n", l_iWillpower);
-
+		ClearCondition( COND_CIT_WILLPOWER_VERY_LOW );
 		ClearCondition(COND_CIT_WILLPOWER_LOW);
 		SetCondition(COND_CIT_WILLPOWER_HIGH);
 	}
 	else {
 		ClearCondition(COND_CIT_WILLPOWER_HIGH);
 		ClearCondition(COND_CIT_WILLPOWER_LOW);
+		ClearCondition(COND_CIT_WILLPOWER_VERY_LOW);
 	}
 }
 
@@ -1898,6 +1935,30 @@ int CNPC_Citizen::TranslateSchedule( int scheduleType )
 //-----------------------------------------------------------------------------
 int CNPC_Citizen::TranslateWillpowerSchedule(int scheduleType)
 {
+	if ( GetActiveWeapon() && HasCondition( COND_CIT_WILLPOWER_VERY_LOW ) && ( random->RandomInt( 1, 4 ) == 1 || HasCondition( COND_NO_PRIMARY_AMMO ) ) )
+	{
+		// TODO Add a new schedule. For now, just drop it!
+		Weapon_Drop( GetActiveWeapon() );
+
+		// Remove melee capabilities now - TODO return these after picking up a weapon again!
+		CapabilitiesRemove( bits_CAP_INNATE_MELEE_ATTACK1 );
+
+		// Don't look for another weapon for 15 seconds!
+		m_flNextWeaponSearchTime = gpGlobals->curtime + 15.0;
+
+		// Don't shoot!
+		SpeakIfAllowed( TLK_SURRENDER );
+
+		// If we have LOS to the enemy, run away
+		if ( HasCondition( COND_HAVE_ENEMY_LOS ) && random->RandomInt( 1, 2 ) == 1 )
+		{
+			return SCHED_RUN_FROM_ENEMY;
+		}
+
+		// Cower in fear
+		return SCHED_PC_COWER;
+	}
+
 	switch (scheduleType)
 	{
 		// Don't investigate sounds if you're scared or unarmed
@@ -2425,6 +2486,22 @@ Activity CNPC_Citizen::NPC_TranslateActivity( Activity activity )
 			case ACT_WALK:
 			case ACT_RUN:		activity = ACT_RUN_ON_FIRE; break;
 			case ACT_IDLE:		activity = ACT_IDLE_ON_FIRE; break;
+		}
+	}
+#endif
+
+#ifdef EZ2
+	// Unarmed citizens use 'panic readiness' activities!
+	if ( !m_bWillpowerDisabled && GetActiveWeapon() == NULL && m_NPCState == NPC_STATE_COMBAT )
+	{
+		switch (activity)
+		{
+		case ACT_RUN:
+			return (Activity) ACT_RUN_PANICKED;
+		case ACT_IDLE:
+			return (Activity) ACT_CROUCH_PANICKED;
+		case ACT_WALK:
+			return (Activity) ACT_WALK_PANICKED;
 		}
 	}
 #endif
@@ -4799,10 +4876,18 @@ AI_BEGIN_CUSTOM_NPC( npc_citizen, CNPC_Citizen )
 	DECLARE_ACTIVITY( ACT_CIT_HEAL )
 	DECLARE_ACTIVITY( ACT_CIT_STARTLED )
 
+#ifdef EZ2
+	DECLARE_ACTIVITY( ACT_CROUCH_PANICKED )
+	DECLARE_ACTIVITY( ACT_WALK_PANICKED )
+	DECLARE_ACTIVITY( ACT_RUN_PANICKED )
+#endif
+
+
 	DECLARE_CONDITION( COND_CIT_PLAYERHEALREQUEST )
 	DECLARE_CONDITION( COND_CIT_COMMANDHEAL )
 	DECLARE_CONDITION( COND_CIT_START_INSPECTION )
 #ifdef EZ
+	DECLARE_CONDITION(COND_CIT_WILLPOWER_VERY_LOW)
 	DECLARE_CONDITION(COND_CIT_WILLPOWER_LOW)
 	DECLARE_CONDITION(COND_CIT_WILLPOWER_HIGH)
 	DECLARE_CONDITION(COND_CIT_ON_FIRE)

@@ -1125,6 +1125,12 @@ bool CNPC_PlayerCompanion::IsValidReasonableFacing( const Vector &vecSightDir, f
 
 	if( ai_new_aiming.GetBool() )
 	{
+#ifdef MAPBASE
+		// Hint node facing should still be obeyed
+		if (GetHintNode() && GetHintNode()->GetIgnoreFacing() != HIF_YES)
+			return true;
+#endif
+
 		Vector vecEyePositionCentered = GetAbsOrigin();
 		vecEyePositionCentered.z = EyePosition().z;
 
