@@ -151,6 +151,11 @@ private:
 
 	CNetworkVar( bool, m_bHeadlightIsOn );
 
+#ifdef EZ // Blixibon - APC spotlight
+	EHANDLE			m_Spotlight;
+	int				m_nSpotlightAttachment;
+#endif
+
 
 //APC:
 

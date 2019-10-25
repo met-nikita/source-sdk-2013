@@ -113,6 +113,9 @@ BEGIN_DATADESC( CPropDrivableAPC )
 	DEFINE_FIELD( m_vecEyeSpeed, FIELD_POSITION_VECTOR ),
 	DEFINE_FIELD( m_vecTargetSpeed, FIELD_POSITION_VECTOR ),
 	DEFINE_FIELD( m_bHeadlightIsOn, FIELD_BOOLEAN ),
+#ifdef EZ
+	DEFINE_FIELD( m_Spotlight, FIELD_EHANDLE ),
+#endif
 
 	DEFINE_FIELD( m_iNumberOfEntries, FIELD_INTEGER ),
 
@@ -227,6 +230,10 @@ void CPropDrivableAPC::Precache( void )
 
 	PrecacheModel( "sprites/redglow1.vmt" );
 
+#ifdef EZ // Blixibon - APC spotlight
+	UTIL_PrecacheOther( "point_spotlight" );
+#endif
+
 	BaseClass::Precache();
 }
 
@@ -331,7 +338,9 @@ void CPropDrivableAPC::Activate()
 	m_nRocketAttachment = LookupAttachment( "cannon_muzzle" );
 	m_nMachineGunMuzzleAttachment = LookupAttachment( "Muzzle" );
 	m_nMachineGunBaseAttachment = LookupAttachment( "gun_base" );
-
+#ifdef EZ
+	m_nSpotlightAttachment = LookupAttachment( "headlight" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1009,6 +1018,30 @@ void CPropDrivableAPC::HeadlightTurnOn( void )
 {
 	EmitSound( "Airboat_headlight_on" );
 	m_bHeadlightIsOn = true;
+
+#ifdef EZ // Blixibon - APC spotlight
+	if (!m_Spotlight)
+	{
+		// CAI_Spotlight is designed for NPCs and CPointSpotlight has no header file,
+		// so we have to create the entity anonymously and tweak it through keyvalues.
+		Vector vecOrigin;
+		QAngle angAngles;
+		GetAttachment( m_nSpotlightAttachment, vecOrigin, angAngles );
+		m_Spotlight = CreateNoSpawn( "point_spotlight", vecOrigin, angAngles, this );
+		if (m_Spotlight)
+		{
+			m_Spotlight->AddSpawnFlags( 3 ); // Start on, no dynamic light
+			m_Spotlight->KeyValue( "spotlightlength", "125" );
+			m_Spotlight->KeyValue( "spotlightwidth", "50" );
+
+			m_Spotlight->SetRenderColor(255, 255, 255, 128);
+
+			DispatchSpawn(m_Spotlight);
+
+			m_Spotlight->SetParent( this, m_nSpotlightAttachment );
+		}
+	}
+#endif
 }
 
 
@@ -1019,6 +1052,14 @@ void CPropDrivableAPC::HeadlightTurnOff( void )
 {
 	EmitSound( "Airboat_headlight_off" );
 	m_bHeadlightIsOn = false;
+
+#ifdef EZ // Blixibon - APC spotlight
+	if (m_Spotlight)
+	{
+		UTIL_Remove( m_Spotlight );
+		m_Spotlight = NULL;
+	}
+#endif
 }
 
 float CPropDrivableAPC::GetUprightStrength( void )
@@ -1274,7 +1315,9 @@ void CPropDrivableAPC::EnterVehicle( CBasePlayer *pPlayer )
 //-----------------------------------------------------------------------------
 void CPropDrivableAPC::ExitVehicle( int nRole )
 {
+#ifndef EZ // Blixibon - The headlight stays on in E:Z
 	HeadlightTurnOff();
+#endif
 
 	//m_bForcePlayerOut = false;
 

@@ -2595,6 +2595,9 @@ int CNPC_Combine::SelectCombatSchedule()
 				{
 					if( OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
 					{
+#ifdef EZ // Blixibon - Soldiers announce grenades more often
+						SpeakIfAllowed( TLK_CMB_THROWGRENADE );
+#endif
 						return SCHED_RANGE_ATTACK2;
 					}
 				}
@@ -3099,6 +3102,9 @@ int CNPC_Combine::SelectScheduleAttack()
 		{
 			if ( OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
 			{
+#ifdef EZ // Blixibon - Soldiers announce grenades more often
+				SpeakIfAllowed( TLK_CMB_THROWGRENADE );
+#endif
 				return SCHED_RANGE_ATTACK2;
 			}
 		}
@@ -3122,6 +3128,9 @@ int CNPC_Combine::SelectScheduleAttack()
 		//Msg("Time: %f   Dist: %f\n", flTime, flDist );
 		if ( flTime <= COMBINE_GRENADE_FLUSH_TIME && flDist <= COMBINE_GRENADE_FLUSH_DIST && CanGrenadeEnemy( false ) && OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
 		{
+#ifdef EZ // Blixibon - Soldiers announce grenades more often
+			SpeakIfAllowed( TLK_CMB_THROWGRENADE );
+#endif
 			return SCHED_RANGE_ATTACK2;
 		}
 	}

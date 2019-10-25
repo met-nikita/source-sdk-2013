@@ -7,6 +7,7 @@
 #include "eventqueue.h"
 #include "iservervehicle.h"
 #include "ai_interactions.h"
+#include "world.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -152,8 +153,11 @@ bool CEZ2_Player::HandleInteraction( int interactionType, void *data, CBaseComba
 int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 {
 	// Record memory stuff
-	GetMemoryComponent()->RecordEngagementStart();
-	GetMemoryComponent()->InitLastDamage(info);
+	if (info.GetAttacker() && info.GetAttacker() != GetWorldEntity() && info.GetAttacker() != this)
+	{
+		GetMemoryComponent()->RecordEngagementStart();
+		GetMemoryComponent()->InitLastDamage(info);
+	}
 
 	AI_CriteriaSet modifiers;
 	ModifyOrAppendDamageCriteria(modifiers, info);
