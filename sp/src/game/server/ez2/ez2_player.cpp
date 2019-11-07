@@ -1362,17 +1362,23 @@ CBaseEntity *CEZ2_Player::GetEnemy()
 // By Blixibon
 // 
 // Carries miscellaneous "memory" information that Bad Cop should remember later on for dialogue.
+// 
 // For example, the player's health is recorded before they begin combat.
-// When combat ends, the response system subtracts the current health from the health recorded here.
+// When combat ends, the response system subtracts the player's current health from the health recorded here,
+// creating a "health difference" that indicates how much health the player lost in the engagement.
 //=============================================================================
 BEGIN_SIMPLE_DATADESC( CEZ2_PlayerMemory )
+
 	DEFINE_FIELD( m_bInEngagement, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flEngagementStartTime, FIELD_TIME ),
 	DEFINE_FIELD( m_iPrevHealth, FIELD_INTEGER ),
+
 	DEFINE_FIELD( m_iLastDamageType, FIELD_INTEGER ),
 	DEFINE_FIELD( m_iLastDamageAmount, FIELD_INTEGER ),
 	DEFINE_FIELD( m_hLastDamageAttacker, FIELD_EHANDLE ),
+
 	DEFINE_FIELD( m_hOuter, FIELD_EHANDLE ),
+
 END_DATADESC()
 
 //-----------------------------------------------------------------------------

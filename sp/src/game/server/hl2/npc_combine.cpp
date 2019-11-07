@@ -356,8 +356,7 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 		}
 		else
 		{
-			// Look at the player when asked to follow. (needs head-turning model)
-			// -Blixibon
+			// Blixibon -- Look at the player when asked to follow. (needs head-turning model)
 			AddLookTarget(pActivator, 0.75, 3.0);
 
 			FollowSound();
@@ -3857,6 +3856,11 @@ void CNPC_Combine::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 	{
 		set.AppendCriteria( "elite", "0" );
 	}
+
+#ifdef EZ
+	if (IsInSquad())
+		set.AppendCriteria( "squad", GetSquad()->GetName() );
+#endif
 }
 #endif
 
@@ -4015,6 +4019,10 @@ void CNPC_Combine::NotifyDeadFriend ( CBaseEntity* pFriend )
 	if ( pFriend == m_hManhack )
 	{
 		//m_Sentences.Speak( "METROPOLICE_MANHACK_KILLED", SENTENCE_PRIORITY_NORMAL, SENTENCE_CRITERIA_NORMAL );
+
+		// This uses a "COP" concept from npc_metropolice.h
+		SpeakIfAllowed( TLK_COP_MANHACKKILLED, "my_manhack:1", SENTENCE_PRIORITY_NORMAL, SENTENCE_CRITERIA_NORMAL );
+
 		DevMsg("My manhack died!\n");
 		m_hManhack = NULL;
 		return;
