@@ -1022,11 +1022,21 @@ int CNPC_PlayerCompanion::SelectScheduleCombat()
 	}
 #endif
 
+
+#ifdef EZ
+	int rangeAttack2Schedule = SelectRangeAttack2Schedule();
+	if ( rangeAttack2Schedule != SCHED_NONE )
+	{
+		return rangeAttack2Schedule;
+	}
+#endif
+
 	if ( CanReload() && (HasCondition ( COND_NO_PRIMARY_AMMO ) || HasCondition(COND_LOW_PRIMARY_AMMO)) )
 	{
 		return SCHED_HIDE_AND_RELOAD;
 	}
 
+#ifndef EZ
 #ifdef MAPBASE
 	if ( HasGrenades() && GetEnemy() && !HasCondition(COND_SEE_ENEMY) )
 	{
@@ -1047,9 +1057,35 @@ int CNPC_PlayerCompanion::SelectScheduleCombat()
 		}
 	}
 #endif
+#endif
 	
 	return SCHED_NONE;
 }
+
+#ifdef EZ
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+int CNPC_PlayerCompanion::SelectRangeAttack2Schedule() {
+	if ( HasGrenades() && GetEnemy() && !HasCondition( COND_SEE_ENEMY ) )
+	{
+		// We don't see our enemy. If it hasn't been long since I last saw him,
+		// and he's pretty close to the last place I saw him, throw a grenade in 
+		// to flush him out. A wee bit of cheating here...
+
+		float flTime;
+		float flDist;
+
+		flTime = gpGlobals->curtime - GetEnemies()->LastTimeSeen( GetEnemy() );
+		flDist = ( GetEnemy()->GetAbsOrigin() - GetEnemies()->LastSeenPosition( GetEnemy() ) ).Length();
+
+		if ( flTime <= COMBINE_GRENADE_FLUSH_TIME && flDist <= COMBINE_GRENADE_FLUSH_DIST && CanGrenadeEnemy( false ) && OccupyStrategySlot( SQUAD_SLOT_SPECIAL_ATTACK ) )
+		{
+			return SCHED_PC_RANGE_ATTACK2;
+		}
+	}
+	return SCHED_NONE;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -1284,7 +1320,7 @@ int CNPC_PlayerCompanion::TranslateSchedule( int scheduleType )
 			return SCHED_PC_MELEE_AND_MOVE_AWAY;
 		}
 #endif
-
+		break;
 	case SCHED_FAIL_TAKE_COVER:
 		if ( IsEnemyTurret() )
 		{

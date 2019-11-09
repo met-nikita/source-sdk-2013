@@ -1381,6 +1381,16 @@ void CNPC_Citizen::BuildScheduleTestBits()
 {
 	BaseClass::BuildScheduleTestBits();
 
+#ifdef EZ
+	// Don't stop meleeing to acquire a new target or because of damage taken
+	if (IsCurSchedule ( SCHED_MELEE_ATTACK1 ))
+	{
+		ClearCustomInterruptCondition( COND_NEW_ENEMY );
+		ClearCustomInterruptCondition( COND_LIGHT_DAMAGE );
+		ClearCustomInterruptCondition( COND_HEAVY_DAMAGE );
+	}
+#endif
+
 	if ( IsCurSchedule( SCHED_IDLE_STAND ) || IsCurSchedule( SCHED_ALERT_STAND ) )
 	{
 		SetCustomInterruptCondition( COND_CIT_START_INSPECTION );
@@ -1992,6 +2002,13 @@ int CNPC_Citizen::TranslateWillpowerSchedule(int scheduleType)
  //-----------------------------------------------------------------------------
 int CNPC_Citizen::TranslateSuppressingFireSchedule(int scheduleType)
 {
+	// First, try to throw a grenade if possible
+	int rangeAttack2Schedule = SelectRangeAttack2Schedule();
+	if (rangeAttack2Schedule != SCHED_NONE)
+	{
+		return rangeAttack2Schedule;
+	}
+
 	if (HasCondition(COND_NO_PRIMARY_AMMO) || HasCondition(COND_NO_WEAPON)) 
 	{
 		return scheduleType;

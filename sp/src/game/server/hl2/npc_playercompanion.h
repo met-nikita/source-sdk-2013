@@ -147,6 +147,10 @@ public:
 	virtual int 	SelectScheduleCombat();
 	int 			SelectSchedulePlayerPush();
 
+#ifdef EZ
+	virtual int		SelectRangeAttack2Schedule();
+#endif
+
 	virtual bool	CanReload( void );
 
 	virtual bool	ShouldDeferToFollowBehavior();
