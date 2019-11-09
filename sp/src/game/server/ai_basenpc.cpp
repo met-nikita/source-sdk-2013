@@ -15110,12 +15110,17 @@ bool CAI_BaseNPC::InteractionIsAllowed( CAI_BaseNPC *pOtherNPC, ScriptedNPCInter
 	if (pOtherNPC->Classify() == CLASS_PLAYER_ALLY_VITAL)
 		return false;
 
+#ifdef EZ
+	// Entropy : Zero always allows Mapbase interactions
+	return m_iDynamicInteractionsAllowed != TRS_FALSE;
+#else
 	// This convar allows all NPCs to perform Mapbase interactions for both testing and player fun.
 	if (ai_dynint_always_enabled.GetBool() && m_iDynamicInteractionsAllowed != TRS_FALSE)
 		return true;
 
 	// m_iDynamicInteractionsAllowed == TRS_FALSE case is already handled in CanRunAScriptedNPCInteraction().
 	return !(pInteraction->iFlags & SCNPC_FLAG_MAPBASE_ADDITION && m_iDynamicInteractionsAllowed == TRS_NONE);
+#endif
 }
 #endif
 
@@ -15592,6 +15597,16 @@ void CAI_BaseNPC::GetDamageCriteriaModifiers( const CTakeDamageInfo &info, char 
 	GetModifiersFromCriteria(ModifyOrAppendDamageCriteria(set, info), szCriteria, iMaxLen);
 }
 */
+#endif
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BaseNPC::ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set )
+{
+	set.AppendCriteria("ezvariant", UTIL_VarArgs("%i", m_tEzVariant));
+}
 #endif
 
 //-----------------------------------------------------------------------------

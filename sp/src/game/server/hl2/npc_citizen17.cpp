@@ -523,6 +523,16 @@ void CNPC_Citizen::PrecacheAllOfType( CitizenType_t type )
 			}
 		}
 	}
+
+#ifdef EZ
+	// Blixibon - Long-fall sounds
+	if ( m_Type == CT_LONGFALL )
+	{
+		// TEMP
+		PrecacheScriptSound("NPC_Citizen_JumpRebel.Jump");
+		PrecacheScriptSound("NPC_Citizen_JumpRebel.Land");
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1371,6 +1381,17 @@ void CNPC_Citizen::PrescheduleThink()
 			}
 		}
 	}
+
+#ifdef EZ
+	if( IsOnFire() )
+	{
+		SetCondition( COND_CIT_ON_FIRE );
+	}
+	else
+	{
+		ClearCondition( COND_CIT_ON_FIRE );
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1395,6 +1416,13 @@ void CNPC_Citizen::BuildScheduleTestBits()
 	{
 		SetCustomInterruptCondition( COND_CIT_START_INSPECTION );
 	}
+
+#ifdef EZ
+	if ( !IsCurSchedule( SCHED_CITIZEN_BURNING_STAND ) && !IsMoving() )
+	{
+		SetCustomInterruptCondition( COND_CIT_ON_FIRE );
+	}
+#endif
 
 	if ( IsMedic() && IsCustomInterruptConditionSet( COND_HEAR_MOVE_AWAY ) )
 	{
@@ -1534,6 +1562,14 @@ int CNPC_Citizen::SelectSchedule()
 		pRPG->StopGuiding();
 	}
 #ifdef MAPBASE
+	}
+#endif
+
+#ifdef EZ
+	if ( HasCondition(COND_CIT_ON_FIRE) )
+	{
+		SpeakIfAllowed(TLK_WOUND);
+		return SCHED_CITIZEN_BURNING_STAND;
 	}
 #endif
 	
@@ -2169,6 +2205,24 @@ void CNPC_Citizen::StartTask( const Task_t *pTask )
 		TaskComplete();
 		break;
 
+#ifdef EZ
+	case TASK_CIT_DIE_INSTANTLY:
+		{
+			CTakeDamageInfo info;
+
+			info.SetAttacker( this );
+			info.SetInflictor( this );
+			info.SetDamage( m_iHealth );
+			info.SetDamageType( pTask->flTaskData );
+			info.SetDamageForce( Vector( 0.1, 0.1, 0.1 ) );
+
+			TakeDamage( info );
+
+			TaskComplete();
+		}
+		break;
+#endif
+
 	default:
 		BaseClass::StartTask( pTask );
 		break;
@@ -2441,6 +2495,18 @@ Activity CNPC_Citizen::NPC_TranslateActivity( Activity activity )
 	}
 #endif
 
+#ifdef EZ
+	if (IsOnFire())
+	{
+		switch (activity)
+		{
+			case ACT_WALK:
+			case ACT_RUN:		activity = ACT_RUN_ON_FIRE; break;
+			case ACT_IDLE:		activity = ACT_IDLE_ON_FIRE; break;
+		}
+	}
+#endif
+
 #ifdef EZ2
 	// Unarmed citizens use 'panic readiness' activities!
 	if ( !m_bWillpowerDisabled && GetActiveWeapon() == NULL && m_NPCState == NPC_STATE_COMBAT )
@@ -2459,6 +2525,35 @@ Activity CNPC_Citizen::NPC_TranslateActivity( Activity activity )
 
 	return BaseClass::NPC_TranslateActivity( activity );
 }
+
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::OnChangeActivity( Activity eNewActivity )
+{
+	BaseClass::OnChangeActivity( eNewActivity );
+
+	if (m_Type == CT_LONGFALL)
+	{
+		switch (eNewActivity)
+		{
+			case ACT_JUMP:
+			{
+				EmitSound("NPC_Citizen_JumpRebel.Jump");
+			} break;
+
+			//case ACT_GLIDE:
+			//	break;
+
+			case ACT_LAND:
+			{
+				EmitSound("NPC_Citizen_JumpRebel.Land");
+			} break;
+		}
+	}
+}
+#endif
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -2959,6 +3054,18 @@ void CNPC_Citizen::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 
 	// No need to tell me.
 	set.AppendCriteria("medic", IsMedic() ? "1" : "0");
+
+	set.AppendCriteria("citizentype", UTIL_VarArgs("%i", m_Type));
+}
+#endif
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set )
+{
+	BaseClass::ModifyOrAppendCriteriaForPlayer( pPlayer, set );
 
 	set.AppendCriteria("citizentype", UTIL_VarArgs("%i", m_Type));
 }
@@ -4776,6 +4883,9 @@ AI_BEGIN_CUSTOM_NPC( npc_citizen, CNPC_Citizen )
 #if HL2_EPISODIC
 	DECLARE_TASK( TASK_CIT_HEAL_TOSS )
 #endif
+#ifdef EZ
+	DECLARE_TASK( TASK_CIT_DIE_INSTANTLY )
+#endif
 
 	DECLARE_ACTIVITY( ACT_CIT_HANDSUP )
 	DECLARE_ACTIVITY( ACT_CIT_BLINDED )
@@ -4797,6 +4907,7 @@ AI_BEGIN_CUSTOM_NPC( npc_citizen, CNPC_Citizen )
 	DECLARE_CONDITION(COND_CIT_WILLPOWER_VERY_LOW)
 	DECLARE_CONDITION(COND_CIT_WILLPOWER_LOW)
 	DECLARE_CONDITION(COND_CIT_WILLPOWER_HIGH)
+	DECLARE_CONDITION(COND_CIT_ON_FIRE)
 
 	DECLARE_SQUADSLOT(SQUAD_SLOT_CITIZEN_RPG1) // Previously, RPG squad slots were undeclared
 	DECLARE_SQUADSLOT(SQUAD_SLOT_CITIZEN_RPG2)
@@ -5018,6 +5129,21 @@ AI_BEGIN_CUSTOM_NPC( npc_citizen, CNPC_Citizen )
 		"		COND_CAN_RANGE_ATTACK2"
 		"		COND_CAN_MELEE_ATTACK2"
 		"		COND_TOO_CLOSE_TO_ATTACK"
+	);
+
+	//=========================================================
+	//=========================================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_CITIZEN_BURNING_STAND,
+
+		"	Tasks"
+		"		TASK_SET_ACTIVITY				ACTIVITY:ACT_IDLE_ON_FIRE"
+		"		TASK_WAIT						1.5"
+		"		TASK_CIT_DIE_INSTANTLY			DMG_BURN"
+		"		TASK_WAIT						1.0"
+		"	"
+		"	Interrupts"
 	);
 #endif
 AI_END_CUSTOM_NPC()

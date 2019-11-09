@@ -20,6 +20,9 @@
 #include "ez2/npc_basepredator.h"
 #include "hl2_player.h"
 #include "particle_parse.h"
+#include "ai_network.h"
+#include "ai_node.h"
+#include "ai_link.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -815,23 +818,110 @@ void CGrenadeHopwire::SetVelocity( const Vector &velocity, const AngularImpulse 
 //-----------------------------------------------------------------------------
 void CGrenadeHopwire::Detonate( void )
 {
-#ifndef EZ2
-	EmitSound("NPC_Strider.Shoot"); // Sound to emit before detonating
-	SetModel( szWorldModelOpen );
-#else
+#ifdef EZ2
 	EmitSound("WeaponXenGrenade.Explode");
 	SetModel( szWorldModelOpen );
-#endif
+
+	//Find out how tall the ceiling is and always try to hop halfway
+	trace_t	tr;
+	UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + Vector( 0, 0, MAX_HOP_HEIGHT*2 ), MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
+
+	// Jump half the height to the found ceiling
+	float hopHeight = MIN( MAX_HOP_HEIGHT, (MAX_HOP_HEIGHT*tr.fraction) );
+	hopHeight =	MAX(hopHeight, MIN_HOP_HEIGHT);
+
+	// Go through each node and find a link we should hop to.
+	Vector vecHopTo = vec3_invalid;
+	for ( int node = 0; node < g_pBigAINet->NumNodes(); node++)
+	{
+		CAI_Node *pNode = g_pBigAINet->GetNode(node);
+
+		if ((GetAbsOrigin() - pNode->GetOrigin()).LengthSqr() > Square(192.0f))
+			continue;
+
+		// Only hop towards ground nodes
+		if (pNode->GetType() != NODE_GROUND)
+			continue;
+
+		// Iterate through these hulls to find the largest possible space we can hop to.
+		// Should be sorted largest to smallest.
+		static Hull_t iHopHulls[] =
+		{
+			HULL_LARGE_CENTERED,
+			HULL_MEDIUM,
+			HULL_HUMAN,
+		};
+
+		// The "3" here should be kept up-to-date with iHopHulls
+		for (int hull = 0; hull < 3; hull++)
+		{
+			Hull_t iHull = iHopHulls[hull];
+			CAI_Link *pLink = NULL;
+			float flNearestSqr = Square(192.0f);
+			int iNearestLink = -1;
+			for (int i = 0; i < pNode->NumLinks(); i++)
+			{
+				pLink = pNode->GetLinkByIndex( i );
+				if (pLink)
+				{
+					if (pLink->m_iAcceptedMoveTypes[iHull] & bits_CAP_MOVE_GROUND)
+					{
+						int iOtherID = node == pLink->m_iSrcID ? pLink->m_iDestID : pLink->m_iSrcID;
+						CAI_Node *pOtherNode = g_pBigAINet->GetNode(iOtherID);
+						Vector vecBetween = (pNode->GetOrigin() - pOtherNode->GetOrigin()) * 0.5f + (pOtherNode->GetOrigin());
+						float flDistSqr = (GetAbsOrigin() - vecBetween).LengthSqr();
+
+						if (flDistSqr > flNearestSqr)
+							continue;
+
+						UTIL_TraceLine( GetAbsOrigin() + Vector( 0, 0, hopHeight ), vecBetween, MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );
+						if (tr.fraction == 1.0f)
+						{
+							vecHopTo = vecBetween;
+							flNearestSqr = (GetAbsOrigin() - vecBetween).LengthSqr();
+							iNearestLink = i;
+
+							// DEBUG
+							//DebugDrawLine(GetAbsOrigin(), vecHopTo, 100 * hull, 0, 255, false, 2.0f);
+						}
+					}
+				}
+			}
+
+			// We found a link
+			if (iNearestLink != -1)
+				break;
+		}
+	}
+
+	AngularImpulse hopAngle = RandomAngularImpulse( -300, 300 );
+
+	// Hop towards the point we found
+	Vector hopVel( 0.0f, 0.0f, hopHeight );
+	if (vecHopTo != vec3_invalid)
+	{
+		// DEBUG
+		//DebugDrawLine(GetAbsOrigin(), vecHopTo, 0, 255, 0, false, 3.0f);
+
+		Vector vecDelta = (vecHopTo - GetAbsOrigin());
+		float flLength = vecDelta.Length();
+		if (flLength != 0.0f)
+			hopVel += (vecDelta * (64.0f / flLength));
+	}
+
+	SetVelocity( hopVel, hopAngle );
+
+	// Get the time until the apex of the hop
+	float apexTime = sqrt( hopHeight / GetCurrentGravity() );
+#else
+	EmitSound("NPC_Strider.Shoot"); // Sound to emit before detonating
+	SetModel( szWorldModelOpen );
 
 	AngularImpulse	hopAngle = RandomAngularImpulse( -300, 300 );
 
 	//Find out how tall the ceiling is and always try to hop halfway
 	trace_t	tr;
-#ifndef EZ2
 	UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + Vector( 0, 0, MAX_HOP_HEIGHT*2 ), MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
-#else
-	UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + Vector( 0, 0, MAX_HOP_HEIGHT*2 ), MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
-#endif
 
 	// Jump half the height to the found ceiling
 	float hopHeight = MIN( MAX_HOP_HEIGHT, (MAX_HOP_HEIGHT*tr.fraction) );
@@ -843,6 +933,7 @@ void CGrenadeHopwire::Detonate( void )
 
 	// Get the time until the apex of the hop
 	float apexTime = sqrt( hopHeight / GetCurrentGravity() );
+#endif
 
 	// Explode at the apex
 	SetThink( &CGrenadeHopwire::CombatThink );

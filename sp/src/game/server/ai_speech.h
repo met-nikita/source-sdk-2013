@@ -185,6 +185,11 @@ public:
 	float GetTimeSpeechComplete() const 	{ return m_flStopTalkTime; }
 	void  BlockSpeechUntil( float time );
 
+#ifdef EZ2
+	// Blixibon - Needed for Bad Cop speech to accurately determine if a NPC is still speaking
+	float GetRealTimeSpeechComplete() const	{ return m_flStopTalkTimeWithoutDelay; }
+#endif
+
 	// --------------------------------
 	
 	bool CanSpeakConcept( AIConcept_t concept );
@@ -341,7 +346,18 @@ template <class BASE_NPC>
 inline bool CAI_ExpresserHost<BASE_NPC>::Speak( AIConcept_t concept, const char *modifiers /*= NULL*/, char *pszOutResponseChosen /*=NULL*/, size_t bufsize /* = 0 */, IRecipientFilter *filter /* = NULL */ ) 
 {
 	AssertOnce( this->GetExpresser()->GetOuter() == this );
+#ifdef EZ2
+	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
+	if ( this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ) )
+	{
+		PostSpeakDispatchResponse( concept, NULL );
+		return true;
+	}
+
+	return false;
+#else
 	return this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ); 
+#endif
 }
 
 #ifdef MAPBASE
@@ -352,7 +368,18 @@ template <class BASE_NPC>
 inline bool CAI_ExpresserHost<BASE_NPC>::Speak( AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen /*=NULL*/, size_t bufsize /* = 0 */, IRecipientFilter *filter /* = NULL */ ) 
 {
 	AssertOnce( this->GetExpresser()->GetOuter() == this );
+#ifdef EZ2
+	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
+	if ( this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ) )
+	{
+		PostSpeakDispatchResponse( concept, NULL );
+		return true;
+	}
+
+	return false;
+#else
 	return this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ); 
+#endif
 }
 #endif
 

@@ -96,7 +96,6 @@ ConVar npc_combine_altfire_not_allies_only( "npc_combine_altfire_not_allies_only
 #define SQUAD_SLOT_COMBINE_DEPLOY_MANHACK SQUAD_SLOT_SPECIAL_ATTACK
 #endif
 
-ConVar	sv_visible_command_point("sv_visible_command_point", "1", FCVAR_REPLICATED);
 ConVar sv_combine_eye_tracers("sv_combine_eye_tracers", "1", FCVAR_REPLICATED);
 
 //-----------------------------------------------------------------------------
@@ -275,6 +274,10 @@ DEFINE_INPUTFUNC(FIELD_STRING, "SetNonCommandable", InputSetNonCommandable),
 DEFINE_INPUTFUNC( FIELD_VOID,	"RemoveFromPlayerSquad", InputRemoveFromPlayerSquad ),
 DEFINE_INPUTFUNC( FIELD_VOID,	"AddToPlayerSquad", InputAddToPlayerSquad ),
 
+#ifdef EZ2
+DEFINE_INPUTFUNC( FIELD_STRING, "AnswerConcept", InputAnswerConcept ), // Blixibon - For responding to Bad Cop
+#endif
+
 DEFINE_KEYFIELD( m_iManhacks, FIELD_INTEGER, "manhacks" ),
 DEFINE_FIELD( m_hManhack, FIELD_EHANDLE ),
 DEFINE_INPUTFUNC( FIELD_VOID, "EnableManhackToss", InputEnableManhackToss ),
@@ -336,11 +339,11 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 		{
 			if (isInPlayerSquad)
 			{
-				badcop->SpeakIfAllowed(TLK_COMMAND_REMOVE);
+				badcop->HandleRemoveFromPlayerSquad(this);
 			}
 			else
 			{
-				badcop->SpeakIfAllowed(TLK_COMMAND_ADD);
+				badcop->HandleAddToPlayerSquad(this);
 			}
 		}
 #endif
@@ -353,8 +356,7 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 		}
 		else
 		{
-			// Look at the player when asked to follow. (needs head-turning model)
-			// -Blixibon
+			// Blixibon -- Look at the player when asked to follow. (needs head-turning model)
 			AddLookTarget(pActivator, 0.75, 3.0);
 
 			FollowSound();
@@ -640,19 +642,11 @@ void CNPC_Combine::UpdateFollowCommandPoint()
 		{
 			CBaseEntity *pFollowTarget = m_FollowBehavior.GetFollowTarget();
 			CBaseEntity *pCommandPoint = gEntList.FindEntityByClassname(NULL, "info_target_command_point");
-			CBaseEntity *pCommandPointProp = gEntList.FindEntityByClassname(NULL, "prop_command_point");
 
 			if (!pCommandPoint)
 			{
 				DevMsg("**\nVERY BAD THING\nCommand point vanished! Creating a new one\n**\n");
 				pCommandPoint = CreateEntityByName("info_target_command_point");
-			}
-
-			if (sv_visible_command_point.GetBool() && !pCommandPointProp)
-			{
-				DevMsg("**\nCreating new command point prop");
-				pCommandPointProp = CreateEntityByName("prop_command_point");
-				pCommandPointProp->Spawn();
 			}
 
 			if (pFollowTarget != pCommandPoint)
@@ -665,12 +659,6 @@ void CNPC_Combine::UpdateFollowCommandPoint()
 			if ((pCommandPoint->GetAbsOrigin() - GetCommandGoal()).LengthSqr() > 0.01)
 			{
 				UTIL_SetOrigin(pCommandPoint, GetCommandGoal(), false);
-				if (sv_visible_command_point.GetBool() && pCommandPointProp)
-				{
-					UTIL_SetOrigin(pCommandPointProp, GetCommandGoal(), false);
-					pCommandPointProp->SetRenderMode(kRenderNormal);
-				}
-				
 			}
 		}
 		else
@@ -833,6 +821,27 @@ void CNPC_Combine::InputSetNonCommandable(inputdata_t & inputdata)
 	RemoveFromPlayerSquad();
 }
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Combine::InputAnswerConcept( inputdata_t &inputdata )
+{
+	// Complex Q&A
+	if (inputdata.pActivator)
+	{
+		AI_CriteriaSet modifiers;
+
+		SetSpeechTarget(inputdata.pActivator);
+		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
+
+		// Tip: Speech target contexts are appended automatically. (try applyContext)
+
+		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers);
+	}
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: Enables manhack toss
 // Input  : &inputdata - 
@@ -967,6 +976,14 @@ void CNPC_Combine::Spawn( void )
 	m_flNextAltFireTime = gpGlobals->curtime;
 
 	NPCInit();
+
+#ifdef EZ
+	// Start us with a visible manhack if we have one
+	if ( m_iManhacks )
+	{
+		SetBodygroup( COMBINE_BODYGROUP_MANHACK, true );
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -2248,8 +2265,6 @@ Activity CNPC_Combine::Weapon_TranslateActivity( Activity eNewActivity, bool *pR
 //-----------------------------------------------------------------------------
 Activity CNPC_Combine::NPC_BackupActivity( Activity eNewActivity )
 {
-	DevMsg( "NPC_BackUpActivity: Translating activity %i for '%s'\n ", eNewActivity, GetDebugName() );
-
 	// Otherwise we move around, T-posing.
 	if (eNewActivity == ACT_WALK)
 		return ACT_WALK_UNARMED;
@@ -2302,14 +2317,6 @@ Activity CNPC_Combine::NPC_TranslateActivity( Activity eNewActivity )
 		}
 	}
 #ifdef EZ
-	// Blixibon - Unarmed animations
-	else if (!GetActiveWeapon())
-	{
-		if (eNewActivity == ACT_IDLE || eNewActivity == ACT_IDLE_ANGRY)
-			eNewActivity = ACT_IDLE_UNARMED;
-		else if (eNewActivity == ACT_WALK)
-			eNewActivity = ACT_WALK_UNARMED;
-	}
 	// Blixibon - Visually interesting aiming support
 	else if (!GetEnemy() && GetAimTarget() && !m_bReadinessCapable)
 	{
@@ -2319,11 +2326,6 @@ Activity CNPC_Combine::NPC_TranslateActivity( Activity eNewActivity )
 		case ACT_WALK:		eNewActivity = ACT_WALK_AIM; break;
 		case ACT_RUN:		eNewActivity = ACT_RUN_AIM; break;
 		}
-	}
-	// Blixibon - Idle walk animation
-	else if (m_NPCState == NPC_STATE_IDLE && eNewActivity == ACT_WALK)
-	{
-		eNewActivity = ACT_WALK_EASY;
 	}
 #endif
 
@@ -2359,15 +2361,6 @@ Activity CNPC_Combine::NPC_TranslateActivity( Activity eNewActivity )
 	}
 #endif
 
-#ifdef EZ
-	// Because Combine soldiers now inherit from player companion, there were issues with them trying to use ACT_WALK and ACT_RUN that were not caught by NPC_BackupActivity()
-	// For now, I am going to add the cases from NPC_BackupActivity() into NPC_TranslateActivity()
-	if ( eNewActivity == ACT_WALK )
-		return ACT_WALK_UNARMED;
-	else if ( eNewActivity == ACT_RUN )
-		return ACT_RUN_RIFLE;
-#endif
-
 	return BaseClass::NPC_TranslateActivity( eNewActivity );
 }
 
@@ -2392,6 +2385,12 @@ bool CNPC_Combine::QueryHearSound( CSound *pSound )
 
 	if ( pSound->SoundContext() & SOUND_CONTEXT_EXCLUDE_COMBINE )
 		return false;
+
+#ifdef EZ
+	// Blixibon - Don't be afraid of friendly manhacks
+	if (pSound->m_hOwner && IRelationType( pSound->m_hOwner ) > D_FR)
+		return false;
+#endif
 
 	return BaseClass::QueryHearSound( pSound );
 }
@@ -2595,6 +2594,9 @@ int CNPC_Combine::SelectCombatSchedule()
 				{
 					if( OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
 					{
+#ifdef EZ // Blixibon - Soldiers announce grenades more often
+						SpeakIfAllowed( TLK_CMB_THROWGRENADE );
+#endif
 						return SCHED_RANGE_ATTACK2;
 					}
 				}
@@ -3008,7 +3010,7 @@ int CNPC_Combine::SelectScheduleAttack()
 	}
 
 #ifdef EZ
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_COMBINE_DEPLOY_MANHACK ) )
+	if( GetEnemy() && CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_COMBINE_DEPLOY_MANHACK ) )
 		return SCHED_COMBINE_DEPLOY_MANHACK;
 #endif
 
@@ -3099,6 +3101,9 @@ int CNPC_Combine::SelectScheduleAttack()
 		{
 			if ( OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
 			{
+#ifdef EZ // Blixibon - Soldiers announce grenades more often
+				SpeakIfAllowed( TLK_CMB_THROWGRENADE );
+#endif
 				return SCHED_RANGE_ATTACK2;
 			}
 		}
@@ -3122,6 +3127,9 @@ int CNPC_Combine::SelectScheduleAttack()
 		//Msg("Time: %f   Dist: %f\n", flTime, flDist );
 		if ( flTime <= COMBINE_GRENADE_FLUSH_TIME && flDist <= COMBINE_GRENADE_FLUSH_DIST && CanGrenadeEnemy( false ) && OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
 		{
+#ifdef EZ // Blixibon - Soldiers announce grenades more often
+			SpeakIfAllowed( TLK_CMB_THROWGRENADE );
+#endif
 			return SCHED_RANGE_ATTACK2;
 		}
 	}
@@ -3848,6 +3856,23 @@ void CNPC_Combine::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 	{
 		set.AppendCriteria( "elite", "0" );
 	}
+
+#ifdef EZ
+	if (IsInSquad())
+		set.AppendCriteria( "squad", GetSquad()->GetName() );
+#endif
+}
+#endif
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Combine::ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set )
+{
+	BaseClass::ModifyOrAppendCriteriaForPlayer( pPlayer, set );
+
+	set.AppendCriteria( "elite", IsElite() ? "1" : "0" );
 }
 #endif
 
@@ -3994,6 +4019,10 @@ void CNPC_Combine::NotifyDeadFriend ( CBaseEntity* pFriend )
 	if ( pFriend == m_hManhack )
 	{
 		//m_Sentences.Speak( "METROPOLICE_MANHACK_KILLED", SENTENCE_PRIORITY_NORMAL, SENTENCE_CRITERIA_NORMAL );
+
+		// This uses a "COP" concept from npc_metropolice.h
+		SpeakIfAllowed( TLK_COP_MANHACKKILLED, "my_manhack:1", SENTENCE_PRIORITY_NORMAL, SENTENCE_CRITERIA_NORMAL );
+
 		DevMsg("My manhack died!\n");
 		m_hManhack = NULL;
 		return;

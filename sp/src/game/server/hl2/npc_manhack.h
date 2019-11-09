@@ -14,6 +14,9 @@
 #include "Sprite.h"
 #include "SpriteTrail.h"
 #include "player_pickup.h"
+#ifdef EZ
+#include "hl2_player.h"
+#endif
 
 // Start with the engine off and folded up.
 #define SF_MANHACK_PACKED_UP			(1 << 16)
@@ -51,9 +54,15 @@ class CSoundPatch;
 //-----------------------------------------------------------------------------
 // Manhack 
 //-----------------------------------------------------------------------------
+#ifdef EZ
+class CNPC_Manhack : public CAI_SilentSquadMember< CNPCBaseInteractive<CAI_BasePhysicsFlyingBot> >, public CDefaultPlayerPickupVPhysics
+{
+DECLARE_CLASS( CNPC_Manhack, CAI_SilentSquadMember< CNPCBaseInteractive<CAI_BasePhysicsFlyingBot> > );
+#else
 class CNPC_Manhack : public CNPCBaseInteractive<CAI_BasePhysicsFlyingBot>, public CDefaultPlayerPickupVPhysics
 {
 DECLARE_CLASS( CNPC_Manhack, CNPCBaseInteractive<CAI_BasePhysicsFlyingBot> );
+#endif
 DECLARE_SERVERCLASS();
 
 public:

@@ -119,6 +119,10 @@ ConVar sv_infinite_aux_power( "sv_infinite_aux_power", "1", FCVAR_CHEAT );
 ConVar sv_infinite_aux_power("sv_infinite_aux_power", "0", FCVAR_CHEAT);
 #endif
 
+#ifdef EZ
+ConVar	sv_visible_command_point( "sv_visible_command_point", "1", FCVAR_REPLICATED );
+#endif
+
 ConVar autoaim_unlock_target( "autoaim_unlock_target", "0.8666" );
 
 ConVar sv_stickysprint("sv_stickysprint", "0", FCVAR_ARCHIVE | FCVAR_ARCHIVE_XBOX);
@@ -549,6 +553,9 @@ BEGIN_DATADESC( CHL2_Player )
 	DEFINE_EMBEDDED( m_CommanderUpdateTimer ),
 	//					m_RealTimeLastSquadCommand
 	DEFINE_FIELD( m_QueuedCommand, FIELD_INTEGER ),
+#ifdef EZ
+	DEFINE_FIELD( m_hCommandPointProp, FIELD_EHANDLE ),
+#endif
 
 	DEFINE_FIELD( m_flTimeIgnoreFallDamage, FIELD_TIME ),
 	DEFINE_FIELD( m_bIgnoreFallDamageResetAfterImpact, FIELD_BOOLEAN ),
@@ -668,6 +675,11 @@ void CHL2_Player::Precache( void )
 	PrecacheScriptSound( "HL2Player.TrainUse" );
 	PrecacheScriptSound( "HL2Player.Use" );
 	PrecacheScriptSound( "HL2Player.BurnPain" );
+
+#ifdef EZ
+	// Visible command point
+	UTIL_PrecacheOther( "prop_command_point" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1945,13 +1957,21 @@ CAI_BaseNPC *CHL2_Player::GetSquadCommandRepresentative()
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
+#ifdef EZ
+int CHL2_Player::GetNumSquadCommandables( bool bSilentMembers )
+#else
 int CHL2_Player::GetNumSquadCommandables()
+#endif
 {
 	AISquadIter_t iter;
 	int c = 0;
 	for ( CAI_BaseNPC *pAllyNpc = m_pPlayerAISquad->GetFirstMember(&iter); pAllyNpc; pAllyNpc = m_pPlayerAISquad->GetNextMember(&iter) )
 	{
+#ifdef EZ
+		if ( pAllyNpc->IsCommandable() && (!pAllyNpc->IsSilentCommandable() || bSilentMembers) )
+#else
 		if ( pAllyNpc->IsCommandable() )
+#endif
 			c++;
 	}
 	return c;
@@ -2016,6 +2036,10 @@ void CHL2_Player::CommanderUpdate()
 		m_HL2Local.m_iSquadMemberCount = 0;
 		m_HL2Local.m_iSquadMedicCount = 0;
 		m_HL2Local.m_fSquadInFollowMode = true;
+
+#ifdef EZ
+		CleanUpSquadMarker();
+#endif
 	}
 
 	if ( m_QueuedCommand != CC_NONE && ( m_QueuedCommand == CC_FOLLOW || gpGlobals->realtime - m_RealTimeLastSquadCommand >= player_squad_double_tap_time.GetFloat() ) )
@@ -2059,12 +2083,6 @@ bool CHL2_Player::CommanderExecuteOne( CAI_BaseNPC *pNpc, const commandgoal_t &g
 	if ( goal.m_pGoalEntity )
 	{
 #ifdef EZ
-		// 1upD - If this is a recall order, hide the command point
-		if (goal.m_pGoalEntity == this) {
-			CBaseEntity *pCommandPointProp = gEntList.FindEntityByClassname(NULL, "prop_command_point");
-			if (pCommandPointProp)
-				UTIL_Remove(pCommandPointProp); // TODO - Find a more elegant way to do this!
-		}
 		// 1upD - If this is a recall order, try to play the 'recall squad' viewmodel animation
 		if ( GetActiveWeapon() && goal.m_pGoalEntity == this && sv_command_viewmodel_anims.GetBool()) {
 			GetActiveWeapon()->SendViewModelAnim(ACT_VM_COMMAND_RECALL);
@@ -2142,6 +2160,10 @@ void CHL2_Player::CommanderExecute( CommanderCommand_t command )
 	{
 		goal.m_pGoalEntity = this;
 		goal.m_vecGoalLocation = vec3_invalid;
+
+#ifdef EZ
+		CleanUpSquadMarker();
+#endif
 	}
 	else
 	{
@@ -2154,6 +2176,17 @@ void CHL2_Player::CommanderExecute( CommanderCommand_t command )
 			EmitSound( "HL2Player.UseDeny" );
 			return; // just keep following
 		}
+
+#ifdef EZ
+		if (m_hCommandPointProp)
+		{
+			m_hCommandPointProp->SetAbsOrigin( goal.m_vecGoalLocation );
+
+			//m_hCommandPointProp->Teleport( &goal.m_vecGoalLocation, NULL, NULL );
+		}
+		else
+			CreateSquadMarker(goal);
+#endif
 	}
 
 #ifdef _DEBUG
@@ -2922,9 +2955,6 @@ void CHL2_Player::InputTurnFlashlightOff( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CHL2_Player::OnSquadMemberKilled( inputdata_t &data )
 {
-#ifdef EZ
-	CleanUpSquadMarker();
-#endif
 	// send a message to the client, to notify the hud of the loss
 	CSingleUserRecipientFilter user( this );
 	user.MakeReliable();
@@ -2938,16 +2968,29 @@ void CHL2_Player::OnSquadMemberKilled( inputdata_t &data )
 
 #ifdef EZ
 //-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CHL2_Player::CreateSquadMarker( commandgoal_t &goal )
+{
+	if (sv_visible_command_point.GetBool())
+	{
+		m_hCommandPointProp = Create("prop_command_point", goal.m_vecGoalLocation, vec3_angle, this);
+
+		if (m_hCommandPointProp)
+		{
+			// Why was this needed?
+			//pCommandPointProp->SetRenderMode(kRenderNormal);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: If the entire squad is dead, remove the squad marker
 //-----------------------------------------------------------------------------
 void CHL2_Player::CleanUpSquadMarker(void)
 {
-	if (GetSquadCommandRepresentative() != NULL && GetNumSquadCommandables() > 1)
-		return;
-
-	CBaseEntity *pCommandPointProp = gEntList.FindEntityByClassname(NULL, "prop_command_point");
-	if (pCommandPointProp)
-		UTIL_Remove(pCommandPointProp); // TODO - Find a more elegant way to do this!
+	if (m_hCommandPointProp)
+		UTIL_Remove( m_hCommandPointProp );
 }
 #endif
 

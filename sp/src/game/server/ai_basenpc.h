@@ -1203,6 +1203,11 @@ public:
 	//
 	//-----------------------------------------------------
 	virtual bool IsCommandable()										{ return false; }
+#ifdef EZ
+	// Blixibon - Silent commandable NPCs follow move orders, but don't count towards squad tallies.
+	// For insignificant NPCs like rollermines or manhacks that the system shouldn't confuse with soldiers.
+	virtual bool IsSilentCommandable()										{ return false; }
+#endif
 	virtual bool IsPlayerAlly( CBasePlayer *pPlayer = NULL );
 	virtual bool IsMedic()												{ return false; }
 	virtual bool IsCommandMoving()										{ return false; }
@@ -1353,6 +1358,11 @@ public:
 #ifdef MAPBASE
 	virtual void		ModifyOrAppendEnemyCriteria( AI_CriteriaSet& set, CBaseEntity *pEnemy );
 	virtual void		ModifyOrAppendDamageCriteria( AI_CriteriaSet& set, const CTakeDamageInfo &info );
+#endif
+
+#ifdef EZ2
+	// Blixibon - Gets criteria the player should use in speech
+	virtual void		ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set );
 #endif
 
 protected:

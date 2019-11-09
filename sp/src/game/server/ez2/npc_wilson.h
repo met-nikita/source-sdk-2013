@@ -16,13 +16,8 @@
 #include "filters.h"
 
 //-----------------------------------------------------------------------------
-#define TLK_WILLE_TIPPED "TLK_TIPPED"
-#define TLK_WILLE_SEE_ENEMY TLK_STARTCOMBAT
-#define TLK_WILLE_DAMAGE TLK_WOUND
-#define TLK_WILLE_FIDGET "TLK_FIDGET"
-#define TLK_WILLE_PLDEAD TLK_PLDEAD
-#define TLK_WILLE_PLHURT TLK_PLHURT
-#define TLK_WILLE_PLRELOAD TLK_PLRELOAD
+#define TLK_TIPPED "TLK_TIPPED"
+#define TLK_FIDGET "TLK_FIDGET"
 
 // These are triggered by the maps right now
 #define TLK_WILLE_BEAST_DANGER "TLK_BEAST_DANGER"
@@ -47,8 +42,13 @@ class CNPC_Wilson : public CAI_WilsonBase, public CDefaultPlayerPickupVPhysics, 
 {
 	DECLARE_CLASS(CNPC_Wilson, CAI_WilsonBase);
 	DECLARE_DATADESC();
+	DECLARE_SERVERCLASS();
 public:
 	CNPC_Wilson();
+	~CNPC_Wilson();
+
+	static CNPC_Wilson *GetWilson( void );
+	CNPC_Wilson *m_pNext;
 
 	void	Precache();
 	void	Spawn();
@@ -72,12 +72,13 @@ public:
 	void	PlayerPenetratingVPhysics( void ) {}
 	bool	CanBecomeServerRagdoll( void ) { return false; }
 
-	// Don't waste CPU doing sensing code.
-	// We now need hearing for state changes and stuff, but sight isn't necessary at the moment.
-	int		GetSensingFlags( void ) { return SENSING_FLAGS_DONT_LOOK /*| SENSING_FLAGS_DONT_LISTEN*/; }
+	//int		GetSensingFlags( void ) { return SENSING_FLAGS_DONT_LOOK | SENSING_FLAGS_DONT_LISTEN; }
 
 	int		OnTakeDamage( const CTakeDamageInfo &info );
+	void	TeslaThink();
 	void	Event_Killed( const CTakeDamageInfo &info );
+
+	void	Event_KilledOther( CBaseEntity * pVictim, const CTakeDamageInfo & info );
 
 	// We use our own regen code
 	bool	ShouldRegenerateHealth( void ) { return false; }
@@ -88,6 +89,9 @@ public:
 	void			NPCThink();
 	void			PrescheduleThink( void );
 	void			GatherConditions( void );
+	void			GatherEnemyConditions( CBaseEntity *pEnemy );
+
+	void			AimGun();
 
 	// Wilson hardly cares about his NPC state because he's just a vessel for choreography and player attachment, not a useful combat ally.
 	// This means we redirect SelectIdleSpeech() and SelectAlertSpeech() to the same function. Sure, we could've marked SelectNonCombatSpeech() virtual
@@ -104,6 +108,7 @@ public:
 	virtual void	OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason );
 	virtual void	OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t reason );
 	virtual bool	OnAttemptPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason );
+	CBasePlayer		*HasPhysicsAttacker( float dt );
 
 	bool			IsBeingCarriedByPlayer( void ) { return m_bCarriedByPlayer; }
 	bool			WasJustDroppedByPlayer( void ) { return m_flPlayerDropTime > gpGlobals->curtime; }
@@ -125,11 +130,16 @@ public:
 	virtual CAI_Expresser *CreateExpresser(void);
 	virtual CAI_Expresser *GetExpresser() { return m_pExpresser;  }
 
+	void			InputAnswerConcept( inputdata_t &inputdata );
+	bool			IsOmniscient() { return m_bOmniscient; }
+
 	int		BloodColor( void ) { return DONT_BLEED; }
 
-	// Will-E doesn't attack anyone and nobody attacks him.
+	// Will-E doesn't attack anyone and nobody attacks him. (although he does see enemies for BC, see IRelationType)
 	// You can make NPCs attack him with ai_relationship, but Will-E is literally incapable of combat.
 	Class_T		Classify( void ) { return CLASS_NONE; }
+
+	Disposition_t		IRelationType( CBaseEntity *pTarget );
 
 protected:
 
@@ -150,12 +160,20 @@ protected:
 	bool	m_bCarriedByPlayer;
 	bool	m_bUseCarryAngles;
 	float	m_flPlayerDropTime;
+	float	m_flTeslaStopTime;
+
+	CHandle<CBasePlayer>	m_hPhysicsAttacker;
+	float					m_flLastPhysicsInfluenceTime;
 
 	float		m_fNextFidgetSpeechTime;
 
 	// For when Wilson is meant to be non-interactive (e.g. background maps, dev commentary)
 	// This makes Wilson unmovable and deactivates/doesn't precache a few miscellaneous things.
 	bool	m_bStatic;
+
+	// Makes Will-E always available as a speech target, even when out of regular range.
+	// (e.g. Will-E on monitor in ez2_c3_3)
+	bool	m_bOmniscient;
 
 	CAI_Expresser *m_pExpresser;
 

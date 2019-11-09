@@ -139,6 +139,9 @@ public:
 	void 			RunTask( const Task_t *pTask );
 	
 	Activity		NPC_TranslateActivity( Activity eNewActivity );
+#ifdef EZ
+	void			OnChangeActivity( Activity eNewActivity );
+#endif
 	void 			HandleAnimEvent( animevent_t *pEvent );
 	void			TaskFail( AI_TaskFailureCode_t code );
 
@@ -157,6 +160,11 @@ public:
 #ifdef EZ2
 	bool	ShouldInvestigateSounds(void) { return true; } // 1upD - Rebels should investigate sounds
 #endif // EZ2
+
+#ifdef EZ
+	// Blixibon - Lets citizens ignite from gas cans, etc.
+	bool			AllowedToIgnite( void ) { return true; }
+#endif
 
 	//---------------------------------
 	// Combat
@@ -199,6 +207,11 @@ public:
 #ifdef MAPBASE
 	//---------------------------------
 	void			ModifyOrAppendCriteria( AI_CriteriaSet& set );
+#endif
+
+#ifdef EZ2
+	// Blixibon - Gets criteria the player should use in speech
+	virtual void		ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set );
 #endif
 	
 	//---------------------------------
@@ -313,6 +326,7 @@ private:
 		COND_CIT_WILLPOWER_VERY_LOW,
 		COND_CIT_WILLPOWER_LOW,
 		COND_CIT_WILLPOWER_HIGH,
+		COND_CIT_ON_FIRE,
 		NEXT_CONDITION,
 #endif
 		
@@ -329,6 +343,7 @@ private:
 #ifdef EZ
 		SCHED_CITIZEN_RANGE_ATTACK1_ADVANCE,
 		SCHED_CITIZEN_RANGE_ATTACK1_SUPPRESS,
+		SCHED_CITIZEN_BURNING_STAND,
 		NEXT_SCHEDULE,
 #endif
 		
@@ -340,6 +355,10 @@ private:
 		TASK_CIT_SPEAK_MOURNING,
 #ifdef HL2_EPISODIC
 		TASK_CIT_HEAL_TOSS,
+#endif
+#ifdef EZ
+		TASK_CIT_DIE_INSTANTLY,
+		NEXT_TASK,
 #endif
 
 	};

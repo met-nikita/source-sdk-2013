@@ -6172,6 +6172,44 @@ void CC_CH_CreateAirboat( void )
 static ConCommand ch_createairboat( "ch_createairboat", CC_CH_CreateAirboat, "Spawn airboat in front of the player.", FCVAR_CHEAT );
 
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+static void CreateDrivableAPC( CBasePlayer *pPlayer )
+{
+	// Cheat to create a drivable APC in front of the player
+	Vector vecForward;
+	AngleVectors( pPlayer->EyeAngles(), &vecForward );
+	CBaseEntity *pJeep = (CBaseEntity *)CreateEntityByName( "prop_vehicle_drivable_apc" );
+	if ( pJeep )
+	{
+		Vector vecOrigin = pPlayer->GetAbsOrigin() + vecForward * 256 + Vector(0,0,128);
+		QAngle vecAngles( 0, pPlayer->GetAbsAngles().y - 90, 0 );
+		pJeep->SetAbsOrigin( vecOrigin );
+		pJeep->SetAbsAngles( vecAngles );
+		pJeep->KeyValue( "model", "models/vehicles/combine_apc.mdl" );
+		pJeep->KeyValue( "solid", "6" );
+		pJeep->KeyValue( "targetname", "INVINCIBLE" );
+		pJeep->KeyValue( "vehiclescript", "scripts/vehicles/drivable_apc.txt" );
+		DispatchSpawn( pJeep );
+		pJeep->Activate();
+		pJeep->Teleport( &vecOrigin, &vecAngles, NULL );
+	}
+}
+
+void CC_CH_CreateDrivableAPC( void )
+{
+	CBasePlayer *pPlayer = UTIL_GetCommandClient();
+	if ( !pPlayer )
+		return;
+	CreateDrivableAPC( pPlayer );
+}
+
+static ConCommand ch_createdrivableapc("ch_createdrivableapc", CC_CH_CreateDrivableAPC, "Spawn drivable APC in front of the player.", FCVAR_CHEAT);
+#endif
+
+
 //=========================================================
 //=========================================================
 void CBasePlayer::CheatImpulseCommands( int iImpulse )

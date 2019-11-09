@@ -2837,6 +2837,29 @@ void CNPC_Manhack::StartTask( const Task_t *pTask )
 			int count = 0;
 			m_vSavePosition = Vector( 0, 0, 0 );
 
+#ifdef EZ
+			if (IsInPlayerSquad())
+			{
+				Vector vecPosition = vec3_origin;
+				if (HaveCommandGoal())
+				{
+					vecPosition = GetCommandGoal();
+				}
+				else
+				{
+					CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+					if (pPlayer)
+						vecPosition = pPlayer->EyePosition();
+				}
+
+				if (vecPosition != vec3_origin)
+				{
+					m_vSavePosition += vecPosition * 10;
+					count += 10;
+				}
+			}
+			else
+#endif
 			if (m_bShouldFollowPlayer)
 			{
 				CBasePlayer *pPlayer = ToBasePlayer(GetOwnerEntity());
@@ -3632,6 +3655,33 @@ DEFINE_SCHEDULE
 //=========================================================
 // > SCHED_MANHACK_SWARN
 //=========================================================
+#ifdef EZ
+DEFINE_SCHEDULE
+(
+	SCHED_MANHACK_SWARM_IDLE,
+
+	"	Tasks"
+	"		TASK_STOP_MOVING							0"
+	"		TASK_SET_FAIL_SCHEDULE						SCHEDULE:SCHED_MANHACK_SWARM_FAILURE"
+	"		TASK_MANHACK_FIND_SQUAD_CENTER				0"
+	"		TASK_MANHACK_MOVEAT_SAVEPOSITION			5"
+	"	"
+	"	Interrupts"
+	"		COND_NEW_ENEMY"
+	"		COND_SEE_ENEMY"
+	"		COND_SEE_FEAR"
+	"		COND_LIGHT_DAMAGE"
+	"		COND_HEAVY_DAMAGE"
+	"		COND_SMELL"
+	"		COND_PROVOKED"
+	"		COND_GIVE_WAY"
+	"		COND_HEAR_PLAYER"
+	"		COND_HEAR_DANGER"
+	"		COND_HEAR_COMBAT"
+	"		COND_HEAR_BULLET_IMPACT"
+	"		COND_RECEIVED_ORDERS" // Blixibon - Crude manhack commanding
+);
+#else
 DEFINE_SCHEDULE
 (
 	SCHED_MANHACK_SWARM_IDLE,
@@ -3656,6 +3706,7 @@ DEFINE_SCHEDULE
 	"		COND_HEAR_COMBAT"
 	"		COND_HEAR_BULLET_IMPACT"
 );
+#endif
 
 
 DEFINE_SCHEDULE

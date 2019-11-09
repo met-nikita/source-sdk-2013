@@ -78,6 +78,15 @@ public:
 		return true;
 	}
 
+#ifdef EZ2
+	// Blixibon -- Allows Bad Cop to pick up friendly mines.
+	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
+	int ObjectCaps()
+	{
+		return BaseClass::ObjectCaps() | FCAP_IMPULSE_USE;
+	}
+#endif
+
 	void Pickup();
 
 	void OpenHooks( bool bSilent = false );

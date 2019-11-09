@@ -14,6 +14,9 @@
 #include "hl2_playerlocaldata.h"
 #include "simtimer.h"
 #include "soundenvelope.h"
+#ifdef EZ
+#include "ai_squad.h"
+#endif
 
 class CAI_Squad;
 class CPropCombineBall;
@@ -168,8 +171,16 @@ public:
 	bool CommanderFindGoal( commandgoal_t *pGoal );
 	void NotifyFriendsOfDamage( CBaseEntity *pAttackerEntity );
 	CAI_BaseNPC *GetSquadCommandRepresentative();
+#ifdef EZ
+	// Blixibon - Silent commandables follow orders, but don't count towards squad tallies
+	int GetNumSquadCommandables(bool bSilentMembers = false);
+#else
 	int GetNumSquadCommandables();
+#endif
 	int GetNumSquadCommandableMedics();
+#ifdef EZ2
+	inline CAI_Squad	*GetPlayerSquad() { return m_pPlayerAISquad; } // Blixibon - Needed for Bad Cop responses
+#endif
 
 #ifdef MAPBASE
 	void InputSquadForceSummon( inputdata_t &inputdata );
@@ -334,6 +345,7 @@ protected:
 private:
 	void				OnSquadMemberKilled( inputdata_t &data );
 #else
+	virtual void		CreateSquadMarker( commandgoal_t &goal );
 	virtual void		CleanUpSquadMarker( void ); // 1upD - remove squad marker if all squadmates are dead
 	virtual void		OnSquadMemberKilled( inputdata_t &data ); // 1upD - made protected and virtual so EZ2 player can override							
 #endif
@@ -366,6 +378,9 @@ private:
 	CSimpleSimTimer		m_CommanderUpdateTimer;
 	float				m_RealTimeLastSquadCommand;
 	CommanderCommand_t	m_QueuedCommand;
+#ifdef EZ
+	EHANDLE				m_hCommandPointProp;
+#endif
 
 	Vector				m_vecMissPositions[16];
 	int					m_nNumMissPositions;
@@ -424,5 +439,67 @@ void CHL2_Player::DisableCappedPhysicsDamage()
 	m_bUseCappedPhysicsDamageTable = false;
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: Special template class for minor Combine units like manhacks to serve as "silent" squad members
+// which follow orders, but don't count towards squad tallies and prioritize non-silent members like soldiers.
+// 
+// This is intended to be a temporary location for this class until something more dedicated comes along.
+// 
+// Created by Blixibon.
+//-----------------------------------------------------------------------------
+template <class BASE_NPC>
+class CAI_SilentSquadMember : public BASE_NPC
+{
+public:
+	// This should probably still be overridden
+	virtual bool	IsCommandable() { return true; }
+
+	virtual bool	IsSilentCommandable() { return true; }
+
+	virtual bool TargetOrder( CBaseEntity *pTarget, CAI_BaseNPC **Allies, int numAllies ) { OnTargetOrder(); ClearCommandGoal(); ClearCondition( COND_RECEIVED_ORDERS ); return true; }
+
+	virtual CAI_BaseNPC *GetSquadCommandRepresentative()
+	{
+		// Look through the squad and find the first member that isn't silent
+		if ( m_pSquad )
+		{
+			AISquadIter_t iter;
+			CAI_BaseNPC *pSquadmate = m_pSquad->GetFirstMember( &iter );
+			while ( pSquadmate )
+			{
+				if (pSquadmate->IsCommandable() && !pSquadmate->IsSilentCommandable())
+					return pSquadmate->GetSquadCommandRepresentative();
+
+				pSquadmate = m_pSquad->GetNextMember( &iter );
+			}
+		}
+
+		// Well, if we can't find a non-silent squadmate, Bad Cop must be stuck with us.
+		// (lets Bad Cop order silent members without needing fully-fledged members)
+		return this;
+	}
+
+	// Override with commander interrupt conditions
+	virtual bool CanOrdersInterrupt() { return GetState() != NPC_STATE_COMBAT; }
+
+	void BuildScheduleTestBits( void )
+	{
+		BASE_NPC::BuildScheduleTestBits();
+
+		if (CanOrdersInterrupt())
+		{
+			SetCustomInterruptCondition( COND_RECEIVED_ORDERS );
+		}
+	}
+
+	bool HaveCommandGoal() const
+	{
+		if (GetCommandGoal() != vec3_invalid)
+			return true;
+		return false;
+	}
+};
+#endif
 
 #endif	//HL2_PLAYER_H

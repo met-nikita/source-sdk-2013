@@ -15,6 +15,9 @@
 #include "in_buttons.h"
 #include "soundent.h"
 #include "gamestats.h"
+#ifdef EZ2
+#include "ez2/ez2_player.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -403,6 +406,14 @@ void CWeaponFrag::ThrowGrenade( CBasePlayer *pPlayer )
 	m_bRedraw = true;
 
 	WeaponSound( SINGLE );
+
+#ifdef EZ2
+	CEZ2_Player *pEZ2Player = assert_cast<CEZ2_Player*>(pPlayer);
+	if (pEZ2Player)
+	{
+		pEZ2Player->Event_ThrewGrenade(this);
+	}
+#endif
 
 	m_iPrimaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );

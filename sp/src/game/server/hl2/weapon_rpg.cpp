@@ -1173,7 +1173,7 @@ void CAPCMissile::DoExplosion( void )
 	}
 	else
 	{
-#ifdef HL2_EPISODIC
+#if defined(HL2_EPISODIC) && !defined(EZ) // Blixibon - APC rockets must credit their owner
 		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), this, APC_MISSILE_DAMAGE, 100, true, 20000 );
 #else
 		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), GetOwnerEntity(), APC_MISSILE_DAMAGE, 100, true, 20000 );
