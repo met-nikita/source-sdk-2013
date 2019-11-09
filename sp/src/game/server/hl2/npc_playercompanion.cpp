@@ -664,10 +664,6 @@ void CNPC_PlayerCompanion::BuildScheduleTestBits()
 	if (IsCurSchedule(SCHED_RANGE_ATTACK1) ||
 		IsCurSchedule(SCHED_BACK_AWAY_FROM_ENEMY) ||
 		IsCurSchedule(SCHED_RUN_FROM_ENEMY)
-#ifdef EZ // Melee attack conditions should also interrupt reloads
-		|| IsCurSchedule(SCHED_RELOAD) ||
-		IsCurSchedule(SCHED_HIDE_AND_RELOAD)
-#endif
 		)
 	{
 		SetCustomInterruptCondition( COND_CAN_MELEE_ATTACK1 );

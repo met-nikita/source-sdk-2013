@@ -99,13 +99,7 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex)
 	{
 		r_newflashlight.SetValue( 0 );
 	}
-#ifdef MAPBASE
-	if ( r_flashlighttextureoverride.GetString()[0] != '\0' )
-	{
-		m_FlashlightTexture.Init( r_flashlighttextureoverride.GetString(), TEXTURE_GROUP_OTHER, true );
-	}
-	else
-#endif
+
 #ifdef EZ
 	m_iFlashLightType = type;
 	if ( g_pMaterialSystemHardwareConfig->SupportsBorderColor() && IsNVG() )
@@ -115,6 +109,13 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex)
 	else if ( IsNVG() )
 	{
 		m_FlashlightTexture.Init( "effects/Ez_MetroVision", TEXTURE_GROUP_OTHER, true );
+	}
+	else
+#endif
+#ifdef MAPBASE
+	if ( r_flashlighttextureoverride.GetString()[0] != '\0' ) 
+	{
+		m_FlashlightTexture.Init( r_flashlighttextureoverride.GetString(), TEXTURE_GROUP_OTHER, true );
 	}
 	else
 #endif

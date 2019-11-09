@@ -65,6 +65,16 @@ public:
 	{
 		static Vector cone;
 		
+#ifdef EZ2
+		// Bad Cop has nearly perfect accuracy with the AR2 to give players
+		// the advantage of a Combine elite
+		if (this->GetOwner() &&  this->GetOwner()->IsPlayer())
+		{
+			cone = VECTOR_CONE_1DEGREES;
+			return cone;
+		}
+#endif
+
 #ifdef EZ1
 		cone = VECTOR_CONE_10DEGREES;
 #else

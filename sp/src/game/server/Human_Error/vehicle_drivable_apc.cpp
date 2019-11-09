@@ -85,12 +85,13 @@ ConVar apc_zoomed_pitch_fix("hlss_apc_zoomed_pitch_fix", "0" );
 ConVar apc_zoomed_yaw_fix("hlss_apc_zoomed_yaw_fix", "0" );
 
 ConVar apc_no_rpg_while_moving( "hlss_apc_no_rpg_while_moving", "0", FCVAR_CHEAT );
-//ConVar apc_hull_trace_attack(" hlss_apc_hull_trace_attack", "1", FCVAR_CHEAT );
+ConVar apc_hull_trace_attack( "hlss_apc_hull_trace_attack", "0", FCVAR_CHEAT );
 
 #ifdef EZ
-	ConVar	sk_apc_damage_normal( "sk_apc_damage_normal", "0.15" );
-	ConVar	sk_apc_damage_blast( "sk_apc_damage_blast", "0.1" );
-	ConVar	sk_apc_damage_vort( "sk_apc_damage_vort", "0.75" );
+ConVar apc_target_glow( "apc_target_glow", "0", FCVAR_CHEAT );
+ConVar	sk_apc_damage_normal( "sk_apc_damage_normal", "0.15" );
+ConVar	sk_apc_damage_blast( "sk_apc_damage_blast", "0.1" );
+ConVar	sk_apc_damage_vort( "sk_apc_damage_vort", "0.75" );
 #endif
 
 static void SolveBlockingProps( bool bBreakProps, CPropDrivableAPC *pVehicleEntity, IPhysicsObject *pVehiclePhysics );
@@ -351,7 +352,7 @@ void CPropDrivableAPC::TraceAttack( const CTakeDamageInfo &inputInfo, const Vect
 			{
 				m_hTarget->MyNPCPointer()->RemoveGlowEffect();
 			}
-			if ( info.GetAttacker()->MyNPCPointer() != NULL )
+			if ( apc_target_glow.GetBool() && info.GetAttacker()->MyNPCPointer() != NULL )
 			{
 				info.GetAttacker()->MyNPCPointer()->AddGlowEffect();
 			}
@@ -604,7 +605,7 @@ void CPropDrivableAPC::AimGunAt( Vector *endPos, float flInterval )
 				{
 					m_hTarget->MyNPCPointer()->RemoveGlowEffect( );
 				}
-				if ( tr.m_pEnt->MyNPCPointer() != NULL )
+				if ( apc_target_glow.GetBool() && tr.m_pEnt->MyNPCPointer() != NULL )
 				{
 					tr.m_pEnt->MyNPCPointer()->AddGlowEffect();
 				}
@@ -1097,7 +1098,7 @@ void CPropDrivableAPC::DriveVehicle( float flFrameTime, CUserCmd *ucmd, int iBut
 			KillBlockingEnemyNPCs( pPlayer, this, VPhysicsGetObject() );
 			SolveBlockingProps( bBreakProps, this, VPhysicsGetObject() );
 
-			/*if (true) //apc_hull_trace_attack.GetBool())
+			if ( apc_hull_trace_attack.GetBool() ) 
 			{
 				QAngle angHeadlight;
 				Vector vecHeadlight, vecDir;
@@ -1106,11 +1107,9 @@ void CPropDrivableAPC::DriveVehicle( float flFrameTime, CUserCmd *ucmd, int iBut
 
 				vecDir = vecHeadlight + (vecDir);	//TERO: only stepping one
 
-				//CheckTraceHullAttack(vecHeadlight, vecDir, Vector(-10,-10,-10), Vector(10,10,10), 100.0f, DMG_CLUB );
-				this->Get
 				NDebugOverlay::Box( vecHeadlight, -Vector(10,10,10), Vector(10,10,10), 255,0,0, 8, 0.1 );
 				NDebugOverlay::Box( vecDir, -Vector(10,10,10), Vector(10,10,10), 0,255,0, 8, 0.1 );
-			}*/
+			}
 		}
 		m_bIsMounted = false;
 
