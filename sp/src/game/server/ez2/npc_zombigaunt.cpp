@@ -35,6 +35,14 @@ LINK_ENTITY_TO_CLASS( npc_zombigaunt, CNPC_Zombigaunt );
 //-----------------------------------------------------------------------------
 void CNPC_Zombigaunt::Spawn( void )
 {
+	// Allow multiple models but default to zombigaunt.mdl
+	char *szModel = (char *)STRING( GetModelName() );
+	if (!szModel || !*szModel)
+	{
+		szModel = "models/zombie/zombigaunt.mdl";
+		SetModelName( AllocPooledString( szModel ) );
+	}
+
 	// Disable back-away
 	AddSpawnFlags( SF_NPC_NO_PLAYER_PUSHAWAY );
 

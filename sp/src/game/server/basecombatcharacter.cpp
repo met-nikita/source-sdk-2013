@@ -306,6 +306,8 @@ bool CBaseCombatCharacter::HasAlienGibs( void )
 		 myClass == CLASS_VORTIGAUNT	 ||
 #ifdef EZ
 		myClass == CLASS_BULLSQUID ||
+		// TODO - Replace with appropriate class for boids, boids are not earth fauna
+		myClass == CLASS_EARTH_FAUNA ||
 #endif
 		myClass == CLASS_HEADCRAB )
 	{

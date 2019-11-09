@@ -112,7 +112,9 @@ CWeaponStunStick::CWeaponStunStick( void )
 #ifdef CLIENT_DLL
 	m_bSwungLastFrame = false;
 	m_flFadeTime = FADE_DURATION;	// Start off past the fade point
+#ifdef EZ
 	m_pStunstickLight = NULL;
+#endif
 #endif
 }
 

@@ -52,7 +52,7 @@ public:
 
 	int OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo );
 
-	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_HEADCRAB; }
+	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_HEADCRAB || pTarget->Classify() == CLASS_EARTH_FAUNA; }
 	virtual bool ShouldInfight( CBaseEntity * pTarget ); // Could this target npc be a rival I need to kill?
 
 	void RunAI ( void );

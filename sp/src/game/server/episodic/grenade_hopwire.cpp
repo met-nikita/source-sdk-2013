@@ -20,6 +20,9 @@
 #include "ez2/npc_basepredator.h"
 #include "hl2_player.h"
 #include "particle_parse.h"
+#include "npc_crow.h"
+
+#include "ai_hint.h"
 #include "ai_network.h"
 #include "ai_node.h"
 #include "ai_link.h"
@@ -55,6 +58,7 @@ ConVar hopwire_antlion_mass("hopwire_antlion_mass", "375");
 ConVar hopwire_zombie_mass( "hopwire_zombie_mass", "250" ); // TODO Zombies should require a rebel as an ingredient
 ConVar hopwire_babysquid_mass( "hopwire_babysquid_mass", "200" );
 ConVar hopwire_headcrab_mass("hopwire_headcrab_mass", "100");
+ConVar hopwire_boid_mass( "hopwire_boid_mass", "50" );
 #endif
 
 ConVar g_debug_hopwire( "g_debug_hopwire", "0" );
@@ -84,7 +88,10 @@ private:
 	void	CreateDenseBall( void );
 #ifdef EZ2
 	void	CreateXenLife( void ); // 1upD - Create headcrab or bullsquid 
-	bool	TryCreateNPC(const char *className, bool isBaby); // 1upD - Try to spawn an NPC
+	bool	TryCreateNPC(const char *className); // 1upD - Try to spawn an NPC
+	bool	TryCreateBaby( const char *className ); // 1upD - Try to spawn an NPC
+	bool	TryCreateBird( const char *className ); // 1upD - Try to spawn an NPC
+	bool	TryCreateComplexNPC( const char *className, bool isBaby, bool isBird ); // 1upD - Try to spawn an NPC
 #endif
 	void	PullThink( void );
 	void	StartPull( const Vector &origin, float radius, float strength, float duration );
@@ -266,42 +273,47 @@ void CGravityVortexController::CreateXenLife(void)
 {
 	if ( GetConsumedMass() >= hopwire_guard_mass.GetFloat() )
 	{
-		if ( TryCreateNPC( "npc_antlionguard", false ) )
+		if ( TryCreateNPC( "npc_antlionguard" ) )
 			return;
 	}
 	if (GetConsumedMass() >= hopwire_zombigaunt_mass.GetFloat())
 	{
-		if (TryCreateNPC( "npc_zombigaunt", false ))
+		if (TryCreateNPC( "npc_zombigaunt" ) )
 			return;
 	}
 	if ( GetConsumedMass() >= hopwire_zombine_mass.GetFloat() )
 	{
-		if ( TryCreateNPC( "npc_zombine", false ) )
+		if ( TryCreateNPC( "npc_zombine" ) )
 			return;
 	}
 	if ( GetConsumedMass() >= hopwire_bullsquid_mass.GetFloat() )
 	{
-		if ( TryCreateNPC( "npc_bullsquid", false ) )
+		if ( TryCreateNPC( "npc_bullsquid" ) )
 			return;
 	}
 	if ( GetConsumedMass() >= hopwire_antlion_mass.GetFloat() )
 	{
-		if ( TryCreateNPC( "npc_antlion", false ) )
+		if ( TryCreateNPC( "npc_antlion" ) )
 			return;
 	}
 	if ( GetConsumedMass() >= hopwire_zombie_mass.GetFloat() )
 	{
-		if ( TryCreateNPC( "npc_zombie", false ) )
+		if ( TryCreateNPC( "npc_zombie" ) )
 			return;
 	}
 	if (GetConsumedMass() >= hopwire_babysquid_mass.GetFloat())
 	{
-		if ( TryCreateNPC( "npc_bullsquid", true ) )
+		if ( TryCreateBaby( "npc_bullsquid" ) )
 			return;
 	}
 	if ( GetConsumedMass() >= hopwire_headcrab_mass.GetFloat() )
 	{
-		if ( TryCreateNPC( "npc_headcrab", false ) )
+		if ( TryCreateNPC( "npc_headcrab" ) )
+			return;
+	}
+	if ( GetConsumedMass() >= hopwire_boid_mass.GetFloat() )
+	{
+		if ( TryCreateBird( "npc_boid" ) )
 			return;
 	}
 }
@@ -310,31 +322,63 @@ void CGravityVortexController::CreateXenLife(void)
 // Purpose: Create an NPC if possible.
 //	Returns true if the NPC was created, false if no NPC created
 //-----------------------------------------------------------------------------
-bool CGravityVortexController::TryCreateNPC( const char *className, bool isBaby ) {
+bool CGravityVortexController::TryCreateNPC( const char *className ) {
+	return TryCreateComplexNPC( className, false, false );
+}
+
+bool CGravityVortexController::TryCreateBaby( const char *className ) {
+	return TryCreateComplexNPC( className, true, false );
+}
+
+#define SF_CROW_FLYING		16
+bool CGravityVortexController::TryCreateBird ( const char *className ) {
+
+	// Look for fly nodes
+	CHintCriteria hintCriteria;
+	hintCriteria.SetHintType( HINT_CROW_FLYTO_POINT );
+	hintCriteria.AddIncludePosition( GetAbsOrigin(), 4500 );
+	CAI_Hint *pHint = CAI_HintManager::FindHint( GetAbsOrigin(), hintCriteria );
+	// If the vortex controller can't find a bird node, don't spawn any birds!
+	if ( pHint == NULL )
+	{
+		return false;
+	}
+
+	return TryCreateComplexNPC( className, false, true );
+}
+
+bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool isBaby, bool isBird) {
 	CBaseEntity * pEntity = CreateEntityByName( className );
 	CAI_BaseNPC * baseNPC = pEntity->MyNPCPointer();
-	if ( pEntity == NULL || baseNPC == NULL ) {
+	if (pEntity == NULL || baseNPC == NULL) {
 		return false;
 	}
 
 	baseNPC->SetAbsOrigin( GetAbsOrigin() );
 	baseNPC->SetAbsAngles( GetAbsAngles() );
-	baseNPC->AddSpawnFlags( SF_NPC_FALL_TO_GROUND );
+	if (isBird)
+	{
+		baseNPC->AddSpawnFlags( SF_CROW_FLYING );
+	}
+	else
+	{
+		baseNPC->AddSpawnFlags( SF_NPC_FALL_TO_GROUND );
+	}
 	baseNPC->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
 	// Set the squad name of a new Xen NPC to 'xenpc_headcrab', 'xenpc_bullsquid', etc
 	char * squadname = UTIL_VarArgs( "xe%s", className );
 	DevMsg( "Adding xenpc '%s' to squad '%s' \n", baseNPC->GetDebugName(), squadname );
 	baseNPC->SetSquadName( AllocPooledString( squadname ) );
-	
+
 	// If the created NPC is a bullsquid or other predatory alien, make sure it has the appropriate fields set
-	CNPC_BasePredator * pPredator = dynamic_cast< CNPC_BasePredator * >( baseNPC );
-	if ( pPredator != NULL )
+	CNPC_BasePredator * pPredator = dynamic_cast< CNPC_BasePredator * >(baseNPC);
+	if (pPredator != NULL)
 	{
 		pPredator->setIsBaby( isBaby );
 		pPredator->InputSetWanderAlways( inputdata_t() );
 		pPredator->InputEnableSpawning( inputdata_t() );
 	}
-	
+
 	DispatchSpawn( baseNPC );
 
 	Vector vUpBit = baseNPC->GetAbsOrigin();
@@ -342,10 +386,10 @@ bool CGravityVortexController::TryCreateNPC( const char *className, bool isBaby 
 	trace_t tr;
 	AI_TraceHull( baseNPC->GetAbsOrigin(), vUpBit, baseNPC->GetHullMins(), baseNPC->GetHullMaxs(),
 		MASK_NPCSOLID, baseNPC, COLLISION_GROUP_NONE, &tr );
-	if ( tr.startsolid || ( tr.fraction < 1.0 ) )
+	if ( tr.startsolid || (tr.fraction < 1.0) )
 	{
 		DevMsg( "Xen grenade can't create %s.  Bad Position!\n", className );
-		baseNPC->SUB_Remove();		
+		baseNPC->SUB_Remove();
 		NDebugOverlay::Box( baseNPC->GetAbsOrigin(), baseNPC->GetHullMins(), baseNPC->GetHullMaxs(), 255, 0, 0, 0, 0 );
 		return false;
 	}
