@@ -203,6 +203,9 @@ public:
 	// Damage handling
 	//---------------------------------
 	int 			OnTakeDamage_Alive( const CTakeDamageInfo &info );
+#ifdef EZ
+	float			GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDamageInfo &info );
+#endif
 
 #ifdef MAPBASE
 	//---------------------------------

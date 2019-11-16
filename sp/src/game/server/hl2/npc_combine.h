@@ -448,7 +448,10 @@ private:
 #endif
 	bool			m_bShouldPatrol;
 	bool			m_bFirstEncounter;// only put on the handsign show in the squad's first encounter.
+#ifdef EZ
 	string_t		m_iszOriginalSquad;
+	bool			m_bHoldPositionGoal; // Blixibon - For soldiers staying in their area even after being removed from player's squad
+#endif
 
 	// Time Variables
 	float			m_flNextPainSoundTime;
