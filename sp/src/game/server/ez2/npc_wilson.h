@@ -90,6 +90,7 @@ public:
 	void			PrescheduleThink( void );
 	void			GatherConditions( void );
 	void			GatherEnemyConditions( CBaseEntity *pEnemy );
+	void 			OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity *pAttacker );
 
 	void			AimGun();
 
@@ -123,8 +124,8 @@ public:
 
 	virtual void    ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet);
 	void			ModifyOrAppendDamageCriteria(AI_CriteriaSet & set, const CTakeDamageInfo & info);
-	virtual bool    SpeakIfAllowed(AIConcept_t concept, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL, bool bCanInterrupt = false);
-	virtual bool    SpeakIfAllowed(AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL, bool bCanInterrupt = false);
+	virtual bool    SpeakIfAllowed(AIConcept_t concept, bool bRespondingToPlayer = false, char *pszOutResponseChosen = NULL, size_t bufsize = 0);
+	virtual bool    SpeakIfAllowed(AIConcept_t concept, AI_CriteriaSet& modifiers, bool bRespondingToPlayer = false, char *pszOutResponseChosen = NULL, size_t bufsize = 0);
 	void			PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response );
 	virtual void    PostConstructor(const char *szClassname);
 	virtual CAI_Expresser *CreateExpresser(void);
@@ -140,6 +141,8 @@ public:
 	Class_T		Classify( void ) { return CLASS_NONE; }
 
 	Disposition_t		IRelationType( CBaseEntity *pTarget );
+
+	bool		IsSilentSquadMember() const;
 
 protected:
 

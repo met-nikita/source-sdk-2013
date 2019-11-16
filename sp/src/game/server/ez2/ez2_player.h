@@ -12,6 +12,7 @@
 #include "ai_speech.h"
 #include "ai_playerally.h"
 #include "ai_sensorydummy.h"
+#include "ai_concept_response.h"
 
 class CAI_PlayerNPCDummy;
 class CEZ2_Player;
@@ -113,6 +114,10 @@ public:
 	void			Weapon_Equip( CBaseCombatWeapon *pWeapon );
 
 	bool			HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+
+	// For more accurate representations of whether the player actually sees something
+	// (3D dot calculations instead of 2D dot calculations)
+	bool			FInTrueViewCone( const Vector &vecSpot );
 
 	virtual int		OnTakeDamage_Alive(const CTakeDamageInfo &info);
 	void			TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator );

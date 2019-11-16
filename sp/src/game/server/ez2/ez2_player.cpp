@@ -148,6 +148,26 @@ bool CEZ2_Player::HandleInteraction( int interactionType, void *data, CBaseComba
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: For checking if the player is looking at something, but more expensive
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::FInTrueViewCone( const Vector &vecSpot )
+{
+	Vector los = ( vecSpot - EyePosition() );
+
+	// Same as FInViewCone(), but in 2D
+	VectorNormalize( los );
+
+	Vector facingDir = EyeDirection3D();
+
+	float flDot = DotProduct( los, facingDir );
+
+	if ( flDot > m_flFieldOfView )
+		return true;
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Event fired when a living player takes damage - used to emit damage sounds
 //-----------------------------------------------------------------------------
 int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
@@ -674,17 +694,7 @@ void CEZ2_Player::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 void CEZ2_Player::InputAnswerConcept( inputdata_t &inputdata )
 {
 	// Complex Q&A
-	if (inputdata.pActivator)
-	{
-		AI_CriteriaSet modifiers;
-
-		SetSpeechTarget(inputdata.pActivator);
-		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
-
-		// Tip: Speech target contexts are appended automatically. (try applyContext)
-
-		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers);
-	}
+	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
 }
 
 //-----------------------------------------------------------------------------
@@ -812,7 +822,14 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 	{
 		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", pVictim->LastHitGroup()));
 
-		modifiers.AppendCriteria("enemy_relationship", UTIL_VarArgs("%i", pVictim->IRelationType(this)));
+		Disposition_t disposition = pVictim->IRelationType(this);
+
+		// If the victim *just* started being afraid of us, pick it up as D_HT instead.
+		// This is to prevent cases where Bad Cop taunts afraid enemies before it's apparent that they're afraid.
+		if (disposition == D_FR && pVictim->JustStartedFearing(this))
+			disposition = D_HT;
+
+		modifiers.AppendCriteria("enemy_relationship", UTIL_VarArgs("%i", disposition));
 
 		if (pVictim->IsOnFire())
 			modifiers.AppendCriteria("enemy_on_fire", "1");
@@ -824,7 +841,7 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 			{
 				// That's enough outta you.
 				// (IsSpeaking() accounts for the delay as well, so it lingers beyond actual speech time)
-				if (gpGlobals->curtime < pNPC->GetExpresser()->GetRealTimeSpeechComplete())
+				if (gpGlobals->curtime + 0.5f < pNPC->GetExpresser()->GetRealTimeSpeechComplete())
 					modifiers.AppendCriteria("enemy_is_speaking", "1");
 			}
 		}
@@ -1072,7 +1089,7 @@ void CEZ2_Player::DoSpeechAI( void )
 
 	if ( flRandomSpeechModifier > 0.0f )
 	{
-		int iChance = (int)floor(RandomFloat(0, 10) * flRandomSpeechModifier);
+		int iChance = (int)(RandomFloat(0, 10) * flRandomSpeechModifier);
 
 		// 10% chance by default
 		if (iChance > RandomInt(0, 100))

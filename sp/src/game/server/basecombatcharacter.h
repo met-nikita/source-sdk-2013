@@ -361,6 +361,12 @@ public:
 	void					InputSetRelationship( inputdata_t &inputdata );
 #endif
 
+#ifdef EZ2
+	// Blixibon - Used by the player's speech AI to prevent cases where enemies are picked up as D_FR
+	// before it could possibly be apparent to the player
+	virtual bool			JustStartedFearing( CBaseEntity *pTarget ) { return false; }
+#endif
+
 	virtual void			SetLightingOriginRelative( CBaseEntity *pLightingOrigin );
 
 protected:
