@@ -136,11 +136,6 @@
 #define TLK_TGCATCHUP 	"TLK_TGCATCHUP"
 #define TLK_TGENDTOUR 	"TLK_TGENDTOUR"
 
-#ifdef EZ2
-// Blixibon - Complex Q&A used by Bad Cop, Wilson, and Combine soldiers
-#define TLK_CONCEPT_ANSWER "TLK_CONCEPT_ANSWER"
-#endif
-
 #ifdef EZ
 // Entropy : Zero 2 Citizen contexts
 #define TLK_SURRENDER	"TLK_SURRENDER"	// Citizen just dropped their weapon in fear

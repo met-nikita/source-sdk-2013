@@ -108,6 +108,10 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	m_pMotionController( NULL )
 {
 	g_WillieList.Insert(this);
+
+	// This will be overridden by the keyvalue,
+	// but npc_create should automatically spawn Will-E with this
+	m_SquadName = GetPlayerSquadName();
 }
 
 CNPC_Wilson::~CNPC_Wilson( void )
@@ -540,7 +544,7 @@ void CNPC_Wilson::NPCThink()
 
 				modifiers.AppendCriteria( "distancetoground", UTIL_VarArgs("%f", (tr.fraction * WILSON_MAX_TIPPED_HEIGHT)) );
 
-				SpeakIfAllowed( TLK_TIPPED, modifiers );
+				Speak( TLK_TIPPED, modifiers );
 
 				// Might want to get a real activator... (e.g. a last physics attacker)
 				m_OnTipped.FireOutput( AI_GetSinglePlayer(), this );
@@ -607,13 +611,76 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 		{
 			AI_CriteriaSet modifiers;
 
-			if (pEnemy->IsNPC())
+			CBasePlayer *pPlayer = AI_GetSinglePlayer();
+			if ( pPlayer )
 			{
-				if (pEnemy->MyNPCPointer()->GetEnemy() && pEnemy->MyNPCPointer()->GetEnemy()->IsPlayer())
-					modifiers.AppendCriteria("enemy_attacking_player", "1");
+				bool bEnemyInPlayerCone = static_cast<CEZ2_Player*>(pPlayer)->FInTrueViewCone( pEnemy->WorldSpaceCenter() );
+				bool bEnemyVisibleToPlayer = pPlayer->FVisible( pEnemy );
+				bool bSeePlayer = FVisible( pPlayer );
+
+				// If I can see the player, and the player would see this enemy if they turned around,
+				// call it out.
+				// This code was ported from CNPC_PlayerCompanion.
+				if ( !bEnemyInPlayerCone && bSeePlayer && bEnemyVisibleToPlayer )
+				{
+					Vector2D vecPlayerView = pPlayer->EyeDirection2D().AsVector2D();
+					Vector2D vecToEnemy = ( pEnemy->GetAbsOrigin() - pPlayer->GetAbsOrigin() ).AsVector2D();
+					Vector2DNormalize( vecToEnemy );
+				
+					if ( DotProduct2D(vecPlayerView, vecToEnemy) <= -0.75 )
+					{
+						modifiers.AppendCriteria("dangerloc", "behind");
+						SpeakIfAllowed( TLK_WATCHOUT, modifiers );
+						return;
+					}
+				}
+
+				// If neither us or the enemy are visible to the player,
+				// and the enemy isn't currently attacking something (other than the player), have a quick chat
+				else if ( !bSeePlayer && !bEnemyVisibleToPlayer )
+				{
+					if ( !pEnemy->GetEnemy() || pEnemy->GetEnemy() == pPlayer )
+						modifiers.AppendCriteria("enemy_greet", "1");
+				}
 			}
 
 			SpeakIfAllowed(TLK_STARTCOMBAT, modifiers);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity *pAttackerEnt )
+{
+	BaseClass::OnFriendDamaged( pSquadmate, pAttackerEnt );
+
+	CAI_BaseNPC *pAttacker = pAttackerEnt->MyNPCPointer();
+	if ( pAttacker )
+	{
+		CBasePlayer *pPlayer = AI_GetSinglePlayer();
+		if ( pPlayer && ( pPlayer->GetAbsOrigin().AsVector2D() - GetAbsOrigin().AsVector2D() ).LengthSqr() < Square( 25*12 ) && IsAllowedToSpeak( TLK_WATCHOUT ) )
+		{
+			if ( !pPlayer->FInViewCone( pAttacker ) )
+			{
+				Vector2D vPlayerDir = pPlayer->EyeDirection2D().AsVector2D();
+				Vector2D vEnemyDir = pAttacker->EyePosition().AsVector2D() - pPlayer->EyePosition().AsVector2D();
+				vEnemyDir.NormalizeInPlace();
+				float dot = vPlayerDir.Dot( vEnemyDir );
+				if ( dot < 0 )
+					Speak( TLK_WATCHOUT, "dangerloc:behind" );
+				else if ( ( pPlayer->GetAbsOrigin().AsVector2D() - pAttacker->GetAbsOrigin().AsVector2D() ).LengthSqr() > Square( 40*12 ) )
+					Speak( TLK_WATCHOUT, "dangerloc:far" );
+			}
+			else if ( pAttacker->GetAbsOrigin().z - pPlayer->GetAbsOrigin().z > 128 )
+			{
+				Speak( TLK_WATCHOUT, "dangerloc:above" );
+			}
+			else if ( pAttacker->GetHullType() <= HULL_TINY && ( pPlayer->GetAbsOrigin().AsVector2D() - pAttacker->GetAbsOrigin().AsVector2D() ).LengthSqr() > Square( 100*12 ) )
+			{
+				Speak( TLK_WATCHOUT, "dangerloc:far" );
+			}
 		}
 	}
 }
@@ -631,7 +698,7 @@ Disposition_t CNPC_Wilson::IRelationType( CBaseEntity *pTarget )
 	// If we're in a squad and our base relationship is default, use the squad's relationships
 	if (GetSquad() && base == GetDefaultRelationshipDisposition(pTarget->Classify()))
 	{
-		if (IsInPlayerSquad() && UTIL_GetLocalPlayer())
+		if (MAKE_STRING(m_pSquad->GetName()) == GetPlayerSquadName() && UTIL_GetLocalPlayer())
 		{
 			// Get the player's disposition
 			CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
@@ -648,6 +715,15 @@ Disposition_t CNPC_Wilson::IRelationType( CBaseEntity *pTarget )
 	}
 
 	return base;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::IsSilentSquadMember() const
+{
+	// For now, always be silent.
+	return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -925,6 +1001,8 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 
 	set.AppendCriteria("on_side", OnSide() ? "1" : "0");
 
+	set.AppendCriteria("speaking", GetExpresser()->IsSpeaking() ? "1" : "0");
+
     BaseClass::ModifyOrAppendCriteria(set);
 
 	if (GetSpeechTarget() && GetSpeechTarget()->IsPlayer())
@@ -949,24 +1027,21 @@ void CNPC_Wilson::ModifyOrAppendDamageCriteria(AI_CriteriaSet & set, const CTake
 //-----------------------------------------------------------------------------
 // Purpose: Check if the given concept can be spoken and then speak it
 //-----------------------------------------------------------------------------
-bool CNPC_Wilson::SpeakIfAllowed(AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen, size_t bufsize, IRecipientFilter *filter, bool bCanInterrupt)
+bool CNPC_Wilson::SpeakIfAllowed(AIConcept_t concept, AI_CriteriaSet& modifiers, bool bRespondingToPlayer, char *pszOutResponseChosen, size_t bufsize)
 {
-	if (!bCanInterrupt && IsRunningScriptedSceneAndNotPaused(this, false) /*&& !IsInInterruptableScenes(this)*/)
-		return false;
-
-    if (!IsAllowedToSpeak(concept, HasCondition(COND_SEE_PLAYER)))
+    if (!IsAllowedToSpeak(concept, bRespondingToPlayer))
         return false;
 
-    return Speak(concept, modifiers, pszOutResponseChosen, bufsize, filter);
+    return Speak(concept, modifiers, pszOutResponseChosen, bufsize);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Alternate method signature for SpeakIfAllowed allowing no criteriaset parameter 
 //-----------------------------------------------------------------------------
-bool CNPC_Wilson::SpeakIfAllowed(AIConcept_t concept, char *pszOutResponseChosen, size_t bufsize, IRecipientFilter *filter, bool bCanInterrupt)
+bool CNPC_Wilson::SpeakIfAllowed(AIConcept_t concept, bool bRespondingToPlayer, char *pszOutResponseChosen, size_t bufsize)
 {
     AI_CriteriaSet set;
-	return SpeakIfAllowed(concept, set, pszOutResponseChosen, bufsize, filter, bCanInterrupt);
+	return SpeakIfAllowed(concept, set, bRespondingToPlayer, pszOutResponseChosen, bufsize);
 }
 
 //-----------------------------------------------------------------------------
@@ -980,7 +1055,7 @@ void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		// Notify the player so they could respond
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
-		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.5f, 1.0f), this, this);
+		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.25f, 0.75f), this, this);
 	}
 }
 
@@ -990,17 +1065,7 @@ void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 void CNPC_Wilson::InputAnswerConcept( inputdata_t &inputdata )
 {
 	// Complex Q&A
-	if (inputdata.pActivator)
-	{
-		AI_CriteriaSet modifiers;
-
-		SetSpeechTarget(inputdata.pActivator);
-		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
-
-		// Tip: Speech target contexts are appended automatically. (try applyContext)
-
-		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers);
-	}
+	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
 }
 
 //-----------------------------------------------------------------------------

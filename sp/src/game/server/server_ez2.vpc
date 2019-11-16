@@ -33,6 +33,7 @@ $Project "Server (Entropy Zero 2)"
 		}
 		$Folder	"EZ2 DLL"
 		{
+			$File	"ez2\ai_concept_response.h"
 			$File	"ez2\ai_sensorydummy.h"
 			$File	"ez2\ez2_player.h"
 			$File	"ez2\ez2_player.cpp"

@@ -127,6 +127,9 @@ public:
 	bool FValidateHintType ( CAI_Hint *pHint );
 	virtual void RemoveIgnoredConditions( void );
 	Disposition_t IRelationType( CBaseEntity *pTarget );
+#ifdef EZ2
+	bool JustStartedFearing( CBaseEntity *pTarget ); // Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
+#endif
 	int OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo );
 	virtual void OnFed();
 
@@ -168,6 +171,10 @@ protected:
 	float m_flNextSpitTime;// last time the bullsquid used the spit attack.
 	float m_flHungryTime;// set this is a future time to stop the monster from eating for a while. 
 	float m_flNextSpawnTime; // Next time the bullsquid can birth offspring
+
+#ifdef EZ2
+	float m_flStartedFearingEnemy; // Blixibon - Needed for Bad Cop's speech AI
+#endif
 
 	// Spawning offspring
 	bool  m_bSpawningEnabled;

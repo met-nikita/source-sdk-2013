@@ -227,6 +227,7 @@ DEFINE_FIELD( m_flShotDelay, FIELD_FLOAT ),
 DEFINE_FIELD( m_flStopMoveShootTime, FIELD_TIME ),
 #ifdef EZ
 DEFINE_FIELD( m_iszOriginalSquad, FIELD_STRING ), // Added by Blixibon to save original squad
+DEFINE_FIELD( m_bHoldPositionGoal, FIELD_BOOLEAN ),
 #endif
 #ifndef MAPBASE // See ai_grenade.h
 DEFINE_KEYFIELD( m_iNumGrenades, FIELD_INTEGER, "NumGrenades" ),
@@ -351,6 +352,10 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 		// I'm the target! Toggle follow!
 		if (isInPlayerSquad)
 		{
+			// Blixibon - This soldier should stay in the area
+			// in case the player just wants them to hold down
+			m_bHoldPositionGoal = true;
+
 			StopFollowSound();
 			RemoveFromPlayerSquad();
 		}
@@ -542,6 +547,12 @@ void CNPC_Combine::StopFollowSound()
 //-----------------------------------------------------------------------------
 void CNPC_Combine::AddToPlayerSquad()
 {
+	if ( IsInPlayerSquad() )
+	{
+		// Already in the player's squad
+		return;
+	}
+
 	m_iszOriginalSquad = m_SquadName;
 	AddToSquad(AllocPooledString(PLAYER_SQUADNAME));
 
@@ -562,8 +573,10 @@ void CNPC_Combine::FixupPlayerSquad()
 	GetSquadGoal();
 
 	// Don't handle move order if this NPC already has a command goal - ie on load game
-	if (HaveCommandGoal())
+	if (HaveCommandGoal() && !m_bHoldPositionGoal)
 		return;
+
+	m_bHoldPositionGoal = false;
 
 	ToggleSquadCommand();
 }
@@ -594,6 +607,16 @@ void CNPC_Combine::GetSquadGoal()
 //-----------------------------------------------------------------------------
 void CNPC_Combine::RemoveFromPlayerSquad()
 {
+	if ( !IsInPlayerSquad() )
+	{
+		// Blixibon - Stop holding position
+		if ( m_bHoldPositionGoal )
+			SetCommandGoal( vec3_invalid );
+
+		// Already outside of the player's squad
+		return;
+	}
+
 	if ( m_iszOriginalSquad != NULL_STRING && strcmp( STRING( m_iszOriginalSquad ), PLAYER_SQUADNAME ) != 0 )
 		AddToSquad( m_iszOriginalSquad );
 	else
@@ -603,10 +626,20 @@ void CNPC_Combine::RemoveFromPlayerSquad()
 	if (m_hManhack != NULL)
 		m_pSquad ? m_pSquad->AddToSquad(m_hManhack.Get()) : m_hManhack->RemoveFromSquad();
 
-	SetCommandGoal(vec3_invalid);
-
 	// Stop following.
 	ToggleSquadCommand();
+
+	// Blixibon - When players remove soldiers from their squad, they will stay in their area
+	if ( m_bHoldPositionGoal )
+	{
+		DevMsg("Holding position!\n");
+		SetCommandGoal( GetAbsOrigin() );
+	}
+	else
+	{
+		DevMsg("NOT holding position!\n");
+		SetCommandGoal( vec3_invalid );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -828,17 +861,7 @@ void CNPC_Combine::InputSetNonCommandable(inputdata_t & inputdata)
 void CNPC_Combine::InputAnswerConcept( inputdata_t &inputdata )
 {
 	// Complex Q&A
-	if (inputdata.pActivator)
-	{
-		AI_CriteriaSet modifiers;
-
-		SetSpeechTarget(inputdata.pActivator);
-		modifiers.AppendCriteria("speechtarget_concept", inputdata.value.String());
-
-		// Tip: Speech target contexts are appended automatically. (try applyContext)
-
-		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers);
-	}
+	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
 }
 #endif
 

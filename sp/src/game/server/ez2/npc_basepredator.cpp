@@ -68,6 +68,10 @@ CNPC_BasePredator::CNPC_BasePredator()
 	m_fCanThreatDisplay = TRUE;
 
 	m_iszMate = NULL_STRING;
+
+#ifdef EZ2
+	m_flStartedFearingEnemy = -1;
+#endif
 }
 
 void CNPC_BasePredator::Activate( void )
@@ -299,6 +303,11 @@ Disposition_t CNPC_BasePredator::IRelationType( CBaseEntity *pTarget )
 		}
 		else if ( !IsBoss() && m_iHealth < m_iMaxHealth / 3.0f)
 		{
+#ifdef EZ2
+			if ( m_flStartedFearingEnemy == -1 )
+				m_flStartedFearingEnemy = gpGlobals->curtime;
+#endif
+
 			// if hurt in the last five seconds and very low on health, retreat from the current enemy
 			PredMsg( "Predator %s retreating because of injury.\n" );
 			return D_FR;
@@ -306,6 +315,22 @@ Disposition_t CNPC_BasePredator::IRelationType( CBaseEntity *pTarget )
 	}
 	return disposition;
 }
+
+#ifdef EZ2
+// 
+// Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
+// 
+bool CNPC_BasePredator::JustStartedFearing( CBaseEntity *pTarget )
+{
+	Assert( IRelationType( pTarget ) == D_FR );
+
+	// If we've only been afraid for 1.25 seconds, the player probably doesn't realize
+	if ( gpGlobals->curtime - m_flStartedFearingEnemy < 1.25f )
+		return true;
+
+	return false;
+}
+#endif
 
 //=========================================================
 // TakeDamage - overridden for predators so we can keep track

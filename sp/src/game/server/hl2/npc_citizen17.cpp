@@ -3045,6 +3045,24 @@ int CNPC_Citizen::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 	return BaseClass::OnTakeDamage_Alive( newInfo );
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+float CNPC_Citizen::GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDamageInfo &info )
+{
+	switch( iHitGroup )
+	{
+	case HITGROUP_HEAD:
+		{
+			// Citizens take 2.5x head damage
+			return 2.5f;
+		}
+	}
+
+	return BaseClass::GetHitgroupDamageMultiplier( iHitGroup, info );
+}
+#endif
+
 #ifdef MAPBASE
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
