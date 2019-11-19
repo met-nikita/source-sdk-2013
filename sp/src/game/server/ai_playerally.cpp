@@ -1161,11 +1161,7 @@ void CAI_PlayerAlly::Touch( CBaseEntity *pOther )
 	BaseClass::Touch( pOther );
 
 	// Did the player touch me?
-#ifndef EZ
 	if ( pOther->IsPlayer() )
-#else
-	if ( pOther->IsPlayer() && IRelationType( UTIL_GetLocalPlayer() ) != D_HT )
-#endif
 	{
 		// Ignore if pissed at player
 		if ( m_afMemory & bits_MEMORY_PROVOKED )
