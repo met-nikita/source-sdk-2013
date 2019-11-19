@@ -78,4 +78,18 @@ public:
 	virtual void UpdateLight(const Vector &vecPos, const Vector &vecDir, const Vector &vecRight, const Vector &vecUp, int nDistance);
 };
 
+#ifdef EZ2
+class CTurretLightEffect : public CFlashlightEffect
+{
+public:
+
+	CTurretLightEffect();
+	~CTurretLightEffect();
+
+	virtual void UpdateLight( const Vector &vecPos, const Vector &vecDir, const Vector &vecRight, const Vector &vecUp, int nDistance );
+
+	float	m_flBrightnessScale;
+};
+#endif
+
 #endif // FLASHLIGHTEFFECT_H

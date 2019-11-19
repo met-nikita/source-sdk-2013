@@ -16,10 +16,8 @@
 #include "filters.h"
 
 //-----------------------------------------------------------------------------
-#define TLK_TIPPED "TLK_TIPPED"
-#define TLK_FIDGET "TLK_FIDGET"
 
-// These are triggered by the maps right now
+// This is triggered by the maps right now
 #define TLK_WILLE_BEAST_DANGER "TLK_BEAST_DANGER"
 //-----------------------------------------------------------------------------
 
@@ -90,9 +88,15 @@ public:
 	void			PrescheduleThink( void );
 	void			GatherConditions( void );
 	void			GatherEnemyConditions( CBaseEntity *pEnemy );
+
+	int 			TranslateSchedule( int scheduleType );
+
+	void			OnSeeEntity( CBaseEntity *pEntity );
 	void 			OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity *pAttacker );
 
 	void			AimGun();
+
+	bool			QueryHearSound( CSound *pSound );
 
 	// Wilson hardly cares about his NPC state because he's just a vessel for choreography and player attachment, not a useful combat ally.
 	// This means we redirect SelectIdleSpeech() and SelectAlertSpeech() to the same function. Sure, we could've marked SelectNonCombatSpeech() virtual
@@ -101,7 +105,12 @@ public:
 	bool			SelectIdleSpeech( AISpeechSelection_t *pSelection ) { return DoCustomSpeechAI(pSelection, NPC_STATE_IDLE); }
 	bool			SelectAlertSpeech( AISpeechSelection_t *pSelection ) { return DoCustomSpeechAI(pSelection, NPC_STATE_ALERT); }
 
+	void			HandlePrescheduleIdleSpeech();
+
 	void			InputSelfDestruct( inputdata_t &inputdata );
+
+	void			InputTurnOnEyeLight( inputdata_t &inputdata ) { m_bEyeLightEnabled = true; }
+	void			InputTurnOffEyeLight( inputdata_t &inputdata ) { m_bEyeLightEnabled = false; }
 
 	virtual bool	HasPreferredCarryAnglesForPlayer( CBasePlayer *pPlayer );
 	virtual QAngle	PreferredCarryAngles( void );
@@ -111,7 +120,7 @@ public:
 	virtual bool	OnAttemptPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason );
 	CBasePlayer		*HasPhysicsAttacker( float dt );
 
-	bool			IsBeingCarriedByPlayer( void ) { return m_bCarriedByPlayer; }
+	bool			IsBeingCarriedByPlayer( void ) { return m_flCarryTime != -1.0f; }
 	bool			WasJustDroppedByPlayer( void ) { return m_flPlayerDropTime > gpGlobals->curtime; }
 	bool			IsHeldByPhyscannon( )	{ return VPhysicsGetObject() && (VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD); }
 
@@ -126,6 +135,7 @@ public:
 	void			ModifyOrAppendDamageCriteria(AI_CriteriaSet & set, const CTakeDamageInfo & info);
 	virtual bool    SpeakIfAllowed(AIConcept_t concept, bool bRespondingToPlayer = false, char *pszOutResponseChosen = NULL, size_t bufsize = 0);
 	virtual bool    SpeakIfAllowed(AIConcept_t concept, AI_CriteriaSet& modifiers, bool bRespondingToPlayer = false, char *pszOutResponseChosen = NULL, size_t bufsize = 0);
+	bool			IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPlayer = false );
 	void			PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response );
 	virtual void    PostConstructor(const char *szClassname);
 	virtual CAI_Expresser *CreateExpresser(void);
@@ -145,6 +155,23 @@ public:
 	bool		IsSilentSquadMember() const;
 
 protected:
+	//-----------------------------------------------------
+	// Conditions, Schedules, Tasks
+	//-----------------------------------------------------
+	enum
+	{
+		//COND_EXAMPLE = BaseClass::NEXT_CONDITION,
+		//NEXT_CONDITION,
+
+		SCHED_WILSON_ALERT_STAND = BaseClass::NEXT_SCHEDULE,
+		NEXT_SCHEDULE,
+
+		//TASK_EXAMPLE = BaseClass::NEXT_TASK,
+		//NEXT_TASK,
+
+		//AE_EXAMPLE = LAST_SHARED_ANIMEVENT
+
+	};
 
 	COutputEvent m_OnTipped;
 	COutputEvent m_OnPlayerUse;
@@ -160,7 +187,7 @@ protected:
 
 	bool	m_bBlinkState;
 	bool	m_bTipped;
-	bool	m_bCarriedByPlayer;
+	float	m_flCarryTime;
 	bool	m_bUseCarryAngles;
 	float	m_flPlayerDropTime;
 	float	m_flTeslaStopTime;
@@ -177,6 +204,10 @@ protected:
 	// Makes Will-E always available as a speech target, even when out of regular range.
 	// (e.g. Will-E on monitor in ez2_c3_3)
 	bool	m_bOmniscient;
+
+	// Enables a projected texture spotlight on the client.
+	CNetworkVar( bool, m_bEyeLightEnabled );
+	CNetworkVar( int, m_iEyeLightBrightness );
 
 	CAI_Expresser *m_pExpresser;
 

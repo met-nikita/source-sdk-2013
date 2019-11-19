@@ -139,8 +139,14 @@
 #ifdef EZ
 // Entropy : Zero 2 Citizen contexts
 #define TLK_SURRENDER	"TLK_SURRENDER"	// Citizen just dropped their weapon in fear
-
 #endif
+
+#ifdef EZ2
+// Will-E
+#define TLK_TIPPED	"TLK_TIPPED"
+#define TLK_FIDGET	"TLK_FIDGET"
+#endif
+
 //-----------------------------------------------------------------------------
 
 #define TALKRANGE_MIN 500.0				// don't talk to anyone farther away than this
@@ -360,6 +366,12 @@ public:
 	virtual bool SelectInterjection();
 	virtual bool SelectPlayerUseSpeech();
 
+#ifdef EZ2
+	// So Will-E can override idle speech stuff
+	virtual void HandlePrescheduleIdleSpeech();
+	inline void SetNextIdleSpeechTime( float flTime ) { m_flNextIdleSpeechTime = flTime; }
+#endif
+
 	//---------------------------------
 
 	virtual bool SelectQuestionAndAnswerSpeech( AISpeechSelection_t *pSelection );
@@ -385,6 +397,11 @@ public:
 
 	//---------------------------------
 	
+#ifdef EZ2
+	// Blixibon - I didn't want to make this existing function virtual,
+	// but I couldn't really find any better way to change when Will-E is allowed to speak.
+	virtual
+#endif
 	bool		IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPlayer = false );
 	
 	//---------------------------------

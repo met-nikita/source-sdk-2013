@@ -639,3 +639,76 @@ void CHeadlightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir, 
 	
 	g_pClientShadowMgr->UpdateProjectedTexture( GetFlashlightHandle(), true );
 }
+
+#ifdef EZ2
+static ConVar r_turretlightbrightness( "r_turretlightbrightness", "5.0", FCVAR_CHEAT );
+static ConVar r_turretlightfar( "r_turretlightfar", "500", FCVAR_CHEAT );
+static ConVar r_turretlightnear( "r_turretlightnear", "1.0", FCVAR_CHEAT );
+static ConVar r_turretlightconstant( "r_turretlightconstant", "0.0", FCVAR_CHEAT );
+static ConVar r_turretlightlinear( "r_turretlightlinear", "0.0", FCVAR_CHEAT );
+static ConVar r_turretlightquadratic( "r_turretlightquadratic", "100.0", FCVAR_CHEAT );
+static ConVar r_turretlightfov( "r_turretlightfov", "100.0", FCVAR_CHEAT );
+static ConVar r_turretlightshadowatten( "r_turretlightshadowatten", "1.0", FCVAR_CHEAT );
+static ConVar r_turretlighttexture( "r_turretlighttexture", "effects/flashlight001", FCVAR_CHEAT );
+
+CTurretLightEffect::CTurretLightEffect()
+{
+	m_FlashlightTexture.Init( r_turretlighttexture.GetString(), TEXTURE_GROUP_OTHER, true );
+	m_flBrightnessScale = 1.0f;
+}
+
+CTurretLightEffect::~CTurretLightEffect()
+{
+}
+
+void CTurretLightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir, const Vector &vecRight, const Vector &vecUp, int nDistance )
+{
+	if ( IsOn() == false )
+		 return;
+
+	FlashlightState_t state;
+	Vector basisX, basisY, basisZ;
+	basisX = vecDir;
+	basisY = vecRight;
+	basisZ = vecUp;
+	VectorNormalize(basisX);
+	VectorNormalize(basisY);
+	VectorNormalize(basisZ);
+
+	BasisToQuaternion( basisX, basisY, basisZ, state.m_quatOrientation );
+		
+	state.m_vecLightOrigin = vecPos;
+
+	state.m_fHorizontalFOVDegrees = r_turretlightfov.GetFloat();
+	state.m_fVerticalFOVDegrees = r_turretlightfov.GetFloat();
+	state.m_fQuadraticAtten = r_turretlightquadratic.GetFloat();
+	state.m_fLinearAtten = r_turretlightlinear.GetFloat();
+	state.m_fConstantAtten = r_turretlightconstant.GetFloat();
+	state.m_Color[0] = m_flBrightnessScale != 1.0f ? r_turretlightbrightness.GetFloat() * m_flBrightnessScale : r_turretlightbrightness.GetFloat();
+	state.m_Color[1] = 0.0f;
+	state.m_Color[2] = 0.0f;
+	state.m_Color[3] = r_flashlightambient.GetFloat();
+
+	state.m_NearZ = r_turretlightnear.GetFloat();
+	state.m_FarZ = r_turretlightfar.GetFloat();
+
+	state.m_bEnableShadows = true;
+	state.m_pSpotlightTexture = m_FlashlightTexture;
+	state.m_nSpotlightTextureFrame = 0;
+
+	state.m_flShadowAtten = r_turretlightshadowatten.GetFloat();
+	state.m_flShadowSlopeScaleDepthBias = mat_slopescaledepthbias_shadowmap.GetFloat();
+	state.m_flShadowDepthBias = mat_depthbias_shadowmap.GetFloat();
+	
+	if( GetFlashlightHandle() == CLIENTSHADOW_INVALID_HANDLE )
+	{
+		SetFlashlightHandle( g_pClientShadowMgr->CreateFlashlight( state ) );
+	}
+	else
+	{
+		g_pClientShadowMgr->UpdateFlashlightState( GetFlashlightHandle(), state );
+	}
+	
+	g_pClientShadowMgr->UpdateProjectedTexture( GetFlashlightHandle(), true );
+}
+#endif
