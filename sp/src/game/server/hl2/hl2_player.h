@@ -103,6 +103,9 @@ public:
 	virtual void		CheatImpulseCommands( int iImpulse );
 	virtual void		PlayerRunCommand( CUserCmd *ucmd, IMoveHelper *moveHelper);
 	virtual void		PlayerUse ( void );
+#ifdef EZ
+	virtual void		OnUseEntity( CBaseEntity *pEntity ) {}
+#endif
 	virtual void		SuspendUse( float flDuration ) { m_flTimeUseSuspended = gpGlobals->curtime + flDuration; }
 	virtual void		UpdateClientData( void );
 	virtual void		OnRestore();

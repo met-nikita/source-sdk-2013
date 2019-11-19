@@ -3657,6 +3657,10 @@ void CHL2_Player::PlayerUse ( void )
 
 			pUseEntity->AcceptInput( "Use", this, this, emptyVariant, USE_TOGGLE );
 
+#ifdef EZ
+			OnUseEntity( pUseEntity );
+#endif
+
 			usedSomething = true;
 		}
 		// UNDONE: Send different USE codes for ON/OFF.  Cache last ONOFF_USE object to send 'off' if you turn away

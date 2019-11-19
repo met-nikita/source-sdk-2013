@@ -8,6 +8,7 @@
 #include "iservervehicle.h"
 #include "ai_interactions.h"
 #include "world.h"
+#include "sceneentity.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -125,6 +126,36 @@ void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 	AI_CriteriaSet modifiers;
 	ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
 	SpeakIfAllowed(TLK_NEWWEAPON, modifiers);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
+{
+	AI_CriteriaSet modifiers;
+
+	ModifyOrAppendSpeechTargetCriteria(modifiers, pEntity);
+
+	CAI_BaseNPC *pNPC = pEntity->MyNPCPointer();
+	if ( pNPC )
+	{
+		// Is Bad Cop trying to scare a rebel that doesn't see him?
+		if (pNPC->IRelationType(this) <= D_FR && pNPC->GetEnemy() != this)
+			modifiers.AppendCriteria("stealth_chat", "1");
+	}
+
+	bool bSpoken = SpeakIfAllowed( TLK_USE, modifiers );
+
+	if (bSpoken)
+	{
+		// "Fascinating."
+		// "Holy shit!"
+		if (modifiers.FindCriterionIndex("stealth_chat"))
+			pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
+
+		//CSoundEnt::InsertSound( SOUND_PLAYER, EyePosition(), 128, 0.1, this );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -289,6 +320,13 @@ bool CEZ2_Player::CommanderExecuteOne(CAI_BaseNPC * pNpc, const commandgoal_t & 
 	return BaseClass::CommanderExecuteOne(pNpc, goal, Allies, numAllies);
 }
 
+// Determines if this concept isn't worth saying "Shut up" over.
+static inline bool WasUnremarkableConcept( AIConcept_t concept )
+{
+	return CompareConcepts( concept, TLK_WOUND ) ||
+			CompareConcepts( concept, TLK_SHOT );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -309,10 +347,7 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 			if (!IsCriteriaModified(PLAYERCRIT_ENEMY))
 				ModifyOrAppendEnemyCriteria(criteriaSet, pAI->GetEnemy());
 
-			// Append cached enemy numbers.
-			// "num_enemies" here is just "visible" enemies and not every enemy the player saw before and knows is there, but that's good enough.
-			criteriaSet.AppendCriteria("num_enemies", UTIL_VarArgs("%i", m_iVisibleEnemies));
-			criteriaSet.AppendCriteria("close_enemies", UTIL_VarArgs("%i", m_iCloseEnemies));
+			ModifyOrAppendAICombatCriteria(criteriaSet);
 		}
 	}
 
@@ -392,6 +427,9 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 		{
 			set.AppendCriteria("enemy_is_npc", "1");
 
+			if (pNPC->IsOnFire())
+				set.AppendCriteria("enemy_on_fire", "1");
+
 			// Bypass split-second reactions
 			if (pNPC->GetEnemy() == this && (gpGlobals->curtime - pNPC->GetLastEnemyTime()) > 0.1f)
 			{
@@ -415,6 +453,15 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 					// Do a simple visibility check
 					set.AppendCriteria( "enemy_sees_me", pNPC->FInViewCone( this ) && pNPC->FVisible( this ) ? "1" : "0" );
 				}
+			}
+
+			if (pNPC->GetExpresser())
+			{
+				// That's enough outta you.
+				// (IsSpeaking() accounts for the delay as well, so it lingers beyond actual speech time)
+				if (gpGlobals->curtime < pNPC->GetExpresser()->GetRealTimeSpeechComplete()
+						&& !WasUnremarkableConcept(pNPC->GetExpresser()->GetLastSpokeConcept()))
+					set.AppendCriteria("enemy_is_speaking", "1");
 			}
 
 			set.AppendCriteria( "enemy_activity", CAI_BaseNPC::GetActivityName( pNPC->GetActivity() ) );
@@ -681,7 +728,9 @@ void CEZ2_Player::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		// Notify the speech target for a response
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
-		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetExpresser()->GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.25f, 0.75f), this, this);
+
+		// Delay is now based off of predelay
+		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetExpresser()->GetTimeSpeechComplete() - gpGlobals->curtime) /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
 	}
 
 	// Clear our speech target for the next concept
@@ -796,6 +845,33 @@ void CEZ2_Player::Event_KilledOther(CBaseEntity *pVictim, const CTakeDamageInfo 
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Appends criteria for when we're leaving an engagement
+//-----------------------------------------------------------------------------
+void CEZ2_Player::ModifyOrAppendFinalEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *pEnemy, const CTakeDamageInfo &info)
+{
+	// Append our pre-engagement conditions
+	set.AppendCriteria( "prev_health_diff", UTIL_VarArgs( "%i", GetHealth() - GetMemoryComponent()->GetPrevHealth() ) );
+
+	// Was this the one who made Bad Cop pissed 5 seconds ago?
+	if (pEnemy == GetMemoryComponent()->GetLastDamageAttacker() && gpGlobals->curtime - GetLastDamageTime() < 5.0f)
+	{
+		set.AppendCriteria("enemy_revenge", "1");
+		GetMemoryComponent()->AppendLastDamageCriteria( set );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Appends criteria for when we're leaving an engagement
+//-----------------------------------------------------------------------------
+void CEZ2_Player::ModifyOrAppendAICombatCriteria(AI_CriteriaSet& set)
+{
+	// Append cached enemy numbers.
+	// "num_enemies" here is just "visible" enemies and not every enemy the player saw before and knows is there, but that's good enough.
+	set.AppendCriteria("num_enemies", UTIL_VarArgs("%i", m_iVisibleEnemies));
+	set.AppendCriteria("close_enemies", UTIL_VarArgs("%i", m_iCloseEnemies));
+}
+
+//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDamageInfo &info)
 {
@@ -831,20 +907,9 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 
 		modifiers.AppendCriteria("enemy_relationship", UTIL_VarArgs("%i", disposition));
 
-		if (pVictim->IsOnFire())
-			modifiers.AppendCriteria("enemy_on_fire", "1");
-
-		// NPC stuff
-		if (CAI_BaseNPC *pNPC = pVictim->MyNPCPointer())
-		{
-			if (pNPC->GetExpresser())
-			{
-				// That's enough outta you.
-				// (IsSpeaking() accounts for the delay as well, so it lingers beyond actual speech time)
-				if (gpGlobals->curtime + 0.5f < pNPC->GetExpresser()->GetRealTimeSpeechComplete())
-					modifiers.AppendCriteria("enemy_is_speaking", "1");
-			}
-		}
+		//if (CAI_BaseNPC *pNPC = pVictim->MyNPCPointer())
+		//{
+		//}
 
 		// Bad Cop needs to differentiate between human-like opponents (rebels, zombies, vorts, etc.)
 		// and non-human opponents (antlions, bullsquids, headcrabs, etc.) for some responses.
@@ -857,20 +922,12 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 	// Is this the last enemy we know about?
 	if (m_iVisibleEnemies <= 1 && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
 	{
-		// Append our pre-engagement conditions
-		modifiers.AppendCriteria( "prev_health_diff", UTIL_VarArgs( "%i", GetHealth() - GetMemoryComponent()->GetPrevHealth() ) );
-
-		// Was this the one who made Bad Cop pissed 5 seconds ago?
-		if (pVictim == GetMemoryComponent()->GetLastDamageAttacker() && gpGlobals->curtime - GetLastDamageTime() < 5.0f)
-		{
-			modifiers.AppendCriteria("enemy_revenge", "1");
-			GetMemoryComponent()->AppendLastDamageCriteria( modifiers );
-		}
+		ModifyOrAppendFinalEnemyCriteria( modifiers, pVictim, info );
 
 		// If the enemy was targeting one of our allies, use said ally as the speech target.
 		// Otherwise, just look for a random one.
 		if (pVictim->GetEnemy() && pVictim->GetEnemy() != this && IRelationType(pVictim->GetEnemy()) > D_FR)
-			SetSpeechTarget(pVictim->GetEnemy());
+			SetSpeechTarget( pVictim->GetEnemy() );
 		else
 			SetSpeechTarget( FindSpeechTarget() );
 
@@ -880,7 +937,9 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 	}
 
 	if (!bSpoken)
-		SpeakIfAllowed(TLK_ENEMY_DEAD, modifiers);
+		SpeakIfAllowed( TLK_ENEMY_DEAD, modifiers );
+	else
+		GetExpresser()->SetSpokeConcept( TLK_ENEMY_DEAD, NULL, false ); // Pretend we spoke TLK_ENEMY_DEAD too
 }
 
 //-----------------------------------------------------------------------------
@@ -919,7 +978,13 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 		ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 		SetSpeechTarget(info.GetAttacker());
 
+		if (m_iVisibleEnemies <= 1 && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
+		{
+			ModifyOrAppendFinalEnemyCriteria( modifiers, pVictim, info );
+		}
+
 		SpeakIfAllowed(TLK_ALLY_KILLED_NPC, modifiers);
+		return;
 	}
 
 	// Finally, see if they were an ignited NPC we were attacking.
@@ -1176,8 +1241,8 @@ bool CEZ2_Player::DoIdleSpeech()
 
 			if (tr.m_pEnt && !tr.m_pEnt->IsWorld())
 			{
-				// Make sure we're looking at its "face" and not its center
-				if (!tr.m_pEnt->IsCombatCharacter() || (tr.m_pEnt->EyePosition() - tr.endpos).LengthSqr() < (tr.m_pEnt->WorldSpaceCenter() - tr.endpos).LengthSqr())
+				// Make sure we're looking at its "face" more-so than its origin
+				if (!tr.m_pEnt->IsCombatCharacter() || (tr.m_pEnt->EyePosition() - tr.endpos).LengthSqr() < (tr.m_pEnt->GetAbsOrigin() - tr.endpos).LengthSqr())
 				{
 					if (tr.m_pEnt != pLastStaring)
 					{
@@ -1371,7 +1436,12 @@ bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 
 CBaseEntity *CEZ2_Player::GetEnemy()
 {
-	return GetNPCComponent()->GetEnemy();
+	return GetNPCComponent() ? GetNPCComponent()->GetEnemy() : NULL;
+}
+
+NPC_STATE CEZ2_Player::GetState()
+{
+	return GetNPCComponent() ? GetNPCComponent()->GetState() : NPC_STATE_NONE;
 }
 
 //=============================================================================
@@ -1583,6 +1653,12 @@ void CAI_PlayerNPCDummy::OnStateChange( NPC_STATE OldState, NPC_STATE NewState )
 		{
 			// The player is probably exiting combat
 			GetOuter()->GetMemoryComponent()->RecordEngagementEnd();
+		}
+
+		if ( OldState == NPC_STATE_IDLE )
+		{
+			// Remove the player from non-idle scenes
+			RemoveActorFromScriptedScenes( GetOuter(), true, true );
 		}
 	}
 }
