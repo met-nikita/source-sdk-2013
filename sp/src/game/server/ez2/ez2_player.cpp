@@ -1012,6 +1012,17 @@ void CEZ2_Player::AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info)
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Event fired by NPCs when they're ignited
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Event_NPCIgnited(CAI_BaseNPC *pVictim)
+{
+	if ( GetNPCComponent() && GetNPCComponent()->GetEnemy() == pVictim && (FInTrueViewCone(pVictim->WorldSpaceCenter()) && FVisible(pVictim)) )
+	{
+		SpeakIfAllowed( TLK_ENEMY_BURNING );
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )

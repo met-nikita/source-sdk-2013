@@ -1210,6 +1210,24 @@ const char* CNPC_Citizen::GetSquadSlotDebugName(int iSquadSlot)
 	return BaseClass::GetSquadSlotDebugName(iSquadSlot);
 }
 #endif
+
+#ifdef EZ2
+// 
+// Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
+// 
+bool CNPC_Citizen::JustStartedFearing( CBaseEntity *pTarget )
+{
+	Assert( IRelationType( pTarget ) == D_FR );
+
+	// We don't have a built-in way to figue out when we started panicking,
+	// but if we just said TLK_DANGER, our fear sound, don't register.
+	if ( gpGlobals->curtime - GetExpresser()->GetTimeSpokeConcept(TLK_DANGER) < 1.0f )
+		return true;
+
+	return false;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CNPC_Citizen::GatherConditions()

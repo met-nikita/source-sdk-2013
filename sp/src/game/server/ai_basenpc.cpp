@@ -681,6 +681,11 @@ void CAI_BaseNPC::Ignite( float flFlameLifetime, bool bNPCOnly, float flSize, bo
 		{
 			alyx->EnemyIgnited( this );
 		}
+
+#ifdef EZ2
+		// Blixibon - Bad Cop comments on this now too
+		pPlayer->Event_NPCIgnited( this );
+#endif
 	}
 #endif
 }

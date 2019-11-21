@@ -173,6 +173,11 @@ protected:
 #ifdef EZ
 	static const char *pMoanSoundsRad[];
 	static const char *pMoanSoundsXen[];
+
+	static const char *pModelNames[];
+	static const char *pTorsoModelNames[];
+	static const char *pLegsModelNames[];
+	static const char *pHeadcrabModelNames[];
 #endif
 
 private:
@@ -212,8 +217,31 @@ const char *CZombie::pMoanSoundsXen[] =
 	"NPC_BaseXenbie.Moan3",
 	"NPC_BaseXenbie.Moan4",
 };
-#endif
 
+const char *CZombie::pModelNames[EZ_VARIANT_COUNT] = {
+	"models/zombie/classic.mdl",
+	"models/zombie/xenbie.mdl",
+	"models/zombie/glowbie.mdl",
+};
+
+const char *CZombie::pTorsoModelNames[EZ_VARIANT_COUNT] = {
+	"models/zombie/classic_torso.mdl",
+	"models/zombie/xenbie_torso.mdl",
+	"models/zombie/glowbie_torso.mdl",
+};
+
+const char *CZombie::pLegsModelNames[EZ_VARIANT_COUNT] = {
+	"models/zombie/classic_legs.mdl",
+	"models/zombie/xenbie_legs.mdl",
+	"models/zombie/glowbie_legs.mdl",
+};
+
+const char *CZombie::pHeadcrabModelNames[EZ_VARIANT_COUNT] = {
+	"models/headcrabclassic.mdl",
+	"models/xencrabclassic.mdl",
+	"models/glowcrabclassic.mdl",
+};
+#endif
 
 //=========================================================
 // Conditions
@@ -292,11 +320,9 @@ void CZombie::Precache( void )
 	PrecacheScriptSound( "NPC_BaseZombie.Moan3" );
 	PrecacheScriptSound( "NPC_BaseZombie.Moan4" );
 #else
-	char * modelVariant;
 	switch (m_tEzVariant) 
 	{
 		case EZ_VARIANT_RAD:
-			modelVariant = "glowbie";
 			PrecacheScriptSound( "Glowbie.FootstepRight" );
 			PrecacheScriptSound( "Glowbie.FootstepLeft" );
 			PrecacheScriptSound( "Glowbie.FootstepLeft" );
@@ -311,7 +337,6 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Glowbie.Attack" );
 			break;
 		case EZ_VARIANT_XEN:
-			modelVariant = "xenbie";
 			PrecacheScriptSound( "Xenbie.FootstepRight" );
 			PrecacheScriptSound( "Xenbie.FootstepLeft" );
 			PrecacheScriptSound( "Xenbie.FootstepLeft" );
@@ -326,7 +351,6 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Xenbie.Attack" );
 			break;
 		default:
-			modelVariant = "classic";
 			PrecacheScriptSound( "Zombie.FootstepRight" );
 			PrecacheScriptSound( "Zombie.FootstepLeft" );
 			PrecacheScriptSound( "Zombie.FootstepLeft" );
@@ -341,17 +365,17 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Zombie.Attack" );
 			break;
 	}
-	if( GetModelName() == NULL_STRING )
+	if ( GetModelName() == NULL_STRING )
 	{
-		SetModelName( AllocPooledString( UTIL_VarArgs( "models/zombie/%s.mdl", modelVariant ) ) );
+		SetModelName( AllocPooledString( pModelNames[ m_tEzVariant ] ) );
 	}
 	if (GetTorsoModelName() == NULL_STRING)
 	{
-		SetTorsoModelName( AllocPooledString( UTIL_VarArgs( "models/zombie/%s_torso.mdl", modelVariant ) ) );
+		SetTorsoModelName( AllocPooledString( pTorsoModelNames[ m_tEzVariant ] ) );
 	}
 	if (GetLegsModelName() == NULL_STRING)
 	{
-		SetLegsModelName( AllocPooledString( UTIL_VarArgs( "models/zombie/%s_legs.mdl", modelVariant ) ) );
+		SetLegsModelName( AllocPooledString( pLegsModelNames[ m_tEzVariant ] ) );
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
@@ -734,15 +758,7 @@ const char *CZombie::GetHeadcrabClassname( void )
 //-----------------------------------------------------------------------------
 const char *CZombie::GetHeadcrabModel( void )
 {
-	switch (m_tEzVariant)
-	{
-		case EZ_VARIANT_RAD:
-			return "models/glowcrabclassic.mdl";
-		case EZ_VARIANT_XEN:
-			return "models/xencrabclassic.mdl";
-		default:
-			return "models/headcrabclassic.mdl";
-	}
+	return pHeadcrabModelNames[ m_tEzVariant ];
 }
 #ifndef EZ
 //-----------------------------------------------------------------------------

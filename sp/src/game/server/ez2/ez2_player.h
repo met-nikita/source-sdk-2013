@@ -131,6 +131,7 @@ public:
 	bool			CommanderExecuteOne(CAI_BaseNPC *pNpc, const commandgoal_t &goal, CAI_BaseNPC **Allies, int numAllies);
 
 	void			Event_NPCKilled( CAI_BaseNPC *pVictim, const CTakeDamageInfo &info );
+	void			Event_NPCIgnited( CAI_BaseNPC *pVictim );
 	void			AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info);
 
 	void			Event_SeeEnemy( CBaseEntity *pEnemy );

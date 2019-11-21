@@ -145,6 +145,7 @@
 // Will-E
 #define TLK_TIPPED	"TLK_TIPPED"
 #define TLK_FIDGET	"TLK_FIDGET"
+#define TLK_XEN_GRENADE_RELEASE "TLK_XEN_GRENADE_RELEASE"
 #endif
 
 //-----------------------------------------------------------------------------

@@ -359,6 +359,7 @@ public:
 #ifdef EZ2
 	// Blixibon - Created for Bad Cop to know when each NPC dies, including non-enemies or enemies not killed by him
 	virtual void			Event_NPCKilled( CAI_BaseNPC *pVictim, const CTakeDamageInfo &info ) {}
+	virtual void			Event_NPCIgnited( CAI_BaseNPC *pVictim ) {}
 #endif
 
 	virtual void			Event_Dying( const CTakeDamageInfo &info );
