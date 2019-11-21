@@ -31,7 +31,8 @@ extern int ACT_FLOOR_TURRET_CLOSED_IDLE;
 extern ConVar	g_debug_turret;
 
 // Interactions
-int	g_interactionConsumedByXenGrenade	= 0;
+int	g_interactionXenGrenadeConsume		= 0;
+int	g_interactionXenGrenadeRelease		= 0;
 int g_interactionArbeitScannerStart		= 0;
 int g_interactionArbeitScannerEnd		= 0;
 
@@ -1019,11 +1020,27 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 
 
 	// TODO: grenade_hopwire doesn't use this interaction yet, awaiting Xen Grenade being turned into a unique entity
-	if ( interactionType == g_interactionConsumedByXenGrenade )
+	if ( interactionType == g_interactionXenGrenadeConsume )
 	{
 		if (true)
 		{
 			// "Don't be sucked up" case, which is default
+
+			// Invoke effects similar to that of being lifted by a barnacle.
+			AddEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
+			AddSolidFlags( FSOLID_NOT_SOLID );
+			AddEffects( EF_NODRAW );
+
+			if ( m_hEyeGlow )
+			{
+				m_hEyeGlow->AddEffects( EF_NODRAW );
+			}
+
+			IPhysicsObject *pPhys = VPhysicsGetObject();
+			if ( pPhys )
+			{
+				pPhys->EnableMotion( false );
+			}
 
 			// Return true to indicate we shouldn't be sucked up
 			return true;
@@ -1037,9 +1054,42 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 			m_OnDestroyed.FireOutput(this, this);
 
 			// Return false to indicate we should still be sucked up
-			// (assuming the Xen Grenade has a thing where it doesn't consume if DispatchInteraction returns true)
 			return false;
 		}
+	}
+
+	if ( interactionType == g_interactionXenGrenadeRelease )
+	{
+		// TODO: Put CGravityVortexController in grenade_hopwire.h?
+		CBaseEntity *pGrenade = assert_cast<CBaseEntity*>(data);
+		if (!pGrenade)
+			return false;
+
+		Teleport( &pGrenade->GetAbsOrigin(), &pGrenade->GetAbsAngles(), NULL );
+
+		RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
+		RemoveSolidFlags( FSOLID_NOT_SOLID );
+		RemoveEffects( EF_NODRAW );
+
+		if ( m_hEyeGlow )
+		{
+			m_hEyeGlow->RemoveEffects( EF_NODRAW );
+		}
+
+		IPhysicsObject *pPhys = VPhysicsGetObject();
+		if ( pPhys )
+		{
+			pPhys->EnableMotion( true );
+			pPhys->Wake();
+		}
+
+		// TODO: We should put this in a function we can call to grenade_hopwire
+		pGrenade->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
+		DispatchParticleEffect( "xenpc_spawn", WorldSpaceCenter(), GetAbsAngles(), this );
+
+		SpeakIfAllowed( TLK_XEN_GRENADE_RELEASE );
+
+		return true;
 	}
 
 	if ( interactionType == g_interactionCombineBash )
@@ -1309,7 +1359,9 @@ void CNPC_Wilson::PostConstructor(const char *szClassname)
 //-----------------------------------------------------------------------------
 AI_BEGIN_CUSTOM_NPC( npc_wilson, CNPC_Wilson )
 
-	DECLARE_INTERACTION( g_interactionConsumedByXenGrenade );
+	DECLARE_INTERACTION( g_interactionXenGrenadeConsume );
+	DECLARE_INTERACTION( g_interactionXenGrenadeRelease );
+
 	DECLARE_INTERACTION( g_interactionArbeitScannerStart );
 	DECLARE_INTERACTION( g_interactionArbeitScannerEnd );
 
@@ -1321,7 +1373,7 @@ AI_BEGIN_CUSTOM_NPC( npc_wilson, CNPC_Wilson )
 		"		TASK_STOP_MOVING			0"
 		"		TASK_FACE_REASONABLE		0"
 		"		TASK_SET_ACTIVITY			ACTIVITY:ACT_IDLE"
-		"		TASK_WAIT					10" // Don't wait very long
+		"		TASK_WAIT					5" // Don't wait very long
 		"		TASK_SUGGEST_STATE			STATE:IDLE"
 		""
 		"	Interrupts"

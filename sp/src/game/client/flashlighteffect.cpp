@@ -647,9 +647,10 @@ static ConVar r_turretlightnear( "r_turretlightnear", "1.0", FCVAR_CHEAT );
 static ConVar r_turretlightconstant( "r_turretlightconstant", "0.0", FCVAR_CHEAT );
 static ConVar r_turretlightlinear( "r_turretlightlinear", "0.0", FCVAR_CHEAT );
 static ConVar r_turretlightquadratic( "r_turretlightquadratic", "100.0", FCVAR_CHEAT );
-static ConVar r_turretlightfov( "r_turretlightfov", "100.0", FCVAR_CHEAT );
+static ConVar r_turretlightfov( "r_turretlightfov", "60.0", FCVAR_CHEAT ); // Based on the actual turret FOV
+static ConVar r_turretlightshadowsenabled( "r_turretlightshadowsenabled", "0", FCVAR_CHEAT );
 static ConVar r_turretlightshadowatten( "r_turretlightshadowatten", "1.0", FCVAR_CHEAT );
-static ConVar r_turretlighttexture( "r_turretlighttexture", "effects/flashlight001", FCVAR_CHEAT );
+static ConVar r_turretlighttexture( "r_turretlighttexture", "effects/turret_light", FCVAR_CHEAT );
 
 CTurretLightEffect::CTurretLightEffect()
 {
@@ -692,7 +693,7 @@ void CTurretLightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir
 	state.m_NearZ = r_turretlightnear.GetFloat();
 	state.m_FarZ = r_turretlightfar.GetFloat();
 
-	state.m_bEnableShadows = true;
+	state.m_bEnableShadows = r_turretlightshadowsenabled.GetBool();
 	state.m_pSpotlightTexture = m_FlashlightTexture;
 	state.m_nSpotlightTextureFrame = 0;
 
