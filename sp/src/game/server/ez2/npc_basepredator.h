@@ -41,6 +41,7 @@ enum
 	TASK_PREDATOR_PLAY_SNIFF_ACT,
 	TASK_PREDATOR_PLAY_INSPECT_ACT,
 	TASK_PREDATOR_SPAWN,
+	TASK_PREDATOR_SPAWN_SOUND,
 	LAST_SHARED_PREDATOR_TASK
 };
 
@@ -101,11 +102,16 @@ public:
 	CNPC_BasePredator();
 	void Activate( void );
 
+	Class_T	Classify( void );
+
 	virtual bool IsBoss( void ) { return m_bIsBoss; } // Method returns whether or not this monster is a boss enemy
 
+	virtual void EatSound( void ) {};
 	virtual void GrowlSound( void ) {};
 	virtual void RetreatModeSound( void ) {};
 	virtual void BerserkModeSound( void ) {};
+	virtual void BeginSpawnSound( void ) {};
+	virtual void EndSpawnSound( void ) {};
 
 	float MaxYawSpeed ( void );
 

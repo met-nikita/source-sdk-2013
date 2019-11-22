@@ -109,6 +109,12 @@ void ClientGamePrecache( void )
 	CBaseEntity::PrecacheModel( "models/gibs/agibs.mdl" );
 #ifdef EZ
 	CBaseEntity::PrecacheModel( "models/gibs/agibs2.mdl" );
+
+	// Precache human gibs as well
+	CBaseEntity::PrecacheModel( "models/gibs/hgibs.mdl" );
+	CBaseEntity::PrecacheModel( "models/gibs/hgibs_rib.mdl" );
+	CBaseEntity::PrecacheModel( "models/gibs/hgibs_scapula.mdl" );
+	CBaseEntity::PrecacheModel( "models/gibs/hgibs_spine.mdl" );
 #endif
 	CBaseEntity::PrecacheModel ("models/weapons/v_hands.mdl");
 

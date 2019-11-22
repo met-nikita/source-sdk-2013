@@ -278,6 +278,22 @@ void CNPC_Bullsquid::EatSound( void )
 }
 
 //=========================================================
+// BeginSpawnSound
+//=========================================================
+void CNPC_Bullsquid::BeginSpawnSound( void )
+{
+	EmitSound( "NPC_Bullsquid.BeginSpawn" );
+}
+
+//=========================================================
+// EndSpawnSound
+//=========================================================
+void CNPC_Bullsquid::EndSpawnSound( void )
+{
+	EmitSound( "NPC_Bullsquid.EndSpawn" );
+}
+
+//=========================================================
 // SetYawSpeed - allows each sequence to have a different
 // turn rate associated with it.
 //=========================================================
@@ -299,24 +315,29 @@ float CNPC_Bullsquid::MaxYawSpeed( void )
 	return flYS;
 }
 
+extern ConVar sk_gib_carcass_smell;
+
 //=========================================================
-// RangeAttack1Conditions - don't spit at prey - monch it!
+// RangeAttack1Conditions
 //=========================================================
 int CNPC_Bullsquid::RangeAttack1Conditions( float flDot, float flDist )
 {
-	if (IsPrey( GetEnemy() ))
+	// If gibs can't be used as food, be sure not to use ranged attacks against headcrabs
+	if ( !sk_gib_carcass_smell.GetBool() && IsPrey( GetEnemy() ))
 	{
-		return (COND_NONE);
+		// Don't spit at prey - monch it!
+		return ( COND_NONE );
 	}
 
 	return(BaseClass::RangeAttack1Conditions( flDot, flDist ));
 }
 
 //=========================================================
-// MeleeAttack2Conditions - don't tail whip prey - monch it!
+// MeleeAttack2Conditions
 //=========================================================
 int CNPC_Bullsquid::MeleeAttack1Conditions( float flDot, float flDist )
 {
+	// Don't tail whip prey - monch it!
 	if ( IsPrey( GetEnemy() ) )
 	{
 		return ( COND_NONE );
@@ -349,7 +370,7 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 
 				CGrenadeSpit *pGrenade = (CGrenadeSpit*)CreateNoSpawn( "grenade_spit", vSpitPos, vec3_angle, this );
 				//pGrenade->KeyValue( "velocity", vToss );
-				pGrenade->Spawn( );
+				DispatchSpawn( pGrenade );
 				pGrenade->SetThrower( this );
 				pGrenade->SetOwnerEntity( this );
 				pGrenade->SetSpitSize( 2 );
@@ -419,7 +440,7 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 
 		case PREDATOR_AE_TAILWHIP:
 		{
-			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), GetWhipDamage(), DMG_SLASH | DMG_ALWAYSGIB );
+			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), GetWhipDamage(), DMG_SLASH );
 			if ( pHurt ) 
 			{
 				Vector right, up;
@@ -818,6 +839,37 @@ int CNPC_Bullsquid::TranslateSchedule( int scheduleType )
 	return BaseClass::TranslateSchedule( scheduleType );
 }
 
+// Shared activities from base predator
+extern int ACT_EAT;
+extern int ACT_EXCITED;
+extern int ACT_DETECT_SCENT;
+extern int ACT_INSPECT_FLOOR;
+
+//=========================================================
+// Translate missing activities to custom ones
+//=========================================================
+Activity CNPC_Bullsquid::NPC_TranslateActivity( Activity eNewActivity )
+{
+	if ( eNewActivity == ACT_EAT )
+	{
+		return (Activity) ACT_SQUID_EAT;
+	}
+	else if ( eNewActivity == ACT_EXCITED )
+	{
+		return (Activity) ACT_SQUID_EXCITED;
+	}
+	else if ( eNewActivity == ACT_DETECT_SCENT )
+	{
+		return (Activity) ACT_SQUID_DETECT_SCENT;
+	}
+	else if ( eNewActivity == ACT_INSPECT_FLOOR )
+	{
+		return (Activity) ACT_SQUID_INSPECT_FLOOR;
+	}
+
+	return BaseClass::NPC_TranslateActivity( eNewActivity );
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -826,6 +878,10 @@ int CNPC_Bullsquid::TranslateSchedule( int scheduleType )
 //-----------------------------------------------------------------------------
 bool CNPC_Bullsquid::ShouldGib( const CTakeDamageInfo &info )
 {
+	// If the damage type is "always gib", we better gib!
+	if ( info.GetDamageType() & DMG_ALWAYSGIB )
+		return true;
+
 	return m_bIsBaby || IsBoss() || BaseClass::ShouldGib( info );
 }
 
@@ -853,6 +909,8 @@ void CNPC_Bullsquid::ExplosionEffect( void )
 //-----------------------------------------------------------------------------
 bool CNPC_Bullsquid::SpawnNPC( const Vector position )
 {
+	EndSpawnSound();
+
 	// Try to create entity
 	CNPC_Bullsquid *pChild = dynamic_cast< CNPC_Bullsquid * >(CreateEntityByName( "npc_bullsquid" ));
 	if ( pChild )
@@ -915,12 +973,12 @@ bool CNPC_Bullsquid::SpawnNPC( const Vector position )
 
 AI_BEGIN_CUSTOM_NPC( npc_bullsquid, CNPC_Bullsquid )
 
-	DECLARE_ACTIVITY( ACT_SQUID_EXCITED )
+	DECLARE_TASK( TASK_SQUID_GROW )
+
 	DECLARE_ACTIVITY( ACT_SQUID_EAT )
+	DECLARE_ACTIVITY( ACT_SQUID_EXCITED )
 	DECLARE_ACTIVITY( ACT_SQUID_DETECT_SCENT )
 	DECLARE_ACTIVITY( ACT_SQUID_INSPECT_FLOOR )
-
-	DECLARE_TASK( TASK_SQUID_GROW )
 
 	DECLARE_INTERACTION( g_interactionBullsquidThrow )
 	DECLARE_INTERACTION( g_interactionBullsquidMonch )

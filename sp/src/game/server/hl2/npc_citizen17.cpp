@@ -123,7 +123,14 @@ ConVar ai_debug_rebel_suppressing_fire("ai_debug_rebel_suppressing_fire", "0"); 
 ConVar ai_min_suppression_distance("ai_min_suppression_distance", "256", FCVAR_REPLICATED); // 1upD - minimum distance from object for an NPC to use suppressing fire
 ConVar ai_suppression_distance_ratio("ai_suppression_distance_ratio", "0.5", FCVAR_REPLICATED); // 1upD - What percent of distance to suppression target must be covered
 ConVar ai_willpower_translate_schedules("ai_willpower_translate_schedules", "1", FCVAR_REPLICATED); // 1upD - Should new EZ2 schedules be used?
+#ifdef EZ1
+// Disable this in EZ1
+ConVar npc_citizen_gib( "npc_citizen_gib", "0" );
+#else
+ConVar npc_citizen_gib( "npc_citizen_gib", "1" );
 #endif
+#endif
+
 #ifdef MAPBASE
 ConVar npc_citizen_resupplier_adjust_ammo("npc_citizen_resupplier_adjust_ammo", "1", FCVAR_NONE, "If what ammo we give to the player would go over their max, should we adjust what we give accordingly (1) or cancel it altogether? (0)" );
 
@@ -2764,6 +2771,44 @@ void CNPC_Citizen::SimpleUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE
 	m_bDontUseSemaphore = false;
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : &info - 
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CNPC_Citizen::ShouldGib( const CTakeDamageInfo &info )
+{
+	if ( !npc_citizen_gib.GetBool() )
+		return false;
+
+	// If the damage type is "always gib", we better gib!
+	if ( info.GetDamageType() & DMG_ALWAYSGIB )
+		return true;
+
+	if ( info.GetDamageType() & ( DMG_NEVERGIB | DMG_DISSOLVE ) )
+		return false;
+
+	// Jump rebels shouldn't gib because flying ragdolls are amusing
+	if (m_Type == CT_LONGFALL)
+		return false;
+
+	if ( ( info.GetDamageType() & ( DMG_BLAST | DMG_ACID | DMG_POISON | DMG_CRUSH ) ) && ( GetAbsOrigin() - info.GetDamagePosition() ).LengthSqr() <= 32.0f )
+		return true;
+
+	return false;
+}
+
+//------------------------------------------------------------------------------
+// Purpose: Override to do rebel specific gibs
+// Output :
+//------------------------------------------------------------------------------
+bool CNPC_Citizen::CorpseGib( const CTakeDamageInfo &info )
+{
+	return BaseClass::CorpseGib( info );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 bool CNPC_Citizen::OnBeginMoveAndShoot()
@@ -4268,6 +4313,12 @@ void CNPC_Citizen::SetSquad( CAI_Squad *pSquad )
 	}
 }
 
+#ifdef EZ
+// External convars to handle bullsquid bites
+extern ConVar sk_gib_carcass_smell;
+extern ConVar sk_bullsquid_dmg_bite;
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose:  This is a generic function (to be implemented by sub-classes) to
 //			 handle specific interactions between different types of characters
@@ -4339,6 +4390,14 @@ bool CNPC_Citizen::HandleInteraction(int interactionType, void *data, CBaseComba
 		}
 		return true;
 	}
+#ifdef EZ
+	else if ( interactionType == g_interactionBullsquidMonch && npc_citizen_gib.GetBool() )
+	{
+		OnTakeDamage ( CTakeDamageInfo( sourceEnt, sourceEnt, sk_bullsquid_dmg_bite.GetFloat() * 1.5f, DMG_CRUSH | DMG_ALWAYSGIB ) );
+		// Give the predator health if gibs do not count as food sources, otherwise don't
+		return !sk_gib_carcass_smell.GetBool();
+	}
+#endif
 
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }

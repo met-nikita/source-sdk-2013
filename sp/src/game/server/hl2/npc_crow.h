@@ -339,12 +339,10 @@ public:
 	}
 
 	// Set up relationship tables first, then uncomment this!
-	/*
 	Class_T	Classify( void )
 	{
 		return( CLASS_ALIEN_PREY );
 	}
-	*/
 
 	//-----------------------------------------------------------------------------
 	// Purpose: Boids always gib

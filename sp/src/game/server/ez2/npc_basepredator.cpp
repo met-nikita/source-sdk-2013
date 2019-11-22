@@ -26,6 +26,17 @@ LINK_ENTITY_TO_CLASS( npc_basepredator, CNPC_BasePredator );
 
 string_t CNPC_BasePredator::gm_iszGooPuddle;
 
+//---------------------------------------------------------
+// Activities
+//---------------------------------------------------------
+int ACT_EAT;
+int ACT_EXCITED;
+int ACT_DETECT_SCENT;
+int ACT_INSPECT_FLOOR;
+
+//---------------------------------------------------------
+// Save/Restore
+//---------------------------------------------------------
 BEGIN_DATADESC( CNPC_BasePredator )
 	DEFINE_FIELD( m_fCanThreatDisplay, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flLastHurtTime, FIELD_TIME ),
@@ -45,7 +56,6 @@ BEGIN_DATADESC( CNPC_BasePredator )
 	DEFINE_OUTPUT( m_OnBossHealthReset, "OnBossHealthReset" ),
 	DEFINE_OUTPUT( m_OnFed, "OnFed" ),
 	DEFINE_OUTPUT( m_OnSpawnNPC, "OnSpawnNPC" ),
-
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnterNormalMode", InputEnterNormalMode ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnterBerserkMode", InputEnterBerserkMode ),
@@ -81,6 +91,16 @@ void CNPC_BasePredator::Activate( void )
 	m_hMate = gEntList.FindEntityByName( NULL, m_iszMate );
 	m_iszMate = NULL_STRING;
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: Indicates this monster's place in the relationship table.
+// Output : 
+//-----------------------------------------------------------------------------
+Class_T	CNPC_BasePredator::Classify( void )
+{
+	return CLASS_ALIEN_PREDATOR;
+}
+
 
 int CNPC_BasePredator::TranslateSchedule( int scheduleType )
 {
@@ -524,6 +544,21 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 {
 	switch (pTask->iTask)
 	{
+	case TASK_PREDATOR_PLAY_EXCITE_ACT:
+	{
+		SetIdealActivity( (Activity)ACT_EXCITED );
+		break;
+	}
+	case TASK_PREDATOR_PLAY_EAT_ACT:
+		EatSound();
+		SetIdealActivity( (Activity) ACT_EAT );
+		break;
+	case TASK_PREDATOR_PLAY_SNIFF_ACT:
+		SetIdealActivity( (Activity)ACT_DETECT_SCENT );
+		break;
+	case TASK_PREDATOR_PLAY_INSPECT_ACT:
+		SetIdealActivity( (Activity)ACT_INSPECT_FLOOR );
+		break;
 	case TASK_MELEE_ATTACK2:
 	{
 		if ( GetEnemy() )
@@ -564,6 +599,10 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 		TaskComplete();
 		break;
 	}
+	case TASK_PREDATOR_SPAWN_SOUND:
+		BeginSpawnSound();
+		TaskComplete();
+		break;
 	default:
 	{
 		BaseClass::StartTask( pTask );
@@ -976,12 +1015,18 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 	DECLARE_TASK( TASK_PREDATOR_PLAY_SNIFF_ACT )
 	DECLARE_TASK( TASK_PREDATOR_PLAY_INSPECT_ACT )
 	DECLARE_TASK( TASK_PREDATOR_SPAWN )
+	DECLARE_TASK( TASK_PREDATOR_SPAWN_SOUND )
 
 	DECLARE_CONDITION( COND_PREDATOR_SMELL_FOOD )
 	DECLARE_CONDITION( COND_NEW_BOSS_STATE )
 
 	DECLARE_SQUADSLOT( SQUAD_SLOT_FEED )
 	DECLARE_SQUADSLOT( SQUAD_SLOT_THREAT_DISPLAY )
+
+	DECLARE_ACTIVITY( ACT_EAT )
+	DECLARE_ACTIVITY( ACT_EXCITED )
+	DECLARE_ACTIVITY( ACT_DETECT_SCENT )
+	DECLARE_ACTIVITY( ACT_INSPECT_FLOOR )
 
 	//=========================================================
 	// > SCHED_PREDATOR_HURTHOP
@@ -1185,7 +1230,8 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 		"	Tasks"
 		"		TASK_STOP_MOVING			0"
 		"		TASK_SOUND_WAKE				0"
-		"		TASK_PREDATOR_SPAWN		0"
+		"		TASK_PREDATOR_SPAWN_SOUND	0"
+		"		TASK_PREDATOR_SPAWN			0"
 		"		TASK_WAIT					1"
 		"	"
 		"	Interrupts"
