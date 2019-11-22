@@ -36,6 +36,8 @@ public:
 	void GrowlSound( void );
 	void BiteSound( void );
 	void EatSound( void );
+	void BeginSpawnSound( void );
+	void EndSpawnSound( void );
 
 	float MaxYawSpeed ( void );
 
@@ -52,7 +54,7 @@ public:
 
 	int OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo );
 
-	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_HEADCRAB || pTarget->Classify() == CLASS_EARTH_FAUNA; }
+	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_HEADCRAB || pTarget->Classify() == CLASS_EARTH_FAUNA  || pTarget->Classify() == CLASS_ALIEN_PREY; }
 	virtual bool ShouldInfight( CBaseEntity * pTarget ); // Could this target npc be a rival I need to kill?
 
 	void RunAI ( void );
@@ -62,6 +64,8 @@ public:
 
 	int				SelectSchedule( void );
 	int 			TranslateSchedule( int scheduleType );
+
+	virtual Activity NPC_TranslateActivity( Activity eNewActivity );
 
 	bool		ShouldGib( const CTakeDamageInfo &info );
 	bool		CorpseGib( const CTakeDamageInfo &info );

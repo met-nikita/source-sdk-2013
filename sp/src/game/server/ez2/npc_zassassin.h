@@ -35,6 +35,9 @@ public:
 	void FoundEnemySound(void);
 	void RetreatModeSound(void);
 	void BerserkModeSound(void);
+	void EatSound( void );
+	void BeginSpawnSound( void );
+	void EndSpawnSound( void );
 
 	void HandleAnimEvent( animevent_t *pEvent );
 
@@ -56,9 +59,13 @@ public:
 	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_PLAYER_ALLY; }
 	bool SpawnNPC( const Vector position );
 
+	virtual bool	QueryHearSound( CSound *pSound );
+
 	int TranslateSchedule( int scheduleType );
+	virtual Activity NPC_TranslateActivity( Activity eNewActivity );
 
 	void StartTask ( const Task_t *pTask );
+	void RunTask( const Task_t * pTask );
 
 	virtual bool CanFlinch(void) { return false; } // Gonomes cannot flinch. 
 

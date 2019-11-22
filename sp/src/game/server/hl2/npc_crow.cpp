@@ -1422,6 +1422,9 @@ void CNPC_Crow::FlapSound( void )
 	m_bPlayedLoopingSound = true;
 }
 
+#ifdef EZ
+extern ConVar sk_gib_carcass_smell;
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose:  This is a generic function (to be implemented by sub-classes) to
@@ -1461,7 +1464,8 @@ bool CNPC_Crow::HandleInteraction( int interactionType, void *data, CBaseCombatC
 	else if ( interactionType == g_interactionBullsquidMonch )
 	{
 		OnTakeDamage ( CTakeDamageInfo( sourceEnt, sourceEnt, m_iHealth, DMG_CRUSH | DMG_ALWAYSGIB ) );
-		return true;
+		// Give the predator health if gibs do not count as food sources, otherwise don't
+		return !sk_gib_carcass_smell.GetBool();
 	}
 #endif
 

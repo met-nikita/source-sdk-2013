@@ -195,6 +195,7 @@ ConVar	sk_headcrab_melee_dmg( "sk_headcrab_melee_dmg","0");
 ConVar	sk_headcrab_poison_npc_damage( "sk_headcrab_poison_npc_damage", "0" );
 #ifdef EZ
 ConVar  sk_headcrab_carcass_smell ( "sk_headcrab_carcass_smell", "1" );
+ConVar  sk_gib_carcass_smell ( "sk_gib_carcass_smell", "1" );
 #endif
 
 BEGIN_DATADESC( CBaseHeadcrab )
@@ -1822,7 +1823,7 @@ void CBaseHeadcrab::Event_Killed( const CTakeDamageInfo &info )
 		UTIL_DecalTrace( &tr, "YellowBlood" );
 		if (sk_headcrab_carcass_smell.GetBool() && tr.fraction != 1.0f)
 		{
-			CSoundEnt::InsertSound( SOUND_CARCASS | SOUND_CONTEXT_EXCLUDE_ZOMBIE, tr.endpos, 256.0f, 10.0f, this );
+			CSoundEnt::InsertSound( SOUND_CARCASS | SOUND_CONTEXT_EXCLUDE_ZOMBIE, tr.endpos, 1024.0f, 10.0f, this );
 		}
 	}
 #else
@@ -2189,7 +2190,8 @@ bool CBaseHeadcrab::HandleInteraction(int interactionType, void *data, CBaseComb
 	{
 		m_nGibCount = HEADCRAB_ALL_GIB_COUNT;
 		OnTakeDamage ( CTakeDamageInfo( sourceEnt, sourceEnt, m_iHealth, DMG_CRUSH | DMG_ALWAYSGIB ) );
-		return true;
+		// Give the predator health if gibs do not count as food sources, otherwise don't
+		return !sk_gib_carcass_smell.GetBool();
 	}
 #endif
 
@@ -2207,6 +2209,10 @@ bool CBaseHeadcrab::ShouldGib( const CTakeDamageInfo & info )
 	{
 		return true;
 	}
+
+	// If the damage type is "always gib", we better gib!
+	if ( info.GetDamageType() & DMG_ALWAYSGIB )
+		return true;
 
 	return BaseClass::ShouldGib( info );
 }

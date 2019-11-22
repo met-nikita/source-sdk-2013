@@ -344,7 +344,22 @@ void CNPC_Gonome::Precache()
 	PrecacheScriptSound( "Gonome.FoundEnemy");
 	PrecacheScriptSound( "Gonome.RetreatMode");
 	PrecacheScriptSound( "Gonome.BerserkMode");
-	PrecacheScriptSound("Gonome.Footstep");
+	PrecacheScriptSound( "Gonome.Footstep" );
+	PrecacheScriptSound( "Gonome.Eat" );
+	PrecacheScriptSound( "Gonome.BeginSpawnCrab" );
+	PrecacheScriptSound( "Gonome.EndSpawnCrab" );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return true if this NPC can hear the specified sound
+//-----------------------------------------------------------------------------
+bool CNPC_Gonome::QueryHearSound( CSound *pSound )
+{
+	// Don't smell dead headcrabs
+	if ( pSound->SoundContext() & SOUND_CONTEXT_EXCLUDE_ZOMBIE )
+		return false;
+
+	return BaseClass::QueryHearSound( pSound );
 }
 
 int CNPC_Gonome::TranslateSchedule( int scheduleType )
@@ -371,6 +386,37 @@ int CNPC_Gonome::TranslateSchedule( int scheduleType )
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
+}
+
+//=========================================================
+// Translate missing activities to custom ones
+//=========================================================
+// Shared activities from base predator
+extern int ACT_EAT;
+extern int ACT_EXCITED;
+extern int ACT_DETECT_SCENT;
+extern int ACT_INSPECT_FLOOR;
+
+Activity CNPC_Gonome::NPC_TranslateActivity( Activity eNewActivity )
+{
+	if (eNewActivity == ACT_EAT)
+	{
+		return (Activity) ACT_VICTORY_DANCE;
+	}
+	else if (eNewActivity == ACT_EXCITED)
+	{
+		return (Activity) ACT_HOP;
+	}
+	else if (eNewActivity == ACT_DETECT_SCENT)
+	{
+		return (Activity) ACT_HOP;
+	}
+	else if (eNewActivity == ACT_INSPECT_FLOOR)
+	{
+		return (Activity) ACT_IDLE;
+	}
+
+	return BaseClass::NPC_TranslateActivity( eNewActivity );
 }
 
 //-----------------------------------------------------------------------------
@@ -480,6 +526,33 @@ void CNPC_Gonome::BerserkModeSound(void)
 	EmitSound(filter, entindex(), "Gonome.BerserkMode");
 }
 
+//=========================================================
+//  EatSound
+//=========================================================
+void CNPC_Gonome::EatSound( void )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.Eat" );
+}
+
+//=========================================================
+//  BeginSpawnSound
+//=========================================================
+void CNPC_Gonome::BeginSpawnSound( void )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.BeginSpawnCrab" );
+}
+
+//=========================================================
+//  EndSpawnSound
+//=========================================================
+void CNPC_Gonome::EndSpawnSound( void )
+{
+	CPASAttenuationFilter filter( this );
+	EmitSound( filter, entindex(), "Gonome.EndSpawnCrab" );
+}
+
 bool CNPC_Gonome::ShouldIgnite( const CTakeDamageInfo &info )
 {
  	if ( IsOnFire() )
@@ -576,10 +649,10 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 		case GONOME_AE_TAILWHIP:
 		{
 			CPASAttenuationFilter filter( this );
-			EmitSound( filter, entindex(), "Gonome.Bite" );	
 			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), sk_zombie_assassin_dmg_whip.GetFloat(), DMG_SLASH | DMG_ALWAYSGIB );
 			if ( pHurt ) 
 			{
+				EmitSound( filter, entindex(), "Gonome.Bite" );
 				Vector right, up;
 				AngleVectors( GetAbsAngles(), NULL, &right, &up );
 
@@ -590,15 +663,21 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 				pHurt->SetAbsVelocity( pHurt->GetAbsVelocity() + (up * 100) );
 			} 			
 			// Reusing this activity / animation event for headcrab spawning
-			else if ( m_bSpawningEnabled )
+			else if ( m_bReadyToSpawn )
 			{
 				Vector forward, up, spawnPos;
 				AngleVectors( GetAbsAngles(), &forward, NULL, &up );
 				spawnPos = (forward * 32) + (up * 64) + GetAbsOrigin();
+				EndSpawnSound();
 				if ( SpawnNPC( spawnPos ) )
 				{
 					PredMsg( "npc_zassassin '%s' created a headcrab!" );
-				} 
+				}
+				// Wait a while before retrying
+				else
+				{
+					m_flNextSpawnTime = gpGlobals->curtime + sk_zombie_assassin_spawn_time.GetFloat();
+				}
 			}
 
 		}
@@ -766,6 +845,9 @@ void CNPC_Gonome::OnFed()
 	m_bReadyToSpawn = m_bSpawningEnabled;
 	m_flNextSpawnTime = gpGlobals->curtime + sk_zombie_assassin_spawn_time.GetFloat();
 
+	// Spawn 3 crabs per meal
+	m_iTimesFed += 2;
+
 	BaseClass::OnFed();
 }
 
@@ -849,14 +931,17 @@ bool CNPC_Gonome::SpawnNPC( const Vector position )
 			this->GetSquad()->AddToSquad( pChild );
 		}
 		pChild->Activate();
-		pChild2->CorpseGib( CTakeDamageInfo() ); // Hackhack - gib a crab at the same position
-		pChild2->SUB_Remove();
+		pChild2->TakeDamage( CTakeDamageInfo( this, this, pChild2->GetHealth(), DMG_CRUSH | DMG_ALWAYSGIB ) );
 
 		// Decrement feeding counter
 		m_iTimesFed--;
-		if (m_iTimesFed <= 0)
+		if ( m_iTimesFed <= 0 )
 		{
 			m_bReadyToSpawn = false;
+		}
+		else 
+		{
+			m_flNextSpawnTime = gpGlobals->curtime + 0.25f;
 		}
 
 		// Fire output
@@ -882,29 +967,8 @@ void CNPC_Gonome::StartTask( const Task_t *pTask )
 {
 	switch (pTask->iTask)
 	{
-	case TASK_PREDATOR_PLAY_EXCITE_ACT:
-	{
-		SetIdealActivity( (Activity) ACT_HOP );
-		break;
-	}
-	case TASK_PREDATOR_PLAY_EAT_ACT:
-	{
-		SetIdealActivity( (Activity) ACT_VICTORY_DANCE );
-		break;
-	}
-	case TASK_PREDATOR_PLAY_SNIFF_ACT:
-	{
-		SetIdealActivity( (Activity)ACT_HOP );
-		break;
-	}
-	case TASK_PREDATOR_PLAY_INSPECT_ACT:
-	{
-		SetIdealActivity( (Activity) ACT_IDLE );
-		break;
-	}
 	case TASK_PREDATOR_SPAWN:
 	{
-		m_flNextSpawnTime = gpGlobals->curtime + sk_zombie_assassin_spawn_time.GetFloat();
 		SetIdealActivity( (Activity)ACT_MELEE_ATTACK1 );
 		break;
 	}
@@ -915,6 +979,31 @@ void CNPC_Gonome::StartTask( const Task_t *pTask )
 	}
 	}
 }
+
+//=========================================================
+// RunTask
+//=========================================================
+void CNPC_Gonome::RunTask ( const Task_t *pTask )
+{
+	switch (pTask->iTask)
+	{
+	case TASK_PREDATOR_SPAWN:
+	{
+		// If we fall in this case, end the task when the activity ends
+		if (IsActivityFinished())
+		{
+			TaskComplete();
+		}
+		break;
+	}
+	default:
+	{
+		BaseClass::RunTask( pTask );
+		break;
+	}
+	}
+}
+
 
 //------------------------------------------------------------------------------
 //

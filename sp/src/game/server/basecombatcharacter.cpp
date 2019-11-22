@@ -38,6 +38,9 @@
 #include "rumble_shared.h"
 #include "saverestoretypes.h"
 #include "nav_mesh.h"
+#ifdef EZ
+#include "particle_parse.h"
+#endif
 
 #ifdef NEXT_BOT
 #include "NextBot/NextBotManager.h"
@@ -270,7 +273,11 @@ bool CBaseCombatCharacter::HasHumanGibs( void )
 		 myClass == CLASS_COMBINE			||
 		 myClass == CLASS_CONSCRIPT			||
 		 myClass == CLASS_METROPOLICE		||
-		 myClass == CLASS_PLAYER )	
+#ifdef EZ
+		myClass == CLASS_PLAYER_ALLY ||
+		myClass == CLASS_PLAYER_ALLY_VITAL ||
+#endif
+		myClass == CLASS_PLAYER )	
 		 return true;
 
 #elif defined( HL1_DLL )
@@ -306,8 +313,8 @@ bool CBaseCombatCharacter::HasAlienGibs( void )
 		 myClass == CLASS_VORTIGAUNT	 ||
 #ifdef EZ
 		myClass == CLASS_BULLSQUID ||
-		// TODO - Replace with appropriate class for boids, boids are not earth fauna
-		myClass == CLASS_EARTH_FAUNA ||
+		myClass == CLASS_ALIEN_PREDATOR ||
+		myClass == CLASS_ALIEN_PREY ||
 #endif
 		myClass == CLASS_HEADCRAB )
 	{
@@ -832,6 +839,10 @@ void CBaseCombatCharacter::Precache()
 	PrecacheScriptSound( "BaseCombatCharacter.StopWeaponSounds" );
 	PrecacheScriptSound( "BaseCombatCharacter.AmmoPickup" );
 
+#ifdef EZ
+	PrecacheParticleSystem( "hgib" );
+#endif
+
 	for ( int i = m_Relationship.Count() - 1; i >= 0 ; i--) 
 	{
 		if ( !m_Relationship[i].entity && m_Relationship[i].classType == CLASS_NONE ) 
@@ -917,6 +928,11 @@ bool CBaseCombatCharacter::CorpseGib( const CTakeDamageInfo &info )
 		CGib::SpawnHeadGib( this );
 		CGib::SpawnRandomGibs( this, 4, GIB_HUMAN );	// throw some human gibs.
 		gibbed = true;
+
+#ifdef EZ
+		// Explode dramatically
+		DispatchParticleEffect( "hgib", WorldSpaceCenter(), GetAbsAngles() );
+#endif
 	}
 	else if ( HasAlienGibs() )
 	{

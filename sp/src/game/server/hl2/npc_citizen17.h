@@ -164,6 +164,10 @@ public:
 #ifdef EZ
 	// Blixibon - Lets citizens ignite from gas cans, etc.
 	bool			AllowedToIgnite( void ) { return true; }
+
+	// 1upD - Citizens can gib if killed by massive explosive damage or acid
+	virtual bool		ShouldGib( const CTakeDamageInfo &info );
+	virtual bool		CorpseGib( const CTakeDamageInfo &info );
 #endif
 
 	//---------------------------------
