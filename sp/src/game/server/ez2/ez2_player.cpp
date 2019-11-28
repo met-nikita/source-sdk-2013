@@ -217,7 +217,7 @@ int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 	{
 		// Complain about taking damage from an enemy.
 		// If that doesn't work, just do a regular wound. (we know we're allowed to speak it)
-		if (info.GetAttacker() == this || !SpeakIfAllowed(TLK_WOUND_REMARK, modifiers))
+		if (!SpeakIfAllowed(TLK_WOUND_REMARK, modifiers))
 			Speak(TLK_WOUND, modifiers);
 	}
 
@@ -404,8 +404,16 @@ void CEZ2_Player::ModifyOrAppendDamageCriteria(AI_CriteriaSet & set, const CTake
 		// This technically doesn't need damage info, but whatever.
 		set.AppendCriteria("hitgroup", UTIL_VarArgs("%i", LastHitGroup()));
 
-		if (!IsCriteriaModified(PLAYERCRIT_ENEMY))
-			ModifyOrAppendEnemyCriteria(set, info.GetAttacker());
+		if (info.GetAttacker() != this)
+		{
+			if (!IsCriteriaModified(PLAYERCRIT_ENEMY))
+				ModifyOrAppendEnemyCriteria(set, info.GetAttacker());
+		}
+		else
+		{
+			// We're our own enemy
+			set.AppendCriteria("damaged_self", "1");
+		}
 	}
 }
 //-----------------------------------------------------------------------------
@@ -656,17 +664,18 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 	}
 
 	// Remove this once we've replaced gagging in all of the maps and talker files
-	int iGag = FindContextByName("gag");
-	if (iGag != -1)
-	{
-		if (FStrEq(GetContextValue( iGag ), "1"))
-			return false;
-	}
-	else
+	const char *szGag = GetContextValue( "gag" );
+	if (szGag && FStrEq(szGag, "1"))
 		return false;
 
 	if (IsInAScript())
 		return false;
+
+	// Don't say anything if we're running a scene with speech
+	if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this, true ) )
+	{
+		return false;
+	}
 
 	return true;
 }
@@ -803,6 +812,9 @@ void CEZ2_Player::RemoveNPCComponent()
 {
 	if ( m_hNPCComponent != NULL )
 	{
+		// Don't let friends call it out as a dead ally, as it overrides TLK_PLDEAD
+		m_hNPCComponent->RemoveFromSquad();
+
 		UTIL_Remove( m_hNPCComponent.Get() );
 		m_hNPCComponent = NULL;
 	}
@@ -1242,8 +1254,8 @@ bool CEZ2_Player::DoIdleSpeech()
 		CBaseEntity *pLastStaring = GetStaringEntity();
 		SetStaringEntity( NULL );
 
-		// If our eye angles haven't changed much, it could mean we're intentionally looking at something
-		if (QAnglesAreEqual(EyeAngles(), m_angLastStaringEyeAngles, 5.0f))
+		// If our eye angles haven't changed much, and we're not running a scripted scene, it could mean we're intentionally looking at something
+		if (QAnglesAreEqual(EyeAngles(), m_angLastStaringEyeAngles, 5.0f) && !IsRunningScriptedSceneWithSpeechAndNotPaused( this, true ))
 		{
 			// Trace a line 96 units in front of ourselves to see what we're staring at
 			trace_t tr;
@@ -1401,7 +1413,17 @@ void CEZ2_Player::ModifyOrAppendSoundCriteria(AI_CriteriaSet & set, CSound *pSou
 	set.AppendCriteria( "sound_type", UTIL_VarArgs("%i", pSound->SoundType()) );
 
 	if (pSound->m_hOwner)
-		set.AppendCriteria( "sound_owner", UTIL_VarArgs("%s", pSound->m_hOwner->GetClassname()) );
+	{
+		if (pSound->SoundChannel() == SOUNDENT_CHANNEL_ZOMBINE_GRENADE)
+		{
+			// Pretend the owner is a grenade (the zombine will be the enemy)
+			set.AppendCriteria( "sound_owner", "npc_grenade_frag" );
+		}
+		else
+		{
+			set.AppendCriteria( "sound_owner", UTIL_VarArgs("%s", pSound->m_hOwner->GetClassname()) );
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1409,8 +1431,11 @@ void CEZ2_Player::ModifyOrAppendSoundCriteria(AI_CriteriaSet & set, CSound *pSou
 //-----------------------------------------------------------------------------
 bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 {
+	// Do not react to our own sounds, or sounds produced by the vehicle we're in
+	if (pSound->m_hOwner == this || pSound->m_hOwner == GetVehicleEntity())
+		return false;
+
 	AI_CriteriaSet set;
-		
 	ModifyOrAppendSoundCriteria(set, pSound, flDist);
 
 	if (pSound->m_iType & SOUND_DANGER)
@@ -1485,8 +1510,17 @@ END_DATADESC()
 void CEZ2_PlayerMemory::InitLastDamage(const CTakeDamageInfo &info)
 {
 	m_iLastDamageType = info.GetDamageType();
-	m_iLastDamageAmount = (int)(info.GetDamage());
-	m_hLastDamageAttacker = info.GetAttacker();
+
+	if (info.GetAttacker() == m_hLastDamageAttacker)
+	{
+		// Just add it on
+		m_iLastDamageAmount += (int)(info.GetDamage());
+	}
+	else
+	{
+		m_iLastDamageAmount = (int)(info.GetDamage());
+		m_hLastDamageAttacker = info.GetAttacker();
+	}
 }
 
 //-----------------------------------------------------------------------------

@@ -865,7 +865,9 @@ void CBasePlayer::DeathSound( const CTakeDamageInfo &info )
 	}
 	else
 	{
+#ifndef EZ2 // Blixibon - Bad Cop uses the response system now
 		EmitSound( "Player.Death" );
+#endif
 	}
 
 	// play one of the suit death alarms

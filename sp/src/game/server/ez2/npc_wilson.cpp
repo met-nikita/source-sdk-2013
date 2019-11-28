@@ -127,6 +127,11 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	AddSpawnFlags( SF_NPC_ALWAYSTHINK );
 
 	m_bEyeLightEnabled = true;
+
+	// So we don't think we haven't seen the player in a while
+	// when in fact we were just spawned
+	// (it's funny, but still)
+	m_flLastSawPlayerTime = -1.0f;
 }
 
 CNPC_Wilson::~CNPC_Wilson( void )
@@ -628,7 +633,15 @@ void CNPC_Wilson::GatherConditions( void )
 			AI_CriteriaSet modifiers;
 			if (pOwner)
 			{
-				modifiers.AppendCriteria( "sound_owner", UTIL_VarArgs( "%s", pOwner->GetClassname() ) );
+				if (pSound->SoundChannel() == SOUNDENT_CHANNEL_ZOMBINE_GRENADE)
+				{
+					// Pretend the owner is a grenade (the zombine will be the enemy)
+					modifiers.AppendCriteria( "sound_owner", "npc_grenade_frag" );
+				}
+				else
+				{
+					modifiers.AppendCriteria( "sound_owner", UTIL_VarArgs( "%s", pSound->m_hOwner->GetClassname() ) );
+				}
 
 				CBaseGrenade *pGrenade = dynamic_cast<CBaseGrenade*>(pOwner);
 				if (pGrenade)
