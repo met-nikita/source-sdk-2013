@@ -389,6 +389,47 @@ bool CNPC_Combine::ShouldAlwaysThink()
 }
 
 //-----------------------------------------------------------------------------
+// Blixibon - Ported citizen code which allows squadmates to use func_tanks
+//-----------------------------------------------------------------------------
+#define COMBINE_FOLLOWER_DESERT_FUNCTANK_DIST	45.0f*12.0f
+bool CNPC_Combine::ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior )
+{
+	if( pBehavior == &m_FollowBehavior )
+	{
+		// Suppress follow behavior if I have a func_tank and the func tank is near
+		// what I'm supposed to be following.
+		if( m_FuncTankBehavior.CanSelectSchedule() )
+		{
+			// Is the tank close to the follow target?
+			Vector vecTank = m_FuncTankBehavior.GetFuncTank()->WorldSpaceCenter();
+			Vector vecFollowGoal = m_FollowBehavior.GetFollowGoalInfo().position;
+
+			float flTankDistSqr = (vecTank - vecFollowGoal).LengthSqr();
+			float flAllowDist = m_FollowBehavior.GetFollowGoalInfo().followPointTolerance * 2.0f;
+			float flAllowDistSqr = flAllowDist * flAllowDist;
+			if( flTankDistSqr < flAllowDistSqr )
+			{
+				// Deny follow behavior so the tank can go.
+				return false;
+			}
+		}
+	}
+	else if( IsInPlayerSquad() && pBehavior == &m_FuncTankBehavior && m_FuncTankBehavior.IsMounted() )
+	{
+		if( m_FollowBehavior.GetFollowTarget() )
+		{
+			Vector vecFollowGoal = m_FollowBehavior.GetFollowTarget()->GetAbsOrigin();
+			if( vecFollowGoal.DistToSqr( GetAbsOrigin() ) > Square(COMBINE_FOLLOWER_DESERT_FUNCTANK_DIST) )
+			{
+				return false;
+			}
+		}
+	}
+
+	return BaseClass::ShouldBehaviorSelectSchedule( pBehavior );
+}
+
+//-----------------------------------------------------------------------------
 // 1upD - Get a pointer to the NPC representing this squad. Used by HUD
 //-----------------------------------------------------------------------------
 CAI_BaseNPC * CNPC_Combine::GetSquadCommandRepresentative()
@@ -558,7 +599,7 @@ void CNPC_Combine::AddToPlayerSquad()
 
 	// Blixibon - If we have a manhack, update its squad status
 	if (m_hManhack != NULL)
-		m_pSquad ? m_pSquad->AddToSquad(m_hManhack.Get()) : Warning("Soldier in player squad has no squad!?\n");
+		m_pSquad->AddToSquad(m_hManhack.Get());
 	
 	FixupPlayerSquad();
 }
@@ -632,12 +673,10 @@ void CNPC_Combine::RemoveFromPlayerSquad()
 	// Blixibon - When players remove soldiers from their squad, they will stay in their area
 	if ( m_bHoldPositionGoal )
 	{
-		DevMsg("Holding position!\n");
 		SetCommandGoal( GetAbsOrigin() );
 	}
 	else
 	{
-		DevMsg("NOT holding position!\n");
 		SetCommandGoal( vec3_invalid );
 	}
 }

@@ -332,6 +332,14 @@ protected:
 
 	static const char *pMoanSounds[];
 
+#ifdef EZ
+	static const char *pModelNames[];
+	static const char *pTorsoModelNames[];
+	static const char *pLegsModelNames[];
+	static const char *pLivingTorsoModelNames[];
+	static const char *pHeadcrabModelNames[];
+#endif
+
 	// Sound stuff
 	float			m_flDistFactor; 
 	unsigned char	m_iClimbCount; // counts rungs climbed (for sound)
@@ -401,6 +409,38 @@ const char *CFastZombie::pMoanSounds[] =
 static const char *s_pLegsModel = "models/gibs/fast_zombie_legs.mdl";
 #endif
 
+#ifdef EZ
+const char *CFastZombie::pModelNames[EZ_VARIANT_COUNT] = {
+	"models/zombie/fast.mdl",
+	"models/zombie/fast_xenbie.mdl",
+	"models/zombie/fast_glowbie.mdl",
+};
+
+const char *CFastZombie::pTorsoModelNames[EZ_VARIANT_COUNT] = {
+	"models/zombie/fast_zombie_torso.mdl",
+	"models/zombie/fast_xenbie_zombie_torso.mdl",
+	"models/zombie/fast_glowbie_zombie_torso.mdl",
+};
+
+const char *CFastZombie::pLegsModelNames[EZ_VARIANT_COUNT] = {
+	"models/zombie/fast_zombie_legs.mdl",
+	"models/zombie/fast_xenbie_zombie_legs.mdl",
+	"models/zombie/fast_glowbie_zombie_legs.mdl",
+};
+
+const char *CFastZombie::pLivingTorsoModelNames[EZ_VARIANT_COUNT] = {
+	"models/zombie/fast_torso.mdl",
+	"models/zombie/fast_xenbie_torso.mdl",
+	"models/zombie/fast_glowbie_torso.mdl",
+};
+
+const char *CFastZombie::pHeadcrabModelNames[EZ_VARIANT_COUNT] = {
+	"models/headcrabclassic.mdl",
+	"models/xencrabclassic.mdl",
+	"models/glowcrabclassic.mdl",
+};
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //
@@ -409,11 +449,9 @@ static const char *s_pLegsModel = "models/gibs/fast_zombie_legs.mdl";
 void CFastZombie::Precache( void )
 {
 #ifdef EZ
-	char * modelVariant;
 	switch (m_tEzVariant)
 	{
 	case EZ_VARIANT_RAD:
-		modelVariant = "fast_glowbie";
 		PrecacheScriptSound( "NPC_FastGlowbie.FootstepRight" );
 		PrecacheScriptSound( "NPC_FastGlowbie.FootstepLeft" );
 		PrecacheScriptSound( "NPC_FastGlowbie.AttackHit" );
@@ -437,7 +475,6 @@ void CFastZombie::Precache( void )
 
 		break;
 	case EZ_VARIANT_XEN:
-		modelVariant = "fast_xenbie";
 		PrecacheScriptSound( "NPC_FastXenbie.FootstepRight" );
 		PrecacheScriptSound( "NPC_FastXenbie.FootstepLeft" );
 		PrecacheScriptSound( "NPC_FastXenbie.AttackHit" );
@@ -460,7 +497,6 @@ void CFastZombie::Precache( void )
 		PrecacheScriptSound( "NPC_FastXenbie.Moan1" );
 		break;
 	default:
-		modelVariant = "fast";;
 		PrecacheScriptSound( "NPC_FastZombie.FootstepRight" );
 		PrecacheScriptSound( "NPC_FastZombie.FootstepLeft" );
 		PrecacheScriptSound( "NPC_FastZombie.AttackHit" );
@@ -492,19 +528,19 @@ void CFastZombie::Precache( void )
 
 	if (GetModelName() == NULL_STRING)
 	{
-		SetModelName( AllocPooledString( UTIL_VarArgs( "models/zombie/%s.mdl", modelVariant ) ) );
+		SetModelName( AllocPooledString( pModelNames[ m_tEzVariant ] ) );
 	}
 	if (GetTorsoModelName() == NULL_STRING && m_tEzVariant != EZ_VARIANT_XEN)
 	{
-		SetTorsoModelName( AllocPooledString( UTIL_VarArgs( "models/gibs/%s_zombie_torso.mdl", modelVariant ) ) );
+		SetTorsoModelName( AllocPooledString( pTorsoModelNames[ m_tEzVariant ] ) );
 	}
 	if (GetLegsModelName() == NULL_STRING && m_tEzVariant != EZ_VARIANT_XEN)
 	{
-		SetLegsModelName( AllocPooledString( UTIL_VarArgs( "models/gibs/%s_zombie_legs.mdl", modelVariant ) ) );
+		SetLegsModelName( AllocPooledString( pLegsModelNames[ m_tEzVariant ] ) );
 	}
 	if (GetLivingTorsoModelName() == NULL_STRING && m_tEzVariant != EZ_VARIANT_XEN)
 	{
-		SetLivingTorsoModelName ( AllocPooledString( UTIL_VarArgs( "models/zombie/%s_torso.mdl", modelVariant ) ) );
+		SetLivingTorsoModelName( AllocPooledString( pLivingTorsoModelNames[ m_tEzVariant ] ) );
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
@@ -883,13 +919,7 @@ const char *CFastZombie::GetHeadcrabClassname( void )
 
 const char *CFastZombie::GetHeadcrabModel( void )
 {
-	switch (m_tEzVariant)
-	{
-	case EZ_VARIANT_RAD:
-		return "models/glowcrab.mdl";
-	default:
-		return "models/headcrab.mdl";
-	}
+	return pHeadcrabModelNames[ m_tEzVariant ];
 }
 
 //-----------------------------------------------------------------------------
