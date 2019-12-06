@@ -72,6 +72,7 @@ ConVar  sk_citizen_ar2_proficiency("sk_citizen_ar2_proficiency", "2"); // Added 
 ConVar  sk_citizen_default_proficiency("sk_citizen_default_proficiency", "1"); // Added by 1upD. Skill rating 0 - 4 of how accurate all weapons but the AR2 should be
 ConVar  sk_citizen_default_willpower("sk_citizen_default_willpower", "1"); // Added by 1upD. Amount of mental stress damage citizen can take before panic
 ConVar  sk_citizen_very_low_willpower( "sk_citizen_very_low_willpower", "-3" ); // Added by 1upD. Amount of willpower below which citizens might flee
+ConVar  sk_citizen_head( "sk_citizen_head", "2.5" ); // Added by Blixibon. Multiplies by sk_npc_head
 #endif
 
 ConVar	g_ai_citizen_show_enemy( "g_ai_citizen_show_enemy", "0" );
@@ -1216,6 +1217,24 @@ const char* CNPC_Citizen::GetSquadSlotDebugName(int iSquadSlot)
 	return BaseClass::GetSquadSlotDebugName(iSquadSlot);
 }
 #endif
+
+#ifdef EZ2
+// 
+// Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
+// 
+bool CNPC_Citizen::JustStartedFearing( CBaseEntity *pTarget )
+{
+	Assert( IRelationType( pTarget ) == D_FR );
+
+	// We don't have a built-in way to figue out when we started panicking,
+	// but if we just said TLK_DANGER, our fear sound, don't register.
+	if ( gpGlobals->curtime - GetExpresser()->GetTimeSpokeConcept(TLK_DANGER) < 1.0f )
+		return true;
+
+	return false;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CNPC_Citizen::GatherConditions()
@@ -3091,6 +3110,8 @@ int CNPC_Citizen::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 }
 
 #ifdef EZ
+extern ConVar sk_npc_head;
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 float CNPC_Citizen::GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDamageInfo &info )
@@ -3099,8 +3120,8 @@ float CNPC_Citizen::GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDamag
 	{
 	case HITGROUP_HEAD:
 		{
-			// Citizens take 2.5x head damage
-			return 2.5f;
+			// Multiplied by sk_npc_head
+			return sk_citizen_head.GetFloat() * sk_npc_head.GetFloat();
 		}
 	}
 

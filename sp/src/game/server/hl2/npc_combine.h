@@ -161,6 +161,7 @@ public:
 	virtual void	FollowSound();
 	virtual void	StopFollowSound();
 	virtual bool	ShouldAlwaysThink();
+	virtual bool	ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior );
 #endif
 
 	bool			UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );

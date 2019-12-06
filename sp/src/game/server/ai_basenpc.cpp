@@ -681,6 +681,11 @@ void CAI_BaseNPC::Ignite( float flFlameLifetime, bool bNPCOnly, float flSize, bo
 		{
 			alyx->EnemyIgnited( this );
 		}
+
+#ifdef EZ2
+		// Blixibon - Bad Cop comments on this now too
+		pPlayer->Event_NPCIgnited( this );
+#endif
 	}
 #endif
 }
@@ -13827,7 +13832,11 @@ void CAI_BaseNPC::TestPlayerPushing( CBaseEntity *pEntity )
 
 	// Heuristic for determining if the player is pushing me away
 	CBasePlayer *pPlayer = ToBasePlayer( pEntity );
+#ifdef MAPBASE
+	if ( pPlayer && !( pPlayer->GetFlags() & FL_NOTARGET ) && IRelationType( pPlayer ) > D_FR )
+#else
 	if ( pPlayer && !( pPlayer->GetFlags() & FL_NOTARGET ) )
+#endif
 	{
 		if ( (pPlayer->m_nButtons & (IN_FORWARD|IN_BACK|IN_MOVELEFT|IN_MOVERIGHT)) || 
 			 pPlayer->GetAbsVelocity().AsVector2D().LengthSqr() > 50*50 )

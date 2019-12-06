@@ -1837,7 +1837,13 @@ void CNPC_BaseZombie::Spawn( void )
 //-----------------------------------------------------------------------------
 void CNPC_BaseZombie::Precache( void )
 {
+#ifdef EZ
+	// TODO: UTIL_PrecacheEZVariant?
+	// UTIL_PrecacheXenVariant only supports EZ_VARIANT_XEN at/m
+	UTIL_PrecacheOther( GetHeadcrabClassname(), GetHeadcrabModel() );
+#else
 	UTIL_PrecacheOther( GetHeadcrabClassname() );
+#endif
 
 	PrecacheScriptSound( "E3_Phystown.Slicer" );
 	PrecacheScriptSound( "NPC_BaseZombie.PoundDoor" );

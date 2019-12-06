@@ -15,6 +15,9 @@
 #ifdef MAPBASE
 #include "mapbase/matchers.h"
 #endif
+#ifdef EZ2
+#include "ez2/ai_concept_response.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -131,6 +134,15 @@ ConceptInfo_t g_ConceptInfos[] =
 
 #ifdef EZ
 	{ TLK_SURRENDER,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+#endif
+
+#ifdef EZ2
+	// Will-E
+	{ TLK_TIPPED,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_FIDGET,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_XEN_GRENADE_RELEASE,		SPEECH_PRIORITY, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+
+	{ TLK_CONCEPT_ANSWER,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
 #endif
 };
 
@@ -560,6 +572,10 @@ void CAI_PlayerAlly::PrescheduleThink( void )
 	{
 		if ( m_flNextIdleSpeechTime && m_flNextIdleSpeechTime < gpGlobals->curtime )
 		{
+#ifdef EZ2
+			// So Will-E can override this in his own way
+			HandlePrescheduleIdleSpeech();
+#else
 			AISpeechSelection_t selection;
 			if ( SelectNonCombatSpeech( &selection ) )
 			{
@@ -571,12 +587,32 @@ void CAI_PlayerAlly::PrescheduleThink( void )
 			{
 				m_flNextIdleSpeechTime = gpGlobals->curtime + RandomFloat( 10,20 );
 			}
+#endif
 		}
 	}
 #endif // HL2_EPISODIC
 
 #endif // HL2_DLL
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CAI_PlayerAlly::HandlePrescheduleIdleSpeech( void )
+{
+	AISpeechSelection_t selection;
+	if ( SelectNonCombatSpeech( &selection ) )
+	{
+		SetSpeechTarget( selection.hSpeechTarget );
+		SpeakDispatchResponse( selection.concept.c_str(), selection.pResponse );
+		m_flNextIdleSpeechTime = gpGlobals->curtime + RandomFloat( 20,30 );
+	}
+	else
+	{
+		m_flNextIdleSpeechTime = gpGlobals->curtime + RandomFloat( 10,20 );
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -1161,11 +1197,7 @@ void CAI_PlayerAlly::Touch( CBaseEntity *pOther )
 	BaseClass::Touch( pOther );
 
 	// Did the player touch me?
-#ifndef EZ
 	if ( pOther->IsPlayer() )
-#else
-	if ( pOther->IsPlayer() && IRelationType( UTIL_GetLocalPlayer() ) != D_HT )
-#endif
 	{
 		// Ignore if pissed at player
 		if ( m_afMemory & bits_MEMORY_PROVOKED )

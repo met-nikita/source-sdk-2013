@@ -69,6 +69,13 @@ ConVar g_debug_hopwire( "g_debug_hopwire", "0" );
 #define	MAX_HOP_HEIGHT		(hopwire_hopheight.GetFloat())		// Maximum amount the grenade will "hop" upwards when detonated
 #define	MIN_HOP_HEIGHT		(hopwire_minheight.GetFloat())		// Minimum amount the grenade will "hop" upwards when detonated
 
+#ifdef EZ2
+// These are defined in npc_wilson.
+// I don't know if there's a way to make it base-level since Xen grenades aren't NPCs.
+extern int g_interactionXenGrenadeConsume;
+extern int g_interactionXenGrenadeRelease;
+#endif
+
 class CGravityVortexController : public CBaseEntity
 {
 	DECLARE_CLASS( CGravityVortexController, CBaseEntity );
@@ -101,6 +108,12 @@ private:
 	float	m_flEndTime;	// Time when the vortex will stop functioning
 	float	m_flRadius;		// Area of effect for the vortex
 	float	m_flStrength;	// Pulling strength of the vortex
+
+#ifdef EZ2
+	// If this points to an entity, the Xen grenade will always call g_interactionXenGrenadeRelease on it instead of spawning Xen life.
+	// This is so Will-E pops back out of Xen grenades.
+	CHandle<CBaseCombatCharacter>	m_hReleaseEntity;
+#endif
 };
 
 //-----------------------------------------------------------------------------
@@ -147,6 +160,15 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	}
 	else
 	{
+#ifdef EZ2
+		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, this, NULL ))
+		{
+			// Do not remove
+			m_hReleaseEntity = pEnt->MyCombatCharacterPointer();
+			return;
+		}
+		else
+#endif
 		// Otherwise we just take the normal mass
 		m_flMass += pPhysObject->GetMass();
 	}
@@ -569,6 +591,13 @@ void CGravityVortexController::PullThink( void )
 	else
 	{
 #ifdef EZ2
+		if ( m_hReleaseEntity && m_hReleaseEntity->DispatchInteraction( g_interactionXenGrenadeRelease, this, NULL ) )
+		{
+			// Act as if it's the Xen life we were supposed to spawn
+			m_hReleaseEntity = NULL;
+			return;
+		}
+
 		DevMsg( "Consumed %.2f kilograms\n", m_flMass );
 		// Spawn Xen lifeform
 		if ( hopwire_spawn_life.GetBool() )

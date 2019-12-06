@@ -196,6 +196,9 @@ public:
 	//---------------------------------
 	void			GatherWillpowerConditions();
 	Disposition_t	IRelationType(CBaseEntity *pTarget);
+#ifdef EZ2
+	bool			JustStartedFearing( CBaseEntity *pTarget ); // Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
+#endif
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);
 	int				TranslateSuppressingFireSchedule(int scheduleType);

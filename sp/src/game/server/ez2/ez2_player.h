@@ -101,6 +101,9 @@ public:
 	void			ModifyOrAppendWeaponCriteria(AI_CriteriaSet & set, CBaseEntity * pWeapon = NULL);
 	void			ModifyOrAppendSoundCriteria(AI_CriteriaSet & set, CSound *pSound, float flDist);
 
+	void			ModifyOrAppendFinalEnemyCriteria(AI_CriteriaSet & set, CBaseEntity * pEnemy, const CTakeDamageInfo & info);
+	void			ModifyOrAppendAICombatCriteria(AI_CriteriaSet & set);
+
 	// "Speech target" is a thing from CAI_PlayerAlly mostly used for things like Q&A.
 	// I'm using it here to refer to the player's allies in player dialogue. (shouldn't be used for enemies)
 	void			ModifyOrAppendSpeechTargetCriteria(AI_CriteriaSet &set, CBaseEntity *pTarget);
@@ -113,6 +116,7 @@ public:
 	// TODO: Remove instances of OnPickupWeapon()
 	void			Weapon_Equip( CBaseCombatWeapon *pWeapon );
 
+	void			OnUseEntity( CBaseEntity *pEntity );
 	bool			HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
 
 	// For more accurate representations of whether the player actually sees something
@@ -127,6 +131,7 @@ public:
 	bool			CommanderExecuteOne(CAI_BaseNPC *pNpc, const commandgoal_t &goal, CAI_BaseNPC **Allies, int numAllies);
 
 	void			Event_NPCKilled( CAI_BaseNPC *pVictim, const CTakeDamageInfo &info );
+	void			Event_NPCIgnited( CAI_BaseNPC *pVictim );
 	void			AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info);
 
 	void			Event_SeeEnemy( CBaseEntity *pEnemy );
@@ -170,8 +175,8 @@ public:
 	bool IsSpeaking()				{ return GetExpresser()->IsSpeaking(); }
 
 	// NPC component shortcuts
-	// (remember to make sure NPC component is valid first)
 	CBaseEntity*		GetEnemy();
+	NPC_STATE			GetState();
 
 protected:
 	virtual	void	PostThink(void);

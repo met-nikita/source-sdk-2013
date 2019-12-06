@@ -17,6 +17,8 @@
 #include "eventqueue.h"
 #include "ez2_player.h"
 #include "te_effect_dispatch.h"
+#include "iservervehicle.h"
+#include "basegrenade_shared.h"
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -29,7 +31,8 @@ extern int ACT_FLOOR_TURRET_CLOSED_IDLE;
 extern ConVar	g_debug_turret;
 
 // Interactions
-int	g_interactionConsumedByXenGrenade	= 0;
+int	g_interactionXenGrenadeConsume		= 0;
+int	g_interactionXenGrenadeRelease		= 0;
 int g_interactionArbeitScannerStart		= 0;
 int g_interactionArbeitScannerEnd		= 0;
 
@@ -56,7 +59,7 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_FIELD( m_bBlinkState,	FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bTipped,	FIELD_BOOLEAN ),
-	DEFINE_FIELD( m_bCarriedByPlayer, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_flCarryTime, FIELD_TIME ),
 	DEFINE_FIELD( m_bUseCarryAngles, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flPlayerDropTime, FIELD_TIME ),
 	DEFINE_FIELD( m_flTeslaStopTime, FIELD_TIME ),
@@ -77,11 +80,17 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_INPUT( m_bOmniscient, FIELD_BOOLEAN, "SetOmniscient" ),
 
+	DEFINE_KEYFIELD( m_bEyeLightEnabled, FIELD_BOOLEAN, "EyeLightEnabled" ),
+	//DEFINE_FIELD( m_iEyeLightBrightness, FIELD_INTEGER ), // SetEyeGlow()'s call in Activate() means we don't need to save this
+
 	DEFINE_USEFUNC( SimpleUse ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
 
 	DEFINE_INPUTFUNC( FIELD_STRING, "AnswerConcept", InputAnswerConcept ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnEyeLight", InputTurnOnEyeLight ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffEyeLight", InputTurnOffEyeLight ),
 
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
@@ -92,6 +101,8 @@ BEGIN_DATADESC(CNPC_Wilson)
 END_DATADESC()
 
 IMPLEMENT_SERVERCLASS_ST( CNPC_Wilson, DT_NPC_Wilson )
+	SendPropBool( SENDINFO( m_bEyeLightEnabled ) ),
+	SendPropInt( SENDINFO( m_iEyeLightBrightness ) ),
 END_SEND_TABLE()
 
 LINK_ENTITY_TO_CLASS( npc_wilson, CNPC_Wilson );
@@ -102,7 +113,7 @@ LINK_ENTITY_TO_CLASS( npc_wilson, CNPC_Wilson );
 CNPC_Wilson::CNPC_Wilson( void ) : 
 	m_hEyeGlow( NULL ),
 	m_hLaser( NULL ),
-	m_bCarriedByPlayer( false ),
+	m_flCarryTime( -1.0f ),
 	m_flPlayerDropTime( 0.0f ),
 	m_bTipped( false ),
 	m_pMotionController( NULL )
@@ -112,6 +123,15 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	// This will be overridden by the keyvalue,
 	// but npc_create should automatically spawn Will-E with this
 	m_SquadName = GetPlayerSquadName();
+
+	AddSpawnFlags( SF_NPC_ALWAYSTHINK );
+
+	m_bEyeLightEnabled = true;
+
+	// So we don't think we haven't seen the player in a while
+	// when in fact we were just spawned
+	// (it's funny, but still)
+	m_flLastSawPlayerTime = -1.0f;
 }
 
 CNPC_Wilson::~CNPC_Wilson( void )
@@ -536,15 +556,18 @@ void CNPC_Wilson::NPCThink()
 			// Checking m_bTipped is how we figure out whether this is our first think since we've been tipped
 			if (m_bTipped == false)
 			{
-				AI_CriteriaSet modifiers;
+				if (!GetExpresser()->IsSpeaking())
+				{
+					AI_CriteriaSet modifiers;
 
-				// Measure our distance between ourselves and the ground.
-				trace_t tr;
-				AI_TraceLine(WorldSpaceCenter(), WorldSpaceCenter() - Vector(0, 0, WILSON_MAX_TIPPED_HEIGHT), MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &tr);
+					// Measure our distance between ourselves and the ground.
+					trace_t tr;
+					AI_TraceLine(WorldSpaceCenter(), WorldSpaceCenter() - Vector(0, 0, WILSON_MAX_TIPPED_HEIGHT), MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &tr);
 
-				modifiers.AppendCriteria( "distancetoground", UTIL_VarArgs("%f", (tr.fraction * WILSON_MAX_TIPPED_HEIGHT)) );
+					modifiers.AppendCriteria( "distancetoground", UTIL_VarArgs("%f", (tr.fraction * WILSON_MAX_TIPPED_HEIGHT)) );
 
-				Speak( TLK_TIPPED, modifiers );
+					Speak( TLK_TIPPED, modifiers );
+				}
 
 				// Might want to get a real activator... (e.g. a last physics attacker)
 				m_OnTipped.FireOutput( AI_GetSinglePlayer(), this );
@@ -587,15 +610,50 @@ void CNPC_Wilson::PrescheduleThink( void )
 void CNPC_Wilson::GatherConditions( void )
 {
 	// Will-E doesn't use sensing code, but COND_SEE_PLAYER is important for CAI_PlayerAlly stuff.
-	CBasePlayer *pLocalPlayer = AI_GetSinglePlayer();
-	if (pLocalPlayer && FInViewCone(pLocalPlayer->EyePosition()) && FVisible(pLocalPlayer))
-	{
-		Assert( GetSenses()->HasSensingFlags(SENSING_FLAGS_DONT_LOOK) );
-
-		SetCondition( COND_SEE_PLAYER );
-	}
+	//CBasePlayer *pLocalPlayer = AI_GetSinglePlayer();
+	//if (pLocalPlayer && FInViewCone(pLocalPlayer->EyePosition()) && FVisible(pLocalPlayer))
+	//{
+	//	Assert( GetSenses()->HasSensingFlags(SENSING_FLAGS_DONT_LOOK) );
+	//
+	//	SetCondition( COND_SEE_PLAYER );
+	//}
 
 	BaseClass::GatherConditions();
+
+	if (HasCondition( COND_HEAR_DANGER ))
+	{
+		CSound *pSound;
+		pSound = GetBestSound( SOUND_DANGER );
+
+		ASSERT( pSound != NULL );
+
+		if ( pSound && (pSound->m_iType & SOUND_DANGER) && !pSound->m_hOwner || IRelationType(pSound->m_hOwner) != D_LI )
+		{
+			CBaseEntity *pOwner = pSound->m_hOwner;
+			AI_CriteriaSet modifiers;
+			if (pOwner)
+			{
+				if (pSound->SoundChannel() == SOUNDENT_CHANNEL_ZOMBINE_GRENADE)
+				{
+					// Pretend the owner is a grenade (the zombine will be the enemy)
+					modifiers.AppendCriteria( "sound_owner", "npc_grenade_frag" );
+				}
+				else
+				{
+					modifiers.AppendCriteria( "sound_owner", UTIL_VarArgs( "%s", pSound->m_hOwner->GetClassname() ) );
+				}
+
+				CBaseGrenade *pGrenade = dynamic_cast<CBaseGrenade*>(pOwner);
+				if (pGrenade)
+					pOwner = pGrenade->GetThrower();
+
+				ModifyOrAppendEnemyCriteria( modifiers, pOwner );
+			}
+
+			if ( !(pSound->SoundContext() & (SOUND_CONTEXT_MORTAR|SOUND_CONTEXT_FROM_SNIPER)) || IsOkToCombatSpeak() )
+				SpeakIfAllowed( TLK_DANGER, modifiers );
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -607,7 +665,7 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 
 	if ( GetLastEnemyTime() == 0 || gpGlobals->curtime - GetLastEnemyTime() > 30 )
 	{
-		if ( HasCondition( COND_SEE_ENEMY ) && pEnemy->Classify() != CLASS_BULLSEYE )
+		if ( HasCondition( COND_SEE_ENEMY ) && (WorldSpaceCenter() - pEnemy->WorldSpaceCenter()).LengthSqr() <= Square(384.0f) && pEnemy->Classify() != CLASS_BULLSEYE )
 		{
 			AI_CriteriaSet modifiers;
 
@@ -616,6 +674,7 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 			{
 				bool bEnemyInPlayerCone = static_cast<CEZ2_Player*>(pPlayer)->FInTrueViewCone( pEnemy->WorldSpaceCenter() );
 				bool bEnemyVisibleToPlayer = pPlayer->FVisible( pEnemy );
+				bool bInPlayerCone = static_cast<CEZ2_Player*>(pPlayer)->FInTrueViewCone( WorldSpaceCenter() );
 				bool bSeePlayer = FVisible( pPlayer );
 
 				// If I can see the player, and the player would see this enemy if they turned around,
@@ -636,15 +695,54 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 				}
 
 				// If neither us or the enemy are visible to the player,
-				// and the enemy isn't currently attacking something (other than the player), have a quick chat
-				else if ( !bSeePlayer && !bEnemyVisibleToPlayer )
+				// and the enemy is either attacking nothing or chasing the player,
+				// call it out.
+				else if ( ( (!bInPlayerCone || !bSeePlayer) && (!bEnemyInPlayerCone || !bEnemyVisibleToPlayer) ) || pPlayer->GetFlags() & FL_NOTARGET )
 				{
 					if ( !pEnemy->GetEnemy() || pEnemy->GetEnemy() == pPlayer )
-						modifiers.AppendCriteria("enemy_greet", "1");
+						modifiers.AppendCriteria("alert_player", "1");
 				}
 			}
 
+			SetSpeechTarget( pEnemy );
+
 			SpeakIfAllowed(TLK_STARTCOMBAT, modifiers);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int CNPC_Wilson::TranslateSchedule( int scheduleType )
+{
+	switch( scheduleType )
+	{
+	case SCHED_ALERT_STAND:
+		return SCHED_WILSON_ALERT_STAND;
+		break;
+	}
+
+	return scheduleType;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::OnSeeEntity( CBaseEntity *pEntity )
+{
+	BaseClass::OnSeeEntity(pEntity);
+
+	if ( pEntity->IsPlayer() )
+	{
+		if ( pEntity->IsEFlagSet(EFL_IS_BEING_LIFTED_BY_BARNACLE) )
+		{
+			SpeakIfAllowed( TLK_ALLY_IN_BARNACLE );
+		}
+		else if (gpGlobals->curtime - m_flLastSawPlayerTime > 60.0f && m_flCarryTime < m_flLastSawPlayerTime)
+		{
+			// Oh, hey, Bad Cop! Long time no see!
+			SpeakIfAllowed( TLK_FOUNDPLAYER );
 		}
 	}
 }
@@ -748,12 +846,56 @@ void CNPC_Wilson::AimGun()
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Return true if this NPC can hear the specified sound
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::QueryHearSound( CSound *pSound )
+{
+	if ( pSound->m_hOwner != NULL )
+	{
+		// We shouldn't hear sounds emitted directly by the player.
+		if ( pSound->m_hOwner.Get()->IsPlayer() )
+			return false;
+
+		// We can't hear sounds emitted directly by a vehicle driven by the player.
+		IServerVehicle *pVehicle = pSound->m_hOwner->GetServerVehicle();
+		if ( pVehicle && pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER) && pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER)->IsPlayer() )
+			return false;
+	}
+
+	return BaseClass::QueryHearSound( pSound );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::HandlePrescheduleIdleSpeech( void )
+{
+	AISpeechSelection_t selection;
+	if ( DoCustomSpeechAI( &selection, GetState() ) )
+	{
+		SetSpeechTarget( selection.hSpeechTarget );
+		SpeakDispatchResponse( selection.concept.c_str(), selection.pResponse );
+		SetNextIdleSpeechTime( gpGlobals->curtime + RandomFloat( 10,20 ) );
+	}
+	else
+	{
+		SetNextIdleSpeechTime( gpGlobals->curtime + RandomFloat( 5,10 ) );
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState )
 {
+	if ( HasCondition(COND_TALKER_PLAYER_DEAD) && HasCondition(COND_SEE_PLAYER) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
+	{
+		if ( SelectSpeechResponse( TLK_PLDEAD, NULL, AI_GetSinglePlayer(), pSelection ) )
+			return true;
+	}
+
 	// From SelectAlertSpeech()
-	CBasePlayer *pTarget = assert_cast<CBasePlayer *>(FindSpeechTarget( AIST_PLAYERS | AIST_FACING_TARGET ));
+	CBasePlayer *pTarget = assert_cast<CBasePlayer *>(FindSpeechTarget( AIST_PLAYERS | AIST_FACING_TARGET | AIST_ANY_QUALIFIED ));
 	if ( pTarget )
 	{
 		SetSpeechTarget(pTarget);
@@ -766,25 +908,31 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 				return true;
 		}
 
-		// Citizens, etc. only told the player to reload when they themselves were reloading.
-		// That can't apply to Will-E and we don't want him to say this in the middle of combat,
-		// so we only have Will-E comment on the player's ammo when he's idle.
 		if (iState == NPC_STATE_IDLE)
 		{
+			// Citizens, etc. only told the player to reload when they themselves were reloading.
+			// That can't apply to Will-E and we don't want him to say this in the middle of combat,
+			// so we only have Will-E comment on the player's ammo when he's idle.
 			CBaseCombatWeapon *pWeapon = pTarget->GetActiveWeapon();
 			if( pWeapon && pWeapon->UsesClipsForAmmo1() && 
-				pWeapon->Clip1() < ( pWeapon->GetMaxClip1() * .5 ) &&
+				pWeapon->Clip1() <= ( pWeapon->GetMaxClip1() * .5 ) &&
 				pTarget->GetAmmoCount( pWeapon->GetPrimaryAmmoType() ) )
 			{
 				if ( SelectSpeechResponse( TLK_PLRELOAD, NULL, pTarget, pSelection ) )
 					return true;
 			}
+
+			// From SelectIdleSpeech()
+			// Player allies normally reduce how much this is spoken while moving,
+			// but Will-E is supposed to be moved, so that doesn't apply here.
+			if ( ShouldSpeakRandom( TLK_IDLE, 10 ) && SelectSpeechResponse( TLK_IDLE, NULL, pTarget, pSelection ) )
+				return true;
 		}
 	}
-
-	if ( HasCondition(COND_TALKER_PLAYER_DEAD) && HasCondition(COND_SEE_PLAYER) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
+	else if ( gpGlobals->curtime - m_flLastSawPlayerTime >= 60.0f )
 	{
-		if ( SelectSpeechResponse( TLK_PLDEAD, NULL, pTarget, pSelection ) )
+		// Getting lonely?
+		if ( ShouldSpeakRandom( TLK_IDLE, 10 ) && SelectSpeechResponse( TLK_IDLE, NULL, pTarget, pSelection ) )
 			return true;
 	}
 
@@ -821,7 +969,7 @@ void CNPC_Wilson::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t re
 
 	if ( reason != PUNTED_BY_CANNON )
 	{
-		m_bCarriedByPlayer = true;
+		m_flCarryTime = gpGlobals->curtime;
 		m_OnPhysGunPickup.FireOutput( pPhysGunUser, this );
 
 		// We want to use preferred carry angles if we're not nicely upright
@@ -849,7 +997,7 @@ void CNPC_Wilson::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t reason
 	m_hPhysicsAttacker = pPhysGunUser;
 	m_flLastPhysicsInfluenceTime = gpGlobals->curtime;
 
-	m_bCarriedByPlayer = false;
+	m_flCarryTime = -1.0f;
 	m_bUseCarryAngles = false;
 	m_OnPhysGunDrop.FireOutput( pPhysGunUser, this );
 
@@ -885,11 +1033,27 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 
 
 	// TODO: grenade_hopwire doesn't use this interaction yet, awaiting Xen Grenade being turned into a unique entity
-	if ( interactionType == g_interactionConsumedByXenGrenade )
+	if ( interactionType == g_interactionXenGrenadeConsume )
 	{
 		if (true)
 		{
 			// "Don't be sucked up" case, which is default
+
+			// Invoke effects similar to that of being lifted by a barnacle.
+			AddEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
+			AddSolidFlags( FSOLID_NOT_SOLID );
+			AddEffects( EF_NODRAW );
+
+			if ( m_hEyeGlow )
+			{
+				m_hEyeGlow->AddEffects( EF_NODRAW );
+			}
+
+			IPhysicsObject *pPhys = VPhysicsGetObject();
+			if ( pPhys )
+			{
+				pPhys->EnableMotion( false );
+			}
 
 			// Return true to indicate we shouldn't be sucked up
 			return true;
@@ -903,9 +1067,42 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 			m_OnDestroyed.FireOutput(this, this);
 
 			// Return false to indicate we should still be sucked up
-			// (assuming the Xen Grenade has a thing where it doesn't consume if DispatchInteraction returns true)
 			return false;
 		}
+	}
+
+	if ( interactionType == g_interactionXenGrenadeRelease )
+	{
+		// TODO: Put CGravityVortexController in grenade_hopwire.h?
+		CBaseEntity *pGrenade = assert_cast<CBaseEntity*>(data);
+		if (!pGrenade)
+			return false;
+
+		Teleport( &pGrenade->GetAbsOrigin(), &pGrenade->GetAbsAngles(), NULL );
+
+		RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
+		RemoveSolidFlags( FSOLID_NOT_SOLID );
+		RemoveEffects( EF_NODRAW );
+
+		if ( m_hEyeGlow )
+		{
+			m_hEyeGlow->RemoveEffects( EF_NODRAW );
+		}
+
+		IPhysicsObject *pPhys = VPhysicsGetObject();
+		if ( pPhys )
+		{
+			pPhys->EnableMotion( true );
+			pPhys->Wake();
+		}
+
+		// TODO: We should put this in a function we can call to grenade_hopwire
+		pGrenade->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
+		DispatchParticleEffect( "xenpc_spawn", WorldSpaceCenter(), GetAbsAngles(), this );
+
+		SpeakIfAllowed( TLK_XEN_GRENADE_RELEASE );
+
+		return true;
 	}
 
 	if ( interactionType == g_interactionCombineBash )
@@ -977,6 +1174,9 @@ void CNPC_Wilson::SetEyeState( eyeState_t state )
 		m_hEyeGlow->SetBrightness( 0, 1.0f );
 		break;
 	}
+
+	// For the projected light on the client
+	m_iEyeLightBrightness = m_hEyeGlow->GetBrightness();
 }
 
 //-----------------------------------------------------------------------------
@@ -984,7 +1184,7 @@ void CNPC_Wilson::SetEyeState( eyeState_t state )
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 {
-    set.AppendCriteria("being_held", IsBeingCarriedByPlayer() ? "1" : "0");
+    set.AppendCriteria("being_held", m_flCarryTime != -1 ? UTIL_VarArgs("%f", gpGlobals->curtime - m_flCarryTime) : "-1");
 
 	if (m_hPhysicsAttacker)
 	{
@@ -1001,17 +1201,24 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 
 	set.AppendCriteria("on_side", OnSide() ? "1" : "0");
 
-	set.AppendCriteria("speaking", GetExpresser()->IsSpeaking() ? "1" : "0");
-
     BaseClass::ModifyOrAppendCriteria(set);
 
 	if (GetSpeechTarget() && GetSpeechTarget()->IsPlayer())
 	{
-		// Ensures we don't respond to when Bad Cop has no "real" squad
 		CEZ2_Player *pPlayer = static_cast<CEZ2_Player*>(GetSpeechTarget());
-		CAI_BaseNPC *pRepresentative = pPlayer->GetSquadCommandRepresentative();
-		if (pPlayer && pRepresentative && pRepresentative->IsSilentCommandable())
-			set.AppendCriteria("only_silent_commandable", "1");
+		if (pPlayer)
+		{
+			// Ensures we don't respond to when Bad Cop has no "real" squad
+			CAI_BaseNPC *pRepresentative = pPlayer->GetSquadCommandRepresentative();
+			if (pPlayer && pRepresentative && pRepresentative->IsSilentCommandable())
+				set.AppendCriteria("only_silent_commandable", "1");
+
+			if (pPlayer->GetState() == NPC_STATE_COMBAT)
+			{
+				// Adopt the player's combat criteria
+				pPlayer->ModifyOrAppendAICombatCriteria(set);
+			}
+		}
 	}
 }
 
@@ -1029,7 +1236,8 @@ void CNPC_Wilson::ModifyOrAppendDamageCriteria(AI_CriteriaSet & set, const CTake
 //-----------------------------------------------------------------------------
 bool CNPC_Wilson::SpeakIfAllowed(AIConcept_t concept, AI_CriteriaSet& modifiers, bool bRespondingToPlayer, char *pszOutResponseChosen, size_t bufsize)
 {
-    if (!IsAllowedToSpeak(concept, bRespondingToPlayer))
+	// This might not be what bRespondingToPlayer was originally for, but it lets Will-E speak a lot more.
+    if (!IsAllowedToSpeak(concept, HasCondition(COND_SEE_PLAYER)))
         return false;
 
     return Speak(concept, modifiers, pszOutResponseChosen, bufsize);
@@ -1044,6 +1252,71 @@ bool CNPC_Wilson::SpeakIfAllowed(AIConcept_t concept, bool bRespondingToPlayer, 
 	return SpeakIfAllowed(concept, set, bRespondingToPlayer, pszOutResponseChosen, bufsize);
 }
 
+//------------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPlayer )
+{
+	// if not alive, certainly don't speak
+	if ( !IsAlive() )
+		return false;
+
+	if ( m_spawnflags & SF_NPC_GAG )
+		return false;
+
+	// Don't speak if playing a script.
+	if ( ( m_NPCState == NPC_STATE_SCRIPT ) && !CanSpeakWhileScripting() )
+		return false;
+
+	if ( IsInAScript() && !CanSpeakWhileScripting() )
+		return false;
+
+	if ( category == SPEECH_IDLE )
+	{
+		if ( GetState() != NPC_STATE_IDLE && GetState() != NPC_STATE_ALERT )
+			return false;
+		if ( GetSpeechFilter() && GetSpeechFilter()->GetIdleModifier() < 0.001 )
+			return false;
+	}
+
+	if ( category != SPEECH_PRIORITY )
+	{
+		// if someone else is talking, don't speak
+		if ( !GetExpresser()->SemaphoreIsAvailable( this ) )
+			return false;
+
+		if ( fRespondingToPlayer )
+		{
+			if ( !GetExpresser()->CanSpeakAfterMyself() )
+				return false;
+		}
+		else
+		{
+			if ( !GetExpresser()->CanSpeak() )
+				return false;
+		}
+	}
+
+	if ( fRespondingToPlayer )
+	{
+		// If we're responding to the player, don't respond if the scene has speech in it
+		if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this ) )
+		{
+			return false;
+		}
+	}
+	else
+	{
+		// If we're not responding to the player, don't talk if running a logic_choreo
+		if ( IsRunningScriptedSceneAndNotPaused( this ) )
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -1055,7 +1328,9 @@ void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		// Notify the player so they could respond
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
-		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) + RandomFloat(0.25f, 0.75f), this, this);
+
+		// Delay is now based off of predelay
+		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
 	}
 }
 
@@ -1097,9 +1372,33 @@ void CNPC_Wilson::PostConstructor(const char *szClassname)
 //-----------------------------------------------------------------------------
 AI_BEGIN_CUSTOM_NPC( npc_wilson, CNPC_Wilson )
 
-	DECLARE_INTERACTION( g_interactionConsumedByXenGrenade );
+	DECLARE_INTERACTION( g_interactionXenGrenadeConsume );
+	DECLARE_INTERACTION( g_interactionXenGrenadeRelease );
+
 	DECLARE_INTERACTION( g_interactionArbeitScannerStart );
 	DECLARE_INTERACTION( g_interactionArbeitScannerEnd );
+
+	DEFINE_SCHEDULE
+	(
+		SCHED_WILSON_ALERT_STAND,
+
+		"	Tasks"
+		"		TASK_STOP_MOVING			0"
+		"		TASK_FACE_REASONABLE		0"
+		"		TASK_SET_ACTIVITY			ACTIVITY:ACT_IDLE"
+		"		TASK_WAIT					5" // Don't wait very long
+		"		TASK_SUGGEST_STATE			STATE:IDLE"
+		""
+		"	Interrupts"
+		"		COND_NEW_ENEMY"
+		"		COND_SEE_ENEMY"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+		"		COND_HEAR_COMBAT"		// sound flags
+		"		COND_HEAR_DANGER"
+		"		COND_HEAR_BULLET_IMPACT"
+		"		COND_IDLE_INTERRUPT"
+	);
 
 AI_END_CUSTOM_NPC()
 
@@ -1182,6 +1481,7 @@ void CArbeitScanner::Precache( void )
 	PrecacheScriptSound( STRING(m_iszScanDeploySound) );
 	PrecacheScriptSound( STRING(m_iszScanDoneSound) );
 	PrecacheScriptSound( STRING(m_iszScanRejectSound) );
+	PrecacheScriptSound( "AI_BaseNPC.SentenceStop" );
 
 	BaseClass::Precache();
 }
@@ -1404,6 +1704,8 @@ void CArbeitScanner::ScanThink()
 		// Must've been killed or moved too far away while we were scanning.
 		// Use WaitForReturn to test whether anyone else is in our radius.
 		m_OnScanInterrupt.FireOutput( m_hScanning, this );
+
+		EmitSound( "AI_BaseNPC.SentenceStop" );
 
 		CleanupScan();
 		SetThink( &CArbeitScanner::WaitForReturnThink );

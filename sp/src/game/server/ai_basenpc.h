@@ -2237,6 +2237,8 @@ public:
 		EZ_VARIANT_DEFAULT = 0,
 		EZ_VARIANT_XEN,
 		EZ_VARIANT_RAD,
+
+		EZ_VARIANT_COUNT, // Keep this at the end
 	};
 
 	EZ_VARIANT m_tEzVariant;
