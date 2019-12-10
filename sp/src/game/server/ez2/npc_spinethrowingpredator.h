@@ -34,12 +34,16 @@ public:
 
 	float MaxYawSpeed ( void );
 
+	int RangeAttack1Conditions( float flDot, float flDist );
+
 	void HandleAnimEvent( animevent_t *pEvent );
 
 	// Projectile methods
 	virtual float GetProjectileGravity();
 	virtual float GetProjectileArc();
 	virtual float GetProjectileDamge();
+	virtual float GetBiteDamage( void );
+	virtual float GetWhipDamage( void );
 
 	// Pit drones in opposing force hated headcrabs - this was an oversight, but let's keep it
 	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_HEADCRAB; }

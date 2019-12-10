@@ -9,12 +9,14 @@
 #include "cbase.h"
 #include "npcevent.h"
 #include "NPC_SpineThrowingPredator.h"
+#include "movevars_shared.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 ConVar sk_spinethrowingpredator_health( "sk_spinethrowingpredator_health", "100" );
 ConVar sk_spinethrowingpredator_dmg_spit( "sk_spinethrowingpredator_dmg_spit", "33" );
+ConVar sk_spinethrowingpredator_dmg_slash( "sk_spinethrowingpredator_dmg_slash", "33" );
 ConVar sk_spinethrowingpredator_spit_gravity( "sk_spinethrowingpredator_spit_gravity", "600" );
 ConVar sk_spinethrowingpredator_spit_arc_size( "sk_spinethrowingpredator_spit_arc_size", "3");
 
@@ -39,7 +41,7 @@ void CNPC_SpineThrowingPredator::Spawn()
 
 	SetModel( STRING( GetModelName() ) );
 
-	SetHullType( HULL_WIDE_SHORT );
+	SetHullType( HULL_MEDIUM );
 	SetHullSizeNormal();
 
 	SetSolid( SOLID_BBOX );
@@ -83,7 +85,7 @@ void CNPC_SpineThrowingPredator::Precache()
 
 	if ( GetModelName() == NULL_STRING )
 	{
-		SetModelName( AllocPooledString( "models/pitdrone.mdl" ) );
+		SetModelName( AllocPooledString( "models/pit_drone.mdl" ) );
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
@@ -117,8 +119,7 @@ void CNPC_SpineThrowingPredator::Precache()
 //-----------------------------------------------------------------------------
 Class_T	CNPC_SpineThrowingPredator::Classify( void )
 {
-	// TODO Replace this with CLASS_ALIEN_PREDATOR after setting up the relationship table
-	return CLASS_BULLSQUID; 
+	return CLASS_ALIEN_PREDATOR; 
 }
 
 //=========================================================
@@ -224,6 +225,21 @@ float CNPC_SpineThrowingPredator::MaxYawSpeed( void )
 }
 
 //=========================================================
+// RangeAttack1Conditions
+//=========================================================
+int CNPC_SpineThrowingPredator::RangeAttack1Conditions( float flDot, float flDist )
+{
+	// Be sure not to use ranged attacks against potential food
+	if ( IsPrey( GetEnemy() ))
+	{
+		// Don't spit at prey - monch it!
+		return ( COND_NONE );
+	}
+
+	return(BaseClass::RangeAttack1Conditions( flDot, flDist ));
+}
+
+//=========================================================
 // HandleAnimEvent - catches the monster-specific messages
 // that occur when tagged animation frames are played.
 //=========================================================
@@ -238,7 +254,7 @@ void CNPC_SpineThrowingPredator::HandleAnimEvent( animevent_t *pEvent )
 				Vector vSpitPos;
 
 				GetAttachment( "Mouth", vSpitPos );
-				
+
 				Vector			vTarget = GetEnemy()->GetAbsOrigin();
 				Vector			vToss;
 				CBaseEntity*	pBlocker;
@@ -258,6 +274,68 @@ void CNPC_SpineThrowingPredator::HandleAnimEvent( animevent_t *pEvent )
 			}
 		}
 		break;
+		case PREDATOR_AE_BITE:
+		{
+			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector( -16, -16, -16 ), Vector( 16, 16, 16 ), GetBiteDamage(), DMG_SLASH | DMG_ALWAYSGIB );
+			if (pHurt)
+			{
+				BiteSound(); // Only play the bite sound if we have a target
+
+				Vector forward, up;
+				AngleVectors( GetAbsAngles(), &forward, NULL, &up );
+				pHurt->ApplyAbsVelocityImpulse( 100 * (up-forward) * GetModelScale() );
+				pHurt->SetGroundEntity( NULL );
+			}
+		}
+		break;
+
+		case PREDATOR_AE_WHIP_SND:
+		{
+			EmitSound( "NPC_SpineThrowingPredator.TailWhip" );
+			break;
+		}
+
+		case PREDATOR_AE_TAILWHIP:
+		{
+			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector( -16, -16, -16 ), Vector( 16, 16, 16 ), GetWhipDamage(), DMG_SLASH | DMG_ALWAYSGIB );
+			if (pHurt)
+			{
+				Vector right, up;
+				AngleVectors( GetAbsAngles(), NULL, &right, &up );
+
+				if (pHurt->GetFlags() & (FL_NPC | FL_CLIENT))
+					pHurt->ViewPunch( QAngle( 20, 0, -20 ) );
+
+				pHurt->ApplyAbsVelocityImpulse( 100 * (up+2*right) * GetModelScale() );
+			}
+		}
+		break;
+
+		case PREDATOR_AE_BLINK:
+		{
+			// Close eye. 
+			// Even skins are eyes open, odd are closed
+			m_nSkin = ((m_nSkin / 2) * 2) + 1;
+		}
+		break;
+
+		case PREDATOR_AE_HOP:
+		{
+			float flGravity = GetCurrentGravity();
+
+			// throw the squid up into the air on this frame.
+			if (GetFlags() & FL_ONGROUND)
+			{
+				SetGroundEntity( NULL );
+			}
+
+			// jump 40 inches into the air
+			Vector vecVel = GetAbsVelocity();
+			vecVel.z += sqrt( flGravity * 2.0 * 40 );
+			SetAbsVelocity( vecVel );
+		}
+		break;
+
 		default:
 			BaseClass::HandleAnimEvent( pEvent );
 	}
@@ -276,6 +354,22 @@ float CNPC_SpineThrowingPredator::GetProjectileArc()
 float CNPC_SpineThrowingPredator::GetProjectileDamge()
 {
 	return sk_spinethrowingpredator_dmg_spit.GetFloat();
+}
+
+//=========================================================
+// Damage for claw slash attack
+//=========================================================
+float CNPC_SpineThrowingPredator::GetBiteDamage( void )
+{
+	return sk_spinethrowingpredator_dmg_slash.GetFloat();
+}
+
+//=========================================================
+// Damage for "whip" claw attack
+//=========================================================
+float CNPC_SpineThrowingPredator::GetWhipDamage( void )
+{
+	return sk_spinethrowingpredator_dmg_slash.GetFloat();
 }
 
 //------------------------------------------------------------------------------

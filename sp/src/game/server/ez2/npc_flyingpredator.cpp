@@ -113,7 +113,9 @@ void CNPC_FlyingPredator::Spawn()
 	
 	m_iMaxHealth		= sk_flyingpredator_health.GetFloat();
 	m_iHealth			= m_iMaxHealth;
-	m_flFieldOfView		= 0.2;// indicates the width of this monster's forward view cone ( as a dotproduct result )
+	m_flFieldOfView		= 0.75;	// indicates the width of this monster's forward view cone ( as a dotproduct result )
+								// Stukabats have a wider FOV because in testing they tended to have too much tunnel vision.
+								// It makes sense since they have six eyes, three on either side - they have a very wide view
 	m_NPCState			= NPC_STATE_NONE;
 
 	CapabilitiesClear();
@@ -852,7 +854,7 @@ AI_BEGIN_CUSTOM_NPC( NPC_FlyingPredator, CNPC_FlyingPredator )
 
 		"	Tasks"
 		"		TASK_SET_ACTIVITY		ACTIVITY:ACT_LEAP"
-		"		TASK_WAIT				1"
+		"		TASK_WAIT				0.5"
 		"		TASK_TAKEOFF			0"
 		"		TASK_SET_ACTIVITY		ACTIVITY:ACT_HOVER"
 		"		TASK_WAIT				1"

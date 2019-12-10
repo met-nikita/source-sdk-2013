@@ -121,6 +121,7 @@ public:
 
 	virtual float GetMaxSpitWaitTime( void ) { return 0.0f; };
 	virtual float GetMinSpitWaitTime( void ) { return 0.0f; };
+	virtual float GetBiteDamage( void ) { return 0.0f; };
 	virtual float GetWhipDamage( void ) { return 0.0f; };
 	virtual float GetSprintDistance( void ) { return 256.0f; };
 
