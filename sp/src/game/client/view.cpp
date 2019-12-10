@@ -111,6 +111,10 @@ static ConVar v_centerspeed( "v_centerspeed","500" );
 // 54 degrees approximates a 35mm camera - we determined that this makes the viewmodels
 // and motions look the most natural.
 ConVar v_viewmodel_fov( "viewmodel_fov", "54", FCVAR_ARCHIVE );
+#elif EZ2
+// Default viewmodel FOV in EZ2 is 65.
+// It is no longer a cheat command so that it may be configured.
+ConVar v_viewmodel_fov( "viewmodel_fov", "65", FCVAR_ARCHIVE );
 #else
 ConVar v_viewmodel_fov( "viewmodel_fov", "54", FCVAR_CHEAT );
 #endif
