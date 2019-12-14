@@ -15120,6 +15120,17 @@ bool CAI_BaseNPC::InteractionIsAllowed( CAI_BaseNPC *pOtherNPC, ScriptedNPCInter
 		return false;
 
 #ifdef EZ
+	// 1upD / Blixibon - Check commandable
+	if (pInteraction->iFlags & SCNPC_FLAG_TEST_SQUADMATE_HEALTH && pOtherNPC->IsCommandable())
+	{
+		if (((float)pOtherNPC->GetHealth() / (float)pOtherNPC->GetMaxHealth()) >= pInteraction->flHealthRatio)
+		{
+			return false;
+		}
+	}
+#endif
+
+#ifdef EZ
 	// Entropy : Zero always allows Mapbase interactions
 	return m_iDynamicInteractionsAllowed != TRS_FALSE;
 #else
@@ -15215,15 +15226,6 @@ bool CAI_BaseNPC::InteractionCouldStart( CAI_BaseNPC *pOtherNPC, ScriptedNPCInte
 	if ( pInteraction->iFlags & SCNPC_FLAG_TEST_OTHER_VELOCITY )
 	{
 
-	}
-
-	// 1upD / Blixibon - Check commandable
-	if (pInteraction->iFlags & SCNPC_FLAG_TEST_SQUADMATE_HEALTH && pOtherNPC->IsCommandable())
-	{
-		if (((float)pOtherNPC->GetHealth() / (float)pOtherNPC->GetMaxHealth()) >= pInteraction->flHealthRatio)
-		{
-			return false;
-		}
 	}
 
 	// Valid so far. Now check to make sure there's nothing in the way.
