@@ -24,6 +24,7 @@ class CEZ2_Player;
 #define TLK_WOUND_REMARK "TLK_WOUND_REMARK" // Do a long, almost cheesy remark about taking a certain type of damage
 #define TLK_THROWGRENADE "TLK_THROWGRENADE" // Grenade was thrown
 #define TLK_ALLY_KILLED_NPC "TLK_ALLY_KILLED_NPC" // Ally killed a NPC
+#define TLK_KILLED_ALLY "TLK_KILLED_ALLY" // Bad Cop killed an ally (intention ambiguous)
 
 //=============================================================================
 // >> EZ2_PLAYERMEMORY
@@ -44,6 +45,9 @@ public:
 	float			GetEngagementTime() { return gpGlobals->curtime - m_flEngagementStartTime; }
 	int				GetPrevHealth() { return m_iPrevHealth; }
 
+	int				GetHistoricEnemies() { return m_iNumEnemiesHistoric; }
+	void			IncrementHistoricEnemies() { m_iNumEnemiesHistoric++; }
+
 	int				GetLastDamageType() { return m_iLastDamageType; }
 	int				GetLastDamageAmount() { return m_iLastDamageAmount; }
 	CBaseEntity		*GetLastDamageAttacker() { return m_hLastDamageAttacker.Get(); }
@@ -60,6 +64,8 @@ private:
 	bool	m_bInEngagement;
 	float	m_flEngagementStartTime;
 	int		m_iPrevHealth;
+
+	int		m_iNumEnemiesHistoric;
 
 	// Last damage stuff (for "revenge")
 	int		m_iLastDamageType;
@@ -252,6 +258,8 @@ public:
 	// Base class's sound interests include combat and danger, add relevant scents onto it
 	int		GetSoundInterests( void ) { return BaseClass::GetSoundInterests() | SOUND_PHYSICS_DANGER | SOUND_CARCASS | SOUND_MEAT; }
 	bool	QueryHearSound( CSound *pSound );
+
+	bool	UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
 
 	void	DrawDebugGeometryOverlays( void );
 

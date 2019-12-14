@@ -864,6 +864,8 @@ void CEZ2_Player::ModifyOrAppendFinalEnemyCriteria(AI_CriteriaSet& set, CBaseEnt
 	// Append our pre-engagement conditions
 	set.AppendCriteria( "prev_health_diff", UTIL_VarArgs( "%i", GetHealth() - GetMemoryComponent()->GetPrevHealth() ) );
 
+	set.AppendCriteria( "num_enemies_historic", UTIL_VarArgs( "%i", GetMemoryComponent()->GetHistoricEnemies() ) );
+
 	// Was this the one who made Bad Cop pissed 5 seconds ago?
 	if (pEnemy == GetMemoryComponent()->GetLastDamageAttacker() && gpGlobals->curtime - GetLastDamageTime() < 5.0f)
 	{
@@ -904,13 +906,13 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 	ModifyOrAppendDamageCriteria(modifiers, info, false);
 	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 
+	Disposition_t disposition = pVictim->IRelationType(this);
+
 	// This code used to check for CBaseCombatCharacter before,
 	// but now the function specifically takes that kind of class.
 	// Maybe an if statement related to optimization could be added here?
 	{
 		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", pVictim->LastHitGroup()));
-
-		Disposition_t disposition = pVictim->IRelationType(this);
 
 		// If the victim *just* started being afraid of us, pick it up as D_HT instead.
 		// This is to prevent cases where Bad Cop taunts afraid enemies before it's apparent that they're afraid.
@@ -946,6 +948,12 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 		// Check if we should say something special in regards to the situation being apparently over.
 		// Separate concepts are used to bypass respeak delays.
 		bSpoken = SpeakIfAllowed(TLK_LAST_ENEMY_DEAD, modifiers);
+	}
+	else if (disposition == D_LI)
+	{
+		// Our "enemy" was actually our "friend"
+		SetSpeechTarget( pVictim );
+		bSpoken = SpeakIfAllowed(TLK_KILLED_ALLY, modifiers);
 	}
 
 	if (!bSpoken)
@@ -1179,8 +1187,8 @@ void CEZ2_Player::DoSpeechAI( void )
 	{
 		int iChance = (int)(RandomFloat(0, 10) * flRandomSpeechModifier);
 
-		// 10% chance by default
-		if (iChance > RandomInt(0, 100))
+		// 2% chance by default
+		if (iChance > RandomInt(0, 500))
 		{
 			DevMsg("flRandomSpeechModifier: %f; iChance = %i\n", flRandomSpeechModifier, iChance);
 
@@ -1333,9 +1341,9 @@ bool CEZ2_Player::DoCombatSpeech()
 		if (SpeakIfAllowed( TLK_MOBBED ))
 			return true;
 	}
-	else if ( m_iVisibleEnemies >= 5 )
+	else if ( m_iVisibleEnemies >= 5 && m_iCloseEnemies < 3 )
 	{
-		if (GetEnemy() && GetEnemy()->GetEnemy() == this)
+		if (GetNPCComponent()->GetEnemy() && GetNPCComponent()->GetEnemy()->GetEnemy() == this)
 		{
 			// Bad Cop sees 5+ enemies and they (or at least one) are targeting him in particular
 			// (indicates they're not idle and not distracted)
@@ -1496,6 +1504,8 @@ BEGIN_SIMPLE_DATADESC( CEZ2_PlayerMemory )
 	DEFINE_FIELD( m_flEngagementStartTime, FIELD_TIME ),
 	DEFINE_FIELD( m_iPrevHealth, FIELD_INTEGER ),
 
+	DEFINE_FIELD( m_iNumEnemiesHistoric, FIELD_INTEGER ),
+
 	DEFINE_FIELD( m_iLastDamageType, FIELD_INTEGER ),
 	DEFINE_FIELD( m_iLastDamageAmount, FIELD_INTEGER ),
 	DEFINE_FIELD( m_hLastDamageAttacker, FIELD_EHANDLE ),
@@ -1539,6 +1549,7 @@ void CEZ2_PlayerMemory::RecordEngagementStart()
 void CEZ2_PlayerMemory::RecordEngagementEnd()
 {
 	m_bInEngagement = false;
+	m_iNumEnemiesHistoric = 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -1726,6 +1737,25 @@ bool CAI_PlayerNPCDummy::QueryHearSound( CSound *pSound )
 	}
 
 	return BaseClass::QueryHearSound( pSound );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Update information on my enemy
+// Input  :
+// Output : Returns true is new enemy, false is known enemy
+//-----------------------------------------------------------------------------
+bool CAI_PlayerNPCDummy::UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer )
+{
+	if ( BaseClass::UpdateEnemyMemory(pEnemy, position, pInformer) )
+	{
+		// New enemy, tell memory component
+		if (GetOuter())
+			GetOuter()->GetMemoryComponent()->IncrementHistoricEnemies();
+
+		return true;
+	}
+
+	return false;
 }
 
 //-----------------------------------------------------------------------------
