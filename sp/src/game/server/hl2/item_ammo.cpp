@@ -771,7 +771,6 @@ const char *CItem_AmmoCrate::m_lpzModelNames[NUM_AMMO_CRATE_TYPES] =
 	"models/items/ammocrate_ar2.mdl",		// Combine Ball 
 #endif
 	"models/items/ammocrate_smg2.mdl",	    // smg grenade
-	"models/items/ammocrate_pistol.mdl",	// Flareround
 #ifdef MAPBASE
 	"models/items/ammocrate_slam.mdl",	    // slam
 	"models/items/ammocrate_empty.mdl",	    // empty
@@ -791,7 +790,6 @@ const char *CItem_AmmoCrate::m_lpzAmmoNames[NUM_AMMO_CRATE_TYPES] =
 	"XBowBolt",
 	"AR2AltFire",
 	"SMG1_Grenade",
-	"FlareRound",
 #ifdef MAPBASE
 	"slam",
 	NULL,
@@ -811,7 +809,6 @@ int CItem_AmmoCrate::m_nAmmoAmounts[NUM_AMMO_CRATE_TYPES] =
 	50,		// Crossbow
 	3,		// AR2 alt-fire
 	5,
-	3,
 #ifdef MAPBASE
 	5,		// SLAM
 	NULL	// Empty
@@ -830,7 +827,6 @@ const char *CItem_AmmoCrate::m_pGiveWeapon[NUM_AMMO_CRATE_TYPES] =
 	NULL,		// Crossbow
 	NULL,		// AR2 alt-fire
 	NULL,		// SMG alt-fire
-	NULL,
 #ifdef MAPBASE
 	"weapon_slam",		// SLAM
 	NULL	// Empty

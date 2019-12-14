@@ -1672,6 +1672,13 @@ void CAchievementMgr::OnMapEvent( const char *pchEventName )
 		CBaseAchievement *pAchievement = m_vecMapEventListeners[iAchievement];
 		pAchievement->OnMapEvent( pchEventName );
 	}
+
+#ifdef MAPBASE
+	if (cc_achievement_debug.GetBool())
+	{
+		Msg( "CAchievementMgr::OnMapEvent: Achievement \"%s\" not found\n", pchEventName );
+	}
+#endif
 }
 #ifdef EZ 
 //-----------------------------------------------------------------------------

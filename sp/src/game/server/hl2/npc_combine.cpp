@@ -35,6 +35,7 @@
 #ifdef MAPBASE
 #include "mapbase/GlobalStrings.h"
 #include "globalstate.h"
+#include "sceneentity.h"
 #endif
 #ifdef EZ
 #include "npc_antlion.h"
@@ -1044,6 +1045,14 @@ void CNPC_Combine::Spawn( void )
 	if ( m_iManhacks )
 	{
 		SetBodygroup( COMBINE_BODYGROUP_MANHACK, true );
+	}
+#endif
+
+#ifdef MAPBASE
+	// This was moved from CalcWeaponProficiency() so soldiers don't change skin unnaturally and uncontrollably
+	if ( GetActiveWeapon() && EntIsClass(GetActiveWeapon(), gm_isz_class_Shotgun) && m_nSkin != COMBINE_SKIN_SHOTGUNNER )
+	{
+		m_nSkin = COMBINE_SKIN_SHOTGUNNER;
 	}
 #endif
 }
@@ -3893,6 +3902,10 @@ bool CNPC_Combine::SpeakIfAllowed( const char *concept, AI_CriteriaSet& modifier
 	if ( !GetExpresser()->CanSpeakConcept( concept ) )
 		return false;
 
+	// Don't interrupt scripted VCD dialogue
+	if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this, true ) )
+		return false;
+
 	if ( Speak( concept, modifiers ) )
 	{
 		JustMadeSound( sentencepriority, 2.0f /*GetTimeSpeechComplete()*/ );
@@ -4846,10 +4859,12 @@ WeaponProficiency_t CNPC_Combine::CalcWeaponProficiency( CBaseCombatWeapon *pWea
 	else if( FClassnameIs( pWeapon, "weapon_shotgun" )	)
 #endif
 	{
+#ifndef MAPBASE // Moved so soldiers don't change skin unnaturally and uncontrollably
 		if( m_nSkin != COMBINE_SKIN_SHOTGUNNER )
 		{
 			m_nSkin = COMBINE_SKIN_SHOTGUNNER;
 		}
+#endif
 
 		return WEAPON_PROFICIENCY_PERFECT;
 	}
