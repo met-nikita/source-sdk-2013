@@ -119,6 +119,9 @@ public:
 	bool	MegaPhyscannonActive( void ) { return m_bMegaPhysgun;	}
 	
 	virtual bool IsAlyxInDarknessMode();
+#ifdef EZ
+	virtual bool IsBeastInStealthMode();
+#endif
 
 #ifdef MAPBASE
 	int				GetDefaultCitizenType();

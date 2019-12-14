@@ -67,12 +67,19 @@ public:
 	void StartTask ( const Task_t *pTask );
 	void RunTask( const Task_t * pTask );
 
+	Disposition_t		IRelationType( CBaseEntity *pTarget );
+
 	virtual bool CanFlinch(void) { return false; } // Gonomes cannot flinch. 
 
 	void PrescheduleThink( void );
 
 	float	m_flBurnDamage;				// Keeps track of how much burn damage we've incurred in the last few seconds.
 	float	m_flBurnDamageResetTime;	// Time at which we reset the burn damage.
+
+private:
+	int	m_nGonomeSpitSprite;
+
+protected:
 
 	DEFINE_CUSTOM_AI;
 	DECLARE_DATADESC()

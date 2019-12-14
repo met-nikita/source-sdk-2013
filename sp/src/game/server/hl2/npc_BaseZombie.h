@@ -77,6 +77,10 @@ enum
 	SCHED_ZOMBIE_MELEE_ATTACK1,
 	SCHED_ZOMBIE_POST_MELEE_WAIT,
 
+#ifdef EZ
+	SCHED_ZOMBIE_ALARM,
+#endif
+
 	LAST_BASE_ZOMBIE_SCHEDULE,
 };
 
@@ -91,6 +95,10 @@ enum
 	TASK_ZOMBIE_DIE,
 	TASK_ZOMBIE_RELEASE_HEADCRAB,
 	TASK_ZOMBIE_WAIT_POST_MELEE,
+
+#ifdef EZ
+	TASK_ZOMBIE_ALARM,
+#endif
 
 	LAST_BASE_ZOMBIE_TASK,
 };
@@ -142,6 +150,11 @@ public:
 
 	int MeleeAttack1Conditions ( float flDot, float flDist );
 	virtual float GetClawAttackRange() const { return ZOMBIE_MELEE_REACH; }
+
+#ifdef EZ
+	// Zombie scream attack
+	int MeleeAttack2Conditions ( float flDot, float flDist );
+#endif
 
 	// No range attacks
 	int RangeAttack1Conditions ( float flDot, float flDist ) { return( 0 ); }
@@ -218,7 +231,13 @@ public:
 	virtual void FootstepSound( bool fRightFoot ) = 0;
 	virtual void FootscuffSound( bool fRightFoot ) = 0;
 #ifdef EZ
+	// Beast stealth mode - call the beast over
+	virtual void AlarmSound( void ) {}
+	// What sounds can zombies hear?
 	virtual bool QueryHearSound( CSound *pSound );
+
+	// make a sound the beast can hear when in stealth mode
+	void		 MakeAIAlarmSound( float volume, float duration = 0.5 );
 #endif
 
 	// make a sound Alyx can hear when in darkness mode

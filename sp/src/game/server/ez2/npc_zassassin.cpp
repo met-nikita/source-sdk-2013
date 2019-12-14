@@ -79,6 +79,7 @@ ConVar sk_zombie_assassin_dmg_bite ( "sk_zombie_assassin_dmg_bite", "25" );
 ConVar sk_zombie_assassin_dmg_whip ( "sk_zombie_assassin_dmg_whip", "35" );
 ConVar sk_zombie_assassin_dmg_spit ( "sk_zombie_assassin_dmg_spit", "15" );
 ConVar sk_zombie_assassin_spawn_time( "sk_zombie_assassin_spawn_time", "5.0" );
+ConVar sk_zombie_assassin_look_dist( "sk_zombie_assassin_look_dist", "1024.0" );
 
 //=========================================================
 // monster-specific schedule types
@@ -109,7 +110,7 @@ public:
 	void Spawn( void );
 	void Precache( void );
 
-	static void Shoot( CBaseEntity *pOwner, Vector vecStart, Vector vecVelocity );
+	static void Shoot( CBaseEntity *pOwner, int nGonomeSpitSprite, CSprite * pSprite, Vector vecStart, Vector vecVelocity );
 	void Touch( CBaseEntity *pOther );
 	void Animate( void );
 
@@ -143,8 +144,6 @@ END_DATADESC()
 
 void CGonomeSpit::Precache( void )
 {
-	m_nGonomeSpitSprite = PrecacheModel("sprites/gonomespit.vmt");// client side spittle.
-
 	PrecacheScriptSound( "NPC_BigMomma.SpitTouch1" );
 	PrecacheScriptSound( "NPC_BigMomma.SpitHit1" );
 	PrecacheScriptSound( "NPC_BigMomma.SpitHit2" );
@@ -166,7 +165,6 @@ void CGonomeSpit:: Spawn( void )
 	SetRenderColorA( 255 );
 	SetModel( "" );
 
-	SetSprite( CSprite::SpriteCreate( "sprites/gonomespit.vmt", GetAbsOrigin(), true ) );
 	SetRenderColor( 150, 0, 0, 255 );
 	
 	UTIL_SetSize( this, Vector( 0, 0, 0), Vector(0, 0, 0) );
@@ -174,16 +172,17 @@ void CGonomeSpit:: Spawn( void )
 	SetCollisionGroup( HL2COLLISION_GROUP_SPIT );
 }
 
-void CGonomeSpit::Shoot( CBaseEntity *pOwner, Vector vecStart, Vector vecVelocity )
+void CGonomeSpit::Shoot( CBaseEntity *pOwner, int nGonomeSpitSprite, CSprite * pSprite, Vector vecStart, Vector vecVelocity )
 {
 	CGonomeSpit *pSpit = CREATE_ENTITY( CGonomeSpit, "squidspit" );
+	pSpit->m_nGonomeSpitSprite = nGonomeSpitSprite;
 	pSpit->Spawn();
 	
 	UTIL_SetOrigin( pSpit, vecStart );
 	pSpit->SetAbsVelocity( vecVelocity );
 	pSpit->SetOwnerEntity( pOwner );
 
-	CSprite *pSprite = (CSprite*)pSpit->GetSprite();
+	pSpit->SetSprite( pSprite );
 
 	if ( pSprite )
 	{
@@ -256,6 +255,7 @@ void CGonomeSpit::Touch ( CBaseEntity *pOther )
 BEGIN_DATADESC(CNPC_Gonome)
 	DEFINE_FIELD(m_flBurnDamage, FIELD_FLOAT),
 	DEFINE_FIELD(m_flBurnDamageResetTime, FIELD_TIME),
+	DEFINE_FIELD(m_nGonomeSpitSprite, FIELD_INTEGER)
 END_DATADESC()
 
 //=========================================================
@@ -301,6 +301,9 @@ void CNPC_Gonome::Spawn()
 	NPCInit();
 
 	m_flDistTooFar		= MAX_SPIT_DISTANCE;
+
+	// Separate convar for gonome look distance to make them "blind"
+	SetDistLook( sk_zombie_assassin_look_dist.GetFloat() );
 }
 
 //=========================================================
@@ -327,11 +330,16 @@ void CNPC_Gonome::Precache()
 	}
 	PrecacheModel( STRING( GetModelName() ) );
 	
-	PrecacheModel("sprites/gonomespit.vmt");// spit projectile.
+
 
 	if ( m_tEzVariant == EZ_VARIANT_RAD )
 	{
 		PrecacheParticleSystem( "blood_impact_blue_01" );
+		m_nGonomeSpitSprite = PrecacheModel( "sprites/glownomespit.vmt" );// spit projectile.
+	}
+	else
+	{
+		m_nGonomeSpitSprite = PrecacheModel( "sprites/gonomespit.vmt" );// spit projectile.
 	}
 
 	PrecacheScriptSound( "Gonome.Idle" );
@@ -426,6 +434,18 @@ Activity CNPC_Gonome::NPC_TranslateActivity( Activity eNewActivity )
 Class_T	CNPC_Gonome::Classify( void )
 {
 	return CLASS_ZOMBIE; 
+}
+
+Disposition_t CNPC_Gonome::IRelationType( CBaseEntity *pTarget )
+{
+	// hackhack - Wilson keeps telling the beast on Bad Cop.
+	// For now, Wilson and zombie assassins like each other
+	if ( FClassnameIs( pTarget, "npc_wilson" ) )
+	{
+		return D_LI;
+	}
+
+	return BaseClass::IRelationType( pTarget );
 }
 
 bool CNPC_Gonome::IsJumpLegal(const Vector &startPos, const Vector &apex, const Vector &endPos) const
@@ -621,8 +641,14 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 				vecSpitDir.z += random->RandomFloat( -0.05, 0 );
 						
 				AttackSound();
-			
-				CGonomeSpit::Shoot( this, vecSpitOffset, vecSpitDir * 900 );
+				if ( m_tEzVariant == EZ_VARIANT_RAD )
+				{
+					CGonomeSpit::Shoot( this, m_nGonomeSpitSprite, CSprite::SpriteCreate( "sprites/glownomespit.vmt", GetAbsOrigin(), true ), vecSpitOffset, vecSpitDir * 900 );
+				}
+				else
+				{
+					CGonomeSpit::Shoot( this, m_nGonomeSpitSprite, CSprite::SpriteCreate( "sprites/gonomespit.vmt", GetAbsOrigin(), true ), vecSpitOffset, vecSpitDir * 900 );
+				}
 			}
 		}
 		break;

@@ -2360,6 +2360,15 @@ bool CHalfLife2::IsAlyxInDarknessMode()
 #endif // HL2_EPISODIC
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Returns whether or not zombies will scream to draw the beast to the player
+//-----------------------------------------------------------------------------
+bool CHalfLife2::IsBeastInStealthMode()
+{
+	return (GlobalEntity_GetState( "beast_stealth_mode" ) == GLOBAL_ON);
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // This takes the long way around to see if a prop should emit a DLIGHT when it

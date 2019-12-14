@@ -163,6 +163,11 @@ public:
 	void FootstepSound( bool fRightFoot );
 	void FootscuffSound( bool fRightFoot );
 
+#ifdef EZ
+	// Beast stealth mode - call the beast over
+	virtual void AlarmSound( void );
+#endif
+
 	const char *GetMoanSound( int nSound );
 	
 public:
@@ -335,6 +340,7 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Glowbie.Alert" );
 			PrecacheScriptSound( "Glowbie.Idle" );
 			PrecacheScriptSound( "Glowbie.Attack" );
+			PrecacheScriptSound( "Glowbie.Alarm" );
 			break;
 		case EZ_VARIANT_XEN:
 			PrecacheScriptSound( "Xenbie.FootstepRight" );
@@ -349,6 +355,7 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Xenbie.Alert" );
 			PrecacheScriptSound( "Xenbie.Idle" );
 			PrecacheScriptSound( "Xenbie.Attack" );
+			PrecacheScriptSound( "Xenbie.Alarm" );
 			break;
 		default:
 			PrecacheScriptSound( "Zombie.FootstepRight" );
@@ -363,6 +370,7 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Zombie.Alert" );
 			PrecacheScriptSound( "Zombie.Idle" );
 			PrecacheScriptSound( "Zombie.Attack" );
+			PrecacheScriptSound( "Zombie.Alarm" );
 			break;
 	}
 	if ( GetModelName() == NULL_STRING )
@@ -670,6 +678,24 @@ void CZombie::AlertSound( void )
 	// Don't let a moan sound cut off the alert sound.
 	m_flNextMoanSound += random->RandomFloat( 2.0, 4.0 );
 }
+
+#ifdef EZ
+void CZombie::AlarmSound( void )
+{
+	switch (m_tEzVariant)
+	{
+	case EZ_VARIANT_RAD:
+		EmitSound( "Glowbie.Alarm" );
+		break;
+	case EZ_VARIANT_XEN:
+		EmitSound( "Xenbie.Alarm" );
+		break;
+	default:
+		EmitSound( "Zombie.Alarm" );
+		break;
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Returns a moan sound for this class of zombie.

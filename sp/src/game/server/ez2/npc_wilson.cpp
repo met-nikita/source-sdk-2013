@@ -788,6 +788,13 @@ void CNPC_Wilson::OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity
 //-----------------------------------------------------------------------------
 Disposition_t CNPC_Wilson::IRelationType( CBaseEntity *pTarget )
 {
+	// hackhack - Wilson keeps telling the beast on Bad Cop.
+	// For now, Wilson and zombie assassins like each other
+	if (FClassnameIs( pTarget, "npc_zassassin" ))
+	{
+		return D_LI;
+	}
+
 	if (!pTarget)
 		return D_NU;
 

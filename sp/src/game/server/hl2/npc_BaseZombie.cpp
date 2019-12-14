@@ -667,6 +667,25 @@ int CNPC_BaseZombie::MeleeAttack1Conditions ( float flDot, float flDist )
 	return COND_TOO_FAR_TO_ATTACK;
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: For innate melee attack
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+int CNPC_BaseZombie::MeleeAttack2Conditions ( float flDot, float flDist )
+{
+	if ( !m_fIsTorso && HasCondition( COND_CAN_MELEE_ATTACK1 ) && HL2GameRules()->IsBeastInStealthMode() 
+		&& gpGlobals->curtime - GetLastAttackTime() > 2.0f )
+	{
+		ClearCondition( COND_CAN_MELEE_ATTACK1 );
+		return COND_CAN_MELEE_ATTACK2;
+	}
+
+	return COND_NONE;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 #define ZOMBIE_BUCKSHOT_TRIPLE_DAMAGE_DIST	96.0f // Triple damage from buckshot at 8 feet (headshot only)
@@ -1060,6 +1079,19 @@ void CNPC_BaseZombie::MakeAISpookySound( float volume, float duration )
 	}
 #endif // HL2_EPISODIC
 }
+
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: make a sound the Beast can hear when in stealth mode
+// Input  : volume (radius) of the sound.
+// Output :
+//-----------------------------------------------------------------------------
+void CNPC_BaseZombie::MakeAIAlarmSound( float volume, float duration )
+{
+	AlarmSound();
+	CSoundEnt::InsertSound( SOUND_COMBAT, EyePosition(), volume, duration, this, SOUNDENT_CHANNEL_WEAPON );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -1811,6 +1843,10 @@ void CNPC_BaseZombie::Spawn( void )
 	m_NPCState			= NPC_STATE_NONE;
 
 	CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_INNATE_MELEE_ATTACK1 );
+#ifdef EZ
+	// Zombie scream attack
+	CapabilitiesAdd( bits_CAP_INNATE_MELEE_ATTACK2 );
+#endif
 	CapabilitiesAdd( bits_CAP_SQUAD );
 
 	m_flNextSwat = gpGlobals->curtime;
@@ -1926,7 +1962,18 @@ int CNPC_BaseZombie::TranslateSchedule( int scheduleType )
 		return SCHED_ZOMBIE_WANDER_STANDOFF;
 
 	case SCHED_MELEE_ATTACK1:
+#ifdef EZ
+		// Don't use the standard melee attack if you can scream!
+		if ( !HasCondition( COND_CAN_MELEE_ATTACK2 ) )
+		{
+#endif
 		return SCHED_ZOMBIE_MELEE_ATTACK1;
+#ifdef EZ
+		}
+		DevMsg( "Tried to translate SCHED_MELEE_ATTACK1 but had COND_CAN_MELEE_ATTACK2\n" );
+	case SCHED_MELEE_ATTACK2:
+		return SCHED_ZOMBIE_ALARM;
+#endif
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
@@ -2307,7 +2354,26 @@ void CNPC_BaseZombie::StartTask( const Task_t *pTask )
 			SetWait( 0.1 );
 		}
 		break;
+#ifdef EZ
+	case TASK_ZOMBIE_ALARM:
+	{
+		SetLastAttackTime( gpGlobals->curtime );
+		// Call for help from across the map
+		MakeAIAlarmSound( 8192.0f, 5.0f );
 
+		// Alert the beast directly
+		CBaseEntity *pEntity = NULL;
+		while ((pEntity = gEntList.FindEntityByClassname( pEntity, "npc_zassassin" ) ) != NULL)
+		{
+			CAI_BaseNPC * pNPC = pEntity->MyNPCPointer();
+			if (pNPC && GetEnemy())
+			{
+				pNPC->UpdateEnemyMemory( GetEnemy(), GetAbsOrigin(), this );
+			}
+		}
+	}
+	break;
+#endif
 	default:
 		BaseClass::StartTask( pTask );
 	}
@@ -2320,6 +2386,9 @@ void CNPC_BaseZombie::RunTask( const Task_t *pTask )
 {
 	switch( pTask->iTask )
 	{
+#ifdef EZ
+	case TASK_ZOMBIE_ALARM:
+#endif
 	case TASK_ZOMBIE_SWAT_ITEM:
 		if( IsActivityFinished() )
 		{
@@ -2914,6 +2983,9 @@ AI_BEGIN_CUSTOM_NPC( base_zombie, CNPC_BaseZombie )
 	DECLARE_TASK( TASK_ZOMBIE_DIE )
 	DECLARE_TASK( TASK_ZOMBIE_RELEASE_HEADCRAB )
 	DECLARE_TASK( TASK_ZOMBIE_WAIT_POST_MELEE )
+#ifdef EZ
+	DECLARE_TASK( TASK_ZOMBIE_ALARM )
+#endif
 
 	DECLARE_ACTIVITY( ACT_ZOM_SWATLEFTMID )
 	DECLARE_ACTIVITY( ACT_ZOM_SWATRIGHTMID )
@@ -3211,4 +3283,25 @@ AI_BEGIN_CUSTOM_NPC( base_zombie, CNPC_BaseZombie )
 		"		TASK_ZOMBIE_WAIT_POST_MELEE		0"
 	)
 
+#ifdef EZ
+	//=========================================================
+	// Like the base class, only don't stop in the middle of 
+	// swinging if the enemy is killed, hides, or new enemy.
+	//=========================================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_ZOMBIE_ALARM,
+
+		"	Tasks"
+		"		TASK_STOP_MOVING		0"
+		"		TASK_FACE_ENEMY			0"
+		"		TASK_SET_ACTIVITY		ACTIVITY:ACT_ZOM_RELEASECRAB"
+		"		TASK_ZOMBIE_ALARM		0"
+		""
+		"	Interrupts"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+	)
+#endif
+		
 AI_END_CUSTOM_NPC()
