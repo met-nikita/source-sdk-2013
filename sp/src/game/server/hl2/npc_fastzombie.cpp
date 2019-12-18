@@ -435,9 +435,9 @@ const char *CFastZombie::pLivingTorsoModelNames[EZ_VARIANT_COUNT] = {
 };
 
 const char *CFastZombie::pHeadcrabModelNames[EZ_VARIANT_COUNT] = {
-	"models/headcrabclassic.mdl",
-	"models/xencrabclassic.mdl",
-	"models/glowcrabclassic.mdl",
+	"models/headcrab.mdl",
+	"models/xencrab.mdl",
+	"models/glowcrab.mdl",
 };
 #endif
 
