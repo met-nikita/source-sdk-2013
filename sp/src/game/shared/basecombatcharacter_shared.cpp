@@ -83,7 +83,11 @@ bool CBaseCombatCharacter::Weapon_CanSwitchTo( CBaseCombatWeapon *pWeapon )
 	}
 
 #ifdef MAPBASE
-	if ( !pWeapon->HasAnyAmmo() && !GetAmmoCount( pWeapon->m_iPrimaryAmmoType ) && !pWeapon->HasSpawnFlags(SF_WEAPON_NO_AUTO_SWITCH_WHEN_EMPTY) )
+	if ( !pWeapon->HasAnyAmmo() && !GetAmmoCount( pWeapon->m_iPrimaryAmmoType ) && !pWeapon->HasSpawnFlags(SF_WEAPON_NO_AUTO_SWITCH_WHEN_EMPTY)
+#ifdef EZ
+		&& GetActiveWeapon() != NULL && GetActiveWeapon() != pWeapon
+#endif
+)
 #else
 	if ( !pWeapon->HasAnyAmmo() && !GetAmmoCount( pWeapon->m_iPrimaryAmmoType ) )
 #endif
