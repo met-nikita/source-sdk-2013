@@ -391,6 +391,10 @@ static ConCommand npc_focus("npc_focus", CC_NPC_Focus, "Displays red line to NPC
 
 ConVar npc_create_equipment("npc_create_equipment", "");
 
+#ifdef EZ
+ConVar npc_create_ezvariant("npc_create_ezvariant", "");
+#endif
+
 #ifdef MAPBASE
 extern int EntityFactory_AutoComplete( const char *cmdname, CUtlVector< CUtlString > &commands, CUtlRBTree< CUtlString > &symbols, char *substring, int checklen = 0 );
 extern bool UtlStringLessFunc( const CUtlString &lhs, const CUtlString &rhs );
@@ -415,6 +419,10 @@ public:
 		if (baseNPC)
 		{
 			baseNPC->KeyValue( "additionalequipment", npc_create_equipment.GetString() );
+
+#ifdef EZ
+			baseNPC->KeyValue( "ezvariant", npc_create_ezvariant.GetString() );
+#endif
 
 			if ( args.ArgC() == 3 )
 			{

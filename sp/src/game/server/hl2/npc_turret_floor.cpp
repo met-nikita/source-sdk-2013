@@ -243,11 +243,17 @@ void CNPC_FloorTurret::Precache( void )
 
 	PropBreakablePrecacheAll( MAKE_STRING( pModelName ) );
 
+#ifdef EZ2
+	PrecacheModel( LASER_BEAM_SPRITE );
+	if ( !IsCitizenTurret() )
+		PrecacheScriptSound( "NPC_FloorTurret.AlarmPing");
+#else
 	if ( IsCitizenTurret() )
 	{
 		PrecacheModel( LASER_BEAM_SPRITE );
 		PrecacheScriptSound( "NPC_FloorTurret.AlarmPing");
 	}
+#endif
 
 	// Activities
 	ADD_CUSTOM_ACTIVITY( CNPC_FloorTurret, ACT_FLOOR_TURRET_OPEN );
@@ -1373,7 +1379,11 @@ void CNPC_FloorTurret::InactiveThink( void )
 		return;
 	}
 
+#ifdef EZ2
+	if ( !IsCitizenTurret() )
+#else
 	if ( IsCitizenTurret() )
+#endif
 	{
 		// Blink if we have ammo or our current blink is "on" and we need to turn it off again
 		if ( HasSpawnFlags( SF_FLOOR_TURRET_OUT_OF_AMMO ) == false || m_bBlinkState )
@@ -1579,7 +1589,11 @@ void CNPC_FloorTurret::SetEyeState( eyeState_t state )
 	}
 
 	// Add the laser if it doesn't already exist
+#ifdef EZ2
+	if ( HasSpawnFlags( SF_FLOOR_TURRET_OUT_OF_AMMO ) == false && m_hLaser == NULL )
+#else
 	if ( IsCitizenTurret() && HasSpawnFlags( SF_FLOOR_TURRET_OUT_OF_AMMO ) == false && m_hLaser == NULL )
+#endif
 	{
 		m_hLaser = CBeam::BeamCreate( LASER_BEAM_SPRITE, 1.0f );
 		if ( m_hLaser == NULL )
