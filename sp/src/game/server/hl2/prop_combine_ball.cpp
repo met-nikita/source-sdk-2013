@@ -1387,10 +1387,73 @@ void CPropCombineBall::OnHitEntity( CBaseEntity *pHitEntity, float flSpeed, int 
 	}
 	else
 	{
+#ifdef EZ2
+		// 
+		// Blixibon - E:Z2 balls try to seek enemies one after the other.
+		// 
+
+		// Don't slow down when hitting other entities.
+		// Do this before we begin our seeking code in case it doesn't finish.
+		vecFinalVelocity = pEvent->postVelocity[index];
+		VectorNormalize( vecFinalVelocity );
+		vecFinalVelocity *= GetSpeed();
+
+		// The first 3 bounces always seek another target.
+		// The more bounces we've had, the less likely we are to seek.
+		if (RandomInt(0, m_nBounceCount) < 3)
+		{
+			CBaseEntity *pBestTarget = NULL;
+			CBaseEntity *list[256];
+
+			Vector vecStartPoint, vecVelDir, vecDelta;
+			pEvent->pInternalData->GetContactPoint( vecStartPoint );
+			vecVelDir = pEvent->postVelocity[index];
+			VectorNormalize( vecVelDir );
+
+			float	distance;
+			float	flBestDist = MAX_COORD_FLOAT;
+			int nCount = UTIL_EntitiesInSphere( list, 256, GetAbsOrigin(), sk_combine_ball_search_radius.GetFloat(), FL_NPC | FL_CLIENT );
+			
+			for ( int i = 0; i < nCount; i++ )
+			{
+				if ( !IsAttractiveTarget( list[i] ) )
+					continue;
+
+				VectorSubtract( list[i]->WorldSpaceCenter(), vecStartPoint, vecDelta );
+				distance = VectorNormalize( vecDelta );
+
+				if ( distance < flBestDist )
+				{
+					// Check our direction
+					if ( DotProduct( vecDelta, vecVelDir ) > 0.0f )
+					{
+						pBestTarget = list[i];
+						flBestDist = distance;
+					}
+				}
+			}
+
+			if ( pBestTarget )
+			{
+				Msg("Found %s on %i bounce\n", pBestTarget->GetDebugName(), m_nBounceCount);
+
+				VectorSubtract( pBestTarget->WorldSpaceCenter(), vecStartPoint, vecFinalVelocity );
+				VectorNormalize( vecFinalVelocity );
+				vecFinalVelocity *= GetSpeed();
+			}
+			else
+			{
+				Msg("Didn't find a target on %i bounce\n", m_nBounceCount);
+			}
+
+			++m_nBounceCount;
+		}
+#else
 		// Don't slow down when hitting other entities.
 		vecFinalVelocity = pEvent->postVelocity[index];
 		VectorNormalize( vecFinalVelocity );
 		vecFinalVelocity *= GetSpeed();
+#endif
 	}
 	PhysCallbackSetVelocity( pEvent->pObjects[index], vecFinalVelocity ); 
 }
@@ -1466,6 +1529,7 @@ bool CPropCombineBall::IsAttractiveTarget( CBaseEntity *pEntity )
 	{
 		
 #ifndef HL2MP
+#ifndef EZ
 		if ( GetOwnerEntity() ) 
 		{
 			// Things we check if this ball has an owner that's not an NPC.
@@ -1480,6 +1544,7 @@ bool CPropCombineBall::IsAttractiveTarget( CBaseEntity *pEntity )
 				}
 			}
 		}
+#endif
 
 		// The default case.
 		if ( !pEntity->IsNPC() )
@@ -1487,6 +1552,12 @@ bool CPropCombineBall::IsAttractiveTarget( CBaseEntity *pEntity )
 
 		if( pEntity->Classify() == CLASS_BULLSEYE )
 			return false;
+
+#ifdef EZ2
+		// Blixibon - Don't seek the player dummy or NPCs that like the owner
+		if ( pEntity->GetOwnerEntity() == GetOwnerEntity() || pEntity->MyNPCPointer()->IRelationType(GetOwnerEntity()) > D_FR )
+			return false;
+#endif
 
 #else
 		if ( pEntity->IsPlayer() == false )
@@ -1505,7 +1576,12 @@ bool CPropCombineBall::IsAttractiveTarget( CBaseEntity *pEntity )
 
 		// We must be able to hit them
 		trace_t	tr;
+#ifdef EZ2
+		// Trace through NPCs
+		UTIL_TraceLine( WorldSpaceCenter(), pEntity->BodyTarget( WorldSpaceCenter() ), MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );
+#else
 		UTIL_TraceLine( WorldSpaceCenter(), pEntity->BodyTarget( WorldSpaceCenter() ), MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
+#endif
 
 		if ( tr.fraction < 1.0f && tr.m_pEnt != pEntity )
 			return false;
