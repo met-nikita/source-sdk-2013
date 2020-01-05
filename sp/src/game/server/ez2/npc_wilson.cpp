@@ -1435,6 +1435,7 @@ BEGIN_DATADESC(CArbeitScanner)
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "FinishScan", InputFinishScan ),
 
 	DEFINE_THINKFUNC( IdleThink ),
 	DEFINE_THINKFUNC( AwaitScanThink ),
@@ -1543,6 +1544,15 @@ void CArbeitScanner::InputDisable( inputdata_t &inputdata )
 
 	SetThink( NULL );
 	SetNextThink( TICK_NEVER_THINK );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CArbeitScanner::InputFinishScan( inputdata_t &inputdata )
+{
+	m_flScanEndTime = gpGlobals->curtime;
+	FinishScan();
 }
 
 //-----------------------------------------------------------------------------
@@ -1706,18 +1716,21 @@ void CArbeitScanner::ScanThink()
 	Vector vecOrigin;
 	GetAttachment( m_iScanAttachment, vecOrigin );
 
-	if (!m_hScanning || !m_hScanning->IsAlive() || ((vecOrigin - m_hScanning->GetAbsOrigin()).LengthSqr() > (m_flInnerRadius * m_flInnerRadius)))
+	if (!HasSpawnFlags(SF_ARBEIT_SCANNER_STAY_SCANNING))
 	{
-		// Must've been killed or moved too far away while we were scanning.
-		// Use WaitForReturn to test whether anyone else is in our radius.
-		m_OnScanInterrupt.FireOutput( m_hScanning, this );
+		if (!m_hScanning || !m_hScanning->IsAlive() || ((vecOrigin - m_hScanning->GetAbsOrigin()).LengthSqr() > (m_flInnerRadius * m_flInnerRadius)))
+		{
+			// Must've been killed or moved too far away while we were scanning.
+			// Use WaitForReturn to test whether anyone else is in our radius.
+			m_OnScanInterrupt.FireOutput( m_hScanning, this );
 
-		EmitSound( "AI_BaseNPC.SentenceStop" );
+			EmitSound( "AI_BaseNPC.SentenceStop" );
 
-		CleanupScan();
-		SetThink( &CArbeitScanner::WaitForReturnThink );
-		SetNextThink( gpGlobals->curtime );
-		return;
+			CleanupScan();
+			SetThink( &CArbeitScanner::WaitForReturnThink );
+			SetNextThink( gpGlobals->curtime );
+			return;
+		}
 	}
 
 	// Scanning...
@@ -1738,7 +1751,11 @@ void CArbeitScanner::ScanThink()
 
 		m_hScanning->DispatchInteraction(g_interactionArbeitScannerStart, NULL, NULL);
 
-		m_flScanEndTime = gpGlobals->curtime + m_flScanTime;
+		// Check if we should scan indefinitely
+		if (m_flScanTime == -1.0f)
+			m_flScanEndTime = FLT_MAX;
+		else
+			m_flScanEndTime = gpGlobals->curtime + m_flScanTime;
 	}
 	else
 	{
@@ -1746,31 +1763,7 @@ void CArbeitScanner::ScanThink()
 		if (m_flScanEndTime <= gpGlobals->curtime)
 		{
 			// Scan is finished!
-			if (CanPassScan(m_hScanning))
-			{
-				SetScanState( SCAN_DONE );
-				EmitSound( STRING(m_iszScanDoneSound) );
-				m_OnScanDone.FireOutput(m_hScanning, this);
-			}
-			else
-			{
-				SetScanState( SCAN_REJECT );
-				EmitSound( STRING(m_iszScanRejectSound) );
-				m_OnScanReject.FireOutput(m_hScanning, this);
-			}
-
-			CleanupScan();
-
-			if (m_flCooldown != -1)
-			{
-				SetThink( &CArbeitScanner::IdleThink );
-				SetNextThink( gpGlobals->curtime + m_flCooldown );
-			}
-			else
-			{
-				SetThink( NULL );
-				SetNextThink( TICK_NEVER_THINK );
-			}
+			FinishScan();
 
 			return;
 		}
@@ -1778,6 +1771,41 @@ void CArbeitScanner::ScanThink()
 
 	SetNextThink(gpGlobals->curtime + 0.1f);
 	StudioFrameAdvance();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CArbeitScanner::FinishScan()
+{
+	bool bPassScan = CanPassScan(m_hScanning);
+	if (bPassScan)
+	{
+		SetScanState( SCAN_DONE );
+		EmitSound( STRING(m_iszScanDoneSound) );
+		m_OnScanDone.FireOutput(m_hScanning, this);
+	}
+	else
+	{
+		SetScanState( SCAN_REJECT );
+		EmitSound( STRING(m_iszScanRejectSound) );
+		m_OnScanReject.FireOutput(m_hScanning, this);
+	}
+
+	CleanupScan();
+
+	if (m_flCooldown != -1)
+	{
+		SetThink( &CArbeitScanner::IdleThink );
+		SetNextThink( gpGlobals->curtime + m_flCooldown );
+	}
+	else
+	{
+		SetThink( NULL );
+		SetNextThink( TICK_NEVER_THINK );
+	}
+
+	return bPassScan;
 }
 
 //-----------------------------------------------------------------------------

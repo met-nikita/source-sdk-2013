@@ -214,6 +214,8 @@ protected:
 	DEFINE_CUSTOM_AI;
 };
 
+#define SF_ARBEIT_SCANNER_STAY_SCANNING ( 1 << 0 )
+
 //-----------------------------------------------------------------------------
 // Purpose: Arbeit scanner that Wilson uses.
 //-----------------------------------------------------------------------------
@@ -248,10 +250,12 @@ public:
 	void	WaitForReturnThink();
 
 	void	ScanThink();
+	bool	FinishScan();
 	void	CleanupScan();
 
 	void	InputEnable( inputdata_t &inputdata );
 	void	InputDisable( inputdata_t &inputdata );
+	void	InputFinishScan( inputdata_t &inputdata );
 
 	enum
 	{
