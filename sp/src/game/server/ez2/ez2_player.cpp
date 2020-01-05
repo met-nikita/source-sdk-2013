@@ -13,6 +13,8 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+ConVar player_mute_responses( "player_mute_responses", "0", FCVAR_ARCHIVE, "Mutes the responsive Bad Cop." );
+
 #if EZ2
 LINK_ENTITY_TO_CLASS(player, CEZ2_Player);
 PRECACHE_REGISTER(player);
@@ -152,7 +154,10 @@ void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 		// "Fascinating."
 		// "Holy shit!"
 		if (modifiers.FindCriterionIndex("stealth_chat"))
+		{
+			pNPC->AddFacingTarget(this, 5.0f, 3.0f, 2.0f);
 			pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
+		}
 
 		//CSoundEnt::InsertSound( SOUND_PLAYER, EyePosition(), 128, 0.1, this );
 	}
@@ -371,6 +376,12 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 
 	// Reset this now that we're appending general criteria
 	ResetPlayerCriteria();
+
+	// Look for Will-E.
+	if (CNPC_Wilson *pWilson = CNPC_Wilson::GetWilson())
+	{
+		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<64>( "%f", (pWilson->GetAbsOrigin() - GetAbsOrigin()).Length() ));
+	}
 
 	// Do we have a speech filter? If so, append its criteria too
 	if ( GetSpeechFilter() )
@@ -669,6 +680,9 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 		return false;
 
 	if (IsInAScript())
+		return false;
+
+	if (player_mute_responses.GetBool())
 		return false;
 
 	// Don't say anything if we're running a scene with speech
@@ -1020,13 +1034,18 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 //-----------------------------------------------------------------------------
 // Purpose: Event fired by killed allies
 //-----------------------------------------------------------------------------
-void CEZ2_Player::AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info)
+void CEZ2_Player::AllyKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &info)
 {
 	AI_CriteriaSet modifiers;
 
 	ModifyOrAppendDamageCriteria(modifiers, info, false);
 	ModifyOrAppendEnemyCriteria(modifiers, info.GetAttacker());
 	SetSpeechTarget(pVictim);
+
+	// Bad Cop needs to differentiate between human-like allies (soldiers, metrocops, etc.)
+	// and non-human allies (hunters, manhacks, etc.) for some responses.
+	if (pVictim->GetHullType() == HULL_HUMAN || pVictim->GetHullType() == HULL_WIDE_HUMAN)
+		modifiers.AppendCriteria("speechtarget_humanoid", "1");
 
 	SpeakIfAllowed(TLK_ALLY_KILLED, modifiers);
 }
@@ -1388,8 +1407,12 @@ void CEZ2_Player::MeasureEnemies(int &iVisibleEnemies, int &iCloseEnemies)
 	for ( AI_EnemyInfo_t *pEMemory = pEnemies->GetFirst(&iter); pEMemory != NULL; pEMemory = pEnemies->GetNext(&iter) )
 	{
 		if ( IRelationType( pEMemory->hEnemy ) <= D_FR && pEMemory->hEnemy->GetAbsOrigin().DistToSqr(GetAbsOrigin()) <= PLAYER_MIN_ENEMY_CONSIDER_DIST &&
-			pEMemory->hEnemy->IsAlive() && gpGlobals->curtime - pEMemory->timeLastSeen <= 5.0f && pEMemory->hEnemy->Classify() != CLASS_BULLSEYE )
+			pEMemory->hEnemy->IsAlive() && gpGlobals->curtime - pEMemory->timeLastSeen <= 5.0f )
 		{
+			Class_T classify = pEMemory->hEnemy->Classify();
+			if (classify == CLASS_BARNACLE || classify == CLASS_BULLSEYE)
+				continue;
+
 			iVisibleEnemies += 1;
 
 			if( pEMemory->hEnemy->GetAbsOrigin().DistToSqr(GetAbsOrigin()) <= PLAYER_MIN_MOB_DIST_SQR )

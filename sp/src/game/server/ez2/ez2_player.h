@@ -138,7 +138,7 @@ public:
 
 	void			Event_NPCKilled( CAI_BaseNPC *pVictim, const CTakeDamageInfo &info );
 	void			Event_NPCIgnited( CAI_BaseNPC *pVictim );
-	void			AllyKilled(CBaseEntity *pVictim, const CTakeDamageInfo &info);
+	void			AllyKilled( CAI_BaseNPC *pVictim, const CTakeDamageInfo &info );
 
 	void			Event_SeeEnemy( CBaseEntity *pEnemy );
 	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
