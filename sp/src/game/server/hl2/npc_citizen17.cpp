@@ -334,6 +334,7 @@ static const char *g_ppszModelLocs[] =
 	"Group03%s",
 	"Group03b",
 	"Group03x", // May wish to change this to "Group04%s" IF a brute and medic version of the long fall rebel are created - then we can have Group04, Group04b, Group04m
+	"Group04%s",
 };
 
 #define IsExcludedHead( type, bMedic, iHead) false // see XBox codeline for an implementation
@@ -521,7 +522,11 @@ void CNPC_Citizen::PrecacheAllOfType( CitizenType_t type )
 		}
 	}
 
+#ifdef EZ
+	if ( m_Type == CT_REBEL || m_Type == CT_ARCTIC )
+#else
 	if ( m_Type == CT_REBEL )
+#endif
 	{
 		for ( i = 0; i < nHeads; ++i )
 		{
@@ -713,8 +718,9 @@ void CNPC_Citizen::SelectModel()
 		PrecacheAllOfType( CT_DOWNTRODDEN );
 		PrecacheAllOfType( CT_REFUGEE );
 		PrecacheAllOfType( CT_REBEL );
-		PrecacheAllOfType( CT_BRUTE);
-		PrecacheAllOfType( CT_LONGFALL);
+		PrecacheAllOfType( CT_BRUTE );
+		PrecacheAllOfType( CT_LONGFALL );
+		PrecacheAllOfType( CT_ARCTIC );
 	}
 
 	const char *pszModelName = NULL;
@@ -859,10 +865,12 @@ void CNPC_Citizen::SelectModel()
 	{
 #ifdef EZ2
 		const char * subtype = ""; // 1upD - used to be the only subtype was "m" for medic
-		subtype = (m_spawnEquipment == AllocPooledString("weapon_shotgun")) ? "b" : subtype;	// Rebel Brute - may wish to rethind this approach
-																								//	Currently, rebels with shotguns are still CT_REBEL with modelset Group03b
-																								//	If we want any special behaviors for the brute, we will need to set the type of
-																								//	shotgun rebels to "CT_BRUTE".
+
+		if (m_Type == CT_REBEL)
+			subtype = (m_spawnEquipment == AllocPooledString("weapon_shotgun")) ? "b" : subtype;	// Rebel Brute - may wish to rethind this approach
+																									//	Currently, rebels with shotguns are still CT_REBEL with modelset Group03b
+																									//	If we want any special behaviors for the brute, we will need to set the type of
+																									//	shotgun rebels to "CT_BRUTE".
 		subtype = (IsMedic()) ? "m" : subtype; // Rebel Medic takes precedence
 
 		// If this citizen's type is "LongFall", they should use the appropriate subtype
@@ -900,6 +908,8 @@ void CNPC_Citizen::SelectExpressionType()
 		m_ExpressionType = (CitizenExpressionTypes_t)RandomInt(CIT_EXP_NORMAL, CIT_EXP_ANGRY); // Brutes show no fear
 	case CT_LONGFALL:
 		m_ExpressionType = (CitizenExpressionTypes_t)RandomInt(CIT_EXP_NORMAL, CIT_EXP_ANGRY); // Long fall boot rebels are crazy
+	case CT_ARCTIC:
+		m_ExpressionType = (CitizenExpressionTypes_t)RandomInt( CIT_EXP_SCARED, CIT_EXP_ANGRY );
 	case CT_DEFAULT:
 	case CT_UNIQUE:
 	default:
@@ -3074,8 +3084,14 @@ int CNPC_Citizen::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 {
 	if( (info.GetDamageType() & DMG_BURN) && (info.GetDamageType() & DMG_DIRECT) )
 	{
+#ifdef EZ
+		// Blixibon - Citizens scorch more, even faster than zombies; makes it more brutal
+#define CITIZEN_SCORCH_RATE		10
+#define CITIZEN_SCORCH_FLOOR	75
+#else
 #define CITIZEN_SCORCH_RATE		6
 #define CITIZEN_SCORCH_FLOOR	75
+#endif
 
 		Scorch( CITIZEN_SCORCH_RATE, CITIZEN_SCORCH_FLOOR );
 	}
@@ -5237,7 +5253,7 @@ AI_BEGIN_CUSTOM_NPC( npc_citizen, CNPC_Citizen )
 
 		"	Tasks"
 		"		TASK_SET_ACTIVITY				ACTIVITY:ACT_IDLE_ON_FIRE"
-		"		TASK_WAIT						1.5"
+		"		TASK_WAIT						3.5" // Blixibon - Metrocops die after 1.5, but 3.5 gives citizens more scorch time and players more traumatization time
 		"		TASK_CIT_DIE_INSTANTLY			DMG_BURN"
 		"		TASK_WAIT						1.0"
 		"	"

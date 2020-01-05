@@ -52,7 +52,8 @@ enum CitizenType_t
 	CT_REBEL,
 	CT_UNIQUE,
 	CT_BRUTE,
-	CT_LONGFALL
+	CT_LONGFALL,
+	CT_ARCTIC,
 };
 
 //-----------------------------------------------------------------------------
