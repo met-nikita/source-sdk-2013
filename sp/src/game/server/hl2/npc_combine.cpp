@@ -527,8 +527,8 @@ void CNPC_Combine::MoveOrder(const Vector & vecDest, CAI_BaseNPC ** Allies, int 
 
 	// Stop following.
 	m_FollowBehavior.SetFollowTarget(NULL);
-	SetCommandGoal(vecDest);
-	OnMoveOrder();
+
+	BaseClass::MoveOrder( vecDest, Allies, numAllies );
 }
 
 //-----------------------------------------------------------------------------
@@ -3289,6 +3289,11 @@ int CNPC_Combine::TranslateSchedule( int scheduleType )
 		}
 	case SCHED_TAKE_COVER_FROM_BEST_SOUND:
 		{
+#ifdef EZ
+			// Blixibon - This means we fall back to SCHED_PC_MOVE_TOWARDS_COVER_FROM_BEST_SOUND instead
+			// Needed for preventing stupidity from worker acid in the antlion standoff at the end of Chapter 1
+			if ( !HaveCommandGoal() )
+#endif
 			return SCHED_COMBINE_TAKE_COVER_FROM_BEST_SOUND;
 		}
 		break;

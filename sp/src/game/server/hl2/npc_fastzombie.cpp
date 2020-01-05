@@ -417,15 +417,15 @@ const char *CFastZombie::pModelNames[EZ_VARIANT_COUNT] = {
 };
 
 const char *CFastZombie::pTorsoModelNames[EZ_VARIANT_COUNT] = {
-	"models/zombie/fast_zombie_torso.mdl",
-	"models/zombie/fast_xenbie_zombie_torso.mdl",
-	"models/zombie/fast_glowbie_zombie_torso.mdl",
+	"models/gibs/fast_zombie_torso.mdl",
+	"models/gibs/fast_xenbie_zombie_torso.mdl",
+	"models/gibs/fast_glowbie_zombie_torso.mdl",
 };
 
 const char *CFastZombie::pLegsModelNames[EZ_VARIANT_COUNT] = {
-	"models/zombie/fast_zombie_legs.mdl",
-	"models/zombie/fast_xenbie_zombie_legs.mdl",
-	"models/zombie/fast_glowbie_zombie_legs.mdl",
+	"models/gibs/fast_zombie_legs.mdl",
+	"models/gibs/fast_xenbie_zombie_legs.mdl",
+	"models/gibs/fast_glowbie_zombie_legs.mdl",
 };
 
 const char *CFastZombie::pLivingTorsoModelNames[EZ_VARIANT_COUNT] = {
