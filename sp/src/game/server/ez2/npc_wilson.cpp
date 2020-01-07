@@ -55,6 +55,9 @@ static const char *g_DamageZapContext = "DamageZapEffect";
 
 #define WILSON_MAX_TIPPED_HEIGHT 2048
 
+// The amount of damage needed for Will-E to have a tesla effect
+#define WILSON_TESLA_DAMAGE_THRESHOLD 15.0f
+
 BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_FIELD( m_bBlinkState,	FIELD_BOOLEAN ),
@@ -75,6 +78,7 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_FIELD( m_flLastPhysicsInfluenceTime, FIELD_TIME ),
 
 	DEFINE_FIELD( m_fNextFidgetSpeechTime, FIELD_TIME ),
+	DEFINE_FIELD( m_bPlayerLeftPVS, FIELD_BOOLEAN ),
 
 	DEFINE_KEYFIELD( m_bStatic, FIELD_BOOLEAN, "static" ),
 
@@ -131,7 +135,7 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	// So we don't think we haven't seen the player in a while
 	// when in fact we were just spawned
 	// (it's funny, but still)
-	m_flLastSawPlayerTime = -1.0f;
+	m_flLastSawPlayerTime = gpGlobals->curtime;
 }
 
 CNPC_Wilson::~CNPC_Wilson( void )
@@ -368,7 +372,7 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 		}
 	}
 
-	if (info.GetDamageType() & (DMG_SHOCK | DMG_ENERGYBEAM | DMG_CRUSH))
+	if (info.GetDamageType() & (DMG_SHOCK | DMG_ENERGYBEAM | DMG_CRUSH) && info.GetDamage() >= WILSON_TESLA_DAMAGE_THRESHOLD)
 	{
 		// Get a tesla effect on our hitboxes for a little while.
 		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime, g_DamageZapContext );
@@ -533,6 +537,19 @@ void CNPC_Wilson::NPCThink()
 	{
 		// Needed for choreography reasons
 		AimGun();
+
+		// m_flLastSawPlayerTime is a base variable that wasn't designed for this, but it isn't used for anything other than speech,
+		// so we're good on re-using it here.
+		// 
+		// If we haven't left the player's PVS since we last actually saw them, still consider it as "seeing" the player.
+		// This is so the player doesn't just stand behind Will-E for a few minutes and surprise him by going back in front of him.
+		if (!m_bPlayerLeftPVS)
+			m_flLastSawPlayerTime = gpGlobals->curtime;
+	}
+	else
+	{
+		if (!m_bPlayerLeftPVS)
+			m_bPlayerLeftPVS = true;
 	}
 
 	// See if we've tipped, but only do this if we're not being carried.
@@ -737,13 +754,18 @@ void CNPC_Wilson::OnSeeEntity( CBaseEntity *pEntity )
 	{
 		if ( pEntity->IsEFlagSet(EFL_IS_BEING_LIFTED_BY_BARNACLE) )
 		{
+			SetSpeechTarget( pEntity );
 			SpeakIfAllowed( TLK_ALLY_IN_BARNACLE );
 		}
-		else if (gpGlobals->curtime - m_flLastSawPlayerTime > 60.0f && m_flCarryTime < m_flLastSawPlayerTime)
+		else if (gpGlobals->curtime - m_flLastSawPlayerTime > 60.0f /*&& m_flCarryTime < m_flLastSawPlayerTime*/)
 		{
 			// Oh, hey, Bad Cop! Long time no see!
-			SpeakIfAllowed( TLK_FOUNDPLAYER );
+			// Needs to be Speak() to override any currently running speech
+			SetSpeechTarget( pEntity );
+			Speak( TLK_FOUNDPLAYER );
 		}
+
+		m_bPlayerLeftPVS = false;
 	}
 }
 
@@ -863,6 +885,10 @@ bool CNPC_Wilson::QueryHearSound( CSound *pSound )
 		if ( pSound->m_hOwner.Get()->IsPlayer() )
 			return false;
 
+		// We shouldn't hear sounds emitted by entities we like.
+		if ( IRelationType(pSound->m_hOwner.Get()) == D_LI )
+			return false;
+
 		// We can't hear sounds emitted directly by a vehicle driven by the player.
 		IServerVehicle *pVehicle = pSound->m_hOwner->GetServerVehicle();
 		if ( pVehicle && pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER) && pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER)->IsPlayer() )
@@ -939,7 +965,7 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 	else if ( gpGlobals->curtime - m_flLastSawPlayerTime >= 60.0f )
 	{
 		// Getting lonely?
-		if ( ShouldSpeakRandom( TLK_IDLE, 10 ) && SelectSpeechResponse( TLK_IDLE, NULL, pTarget, pSelection ) )
+		if ( ShouldSpeakRandom( TLK_DARKNESS_LOSTPLAYER, 10 ) && SelectSpeechResponse( TLK_DARKNESS_LOSTPLAYER, NULL, pTarget, pSelection ) )
 			return true;
 	}
 
@@ -973,6 +999,13 @@ void CNPC_Wilson::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t re
 {
 	m_hPhysicsAttacker = pPhysGunUser;
 	m_flLastPhysicsInfluenceTime = gpGlobals->curtime;
+
+	if (gpGlobals->curtime - m_flLastSawPlayerTime > 1.0f)
+	{
+		// Pretend we're seeing the player
+		OnSeeEntity( pPhysGunUser );
+		m_flLastSawPlayerTime = gpGlobals->curtime;
+	}
 
 	if ( reason != PUNTED_BY_CANNON )
 	{
@@ -1039,7 +1072,6 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 	}
 
 
-	// TODO: grenade_hopwire doesn't use this interaction yet, awaiting Xen Grenade being turned into a unique entity
 	if ( interactionType == g_interactionXenGrenadeConsume )
 	{
 		if (true)

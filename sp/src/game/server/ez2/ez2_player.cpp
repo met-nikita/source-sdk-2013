@@ -14,6 +14,7 @@
 #include "tier0/memdbgon.h"
 
 ConVar player_mute_responses( "player_mute_responses", "0", FCVAR_ARCHIVE, "Mutes the responsive Bad Cop." );
+ConVar player_dummy_in_squad( "player_dummy_in_squad", "0", FCVAR_ARCHIVE, "Puts the player dummy in the player's squad, which means squadmates will see enemies the player sees." );
 
 #if EZ2
 LINK_ENTITY_TO_CLASS(player, CEZ2_Player);
@@ -889,7 +890,7 @@ void CEZ2_Player::ModifyOrAppendFinalEnemyCriteria(AI_CriteriaSet& set, CBaseEnt
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Appends criteria for when we're leaving an engagement
+// Purpose: Appends criteria from our AI
 //-----------------------------------------------------------------------------
 void CEZ2_Player::ModifyOrAppendAICombatCriteria(AI_CriteriaSet& set)
 {
@@ -1629,9 +1630,12 @@ void CAI_PlayerNPCDummy::Spawn( void )
 
 	AddEffects( EF_NODRAW );
 
-	// Put us in the player's squad
-	CapabilitiesAdd(bits_CAP_SQUAD);
-	AddToSquad( AllocPooledString(PLAYER_SQUADNAME) );
+	if (player_dummy_in_squad.GetBool())
+	{
+		// Put us in the player's squad
+		CapabilitiesAdd(bits_CAP_SQUAD);
+		AddToSquad( AllocPooledString(PLAYER_SQUADNAME) );
+	}
 }
 
 //-----------------------------------------------------------------------------

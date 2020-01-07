@@ -154,6 +154,9 @@ public:
 
 	bool		IsSilentSquadMember() const;
 
+	// Always think if we're the main Wilson NPC
+	bool		ShouldAlwaysThink() { return CNPC_Wilson::GetWilson() == this || BaseClass::ShouldAlwaysThink(); }
+
 protected:
 	//-----------------------------------------------------
 	// Conditions, Schedules, Tasks
@@ -196,6 +199,9 @@ protected:
 	float					m_flLastPhysicsInfluenceTime;
 
 	float		m_fNextFidgetSpeechTime;
+
+	// See CNPC_Wilson::NPCThink()
+	bool	m_bPlayerLeftPVS;
 
 	// For when Wilson is meant to be non-interactive (e.g. background maps, dev commentary)
 	// This makes Wilson unmovable and deactivates/doesn't precache a few miscellaneous things.
