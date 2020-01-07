@@ -84,6 +84,9 @@ public:
 	int				RangeAttack2Conditions( float flDot, float flDist ); // For innate grenade attack
 	int				MeleeAttack1Conditions( float flDot, float flDist ); // For kick/punch
 	bool			FVisible( CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL );
+#ifdef EZ2
+	void			OnSeeEntity( CBaseEntity *pEntity );
+#endif
 	virtual bool	IsCurTaskContinuousMove();
 
 	virtual float	GetJumpGravity() const		{ return 1.8f; }

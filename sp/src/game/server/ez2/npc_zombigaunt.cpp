@@ -8,6 +8,7 @@
 #include "cbase.h"
 #include "npcevent.h"
 #include "npc_zombigaunt.h"
+#include "sceneentity.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -25,7 +26,10 @@ extern int AE_VORTIGAUNT_SWING_SOUND;
 // Save/Restore
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_Zombigaunt )
-// Saved fields go here
+
+	DEFINE_FIELD( m_iszChargeResponse, FIELD_STRING ),
+	DEFINE_FIELD( m_flChargeResponseEnd, FIELD_TIME ),
+
 END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( npc_zombigaunt, CNPC_Zombigaunt );
@@ -210,7 +214,20 @@ void CNPC_Zombigaunt::OnStartSchedule( int scheduleType )
 {
 	BaseClass::OnStartSchedule( scheduleType );
 
-	// Make weird motions while charging
+	// Blixibon - Make weird motions while charging
 	if (scheduleType == SCHED_CHASE_ENEMY)
-		Speak( TLK_VORT_CHARGE );
+	{
+		char szResponse[AI_Response::MAX_RESPONSE_NAME];
+
+		if (Speak( TLK_VORT_CHARGE, NULL, szResponse, AI_Response::MAX_RESPONSE_NAME ))
+		{
+			m_iszChargeResponse = AllocPooledString( szResponse );
+			m_flChargeResponseEnd = gpGlobals->curtime + GetSceneDuration( szResponse );
+		}
+	}
+	else
+	{
+		if (gpGlobals->curtime < m_flChargeResponseEnd)
+			RemoveActorFromScriptedScenes( this, true, false, STRING(m_iszChargeResponse) );
+	}
 }

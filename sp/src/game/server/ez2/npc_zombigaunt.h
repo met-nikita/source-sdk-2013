@@ -44,6 +44,12 @@ protected:
 	// Zombigaunts have a much slower recharge time than vortigaunts, making them more likely to close in for the kill
 	virtual float GetNextRangeAttackTime( void ) { return gpGlobals->curtime + random->RandomFloat( 5.0f, 10.0f ); }
 
+private:
+
+	// Blixibon - Needed so charge scenes can be canceled properly
+	string_t m_iszChargeResponse;
+	float m_flChargeResponseEnd;
+
 public:
 	DECLARE_DATADESC();
 };

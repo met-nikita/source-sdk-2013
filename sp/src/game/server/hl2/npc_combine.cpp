@@ -195,6 +195,10 @@ enum PathfindingVariant_T
 #define bits_MEMORY_PAIN_LIGHT_SOUND		bits_MEMORY_CUSTOM1
 #define bits_MEMORY_PAIN_HEAVY_SOUND		bits_MEMORY_CUSTOM2
 #define bits_MEMORY_PLAYER_HURT				bits_MEMORY_CUSTOM3
+#ifdef EZ2
+// Blixibon - Soldiers sometimes stare at things like objects the player is carrying (e.g. Wilson).
+#define bits_MEMORY_SAW_PLAYER_WEIRDNESS	bits_MEMORY_CUSTOM4
+#endif
 
 LINK_ENTITY_TO_CLASS( npc_combine, CNPC_Combine );
 
@@ -2144,6 +2148,30 @@ bool CNPC_Combine::FVisible( CBaseEntity *pEntity, int traceMask, CBaseEntity **
 	}
 	return BaseClass::FVisible(pEntity, traceMask, ppBlocker);
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Combine::OnSeeEntity( CBaseEntity *pEntity )
+{
+	BaseClass::OnSeeEntity(pEntity);
+
+	if ( pEntity->IsPlayer() )
+	{
+		if ( static_cast<CBasePlayer*>(pEntity)->GetUseEntity() && !HasMemory(bits_MEMORY_SAW_PLAYER_WEIRDNESS) && m_NPCState != NPC_STATE_COMBAT && !IsRunningScriptedSceneAndNotPaused(this, false) )
+		{
+			CBaseEntity *pUseEntity = static_cast<CBasePlayer*>(pEntity)->GetUseEntity();
+			if ( FVisible(pUseEntity) )
+			{
+				DevMsg("Looking at player object\n");
+				AddLookTarget( pUseEntity, 1.25f, 5.0f, 1.0f );
+				Remember( bits_MEMORY_SAW_PLAYER_WEIRDNESS );
+			}
+		}
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
