@@ -432,6 +432,14 @@ bool CNPC_BasePredator::CanMateWithTarget( CNPC_BasePredator * pTarget, bool rec
 }
 
 //=========================================================
+// Should this predator eat while enemies are present?
+//=========================================================
+bool CNPC_BasePredator::ShouldEatInCombat()
+{
+	return m_iMaxHealth > m_iHealth && HasCondition( COND_PREDATOR_SMELL_FOOD ) && !IsSameSpecies( GetEnemy() ) && ( !IsInSquad() || OccupyStrategySlot( SQUAD_SLOT_FEED ) );
+}
+
+//=========================================================
 // GetSoundInterests - returns a bit mask indicating which types
 // of sounds this monster regards.
 // Predatory monsters are interested in sounds and scents.
@@ -772,7 +780,7 @@ int CNPC_BasePredator::SelectSchedule( void )
 
 		// If a predator is below maximum health, smells food, is not targetting a fellow predator, and has the squad slot (if applicable)
 		// it may eat in combat
-		if ( m_iMaxHealth > m_iHealth && HasCondition( COND_PREDATOR_SMELL_FOOD ) && !IsSameSpecies( GetEnemy() ) && (!IsInSquad() || OccupyStrategySlot( SQUAD_SLOT_FEED ) ) )
+		if ( ShouldEatInCombat() )
 		{
 			// Don't bother sniffing food while in combat
 			return SCHED_PREDATOR_RUN_EAT;

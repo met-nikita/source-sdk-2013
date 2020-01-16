@@ -1,32 +1,157 @@
 //=============================================================================//
 //
-// Purpose: Predator that fires spiky projectiles at enemies.
-//			Could be used to replicate the Pit Drone from Opposing Force
+// Purpose: Large Race X predator that fires unstable portals
+//
 // Author: 1upD
 //
 //=============================================================================//
 
 #include "cbase.h"
 #include "npcevent.h"
-#include "NPC_SpineThrowingPredator.h"
+#include "NPC_Voltigore.h"
 #include "movevars_shared.h"
+#include "grenade_hopwire.h"
+#include "hl2_shareddefs.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-ConVar sk_spinethrowingpredator_health( "sk_spinethrowingpredator_health", "100" );
-ConVar sk_spinethrowingpredator_dmg_spit( "sk_spinethrowingpredator_dmg_spit", "33" );
-ConVar sk_spinethrowingpredator_dmg_slash( "sk_spinethrowingpredator_dmg_slash", "33" );
-ConVar sk_spinethrowingpredator_spit_gravity( "sk_spinethrowingpredator_spit_gravity", "600" );
-ConVar sk_spinethrowingpredator_spit_arc_size( "sk_spinethrowingpredator_spit_arc_size", "3");
+ConVar sk_voltigore_health( "sk_voltigore_health", "400" );
+ConVar sk_voltigore_dmg_spit( "sk_voltigore_dmg_spit", "15" );
+ConVar sk_voltigore_dmg_slash( "sk_voltigore_dmg_slash", "15" );
+ConVar sk_voltigore_spit_gravity( "sk_voltigore_spit_gravity", "600" );
+ConVar sk_voltigore_spit_arc_size( "sk_voltigore_spit_arc_size", "3");
 
-LINK_ENTITY_TO_CLASS( npc_spinethrowingpredator, CNPC_SpineThrowingPredator );
-LINK_ENTITY_TO_CLASS( npc_pitdrone, CNPC_SpineThrowingPredator );
+LINK_ENTITY_TO_CLASS( npc_voltigore, CNPC_Voltigore );
+
+//=========================================================
+// Gonome's spit projectile
+//=========================================================
+class CVoltigoreProjectile : public CBaseEntity
+{
+	DECLARE_CLASS( CVoltigoreProjectile, CBaseEntity );
+public:
+	void Spawn( void );
+	void Touch( CBaseEntity *pOther );
+
+	static void Shoot( CBaseEntity *pOwner, Vector vecStart, Vector vecVelocity );
+
+	DECLARE_DATADESC();
+
+	void SetSprite( CBaseEntity *pSprite )
+	{
+		m_hSprite = pSprite;
+	}
+
+	CBaseEntity *GetSprite( void )
+	{
+		return m_hSprite.Get();
+	}
+
+	void ThinkRemove();
+
+private:
+	int m_nSpriteIndex;
+	EHANDLE m_hSprite;
+};
+
+LINK_ENTITY_TO_CLASS( npc_voltigore_projectile, CVoltigoreProjectile );
+
+BEGIN_DATADESC( CVoltigoreProjectile )
+DEFINE_FIELD( m_hSprite, FIELD_EHANDLE ),
+DEFINE_FIELD( m_nSpriteIndex, FIELD_INTEGER ),
+DEFINE_THINKFUNC( ThinkRemove ),
+END_DATADESC()
+
+void CVoltigoreProjectile::Spawn( void )
+{
+	Precache();
+
+	SetMoveType ( MOVETYPE_FLY );
+	SetClassname( "npc_voltigore_projectile" );
+
+	SetSolid( SOLID_BBOX );
+
+	m_nRenderMode = kRenderTransAlpha;
+	SetRenderColorA( 255 );
+	SetModel( "" );
+
+	SetRenderColor( 150, 0, 0, 255 );
+
+	UTIL_SetSize( this, Vector( 0, 0, 0 ), Vector( 0, 0, 0 ) );
+
+	SetCollisionGroup( HL2COLLISION_GROUP_SPIT );
+}
+
+void CVoltigoreProjectile::Shoot( CBaseEntity *pOwner, Vector vecStart, Vector vecVelocity )
+{
+	CVoltigoreProjectile *pSpit = CREATE_ENTITY( CVoltigoreProjectile, "npc_voltigore_projectile" );
+	pSpit->Spawn();
+
+	UTIL_SetOrigin( pSpit, vecStart );
+	pSpit->SetAbsVelocity( vecVelocity );
+	pSpit->SetOwnerEntity( pOwner );
+
+
+	CSprite * pSprite = CSprite::SpriteCreate( "sprites/glownomespit.vmt", pOwner->GetAbsOrigin(), true );
+	pSpit->SetSprite( pSprite );
+
+	if ( pSprite )
+	{
+		pSprite->SetAttachment( pSpit, 0 );
+		pSprite->SetOwnerEntity( pSpit );
+
+		pSprite->SetScale( 0.75 );
+		pSprite->SetTransparency( pSpit->m_nRenderMode, pSpit->m_clrRender->r, pSpit->m_clrRender->g, pSpit->m_clrRender->b, pSpit->m_clrRender->a, pSpit->m_nRenderFX );
+	}
+
+	pSpit->SetThink( &CVoltigoreProjectile::ThinkRemove );
+	pSpit->SetNextThink( gpGlobals->curtime + 4.5f );
+
+	CPVSFilter filter( vecStart );
+
+	VectorNormalize( vecVelocity );
+	te->SpriteSpray( filter, 0.0, &vecStart, &vecVelocity, pSpit->m_nSpriteIndex, 210, 25, 15 );
+
+
+	// Make a tesla to follow the projectile
+	CBaseEntity *pTesla = CreateEntityByName( "point_tesla" );
+	DispatchSpawn( pTesla );
+	pTesla->SetParent( pSpit );
+	int output = 0;
+	pTesla->AcceptInput( "TurnOn", pSpit, pSpit, variant_t(), output );
+
+	CBaseEntity *pGravityController = CGravityVortexController::Create( pSpit->GetAbsOrigin(), 128.0f, 128.0f, 5.0f );
+	pGravityController->SetParent( pSpit );
+}
+
+void CVoltigoreProjectile::ThinkRemove()
+{
+	SetAbsVelocity( vec3_origin );
+	if (GetSprite() != NULL)
+	{
+		((CSprite *)GetSprite())->FadeAndDie( 2.0f );
+	}
+}
+
+void CVoltigoreProjectile::Touch ( CBaseEntity *pOther )
+{
+	if (pOther->GetSolidFlags() & FSOLID_TRIGGER)
+		return;
+
+	if (pOther->GetCollisionGroup() == HL2COLLISION_GROUP_SPIT)
+	{
+		return;
+	}
+
+	SetThink( &CVoltigoreProjectile::ThinkRemove );
+	SetNextThink( 0.0f );
+}
 
 //---------------------------------------------------------
 // Save/Restore
 //---------------------------------------------------------
-BEGIN_DATADESC( CNPC_SpineThrowingPredator )
+BEGIN_DATADESC( CNPC_Voltigore )
 
 	DEFINE_FIELD( m_nextSoundTime,	FIELD_TIME ),
 
@@ -35,7 +160,7 @@ END_DATADESC()
 //=========================================================
 // Spawn
 //=========================================================
-void CNPC_SpineThrowingPredator::Spawn()
+void CNPC_Voltigore::Spawn()
 {
 	Precache( );
 
@@ -59,7 +184,7 @@ void CNPC_SpineThrowingPredator::Spawn()
 	
 	SetRenderColor( 255, 255, 255, 255 );
 	
-	m_iMaxHealth		= sk_spinethrowingpredator_health.GetFloat();
+	m_iMaxHealth		= sk_voltigore_health.GetFloat();
 	m_iHealth			= m_iMaxHealth;
 	m_flFieldOfView		= 0.2;// indicates the width of this monster's forward view cone ( as a dotproduct result )
 	m_NPCState			= NPC_STATE_NONE;
@@ -80,12 +205,12 @@ void CNPC_SpineThrowingPredator::Spawn()
 //=========================================================
 // Precache - precaches all resources this monster needs
 //=========================================================
-void CNPC_SpineThrowingPredator::Precache()
+void CNPC_Voltigore::Precache()
 {
 
 	if ( GetModelName() == NULL_STRING )
 	{
-		SetModelName( AllocPooledString( "models/pit_drone.mdl" ) );
+		SetModelName( AllocPooledString( "models/voltigore.mdl" ) );
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
@@ -99,17 +224,20 @@ void CNPC_SpineThrowingPredator::Precache()
 		PrecacheParticleSystem( "blood_impact_yellow_01" );
 	}
 
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Idle" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Pain" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Alert" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Death" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Attack1" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.FoundEnemy" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Growl" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.TailWhip");
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Bite" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Eat" );
-	PrecacheScriptSound( "NPC_SpineThrowingPredator.Explode" );
+	PrecacheScriptSound( "NPC_Voltigore.Idle" );
+	PrecacheScriptSound( "NPC_Voltigore.Pain" );
+	PrecacheScriptSound( "NPC_Voltigore.Alert" );
+	PrecacheScriptSound( "NPC_Voltigore.Death" );
+	PrecacheScriptSound( "NPC_Voltigore.Attack1" );
+	PrecacheScriptSound( "NPC_Voltigore.FoundEnemy" );
+	PrecacheScriptSound( "NPC_Voltigore.Growl" );
+	PrecacheScriptSound( "NPC_Voltigore.TailWhip");
+	PrecacheScriptSound( "NPC_Voltigore.Bite" );
+	PrecacheScriptSound( "NPC_Voltigore.Eat" );
+	PrecacheScriptSound( "NPC_Voltigore.Explode" );
+
+	PrecacheModel( "sprites/glownomespit.vmt" );// spit projectile.
+
 	BaseClass::Precache();
 }
 
@@ -117,59 +245,59 @@ void CNPC_SpineThrowingPredator::Precache()
 // Purpose: Indicates this monster's place in the relationship table.
 // Output : 
 //-----------------------------------------------------------------------------
-Class_T	CNPC_SpineThrowingPredator::Classify( void )
+Class_T	CNPC_Voltigore::Classify( void )
 {
-	return CLASS_ALIEN_PREDATOR; 
+	return CLASS_RACE_X; 
 }
 
 //=========================================================
 // IdleSound 
 //=========================================================
-void CNPC_SpineThrowingPredator::IdleSound( void )
+void CNPC_Voltigore::IdleSound( void )
 {
-	EmitSound( "NPC_SpineThrowingPredator.Idle" );
+	EmitSound( "NPC_Voltigore.Idle" );
 }
 
 //=========================================================
 // PainSound 
 //=========================================================
-void CNPC_SpineThrowingPredator::PainSound( const CTakeDamageInfo &info )
+void CNPC_Voltigore::PainSound( const CTakeDamageInfo &info )
 {
-	EmitSound( "NPC_SpineThrowingPredator.Pain" );
+	EmitSound( "NPC_Voltigore.Pain" );
 }
 
 //=========================================================
 // AlertSound
 //=========================================================
-void CNPC_SpineThrowingPredator::AlertSound( void )
+void CNPC_Voltigore::AlertSound( void )
 {
-	EmitSound( "NPC_SpineThrowingPredator.Alert" );
+	EmitSound( "NPC_Voltigore.Alert" );
 }
 
 //=========================================================
 // DeathSound
 //=========================================================
-void CNPC_SpineThrowingPredator::DeathSound( const CTakeDamageInfo &info )
+void CNPC_Voltigore::DeathSound( const CTakeDamageInfo &info )
 {
-	EmitSound( "NPC_SpineThrowingPredator.Death" );
+	EmitSound( "NPC_Voltigore.Death" );
 }
 
 //=========================================================
 // AttackSound
 //=========================================================
-void CNPC_SpineThrowingPredator::AttackSound( void )
+void CNPC_Voltigore::AttackSound( void )
 {
-	EmitSound( "NPC_SpineThrowingPredator.Attack1" );
+	EmitSound( "NPC_Voltigore.Attack1" );
 }
 
 //=========================================================
 // FoundEnemySound
 //=========================================================
-void CNPC_SpineThrowingPredator::FoundEnemySound( void )
+void CNPC_Voltigore::FoundEnemySound( void )
 {
 	if (gpGlobals->curtime >= m_nextSoundTime)
 	{
-		EmitSound( "NPC_SpineThrowingPredator.FoundEnemy" );
+		EmitSound( "NPC_Voltigore.FoundEnemy" );
 		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
 	}
 }
@@ -177,11 +305,11 @@ void CNPC_SpineThrowingPredator::FoundEnemySound( void )
 //=========================================================
 // GrowlSound
 //=========================================================
-void CNPC_SpineThrowingPredator::GrowlSound( void )
+void CNPC_Voltigore::GrowlSound( void )
 {
 	if (gpGlobals->curtime >= m_nextSoundTime)
 	{
-		EmitSound( "NPC_SpineThrowingPredator.Growl" );
+		EmitSound( "NPC_Voltigore.Growl" );
 		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt(1.5,3.0);
 	}
 }
@@ -189,24 +317,24 @@ void CNPC_SpineThrowingPredator::GrowlSound( void )
 //=========================================================
 // BiteSound
 //=========================================================
-void CNPC_SpineThrowingPredator::BiteSound( void )
+void CNPC_Voltigore::BiteSound( void )
 {
-	EmitSound( "NPC_SpineThrowingPredator.Bite" );
+	EmitSound( "NPC_Voltigore.Bite" );
 }
 
 //=========================================================
 // EatSound
 //=========================================================
-void CNPC_SpineThrowingPredator::EatSound( void )
+void CNPC_Voltigore::EatSound( void )
 {
-	EmitSound( "NPC_SpineThrowingPredator.Eat" );
+	EmitSound( "NPC_Voltigore.Eat" );
 }
 
 //=========================================================
 // SetYawSpeed - allows each sequence to have a different
 // turn rate associated with it.
 //=========================================================
-float CNPC_SpineThrowingPredator::MaxYawSpeed( void )
+float CNPC_Voltigore::MaxYawSpeed( void )
 {
 	float flYS = 0;
 
@@ -227,7 +355,7 @@ float CNPC_SpineThrowingPredator::MaxYawSpeed( void )
 //=========================================================
 // RangeAttack1Conditions
 //=========================================================
-int CNPC_SpineThrowingPredator::RangeAttack1Conditions( float flDot, float flDist )
+int CNPC_Voltigore::RangeAttack1Conditions( float flDot, float flDist )
 {
 	// Be sure not to use ranged attacks against potential food
 	if ( IsPrey( GetEnemy() ))
@@ -243,7 +371,7 @@ int CNPC_SpineThrowingPredator::RangeAttack1Conditions( float flDot, float flDis
 // HandleAnimEvent - catches the monster-specific messages
 // that occur when tagged animation frames are played.
 //=========================================================
-void CNPC_SpineThrowingPredator::HandleAnimEvent( animevent_t *pEvent )
+void CNPC_Voltigore::HandleAnimEvent( animevent_t *pEvent )
 {
 	switch( pEvent->event )
 	{
@@ -251,26 +379,26 @@ void CNPC_SpineThrowingPredator::HandleAnimEvent( animevent_t *pEvent )
 		{
 			if ( GetEnemy() )
 			{
-				Vector vSpitPos;
+				Vector	vecSpitOffset;
+				Vector	vecSpitDir;
+				Vector  vRight, vUp, vForward;
 
-				GetAttachment( "Mouth", vSpitPos );
+				AngleVectors ( GetAbsAngles(), &vForward, &vRight, &vUp );
 
-				Vector			vTarget = GetEnemy()->GetAbsOrigin();
-				Vector			vToss;
-				CBaseEntity*	pBlocker;
-				float flGravity  =  GetProjectileGravity();
-				ThrowLimit( vSpitPos, vTarget, flGravity, GetProjectileArc(), Vector(0,0,0), Vector(0,0,0), GetEnemy(), &vToss, &pBlocker );
+				// !!!HACKHACK - the spot at which the spit originates (in front of the mouth) was measured in 3ds and hardcoded here.
+				// we should be able to read the position of bones at runtime for this info.
+				vecSpitOffset = ( vRight * 8 + vForward * 60 + vUp * 50 );
+				vecSpitOffset = ( GetAbsOrigin() + vecSpitOffset );
+				vecSpitDir = ( (GetEnemy()->BodyTarget( GetAbsOrigin() ) ) - vecSpitOffset );
 
-				// Create a new entity with CCrossbowBolt private data
-				CBaseCombatCharacter *pBolt = (CBaseCombatCharacter *)CreateEntityByName( "crossbow_bolt" );
-				UTIL_SetOrigin( pBolt, vSpitPos );
-				DispatchSpawn( pBolt );
-				pBolt->SetAbsAngles( vec3_angle );
-				pBolt->SetOwnerEntity( this );
-				pBolt->SetAbsVelocity( vToss );
-				pBolt->SetDamage( GetProjectileDamge() );
+				VectorNormalize( vecSpitDir );
+
+				vecSpitDir.x += random->RandomFloat( -0.05, 0.05 );
+				vecSpitDir.y += random->RandomFloat( -0.05, 0.05 );
+				vecSpitDir.z += random->RandomFloat( -0.05, 0 );
 
 				AttackSound();
+				CVoltigoreProjectile::Shoot( this, vecSpitOffset, vecSpitDir * 128.0f );
 			}
 		}
 		break;
@@ -291,7 +419,7 @@ void CNPC_SpineThrowingPredator::HandleAnimEvent( animevent_t *pEvent )
 
 		case PREDATOR_AE_WHIP_SND:
 		{
-			EmitSound( "NPC_SpineThrowingPredator.TailWhip" );
+			EmitSound( "NPC_Voltigore.TailWhip" );
 			break;
 		}
 
@@ -341,35 +469,28 @@ void CNPC_SpineThrowingPredator::HandleAnimEvent( animevent_t *pEvent )
 	}
 }
 
-float CNPC_SpineThrowingPredator::GetProjectileGravity()
+//=========================================================
+// Damage for projectile attack
+//=========================================================
+float CNPC_Voltigore::GetProjectileDamge()
 {
-	return sk_spinethrowingpredator_spit_gravity.GetFloat();
-}
-
-float CNPC_SpineThrowingPredator::GetProjectileArc()
-{
-	return sk_spinethrowingpredator_spit_arc_size.GetFloat();
-}
-
-float CNPC_SpineThrowingPredator::GetProjectileDamge()
-{
-	return sk_spinethrowingpredator_dmg_spit.GetFloat();
+	return sk_voltigore_dmg_spit.GetFloat();
 }
 
 //=========================================================
 // Damage for claw slash attack
 //=========================================================
-float CNPC_SpineThrowingPredator::GetBiteDamage( void )
+float CNPC_Voltigore::GetBiteDamage( void )
 {
-	return sk_spinethrowingpredator_dmg_slash.GetFloat();
+	return sk_voltigore_dmg_slash.GetFloat();
 }
 
 //=========================================================
 // Damage for "whip" claw attack
 //=========================================================
-float CNPC_SpineThrowingPredator::GetWhipDamage( void )
+float CNPC_Voltigore::GetWhipDamage( void )
 {
-	return sk_spinethrowingpredator_dmg_slash.GetFloat();
+	return sk_voltigore_dmg_slash.GetFloat();
 }
 
 //------------------------------------------------------------------------------
@@ -378,6 +499,6 @@ float CNPC_SpineThrowingPredator::GetWhipDamage( void )
 //
 //------------------------------------------------------------------------------
 
-AI_BEGIN_CUSTOM_NPC( NPC_SpineThrowingPredator, CNPC_SpineThrowingPredator )
+AI_BEGIN_CUSTOM_NPC( NPC_Voltigore, CNPC_Voltigore )
 
 AI_END_CUSTOM_NPC()
