@@ -145,6 +145,7 @@ public:
 	virtual bool ShouldInfight( CBaseEntity * pTarget ) { return false;  } // Is this NPC a rival or a potential mate that I should fight against?
 	virtual bool ShouldFindMate();
 	virtual bool CanMateWithTarget( CNPC_BasePredator * pTarget, bool receiving );
+	virtual bool ShouldEatInCombat();
 
 	virtual bool IsBaby() { return m_bIsBaby; };
 	virtual void setIsBaby( bool bIsBaby ) { m_bIsBaby = bIsBaby; };
