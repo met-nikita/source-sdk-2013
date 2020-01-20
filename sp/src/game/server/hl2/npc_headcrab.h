@@ -59,6 +59,8 @@ public:
 	
 #ifdef EZ
 	virtual bool ShouldGib( const CTakeDamageInfo &info );
+
+	bool	ShouldDropGooPuddle() { return false; }
 #endif
 
 	bool	IsJumping( void ) { return m_bMidJump; }

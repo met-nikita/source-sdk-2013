@@ -2209,6 +2209,11 @@ public:
 	inline void	ForceCrouch( void );
 	inline void	ClearForceCrouch( void );
 
+#ifdef EZ
+	// Blixibon - Added so we can make soldiers crouch without being part of the class
+	inline void DispatchCrouch( void ) { Crouch(); }
+#endif
+
 protected:
 	virtual bool Crouch( void );
 	virtual bool Stand( void );
@@ -2242,6 +2247,10 @@ public:
 	};
 
 	EZ_VARIANT m_tEzVariant;
+
+#ifdef EZ
+	virtual bool	ShouldDropGooPuddle() { return true; }
+#endif
 
 	//-----------------------------------------------------
 	// ai_post_frame_navigation

@@ -31,7 +31,6 @@
 #include "particle_parse.h"
 #include "ai_tacticalservices.h"
 #include "npc_combine.h"
-#include "pointhurt.h"
 
 #ifdef HL2_EPISODIC
 #include "grenade_spit.h"
@@ -695,38 +694,6 @@ bool CNPC_Antlion::CanBecomeRagdoll()
 //-----------------------------------------------------------------------------
 void CNPC_Antlion::Event_Killed( const CTakeDamageInfo &info )
 {
-#ifdef EZ
-	// TODO: Extract this into a Util method or base class!
-	if (m_tEzVariant == EZ_VARIANT_RAD)
-	{
-		// BREADMAN below
-		// Yeah so this splats a decal beneath the NPC when it dies. It's actually pretty effective. This is used on rebels now too.
-		trace_t tr;
-		AI_TraceLine( GetAbsOrigin() + Vector( 0, 0, 1 ), GetAbsOrigin() - Vector( 0, 0, 64 ), MASK_SOLID_BRUSHONLY | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, this, COLLISION_GROUP_NONE, &tr );
-		UTIL_DecalTrace( &tr, "Glowbie.Puddle" );
-		// end BREADMAN
-		// 1upD- zombie goo puddle should emit radiation damage
-		CBaseEntity * pHurtEntity = CreateEntityByName( "zombie_goo_puddle" );
-		CPointHurt * pPointHurt = static_cast<CPointHurt *>(pHurtEntity);
-		if (pPointHurt)
-		{
-			pPointHurt->m_nDamage = 1;
-			pPointHurt->m_flRadius = 48;
-			pPointHurt->m_flDelay = 0.2f;
-			pPointHurt->m_flLifetime = 10.0f; // This radiation puddle should only last for 10 seconds
-			pPointHurt->m_bitsDamageType = DMG_RADIATION;
-			pPointHurt->SetAbsOrigin( tr.endpos );
-			DispatchSpawn( pPointHurt );
-			pPointHurt->Activate();
-			pPointHurt->TurnOn( this );
-		}
-
-		// Blxibon
-		// Brief danger sound, companion code stops NPCs from really running into it
-		CSoundEnt::InsertSound( SOUND_DANGER, GetAbsOrigin(), 64, 1.5f, this );
-	}
-#endif // EZ
-
 	//Turn off wings
 	SetWings( false );
 	VacateStrategySlot();
