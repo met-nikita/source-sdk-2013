@@ -1,8 +1,8 @@
-//================= Copyright LOLOLOLOL, All rights reserved. ==================//
+//=============================================================================//
 //
-// Purpose: Wilson header
+// Purpose: 	Bad Cop's humble friend, a pacifist turret who could open doors for some reason.
 // 
-// Author: Blixibon
+// Author:		Blixibon
 //
 //=============================================================================//
 

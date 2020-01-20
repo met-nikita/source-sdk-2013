@@ -1,6 +1,10 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//=============================================================================//
 //
-// Purpose:		Player for EZ2.
+// Purpose: 	Bad Cop, a former human bent on killing anyone who stands in his way.
+//				His drive in this life is to pacify noncitizens, serve the Combine,
+//				and use overly cheesy quips.
+// 
+// Author: 		Blixibon, 1upD
 //
 //=============================================================================//
 
@@ -124,6 +128,8 @@ public:
 
 	void			OnUseEntity( CBaseEntity *pEntity );
 	bool			HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+
+	Disposition_t	IRelationType( CBaseEntity *pTarget );
 
 	// For more accurate representations of whether the player actually sees something
 	// (3D dot calculations instead of 2D dot calculations)

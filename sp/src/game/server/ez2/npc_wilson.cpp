@@ -1,8 +1,8 @@
-//================= Copyright LOLOLOLOL, All rights reserved. ==================//
+//=============================================================================//
 //
-// Purpose: Bad Cop's friend, a pacifist turret who could open doors for some reason.
+// Purpose: 	Bad Cop's humble friend, a pacifist turret who could open doors for some reason.
 // 
-// Author: Blixibon
+// Author:		Blixibon
 //
 //=============================================================================//
 

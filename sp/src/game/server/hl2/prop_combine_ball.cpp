@@ -1398,9 +1398,11 @@ void CPropCombineBall::OnHitEntity( CBaseEntity *pHitEntity, float flSpeed, int 
 		VectorNormalize( vecFinalVelocity );
 		vecFinalVelocity *= GetSpeed();
 
-		// The first 3 bounces always seek another target.
-		// The more bounces we've had, the less likely we are to seek.
-		if (RandomInt(0, m_nBounceCount) < 3)
+		// On Easy, the first 3 bounces always seek another target.
+		// On Medium, it's the first 2 bounces.
+		// On Hard, it's only the first bounce.
+		// After that, it's random. The more bounces we've had, the less likely we are to seek.
+		if ( RandomInt(0, m_nBounceCount) < (4 - g_pGameRules->GetSkillLevel()) )
 		{
 			CBaseEntity *pBestTarget = NULL;
 			CBaseEntity *list[256];

@@ -1,4 +1,15 @@
+//=============================================================================//
+//
+// Purpose: 	Bad Cop, a former human bent on killing anyone who stands in his way.
+//				His drive in this life is to pacify noncitizens, serve the Combine,
+//				and use overly cheesy quips.
+// 
+// Author: 		Blixibon, 1upD
+//
+//=============================================================================//
+
 #include "cbase.h"
+
 #include "ez2_player.h"
 #include "ai_squad.h"
 #include "basegrenade_shared.h"
@@ -185,7 +196,24 @@ bool CEZ2_Player::HandleInteraction( int interactionType, void *data, CBaseComba
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: For checking if the player is looking at something, but more expensive
+// Purpose: 
+//-----------------------------------------------------------------------------
+Disposition_t CEZ2_Player::IRelationType( CBaseEntity *pTarget )
+{
+	Disposition_t base = BaseClass::IRelationType( pTarget );
+
+	// HACKHACK
+	// If this is Clone Cop and there is no map-based relationship for it, always use D_HT
+	if (base == D_LI && pTarget->ClassMatches("npc_clonecop") /*&& FindEntityRelationship(pTarget)->classType == CLASS_COMBINE*/)
+	{
+		return D_HT;
+	}
+
+	return base;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: For checking if the player is looking at something, but takes the pitch into account (more expensive)
 //-----------------------------------------------------------------------------
 bool CEZ2_Player::FInTrueViewCone( const Vector &vecSpot )
 {
@@ -936,6 +964,9 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 
 		modifiers.AppendCriteria("enemy_relationship", UTIL_VarArgs("%i", disposition));
 
+		// Add our relationship to the victim as well
+		modifiers.AppendCriteria("relationship", UTIL_VarArgs("%i", IRelationType(pVictim)));
+
 		//if (CAI_BaseNPC *pNPC = pVictim->MyNPCPointer())
 		//{
 		//}
@@ -1013,7 +1044,7 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 		ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 		SetSpeechTarget(info.GetAttacker());
 
-		if (m_iVisibleEnemies <= 1 && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
+		if (m_iVisibleEnemies <= 1 && GetNPCComponent() && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
 		{
 			ModifyOrAppendFinalEnemyCriteria( modifiers, pVictim, info );
 		}
