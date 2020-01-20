@@ -605,6 +605,9 @@ void CNPC_Combine::AddToPlayerSquad()
 	// Blixibon - If we have a manhack, update its squad status
 	if (m_hManhack != NULL)
 		m_pSquad->AddToSquad(m_hManhack.Get());
+
+	// Blixibon - Soldiers are much better at shooting if they don't have to account for this
+	CapabilitiesRemove( bits_CAP_NO_HIT_SQUADMATES );
 	
 	FixupPlayerSquad();
 }
@@ -671,6 +674,8 @@ void CNPC_Combine::RemoveFromPlayerSquad()
 	// Blixibon - If we have a manhack, update its squad status
 	if (m_hManhack != NULL)
 		m_pSquad ? m_pSquad->AddToSquad(m_hManhack.Get()) : m_hManhack->RemoveFromSquad();
+
+	CapabilitiesAdd( bits_CAP_NO_HIT_SQUADMATES );
 
 	// Stop following.
 	ToggleSquadCommand();
@@ -1010,7 +1015,7 @@ void CNPC_Combine::Spawn( void )
 	CapabilitiesAdd( bits_CAP_TURN_HEAD | bits_CAP_MOVE_GROUND );
 
 #ifdef EZ2
-	if ( IsCommandable() ) // Non-commandable combine soldiers in Chapter 1 should not be able to jump!
+	if ( IsMajorCharacter() ) // Non-commandable combine soldiers in Chapter 1 should not be able to jump!
 		CapabilitiesAdd(bits_CAP_MOVE_JUMP);
 #endif
 
@@ -1346,7 +1351,7 @@ bool CNPC_Combine::ShouldMoveAndShoot()
 
 #ifdef EZ
 	// 1upD - Commandable Combine should always move and shoot
-	if ( IsCommandable() && !HasCondition(COND_NO_PRIMARY_AMMO, false ) )
+	if ( IsMajorCharacter() && !HasCondition(COND_NO_PRIMARY_AMMO, false ) )
 		return true;
 #endif
 
@@ -3783,7 +3788,7 @@ void CNPC_Combine::HandleAnimEvent( animevent_t *pEvent )
 #ifdef EZ					
 						// 1upD - Commandable Combine soldiers should 1-hit rebels with their melee attack
 						// Blixibon - Damage is changed after damage force is calculated so citizens aren't launched across the room (more natural-looking)
-						if (IsCommandable() && pBCC->ClassMatches("npc_citizen"))
+						if (IsMajorCharacter() && pBCC->ClassMatches("npc_citizen"))
 						{
 							info.SetDamage(pBCC->GetHealth());
 						}
@@ -4798,7 +4803,7 @@ bool CNPC_Combine::OnBeginMoveAndShoot()
 	if ( BaseClass::OnBeginMoveAndShoot() )
 	{
 #ifdef EZ
-		if ( IsCommandable() )
+		if ( IsMajorCharacter() )
 			return true; // Commandable Combine soldiers don't need a squad slot to move and shoot
 #endif
 
@@ -5868,6 +5873,33 @@ DEFINE_SCHEDULE
  	"	Interrupts"
  	"	"
  );
+
+ DEFINE_SCHEDULE 
+ (
+	 SCHED_COMBINE_FLANK_LINE_OF_FIRE,
+
+	 "	Tasks "
+	 "		TASK_SET_FAIL_SCHEDULE			SCHEDULE:SCHED_FAIL_ESTABLISH_LINE_OF_FIRE"
+	 "		TASK_SET_TOLERANCE_DISTANCE		48"
+	 "		TASK_GET_FLANK_ARC_PATH_TO_ENEMY_LOS	0"
+	 "		TASK_COMBINE_SET_STANDING		1"
+	 "		TASK_SPEAK_SENTENCE				1"
+	 "		TASK_RUN_PATH					0"
+	 "		TASK_WAIT_FOR_MOVEMENT			0"
+	 "		TASK_COMBINE_IGNORE_ATTACKS		0.0"
+	 "		TASK_SET_SCHEDULE				SCHEDULE:SCHED_COMBAT_FACE"
+	 "	"
+	 "	Interrupts "
+	 "		COND_NEW_ENEMY"
+	 "		COND_ENEMY_DEAD"
+	 //"		COND_CAN_RANGE_ATTACK1"
+	 //"		COND_CAN_RANGE_ATTACK2"
+	 "		COND_CAN_MELEE_ATTACK1"
+	 "		COND_CAN_MELEE_ATTACK2"
+	 "		COND_HEAR_DANGER"
+	 "		COND_HEAR_MOVE_AWAY"
+	 "		COND_HEAVY_DAMAGE"
+ )
 #endif
 
  AI_END_CUSTOM_NPC()

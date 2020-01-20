@@ -1810,6 +1810,31 @@ void CAI_FollowBehavior::RunTask( const Task_t *pTask )
 						range += GetMotor()->MinStoppingDist(12) - 12;
 					}
 
+#ifdef EZ2
+					// Blixibon - In HL2, groups of citizens following a command point will often not actually reach their target even though they come to a stopping point.
+					// They stand still, but continue running the movement schedule. They can still shoot in this state, which makes it tolerable.
+					// However, soldiers seem to be prevented from shooting in this state, likely due to their strict attack slots.
+					// Increasing the goal's range hasn't really worked, so I decided to try increasing the range for each squadmate within it.
+					if ( GetMotor()->GetCurSpeed() == 0.0f )
+					{
+						AISquadIter_t iter;
+						CAI_BaseNPC *pSquadmate = GetOuter()->GetSquad() ? GetOuter()->GetSquad()->GetFirstMember( &iter ) : NULL;
+						while ( pSquadmate )
+						{
+							if ( pSquadmate->GetMoveType() != MOVETYPE_NONE && pSquadmate != GetOuter() )
+							{
+								if ( pSquadmate->GetAbsOrigin().AsVector2D().DistToSqr(GetGoalPosition().AsVector2D()) <= Square(range) )
+								{
+									m_FollowNavGoal.range += pSquadmate->GetHullWidth();
+									range += pSquadmate->GetHullWidth();
+								}
+							}
+
+							pSquadmate = GetOuter()->GetSquad()->GetNextMember( &iter );
+						}
+					}
+#endif
+
 					if ( IsFollowGoalInRange( range, GetGoalZRange(), GetGoalFlags() ) )
 					{
 						m_TimeBeforeSpreadFacing.Reset();

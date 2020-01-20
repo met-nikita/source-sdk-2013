@@ -466,9 +466,6 @@ Activity CNPC_CombineS::NPC_TranslateActivity( Activity eNewActivity )
 BEGIN_DATADESC( CNPC_CombineS )
 
 	DEFINE_KEYFIELD( m_iUseMarch, FIELD_INTEGER, "usemarch" ),
-#ifdef EZ
-	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" )
-#endif
 
 END_DATADESC()
 #endif

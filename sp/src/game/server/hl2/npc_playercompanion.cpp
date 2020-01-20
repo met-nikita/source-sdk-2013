@@ -1157,6 +1157,12 @@ bool CNPC_PlayerCompanion::IsValidReasonableFacing( const Vector &vecSightDir, f
 
 	if( ai_new_aiming.GetBool() )
 	{
+#ifdef EZ2
+		// Blixibon - This seems to be affecting commander combat with soldiers a lot more
+		if (m_NPCState == NPC_STATE_COMBAT)
+			return true;
+#endif
+
 #ifdef MAPBASE
 		// Hint node facing should still be obeyed
 		if (GetHintNode() && GetHintNode()->GetIgnoreFacing() != HIF_YES)

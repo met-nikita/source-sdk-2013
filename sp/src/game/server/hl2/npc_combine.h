@@ -165,6 +165,8 @@ public:
 	virtual void	StopFollowSound();
 	virtual bool	ShouldAlwaysThink();
 	virtual bool	ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior );
+
+	virtual bool	IsMajorCharacter() { return IsCommandable(); }
 #endif
 
 	bool			UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
@@ -179,11 +181,9 @@ public:
 	bool			IsAltFireCapable();
 	bool			IsGrenadeCapable();
 #ifdef EZ2
-	// Blixibon - Soldier cops use grenades
-	const char*		GetGrenadeAttachment() { return Q_strstr(STRING(GetModelName()), "police") ? "LHand" : "lefthand"; }
-#else
-	const char*		GetGrenadeAttachment() { return "lefthand"; }
+	void			SetAlternateCapable( bool toggle ) { m_bAlternateCapable = toggle; }
 #endif
+	const char*		GetGrenadeAttachment() { return "lefthand"; }
 #else
 	bool			IsElite() { return m_fIsElite; }
 #endif
@@ -319,7 +319,11 @@ protected:
 	AIHANDLE		m_hManhack = NULL;
 #endif
 
+#ifdef EZ2
+protected:
+#else
 private:
+#endif
 	//=========================================================
 	// Combine S schedules
 	//=========================================================
@@ -360,6 +364,7 @@ private:
 		SCHED_COMBINE_MOVE_TO_MELEE,
 #ifdef EZ
 		SCHED_COMBINE_DEPLOY_MANHACK,
+		SCHED_COMBINE_FLANK_LINE_OF_FIRE,
 #endif
 		NEXT_SCHEDULE,
 	};
