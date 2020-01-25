@@ -60,6 +60,10 @@
 #include "mapbase/variant_tools.h"
 #endif
 
+#ifdef EZ2
+#include "ez2/ez2_player.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -3388,7 +3392,19 @@ int CHL2_Player::GiveAmmo( int nCount, int nAmmoIndex, bool bSuppressSound)
 
 		if ( pWeapon && pWeapon->GetPrimaryAmmoType() == nAmmoIndex )
 		{
+#ifdef EZ2
+			// Blixibon - Don't autoswitch if we're in combat
+			CEZ2_Player *pEZ2Player = static_cast<CEZ2_Player*>(this);
+			if (pEZ2Player && pEZ2Player->GetNPCComponent())
+			{
+				if ( pEZ2Player->GetNPCComponent()->GetState() != NPC_STATE_COMBAT )
+					SwitchToNextBestWeapon(GetActiveWeapon());
+				else
+					Msg("EZ2: Not autoswitching to %s because of combat\n", pWeapon->GetDebugName());
+			}
+#else
 			SwitchToNextBestWeapon(GetActiveWeapon());
+#endif
 		}
 	}
 

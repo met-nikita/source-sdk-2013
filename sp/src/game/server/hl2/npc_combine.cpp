@@ -4157,6 +4157,9 @@ void CNPC_Combine::NotifyDeadFriend ( CBaseEntity* pFriend )
 	//if( FInViewCone( pFriend ) && FVisible( pFriend ) )
 	{
 #ifdef COMBINE_SOLDIER_USES_RESPONSE_SYSTEM
+#ifdef EZ2
+		SetSpeechTarget( pFriend );
+#endif
 		SpeakIfAllowed( TLK_CMB_MANDOWN );
 #else
 		m_Sentences.Speak( "COMBINE_MAN_DOWN" );
