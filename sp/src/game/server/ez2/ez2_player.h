@@ -52,12 +52,15 @@ public:
 	int				GetHistoricEnemies() { return m_iNumEnemiesHistoric; }
 	void			IncrementHistoricEnemies() { m_iNumEnemiesHistoric++; }
 
+	void			KilledEnemy();
+
 	int				GetLastDamageType() { return m_iLastDamageType; }
 	int				GetLastDamageAmount() { return m_iLastDamageAmount; }
 	CBaseEntity		*GetLastDamageAttacker() { return m_hLastDamageAttacker.Get(); }
 
 	// Criteria sets
 	void			AppendLastDamageCriteria( AI_CriteriaSet& set );
+	void			AppendKilledEnemyCriteria( AI_CriteriaSet& set );
 
 	CEZ2_Player		*GetOuter() { return m_hOuter.Get(); }
 	void            SetOuter( CEZ2_Player *pOuter ) { m_hOuter.Set( pOuter ); }
@@ -70,6 +73,10 @@ private:
 	int		m_iPrevHealth;
 
 	int		m_iNumEnemiesHistoric;
+
+	// Kill combo
+	int		m_iComboEnemies;
+	float	m_flLastEnemyDeadTime;
 
 	// Last damage stuff (for "revenge")
 	int		m_iLastDamageType;

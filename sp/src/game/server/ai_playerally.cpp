@@ -17,6 +17,7 @@
 #endif
 #ifdef EZ2
 #include "ez2/ai_concept_response.h"
+#include "ez2/ez2_player.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -1796,6 +1797,18 @@ void CAI_PlayerAlly::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 #ifdef MAPBASE
 		// Speech target contexts.
 		m_hPotentialSpeechTarget->AppendContextToCriteria(set, "speechtarget_");
+#endif
+
+#ifdef EZ2
+		// Player criteria
+		if (m_hPotentialSpeechTarget->IsPlayer())
+		{
+			CEZ2_Player *pPlayer = static_cast<CEZ2_Player*>(m_hPotentialSpeechTarget.Get());
+			if (pPlayer)
+			{
+				pPlayer->GetMemoryComponent()->AppendKilledEnemyCriteria( set );
+			}
+		}
 #endif
 	}
 

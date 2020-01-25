@@ -20,6 +20,7 @@
 #include "ai_interactions.h"
 #include "world.h"
 #include "sceneentity.h"
+#include "fmtstr.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -949,6 +950,9 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 	ModifyOrAppendDamageCriteria(modifiers, info, false);
 	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
 
+	GetMemoryComponent()->KilledEnemy();
+	GetMemoryComponent()->AppendKilledEnemyCriteria(modifiers);
+
 	Disposition_t disposition = pVictim->IRelationType(this);
 
 	// This code used to check for CBaseCombatCharacter before,
@@ -1561,6 +1565,9 @@ BEGIN_SIMPLE_DATADESC( CEZ2_PlayerMemory )
 
 	DEFINE_FIELD( m_iNumEnemiesHistoric, FIELD_INTEGER ),
 
+	DEFINE_FIELD( m_iComboEnemies, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flLastEnemyDeadTime, FIELD_TIME ),
+
 	DEFINE_FIELD( m_iLastDamageType, FIELD_INTEGER ),
 	DEFINE_FIELD( m_iLastDamageAmount, FIELD_INTEGER ),
 	DEFINE_FIELD( m_hLastDamageAttacker, FIELD_EHANDLE ),
@@ -1610,10 +1617,30 @@ void CEZ2_PlayerMemory::RecordEngagementEnd()
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CEZ2_PlayerMemory::KilledEnemy()
+{
+	if (gpGlobals->curtime - m_flLastEnemyDeadTime > 5.0f)
+		m_iComboEnemies = 0;
+
+	m_iComboEnemies++;
+	m_flLastEnemyDeadTime = gpGlobals->curtime;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CEZ2_PlayerMemory::AppendLastDamageCriteria( AI_CriteriaSet& set )
 {
 	set.AppendCriteria( "lasttaken_damagetype", UTIL_VarArgs( "%i", GetLastDamageType() ) );
 	set.AppendCriteria( "lasttaken_damage", UTIL_VarArgs( "%i", GetLastDamageAmount() ) );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_PlayerMemory::AppendKilledEnemyCriteria( AI_CriteriaSet& set )
+{
+	set.AppendCriteria("killcombo", CNumStr(m_iComboEnemies));
 }
 
 //=============================================================================
