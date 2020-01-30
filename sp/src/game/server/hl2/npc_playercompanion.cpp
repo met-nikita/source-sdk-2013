@@ -44,6 +44,7 @@ ConVar ai_new_aiming( "ai_new_aiming", "1" );
 ConVar ai_jump_rise("ai_jump_rise", "64"); // How high can player companions jump
 ConVar ai_jump_drop("ai_jump_drop", "384"); // How high can player companions fall
 ConVar ai_jump_distance("ai_jump_distance", "160"); // How high can player companions jump
+extern ConVar ai_aim_requires_squadslots;
 #endif
 
 #ifdef COMPANION_MELEE_ATTACK
@@ -2647,6 +2648,13 @@ void CNPC_PlayerCompanion::AimGun()
 			}
 		}
 	}
+#ifdef EZ
+	// If we DO have an enemy, make sure we have an attack squad slot
+	else if ( ai_aim_requires_squadslots.GetBool() && !HasAttackSlot() )
+	{
+		RelaxAim();
+	}
+#endif
 
 	BaseClass::AimGun();
 }

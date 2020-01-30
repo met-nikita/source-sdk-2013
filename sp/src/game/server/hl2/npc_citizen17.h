@@ -178,6 +178,8 @@ public:
 	void 			OnEndMoveAndShoot();
 #ifndef EZ
 	virtual bool	UseAttackSquadSlots()	{ return false; }
+#else
+	virtual bool	HasAttackSlot();
 #endif
 
 	void 			LocateEnemySound();

@@ -13710,6 +13710,13 @@ void DevMsg( CAI_BaseNPC *pAI, const char *pszFormat, ... )
 }
 
 //-----------------------------------------------------------------------------
+#ifdef EZ
+bool CAI_BaseNPC::HasAttackSlot()
+{
+	return m_iMySquadSlot == SQUAD_SLOT_ATTACK1 || m_iMySquadSlot == SQUAD_SLOT_ATTACK2;
+}
+#endif
+//-----------------------------------------------------------------------------
 
 bool CAI_BaseNPC::IsPlayerAlly( CBasePlayer *pPlayer )											
 { 

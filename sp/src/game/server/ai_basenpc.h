@@ -1207,6 +1207,8 @@ public:
 	// Blixibon - Silent commandable NPCs follow move orders, but don't count towards squad tallies.
 	// For insignificant NPCs like rollermines or manhacks that the system shouldn't confuse with soldiers.
 	virtual bool IsSilentCommandable()										{ return false; }
+	// 1upD - how is there not already a method for this? Check if my squad slot is an attack slot - in case custom NPCs use more or fewer attack slots
+	virtual bool HasAttackSlot();
 #endif
 	virtual bool IsPlayerAlly( CBasePlayer *pPlayer = NULL );
 	virtual bool IsMedic()												{ return false; }

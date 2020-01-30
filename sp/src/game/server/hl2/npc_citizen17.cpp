@@ -2826,10 +2826,10 @@ bool CNPC_Citizen::OnBeginMoveAndShoot()
 	if ( BaseClass::OnBeginMoveAndShoot() )
 	{
 #ifdef EZ
-		if (HasCondition(COND_NO_PRIMARY_AMMO))
+		if ( HasCondition(COND_NO_PRIMARY_AMMO) )
 			return false;
 
-		if( m_iMySquadSlot == SQUAD_SLOT_ATTACK1 || m_iMySquadSlot == SQUAD_SLOT_ATTACK2 || m_iMySquadSlot == SQUAD_SLOT_CITIZEN_ADVANCE)
+		if( HasAttackSlot() )
 #else
 		if( m_iMySquadSlot == SQUAD_SLOT_ATTACK1 || m_iMySquadSlot == SQUAD_SLOT_ATTACK2 )
 #endif
@@ -2848,11 +2848,21 @@ void CNPC_Citizen::OnEndMoveAndShoot()
 {
 #ifdef EZ
 	// Don't vacate strategy slot if that slot is 'advance'
-	if(m_iMySquadSlot == SQUAD_SLOT_CITIZEN_ADVANCE)
+	if( m_iMySquadSlot == SQUAD_SLOT_CITIZEN_ADVANCE )
 		return
 #endif
 	VacateStrategySlot();
 }
+
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+#ifdef EZ
+bool CNPC_Citizen::HasAttackSlot()
+{
+	return m_iMySquadSlot == SQUAD_SLOT_CITIZEN_ADVANCE || BaseClass::HasAttackSlot();
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
