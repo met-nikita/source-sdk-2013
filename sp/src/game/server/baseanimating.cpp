@@ -200,6 +200,10 @@ BEGIN_DATADESC( CBaseAnimating )
 	DEFINE_FIELD( m_flModelScale, FIELD_FLOAT ),
 	DEFINE_FIELD( m_flDissolveStartTime, FIELD_TIME ),
 
+#ifdef EZ
+	DEFINE_KEYFIELD( m_bDisplacementImpossible, FIELD_BOOLEAN, "DisplacementImpossible" ),
+#endif
+
  // DEFINE_FIELD( m_boneCacheHandle, memhandle_t ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Ignite", InputIgnite ),

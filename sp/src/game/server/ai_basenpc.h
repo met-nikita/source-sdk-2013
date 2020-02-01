@@ -256,6 +256,7 @@ enum AI_SleepState_t
 	AISS_WAITING_FOR_INPUT,
 	AISS_AUTO_PVS,
 	AISS_AUTO_PVS_AFTER_PVS, // Same as AUTO_PVS, except doesn't activate until/unless the NPC is IN the player's PVS. 
+	AISS_IGNORE_INPUT
 };
 
 #define AI_SLEEP_FLAGS_NONE					0x00000000
@@ -2373,13 +2374,14 @@ public:
 	void				StartPingEffect( void ) { m_flTimePingEffect = gpGlobals->curtime + 2.0f; DispatchUpdateTransmitState(); }
 
 #ifdef EZ
+	virtual void		StartEye( void ); // Start glow effects for this NPC
+	virtual void		KillSprites( float flDelay ); // Stop all glow effects
+
 protected:
 	// Glow Effects
 	CSprite		* m_pEyeGlow;
 	bool		m_bNoGlow; // Don't glow!
 
-	virtual void		StartEye(void); // Start glow effects for this NPC
-	virtual void		KillSprites(float flDelay); // Stop all glow effects
 	virtual CSprite		* GetGlowSpritePtr(int i);
 	virtual void		  SetGlowSpritePtr(int i, CSprite * sprite);
 	virtual EyeGlow_t	* GetEyeGlowData(int i) { return NULL; };

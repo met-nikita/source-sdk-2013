@@ -94,6 +94,11 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 		return;
 
 #ifdef EZ
+	// Don't consume objects that are protected
+	if ( pEnt->IsDisplacementImpossible() )
+		return;
+
+
 	// Don't consume barnacle parts! (Weird edge case)
 	CBarnacleTongueTip *pBarnacleTongueTip = dynamic_cast< CBarnacleTongueTip* >(pEnt);
 	if (pBarnacleTongueTip != NULL)

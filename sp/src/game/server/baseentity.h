@@ -1056,6 +1056,11 @@ public:
 	virtual bool	IsWearable( void ) const { return false; }
 	virtual CBaseCombatWeapon *MyCombatWeaponPointer( void ) { return NULL; }
 
+#ifdef EZ
+	virtual bool	IsDisplacementImpossible() { return true; }
+	virtual void	SetDisplacementImpossible( bool displacementImpossible ) {}
+#endif
+
 	// If this is a vehicle, returns the vehicle interface
 	virtual IServerVehicle*			GetServerVehicle() { return NULL; }
 

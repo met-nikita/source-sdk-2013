@@ -1094,6 +1094,9 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 				pPhys->EnableMotion( false );
 			}
 
+			// Turn off projected texture
+			m_bEyeLightEnabled = false;
+
 			// Return true to indicate we shouldn't be sucked up
 			return true;
 		}
@@ -1136,10 +1139,16 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 		}
 
 		// TODO: We should put this in a function we can call to grenade_hopwire
-		pGrenade->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
-		DispatchParticleEffect( "xenpc_spawn", WorldSpaceCenter(), GetAbsAngles(), this );
+		if ( sourceEnt == NULL )
+		{
+			pGrenade->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
+			DispatchParticleEffect( "xenpc_spawn", WorldSpaceCenter(), GetAbsAngles(), this );
+		}
 
 		SpeakIfAllowed( TLK_XEN_GRENADE_RELEASE );
+
+		// Turn on projected texture
+		m_bEyeLightEnabled = true;
 
 		return true;
 	}

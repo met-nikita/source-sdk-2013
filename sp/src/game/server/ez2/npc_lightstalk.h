@@ -48,6 +48,12 @@ public:
 
 	virtual void AlertSound( void );
 
+#ifdef EZ
+	// Lightstalks NEVER get displaced
+	// This is because their lights wouldn't follow them. Trees are fine.
+	virtual bool	IsDisplacementImpossible() { return true; }
+#endif
+
 protected:
 	EyeGlow_t	* GetEyeGlowData( int i );
 	virtual float GetViewDistance() { return 128.0f; }

@@ -147,6 +147,10 @@ public:
 	// Helicopters never burn
 	virtual void	Ignite( float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner ) { return; }
 
+#ifdef EZ
+	// Aircraft NEVER get displaced
+	virtual bool	IsDisplacementImpossible() { return true; }
+#endif
 
 protected:
 	void			HelicopterMove( );

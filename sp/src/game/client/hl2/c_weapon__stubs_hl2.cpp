@@ -52,6 +52,7 @@ STUB_WEAPON_CLASS( weapon_oldmanharpoon, WeaponOldManHarpoon, C_WeaponCitizenPac
 
 #ifdef EZ2
 STUB_WEAPON_CLASS( weapon_pulsepistol, WeaponPulsePistol, C_BaseHLCombatWeapon );
+STUB_WEAPON_CLASS( weapon_displacer_pistol, DisplacerPistol, C_BaseHLCombatWeapon );
 #endif
 
 

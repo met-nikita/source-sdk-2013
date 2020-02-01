@@ -6279,7 +6279,7 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 #endif		
 		GiveNamedItem( "weapon_smg1" );
 		GiveNamedItem( "weapon_frag" );
-#ifdef EZ1
+#ifdef EZ
 		GiveNamedItem("weapon_stunstick");
 #else
 		GiveNamedItem("weapon_crowbar");
@@ -6303,10 +6303,10 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 #ifdef EZ2
 		GiveAmmo(3, "XenGrenade");
 		GiveAmmo(3, "slam");
-		GiveAmmo(3, "FlareRound");
+		// GiveAmmo(3, "FlareRound");
 		GiveNamedItem("weapon_pulsepistol");
 		GiveNamedItem("weapon_smg2");
-		GiveNamedItem("weapon_flaregun");
+		GiveNamedItem("weapon_displacer_pistol");
 		GiveNamedItem("weapon_slam");
 		GiveNamedItem("weapon_hopwire");
 #endif

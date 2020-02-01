@@ -4765,6 +4765,10 @@ void CAI_BaseNPC::Wake( bool bFireOutput )
 				pActivator = GetEnemy();
 				break;
 
+#ifdef EZ
+			// TODO: For now, use the player as activator. In the future, somehow get the owner of the displacer pistol?
+			case AISS_IGNORE_INPUT:
+#endif
 			case AISS_WAITING_FOR_PVS:
 			case AISS_AUTO_PVS:
 			case AISS_AUTO_PVS_AFTER_PVS:
@@ -12764,6 +12768,15 @@ void CAI_BaseNPC::InputSetSquad( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CAI_BaseNPC::InputWake( inputdata_t &inputdata )
 {
+#ifdef EZ
+	// Ignore inputs for 'displaced' NPCs
+	if ( GetSleepState() == AISS_IGNORE_INPUT )
+	{
+		DevMsg( "NPC %s ignoring Wake input.\n", GetDebugName() );
+		return;
+	}
+#endif
+
 #ifdef MAPBASE
 	Wake( inputdata.pActivator );
 #else

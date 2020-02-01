@@ -661,6 +661,17 @@ void CAI_ScriptedSequence::StartScript( void )
 
 	if ( pTarget )
 	{
+#ifdef EZ
+		// If this target has been displaced, cancel the sequence
+		if ( pTarget->GetSleepState() == AISS_IGNORE_INPUT )
+		{
+			DevMsg( "Scripted sequence killed by displaced target!\n" );
+			DevMsg( "Sequence: %s\tTarget: \n", GetDebugName(), pTarget->GetDebugName() );
+			return;
+		}
+
+#endif
+
 		pTarget->RemoveSpawnFlags( SF_NPC_WAIT_FOR_SCRIPT );
 
 		//
