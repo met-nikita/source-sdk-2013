@@ -37,7 +37,6 @@
 #include "hl2_gamerules.h"
 #include "ammodef.h"
 
-
 #include "player.h"
 #include "ai_network.h"
 #include "ai_navigator.h"
@@ -68,6 +67,7 @@
 #include "ammodef.h"
 #include "vehicle_base.h"
 #include "ai_squad.h"
+#include "ez2_player.h" // Needed to dispatch response from here - probably should be moved elsewhere
 
 #define ZOMBIE_BURN_TIME		10  // If ignited, burn for this many seconds
 #define ZOMBIE_BURN_TIME_NOISE	2   // Give or take this many seconds.
@@ -789,6 +789,16 @@ bool CNPC_Gonome::BecomeRagdollOnClient(const Vector & force)
 {
 	CTakeDamageInfo info; // Need this to play death sound
 	DeathSound(info);
+
+	// Hackhack - This is not an elegant way to do this, but we need Bad Cop to comment on the dead glownome
+	// TODO - Perhaps we can pass this through the input somehow because the player should be the activator
+	CBasePlayer *pPlayer = AI_GetSinglePlayer();
+	if ( pPlayer )
+	{
+		CEZ2_Player *pEZ2Player = assert_cast<CEZ2_Player*>(pPlayer);
+		pEZ2Player->Event_KilledEnemy( this, info );
+	}
+
 	return BaseClass::BecomeRagdollOnClient(force);
 }
 

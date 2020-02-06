@@ -203,9 +203,10 @@ public:
 	void			InputDisableSpawning( inputdata_t &inputdata );
 
 	// Wander inputs
-	void			InputSetWanderAlways( inputdata_t &inputdata );
 	void			InputSetWanderNever( inputdata_t &inputdata );
-
+	void			InputSetWanderAlways( inputdata_t &inputdata );
+	void			InputSetWanderIdle( inputdata_t &inputdata );
+	void			InputSetWanderAlert( inputdata_t &inputdata );
 
 // Boss stuff
 	void			InputEnterNormalMode(inputdata_t &inputdata);

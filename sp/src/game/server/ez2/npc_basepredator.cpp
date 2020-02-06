@@ -60,8 +60,10 @@ BEGIN_DATADESC( CNPC_BasePredator )
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnterBerserkMode", InputEnterBerserkMode ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnterRetreatMode", InputEnterRetreatMode ),
 
-	DEFINE_INPUTFUNC( FIELD_VOID, "SetWanderAlways", InputSetWanderAlways ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "SetWanderNever", InputSetWanderNever ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "SetWanderAlways", InputSetWanderAlways ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "SetWanderIdle", InputSetWanderIdle ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "SetWanderAlert", InputSetWanderAlert ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Spawn", InputSpawnNPC ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSpawning", InputEnableSpawning ),
@@ -937,14 +939,24 @@ void CNPC_BasePredator::InputEnterBerserkMode( inputdata_t & inputdata )
 	}
 }
 
+void CNPC_BasePredator::InputSetWanderNever( inputdata_t & inputdata )
+{
+	m_tWanderState = WANDER_STATE_NEVER;
+}
+
 void CNPC_BasePredator::InputSetWanderAlways( inputdata_t & inputdata )
 {
 	m_tWanderState = WANDER_STATE_ALWAYS;
 }
 
-void CNPC_BasePredator::InputSetWanderNever( inputdata_t & inputdata )
+void CNPC_BasePredator::InputSetWanderIdle( inputdata_t & inputdata )
 {
-	m_tWanderState = WANDER_STATE_NEVER;
+	m_tWanderState = WANDER_STATE_IDLE_ONLY;
+}
+
+void CNPC_BasePredator::InputSetWanderAlert( inputdata_t & inputdata )
+{
+	m_tWanderState = WANDER_STATE_ALERT_ONLY;
 }
 
 void CNPC_BasePredator::InputSpawnNPC( inputdata_t & inputdata )
