@@ -8,7 +8,6 @@ BEGIN_DATADESC( CInfoRemarkable )
 	// Inputs	
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
-	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ForceRemark", InputForceRemark ),
 END_DATADESC()
 
 // info remarkables, similar to info targets, are like point entities except you can force them to spawn on the client
