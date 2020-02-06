@@ -276,6 +276,9 @@ public:
 
 	void	DrawDebugGeometryOverlays( void );
 
+	// Special handling for info_remarkable
+	void	OnSeeEntity( CBaseEntity *pEntity );
+
 	//---------------------------------------------------------------------------------------------
 	// Override a bunch of stuff to redirect to our outer.
 	//---------------------------------------------------------------------------------------------

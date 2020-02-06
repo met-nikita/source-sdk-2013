@@ -41,6 +41,8 @@ $Project
 			$File	"mapbase\func_clientclip.cpp"
 			$File	"mapbase\GlobalStrings.cpp"
 			$File	"mapbase\GlobalStrings.h"
+			$File	"mapbase\info_remarkable.h"
+			$File	"mapbase\info_remarkable.cpp"
 			$File	"mapbase\logic_externaldata.cpp"
 			$File	"mapbase\logic_skill.cpp"
 			$File	"mapbase\matchers.h"

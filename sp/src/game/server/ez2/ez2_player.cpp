@@ -21,6 +21,7 @@
 #include "world.h"
 #include "sceneentity.h"
 #include "fmtstr.h"
+#include "mapbase\info_remarkable.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -149,28 +150,28 @@ void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 {
 	AI_CriteriaSet modifiers;
-
+	bool bStealthChat = false;
 	ModifyOrAppendSpeechTargetCriteria(modifiers, pEntity);
 
 	CAI_BaseNPC *pNPC = pEntity->MyNPCPointer();
 	if ( pNPC )
 	{
 		// Is Bad Cop trying to scare a rebel that doesn't see him?
-		if (pNPC->IRelationType(this) <= D_FR && pNPC->GetEnemy() != this)
-			modifiers.AppendCriteria("stealth_chat", "1");
+		if ( pNPC->IRelationType( this ) <= D_FR && pNPC->GetEnemy() != this )
+		{
+			modifiers.AppendCriteria( "stealth_chat", "1" );
+			bStealthChat = true;
+		}
 	}
 
 	bool bSpoken = SpeakIfAllowed( TLK_USE, modifiers );
 
-	if (bSpoken)
+	if ( bSpoken && bStealthChat )
 	{
 		// "Fascinating."
 		// "Holy shit!"
-		if (modifiers.FindCriterionIndex("stealth_chat"))
-		{
-			pNPC->AddFacingTarget(this, 5.0f, 3.0f, 2.0f);
-			pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
-		}
+		pNPC->AddFacingTarget(this, 5.0f, 3.0f, 2.0f);
+		pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
 
 		//CSoundEnt::InsertSound( SOUND_PLAYER, EyePosition(), 128, 0.1, this );
 	}
@@ -1863,6 +1864,22 @@ void CAI_PlayerNPCDummy::DrawDebugGeometryOverlays( void )
 			NDebugOverlay::EntityBounds(pEMemory->hEnemy, 0, 0, 255, 15 * IRelationPriority(pEMemory->hEnemy), 0);
 		}
 	}
+}
+
+void CAI_PlayerNPCDummy::OnSeeEntity( CBaseEntity * pEntity )
+{
+	if ( pEntity->IsRemarkable() )
+	{
+		CInfoRemarkable * pRemarkable = dynamic_cast<CInfoRemarkable *>(pEntity);
+		if ( pRemarkable != NULL )
+		{
+			DevMsg( "Player dummy noticed remarkable %s!\n", GetDebugName() );
+			AI_CriteriaSet modifiers = pRemarkable->GetModifiers( GetOuter() );
+			GetOuter()->SpeakIfAllowed( TLK_REMARK, modifiers );
+		}
+	}
+
+	BaseClass::OnSeeEntity( pEntity );
 }
 
 //-----------------------------------------------------------------------------
