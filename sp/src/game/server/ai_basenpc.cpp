@@ -1436,7 +1436,7 @@ bool CAI_BaseNPC::PlayerInSpread( const Vector &sourcePos, const Vector &targetP
 
 #ifdef MAPBASE
 		// "> D_FR" means it isn't D_HT, D_FR, or D_ER (error disposition)
-		if ( pPlayer && ( !ignoreHatedPlayers || IRelationType( pPlayer ) > D_FR ) )
+		if ( pPlayer && ( !ignoreHatedPlayers || IRelationType( pPlayer ) > D_FR ) && !(pPlayer->GetFlags() & FL_NOTARGET) )
 #else
 		if ( pPlayer && ( !ignoreHatedPlayers || IRelationType( pPlayer ) != D_HT ) )
 #endif
@@ -5154,9 +5154,16 @@ void CAI_BaseNPC::PrescheduleThink( void )
 	if (CapabilitiesGet() & bits_CAP_USE_WEAPONS)
 	{
 		// If we should have our gun out, fetch it
-		if ( ShouldUnholsterWeapon() && m_iDesiredWeaponState == DESIREDWEAPONSTATE_IGNORE )
+		if ( ShouldUnholsterWeapon() )
 		{
-			SetDesiredWeaponState( DESIREDWEAPONSTATE_UNHOLSTERED );
+			if ( m_iDesiredWeaponState == DESIREDWEAPONSTATE_IGNORE )
+			{
+				SetDesiredWeaponState( DESIREDWEAPONSTATE_UNHOLSTERED );
+			}
+		}
+		else if (m_iDesiredWeaponState == DESIREDWEAPONSTATE_UNHOLSTERED)
+		{
+			SetDesiredWeaponState( DESIREDWEAPONSTATE_IGNORE );
 		}
 
 	// If our desired weapon state is not the current, fix it
@@ -7827,7 +7834,7 @@ bool CAI_BaseNPC::IsWeaponStateChanging( void )
 bool CAI_BaseNPC::DoHolster( void )
 {
 	// Cache off the weapon.
-	CBaseCombatWeapon *pWeapon = GetActiveWeapon(); 
+	CBaseCombatWeapon *pWeapon = GetActiveWeapon();
 
 	if (pWeapon)
 	{
@@ -7836,7 +7843,10 @@ bool CAI_BaseNPC::DoHolster( void )
 		{
 			if (m_hMyWeapons[i].Get() == pWeapon)
 			{
-				m_iLastHolsteredWeapon = i;
+				// Set to this weapon if we don't have a "target" weapon to unholster
+				if (m_iLastHolsteredWeapon == -1)
+					m_iLastHolsteredWeapon = i;
+
 				break;
 			}
 		}
@@ -7884,6 +7894,9 @@ bool CAI_BaseNPC::DoUnholster( void )
 			m_iDesiredWeaponState = DESIREDWEAPONSTATE_IGNORE;
 			m_Activity = ACT_RESET;
 		}
+
+		// Clear last holstered weapon
+		m_iLastHolsteredWeapon = -1;
 
 		return true;
 	}
@@ -7938,9 +7951,12 @@ void CAI_BaseNPC::InputChangeWeapon( inputdata_t &inputdata )
 			return;
 	}
 
+	// So the code doesn't try to unholster the wrong weapon
+	m_iLastHolsteredWeapon = iSwitchTo;
+
 	if (!GetActiveWeapon())
 	{
-		m_iLastHolsteredWeapon = iSwitchTo;
+		// Just unholster
 		UnholsterWeapon();
 	}
 	else
