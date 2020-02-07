@@ -185,7 +185,6 @@ protected:
 	int						m_iEyeAttachment;
 	eyeState_t				m_iEyeState;
 	CHandle<CSprite>		m_hEyeGlow;
-	CHandle<CBeam>			m_hLaser;
 	CHandle<CTurretTipController>	m_pMotionController;
 
 	bool	m_bBlinkState;

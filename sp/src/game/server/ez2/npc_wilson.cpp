@@ -44,6 +44,8 @@ CNPC_Wilson *CNPC_Wilson::GetWilson( void )
 	return g_WillieList.m_pClassList;
 }
 
+ConVar npc_wilson_depressing_death("npc_wilson_depressing_death", "0", FCVAR_NONE, "Makes Will-E shut down and die into an empty husk rather than explode.");
+
 static const char *g_DamageZapContext = "DamageZapEffect";
 
 #define WILSON_MODEL "models/will_e.mdl"
@@ -71,7 +73,6 @@ BEGIN_DATADESC(CNPC_Wilson)
 	//DEFINE_FIELD( m_iMuzzleAttachment,	FIELD_INTEGER ),
 	DEFINE_FIELD( m_iEyeState,		FIELD_INTEGER ),
 	DEFINE_FIELD( m_hEyeGlow,		FIELD_EHANDLE ),
-	DEFINE_FIELD( m_hLaser,			FIELD_EHANDLE ),
 	DEFINE_FIELD( m_pMotionController,FIELD_EHANDLE),
 
 	DEFINE_FIELD( m_hPhysicsAttacker, FIELD_EHANDLE ),
@@ -116,7 +117,6 @@ LINK_ENTITY_TO_CLASS( npc_wilson, CNPC_Wilson );
 //-----------------------------------------------------------------------------
 CNPC_Wilson::CNPC_Wilson( void ) : 
 	m_hEyeGlow( NULL ),
-	m_hLaser( NULL ),
 	m_flCarryTime( -1.0f ),
 	m_flPlayerDropTime( 0.0f ),
 	m_bTipped( false ),
@@ -221,6 +221,11 @@ void CNPC_Wilson::Spawn()
 
 	SetPoseParameter( m_poseAim_Yaw, 0 );
 	SetPoseParameter( m_poseAim_Pitch, 0 );
+
+	m_iszIdleExpression = MAKE_STRING("scenes/npc/wilson/expression_idle.vcd");
+	m_iszAlertExpression = MAKE_STRING("scenes/npc/wilson/expression_alert.vcd");
+	m_iszCombatExpression = MAKE_STRING("scenes/npc/wilson/expression_combat.vcd");
+	m_iszDeathExpression = MAKE_STRING("scenes/npc/wilson/expression_dead.vcd");
 
 	//m_iMuzzleAttachment = LookupAttachment( "eyes" );
 	m_iEyeAttachment = LookupAttachment( "light" );
@@ -406,38 +411,6 @@ void CNPC_Wilson::TeslaThink()
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::Event_Killed( const CTakeDamageInfo &info )
 {
-	Vector vecUp;
-	GetVectors( NULL, NULL, &vecUp );
-	Vector vecOrigin = WorldSpaceCenter() + ( vecUp * 12.0f );
-
-	// Our effect
-	DispatchParticleEffect( "explosion_turret_break", vecOrigin, GetAbsAngles() );
-
-	// Ka-boom!
-	RadiusDamage( CTakeDamageInfo( this, info.GetAttacker(), 25.0f, DMG_BLAST ), vecOrigin, (10*12), CLASS_NONE, this );
-
-	EmitSound( "NPC_Wilson.Destruct" );
-
-	breakablepropparams_t params( GetAbsOrigin(), GetAbsAngles(), vec3_origin, RandomAngularImpulse( -800.0f, 800.0f ) );
-	params.impactEnergyScale = 1.0f;
-	params.defCollisionGroup = COLLISION_GROUP_INTERACTIVE;
-
-	// no damage/damage force? set a burst of 100 for some movement
-	params.defBurstScale = 100;
-	PropBreakableCreateAll( GetModelIndex(), VPhysicsGetObject(), params, this, -1, true );
-
-	// Throw out some small chunks too obscure the explosion even more
-	CPVSFilter filter( vecOrigin );
-	for ( int i = 0; i < 4; i++ )
-	{
-		Vector gibVelocity = RandomVector(-100,100);
-		int iModelIndex = modelinfo->GetModelIndex( g_PropDataSystem.GetRandomChunkModel( "MetalChunks" ) );	
-		te->BreakModel( filter, 0.0, vecOrigin, GetAbsAngles(), Vector(40,40,40), gibVelocity, iModelIndex, 150, 4, 2.5, BREAK_METAL );
-	}
-
-	// WILSOOOOON!!!
-	m_OnDestroyed.FireOutput( info.GetAttacker(), this );
-
 	if (info.GetAttacker())
 	{
 		info.GetAttacker()->Event_KilledOther(this, info);
@@ -448,8 +421,52 @@ void CNPC_Wilson::Event_Killed( const CTakeDamageInfo &info )
 		pPlayer->Event_NPCKilled(this, info);
 	}
 
-	// We're done!
-	UTIL_Remove( this );
+	SetState( NPC_STATE_DEAD );
+
+	// WILSOOOOON!!!
+	m_OnDestroyed.FireOutput( info.GetAttacker(), this );
+
+	if (!npc_wilson_depressing_death.GetBool())
+	{
+		// Explode
+		Vector vecUp;
+		GetVectors( NULL, NULL, &vecUp );
+		Vector vecOrigin = WorldSpaceCenter() + ( vecUp * 12.0f );
+
+		// Our effect
+		DispatchParticleEffect( "explosion_turret_break", vecOrigin, GetAbsAngles() );
+
+		// Ka-boom!
+		RadiusDamage( CTakeDamageInfo( this, info.GetAttacker(), 25.0f, DMG_BLAST ), vecOrigin, (10*12), CLASS_NONE, this );
+
+		EmitSound( "NPC_Wilson.Destruct" );
+
+		breakablepropparams_t params( GetAbsOrigin(), GetAbsAngles(), vec3_origin, RandomAngularImpulse( -800.0f, 800.0f ) );
+		params.impactEnergyScale = 1.0f;
+		params.defCollisionGroup = COLLISION_GROUP_INTERACTIVE;
+
+		// no damage/damage force? set a burst of 100 for some movement
+		params.defBurstScale = 100;
+		PropBreakableCreateAll( GetModelIndex(), VPhysicsGetObject(), params, this, -1, true );
+
+		// Throw out some small chunks too obscure the explosion even more
+		CPVSFilter filter( vecOrigin );
+		for ( int i = 0; i < 4; i++ )
+		{
+			Vector gibVelocity = RandomVector(-100,100);
+			int iModelIndex = modelinfo->GetModelIndex( g_PropDataSystem.GetRandomChunkModel( "MetalChunks" ) );	
+			te->BreakModel( filter, 0.0, vecOrigin, GetAbsAngles(), Vector(40,40,40), gibVelocity, iModelIndex, 150, 4, 2.5, BREAK_METAL );
+		}
+
+		// We're done!
+		UTIL_Remove( this );
+	}
+	else
+	{
+		// Shut down
+		SetEyeState( TURRET_EYE_DEAD );
+		DeathSound( info );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -545,6 +562,11 @@ void CNPC_Wilson::NPCThink()
 		// This is so the player doesn't just stand behind Will-E for a few minutes and surprise him by going back in front of him.
 		if (!m_bPlayerLeftPVS)
 			m_flLastSawPlayerTime = gpGlobals->curtime;
+
+		if (GetExpression() && IsRunningScriptedSceneWithFlexAndNotPaused(this, false, GetExpression()))
+			ClearExpression();
+		else if (!GetExpression())
+			PlayExpressionForState(GetState());
 	}
 	else
 	{
@@ -1170,7 +1192,11 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
 
-#define WILSON_EYE_GLOW_DEFAULT_BRIGHT 255
+// Was 256, should be lower so eye is visible
+#define WILSON_EYE_GLOW_DEFAULT_BRIGHT 72
+#define WILSON_EYE_GLOW_SCAN_BRIGHT 64
+
+#define WILSON_EYE_GLOW_DEFAULT_COLOR 255, 0, 0
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -1196,30 +1222,31 @@ void CNPC_Wilson::SetEyeState( eyeState_t state )
 	{
 	default:
 	case TURRET_EYE_DORMANT: // Default, based on the env_sprite in Wilson's temporary physbox prefab.
-		m_hEyeGlow->SetColor( 255, 0, 0 );
+		PlayExpressionForState( GetState() );
+		m_nSkin = 0;
+		m_hEyeGlow->SetColor( WILSON_EYE_GLOW_DEFAULT_COLOR );
 		m_hEyeGlow->SetBrightness( WILSON_EYE_GLOW_DEFAULT_BRIGHT, 0.5f );
 		m_hEyeGlow->SetScale( 0.3f, 0.5f );
+		m_iEyeLightBrightness = 255;
 		break;
 
 	case TURRET_EYE_SEEKING_TARGET: // Now used for when an Arbeit scanner is scanning Wilson.
-		m_hEyeGlow->SetColor( 255, 0, 0 );
-		m_hEyeGlow->SetBrightness( 192, 0.25f );
-		m_hEyeGlow->SetScale( 0.2f, 0.25f );
+		SetExpression( "scenes/npc/wilson/expression_scanning.vcd" );
+		m_nSkin = 2;
+		m_hEyeGlow->SetColor( WILSON_EYE_GLOW_DEFAULT_COLOR );
+		m_hEyeGlow->SetBrightness( WILSON_EYE_GLOW_SCAN_BRIGHT, 0.25f );
+		m_iEyeLightBrightness = 128;
 
 		// Blink state stuff was removed, see npc_turret_floor for original
 
 		break;
 
 	case TURRET_EYE_DEAD: //Fade out slowly
+		m_nSkin = 1;
 		m_hEyeGlow->SetColor( 255, 0, 0 );
 		m_hEyeGlow->SetScale( 0.1f, 3.0f );
 		m_hEyeGlow->SetBrightness( 0, 3.0f );
-		break;
-
-	case TURRET_EYE_DISABLED:
-		m_hEyeGlow->SetColor( 0, 255, 0 );
-		m_hEyeGlow->SetScale( 0.1f, 1.0f );
-		m_hEyeGlow->SetBrightness( 0, 1.0f );
+		m_iEyeLightBrightness = 0;
 		break;
 	}
 

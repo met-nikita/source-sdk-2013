@@ -19,6 +19,8 @@ END_PREDICTION_DATA()
 
 C_NPC_Wilson::C_NPC_Wilson()
 {
+	m_Glow.m_bDirectional = false;
+	m_Glow.m_bInSky = false;
 }
 
 C_NPC_Wilson::~C_NPC_Wilson()
@@ -28,7 +30,7 @@ C_NPC_Wilson::~C_NPC_Wilson()
 void C_NPC_Wilson::Simulate( void )
 {
 	// The dim light is the flashlight.
-	if ( m_bEyeLightEnabled )
+	if ( m_bEyeLightEnabled && (m_EyeLight == NULL || m_EyeLight->m_flBrightnessScale > 0.0f) )
 	{
 		if ( m_EyeLight == NULL )
 		{
@@ -56,15 +58,28 @@ void C_NPC_Wilson::Simulate( void )
 		{
 			GetAttachment( iAttachment, vVector, vAngle );
 			AngleVectors( vAngle, &vecForward, &vecRight, &vecUp );
-		
+
+			// Update the flashlight
 			m_EyeLight->UpdateLight( vVector, vecForward, vecRight, vecUp, 40 );
+
+			// Update the glow
+			// The glow needs to be a few units in front of the eye
+			Vector vGlowPos = vVector + (vecForward.Normalized() * 2.0f);
+			m_Glow.SetOrigin( vGlowPos );
+			m_Glow.m_vPos = vGlowPos;
+			m_Glow.m_flHDRColorScale = m_EyeLight->m_flBrightnessScale;
 		}
 	}
-	else if ( m_EyeLight )
+	else
 	{
-		// Turned off the flashlight; delete it.
-		delete m_EyeLight;
-		m_EyeLight = NULL;
+		if ( m_EyeLight )
+		{
+			// Turned off the flashlight; delete it.
+			delete m_EyeLight;
+			m_EyeLight = NULL;
+		}
+
+		m_Glow.Deactivate();
 	}
 
 	BaseClass::Simulate();
@@ -74,10 +89,44 @@ void C_NPC_Wilson::OnDataChanged( DataUpdateType_t type )
 {
 	if (m_iEyeLightBrightness != m_iLastEyeLightBrightness)
 	{
-		// 255 = Equivalent to WILSON_EYE_GLOW_DEFAULT_BRIGHT
+		// 255 = Equivalent to sprite color byte
 		m_flEyeLightBrightnessScale = (float)(m_iEyeLightBrightness) / 255.0f;
 		m_iLastEyeLightBrightness = m_iEyeLightBrightness;
 	}
 
+	if ( type == DATA_UPDATE_CREATED )
+	{
+		// Setup our light glow.
+		m_Glow.m_nSprites = 1;
+
+		m_Glow.m_Sprites[0].m_flVertSize = 4.0f;
+		m_Glow.m_Sprites[0].m_flHorzSize = 4.0f;
+		m_Glow.m_Sprites[0].m_vColor = Vector( 255, 0, 0 );
+		
+		m_Glow.SetOrigin( GetAbsOrigin() );
+		m_Glow.SetFadeDistances( 512, 2048, 3072 );
+		m_Glow.m_flProxyRadius = 2.0f;
+
+		SetNextClientThink( gpGlobals->curtime + RandomFloat(0,3.0) );
+	}
+
 	BaseClass::OnDataChanged( type );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void C_NPC_Wilson::ClientThink( void )
+{
+	Vector mins = GetAbsOrigin();
+	if ( engine->IsBoxVisible( mins, mins ) )
+	{
+		m_Glow.Activate();
+	}
+	else
+	{
+		m_Glow.Deactivate();
+	}
+
+	SetNextClientThink( gpGlobals->curtime + RandomFloat(1.0,3.0) );
 }
