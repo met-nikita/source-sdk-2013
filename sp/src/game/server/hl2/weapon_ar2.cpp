@@ -43,6 +43,11 @@ ConVar sk_weapon_ar2_alt_fire_duration( "sk_weapon_ar2_alt_fire_duration", "2" )
 #endif
 ConVar sk_weapon_ar2_alt_fire_mass( "sk_weapon_ar2_alt_fire_mass", "150" );
 
+#ifdef EZ2
+ConVar sk_weapon_ar2_alt_fire_proto_radius( "sk_weapon_ar2_alt_fire_proto_radius", "5" ); //Breadman. Radius was 10.
+ConVar sk_weapon_ar2_alt_fire_proto_duration( "sk_weapon_ar2_alt_fire_proto_duration", "1" ); // Breadman was 2.
+#endif
+
 int BurstMax = 0; // Breadman. It's called BurstMax but is actually the number of times to cycle before completing
 
 #ifdef MAPBASE
@@ -699,3 +704,347 @@ const WeaponProficiencyInfo_t *CWeaponAR2::GetProficiencyValues()
 
 	return proficiencyTable;
 }
+
+#ifdef EZ2
+ConVar	sk_plr_dmg_ar2_proto( "sk_plr_dmg_ar2_proto", "16", FCVAR_REPLICATED );
+ConVar	sk_npc_dmg_ar2_proto( "sk_npc_dmg_ar2_proto", "8", FCVAR_REPLICATED );
+
+BEGIN_DATADESC( CWeaponAR2Proto )
+
+	DEFINE_FIELD( m_nBurstMax,	FIELD_INTEGER ),
+
+END_DATADESC()
+
+IMPLEMENT_SERVERCLASS_ST( CWeaponAR2Proto, DT_WeaponAR2Proto )
+END_SEND_TABLE()
+
+LINK_ENTITY_TO_CLASS( weapon_ar2_proto, CWeaponAR2Proto );
+PRECACHE_WEAPON_REGISTER( weapon_ar2_proto );
+
+CWeaponAR2Proto::CWeaponAR2Proto()
+{
+	m_nBurstMax = 0;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: BREADMAN --- This overrides the primaryfire function to suit the mod - Breadman
+// Input  : &info - 
+//-----------------------------------------------------------------------------
+void CWeaponAR2Proto::PrimaryAttack( void )
+{
+	if (CBasePlayer *pPlayer = ToBasePlayer(GetOwner()))
+	{
+		SendWeaponAnim(ACT_VM_PRIMARYATTACK);
+		WeaponSound( SINGLE );
+		
+
+		// Fire the bullets
+		FireBulletsInfo_t info;
+		info.m_iShots = 2;
+		info.m_vecSrc = pPlayer->Weapon_ShootPosition();
+		info.m_vecDirShooting = pPlayer->GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
+		info.m_vecSpread = pPlayer->GetAttackSpread(this);
+		info.m_flDistance = MAX_TRACE_LENGTH;
+		info.m_iAmmoType = m_iPrimaryAmmoType;
+		info.m_iTracerFreq = 2;
+
+		info.m_flDamage = sk_plr_dmg_ar2_proto.GetFloat();
+
+		pPlayer->FireBullets(info);
+		pPlayer->DoMuzzleFlash();
+
+		// Time we wait before allowing to throw another
+		m_flNextPrimaryAttack = gpGlobals->curtime + 0.09f;
+
+		m_iPrimaryAttacks++;
+		gamestats->Event_WeaponFired(pPlayer, false, GetClassname());
+
+		m_iClip1 = m_iClip1 - 1;
+
+		AddViewKick();
+
+		BaseClass::ItemPostFrame();
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: BURST FIRE THREE MINI-PELLETS 
+// At the moment the first shot fired consumes x2 ammo for some freakin' reason. - old comment
+// BUT NOW It's working as it should wat tha fack. DON'T QUESTION IT. SMILE. KEEP WORKING. 
+//-----------------------------------------------------------------------------
+void CWeaponAR2Proto::DelayedAttack( void )
+{
+	// Debug messages because DEBUG OKAY? JEEZE.
+	//Msg("\n BURST NUMBER IS: %i", BurstMax);
+	// Clamp
+	if (m_nBurstMax > 3) { m_nBurstMax = 3; };
+
+	// If we've reached our burst limit, stop firing.
+	if (m_nBurstMax == 3)
+	{
+		// Reset our burst and return to sender.
+		//Msg("\n ENDING AR2 BURST ATTACK \n");
+		m_nBurstMax = 0;
+		return; 
+	}
+
+	m_bShotDelayed = false;
+	
+	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+	
+	if ( pOwner == NULL )
+		return;
+
+	// Deplete the clip completely
+	SendWeaponAnim( ACT_VM_SECONDARYATTACK );
+	m_flNextSecondaryAttack = pOwner->m_flNextAttack = gpGlobals->curtime + SequenceDuration();
+
+	// Register a muzzleflash for the AI
+	pOwner->DoMuzzleFlash();
+	pOwner->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+	
+	WeaponSound( WPN_DOUBLE );
+
+	pOwner->RumbleEffect(RUMBLE_SHOTGUN_DOUBLE, 0, RUMBLE_FLAG_RESTART );
+
+	// Fire the bullets
+	Vector vecSrc	 = pOwner->Weapon_ShootPosition( );
+	Vector vecAiming = pOwner->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+	Vector impactPoint = vecSrc + ( vecAiming * MAX_TRACE_LENGTH );
+
+	// Fire the bullets
+	Vector vecVelocity = vecAiming * 1500.0f; // Breadman was 1000
+
+	// Fire the combine ball
+	CreateCombineBall(	vecSrc, 
+						vecVelocity, 
+						sk_weapon_ar2_alt_fire_proto_radius.GetFloat(), 
+						sk_weapon_ar2_alt_fire_mass.GetFloat(),
+						sk_weapon_ar2_alt_fire_proto_duration.GetFloat(),
+						pOwner );
+
+	// View effects
+	color32 white = {255, 255, 255, 64};
+	UTIL_ScreenFade( pOwner, white, 0.1, 0, FFADE_IN  );
+	
+	//Disorient the player
+	QAngle angles = pOwner->GetLocalAngles();
+
+	angles.x += random->RandomInt( -4, 4 );
+	angles.y += random->RandomInt( -4, 4 );
+	angles.z = 0;
+
+	pOwner->SnapEyeAngles( angles );
+	
+	pOwner->ViewPunch( QAngle( random->RandomInt( -8, -12 ), random->RandomInt( 1, 2 ), 0 ) );
+
+	// Can shoot again immediately
+	m_flNextPrimaryAttack = gpGlobals->curtime + 1.0f;
+
+	// Can blow up after a short delay (so have time to release mouse button)
+	m_flNextSecondaryAttack = gpGlobals->curtime + 1.0f;
+
+	// Add into our burst max
+	m_nBurstMax = m_nBurstMax + 1;
+
+	// Fire the next round
+	CWeaponAR2Proto::DelayedAttack();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: ENERGY BALL ATTACK
+//-----------------------------------------------------------------------------
+void CWeaponAR2Proto::SecondaryAttack( void )
+{
+	if ( m_bShotDelayed )
+		return;
+
+	// Cannot fire underwater
+	if ( GetOwner() && GetOwner()->GetWaterLevel() == 3 )
+	{
+		SendWeaponAnim( ACT_VM_DRYFIRE );
+		BaseClass::WeaponSound( EMPTY );
+		m_flNextSecondaryAttack = gpGlobals->curtime + 0.5f;
+		return;
+	}
+
+	m_bShotDelayed = true;
+	m_flNextPrimaryAttack = m_flNextSecondaryAttack = m_flDelayedFire = gpGlobals->curtime + 0.5f;
+
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+	if( pPlayer )
+	{
+		pPlayer->RumbleEffect(RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART );
+	}
+
+	SendWeaponAnim( ACT_VM_FIDGET );
+	WeaponSound( SPECIAL1 );
+
+	CBasePlayer *pOwner = ToBasePlayer(GetOwner());
+
+	// Decrease ammo - trying this down here.
+	//Msg("\n DEDUCTING AR2 ORB \n");
+	pOwner->RemoveAmmo(1, m_iSecondaryAmmoType);
+
+	m_iSecondaryAttacks++;
+	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *pOperator - 
+//-----------------------------------------------------------------------------
+void CWeaponAR2Proto::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
+{
+	Vector vecShootOrigin, vecShootDir;
+
+	CAI_BaseNPC *npc = pOperator->MyNPCPointer();
+	ASSERT( npc != NULL );
+
+	if ( bUseWeaponAngles )
+	{
+		QAngle	angShootDir;
+		GetAttachment( LookupAttachment( "muzzle" ), vecShootOrigin, angShootDir );
+		AngleVectors( angShootDir, &vecShootDir );
+	}
+	else 
+	{
+		vecShootOrigin = pOperator->Weapon_ShootPosition();
+		vecShootDir = npc->GetActualShootTrajectory( vecShootOrigin );
+	}
+
+	WeaponSoundRealtime( SINGLE_NPC );
+
+	CSoundEnt::InsertSound( SOUND_COMBAT|SOUND_CONTEXT_GUNFIRE, pOperator->GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pOperator, SOUNDENT_CHANNEL_WEAPON, pOperator->GetEnemy() );
+
+	// Fire the bullets
+	FireBulletsInfo_t info;
+	info.m_iShots = 2;
+	info.m_vecSrc = vecShootOrigin;
+	info.m_vecDirShooting = vecShootDir;
+	info.m_vecSpread = VECTOR_CONE_10DEGREES;
+	info.m_flDistance = MAX_TRACE_LENGTH;
+	info.m_iAmmoType = m_iPrimaryAmmoType;
+	info.m_iTracerFreq = 2;
+
+	info.m_flDamage = sk_npc_dmg_ar2_proto.GetFloat();
+
+	pOperator->FireBullets( 2, vecShootOrigin, vecShootDir, VECTOR_CONE_10DEGREES, MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 2 );
+
+	// NOTENOTE: This is overriden on the client-side
+	// pOperator->DoMuzzleFlash();
+
+	m_iClip1 = m_iClip1 - 1;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CWeaponAR2Proto::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
+{
+	// Clamp
+	if (m_nBurstMax > 3) { m_nBurstMax = 3; };
+
+	// If we've reached our burst limit, stop firing.
+	if (m_nBurstMax == 3)
+	{
+		// Reset our burst and return to sender.
+		m_nBurstMax = 0;
+		return; 
+	}
+
+	WeaponSound( WPN_DOUBLE );
+
+	if ( !GetOwner() )
+		return;
+		
+	CAI_BaseNPC *pNPC = GetOwner()->MyNPCPointer();
+	if ( !pNPC )
+		return;
+	
+	// Fire!
+	Vector vecSrc;
+	Vector vecAiming;
+
+	if ( bUseWeaponAngles )
+	{
+		QAngle	angShootDir;
+		GetAttachment( LookupAttachment( "muzzle" ), vecSrc, angShootDir );
+		AngleVectors( angShootDir, &vecAiming );
+
+		// Add some randomness to simulate player rumble
+		vecSrc += Vector( RandomFloat(-4, 4), RandomFloat(-4, 4), RandomFloat(-4, 4) );
+	}
+	else 
+	{
+		vecSrc = pNPC->Weapon_ShootPosition( );
+
+		// Add some randomness to simulate player rumble
+		vecSrc += Vector( RandomFloat(-4, 4), RandomFloat(-4, 4), RandomFloat(-4, 4) );
+		
+		Vector vecTarget;
+
+		// It's shared across all NPCs now that it's available on more than just soldiers on more than just the AR2.
+		vecTarget = pNPC->GetAltFireTarget();
+
+		vecAiming = vecTarget - vecSrc;
+		VectorNormalize( vecAiming );
+	}
+
+	Vector impactPoint = vecSrc + ( vecAiming * MAX_TRACE_LENGTH );
+
+	float flAmmoRatio = 1.0f;
+	float flDuration = RemapValClamped( flAmmoRatio, 0.0f, 1.0f, 0.5f, sk_weapon_ar2_alt_fire_proto_duration.GetFloat() );
+	float flRadius = RemapValClamped( flAmmoRatio, 0.0f, 1.0f, 4.0f, sk_weapon_ar2_alt_fire_proto_radius.GetFloat() );
+
+	// Fire the bullets
+	Vector vecVelocity = vecAiming * 1500.0f; // Breadman was 1000
+
+	// Fire the combine ball
+	CBaseEntity *pBall = CreateCombineBall(	vecSrc, 
+		vecVelocity, 
+		flRadius, 
+		sk_weapon_ar2_alt_fire_mass.GetFloat(),
+		flDuration,
+		pNPC );
+
+	variant_t var;
+	var.SetEntity(pBall);
+	pNPC->FireNamedOutput("OnThrowGrenade", var, pBall, pNPC);
+
+	// Add into our burst max
+	m_nBurstMax = m_nBurstMax + 1;
+
+	// Fire the next round
+	CWeaponAR2Proto::FireNPCSecondaryAttack(pOperator, bUseWeaponAngles);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CWeaponAR2Proto::AddViewKick( void )
+{
+	#define	PROTO_EASY_DAMPEN			0.5f
+	#define	PROTO_MAX_VERTICAL_KICK	12.0f	//Degrees - was 9.0
+	#define	PROTO_SLIDE_LIMIT			1.0f	//Seconds - was 5.0
+	
+	//Get the view kick
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if (!pPlayer)
+		return;
+
+	float flDuration = m_fFireDuration;
+
+	if( g_pGameRules->GetAutoAimMode() == AUTOAIM_ON_CONSOLE )
+	{
+		// On the 360 (or in any configuration using the 360 aiming scheme), don't let the
+		// AR2 progressive into the late, highly inaccurate stages of its kick. Just
+		// spoof the time to make it look (to the kicking code) like we haven't been
+		// firing for very long.
+		flDuration = MIN( flDuration, 0.75f );
+	}
+
+	DoMachineGunKick( pPlayer, PROTO_EASY_DAMPEN, PROTO_MAX_VERTICAL_KICK, flDuration, PROTO_SLIDE_LIMIT );
+}
+#endif
