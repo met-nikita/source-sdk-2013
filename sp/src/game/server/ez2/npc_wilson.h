@@ -298,6 +298,9 @@ private:
 	// Actual curtime
 	float m_flScanEndTime;
 
+	// Don't finish scanning until the target's scene is done
+	bool m_bWaitForScene;
+
 	AIHANDLE	m_hScanning;
 	CSprite		*m_pSprite;
 

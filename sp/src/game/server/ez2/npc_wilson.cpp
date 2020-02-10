@@ -1501,6 +1501,8 @@ BEGIN_DATADESC(CArbeitScanner)
 
 	DEFINE_FIELD( m_iScanAttachment,	FIELD_INTEGER ),
 
+	DEFINE_KEYFIELD( m_bWaitForScene, FIELD_BOOLEAN, "WaitForScene" ),
+
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "FinishScan", InputFinishScan ),
@@ -1536,6 +1538,7 @@ CArbeitScanner::CArbeitScanner( void )
 	m_pSprite = NULL;
 	m_flScanEndTime = 0.0f;
 	m_iScanAttachment = 0;
+	m_bWaitForScene = false;
 }
 
 CArbeitScanner::~CArbeitScanner( void )
@@ -1798,6 +1801,14 @@ void CArbeitScanner::ScanThink()
 			SetThink( &CArbeitScanner::WaitForReturnThink );
 			SetNextThink( gpGlobals->curtime );
 			return;
+		}
+	}
+
+	if ( m_bWaitForScene  && m_flScanEndTime <= gpGlobals->curtime )
+	{
+		if ( IsRunningScriptedScene( m_hScanning ) )
+		{
+			m_flScanEndTime  += 1.0f;
 		}
 	}
 
