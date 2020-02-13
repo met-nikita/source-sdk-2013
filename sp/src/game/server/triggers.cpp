@@ -55,7 +55,9 @@ CUtlVector< CHandle<CTriggerMultiple> >	g_hWeaponFireTriggers;
 extern CServerGameDLL	g_ServerGameDLL;
 extern bool				g_fGameOver;
 ConVar showtriggers( "showtriggers", "0", FCVAR_CHEAT, "Shows trigger brushes" );
-
+#ifdef EZ2
+ConVar ez2_demo( "ez2_demo", "0", FCVAR_CHEAT, "EZ2 Demo Map Transitions" );
+#endif
 bool IsTriggerClass( CBaseEntity *pEntity );
 
 // Command to dynamically toggle trigger visibility
@@ -1414,6 +1416,18 @@ bool CChangeLevel::KeyValue( const char *szKeyName, const char *szValue )
 		}
 		Q_strncpy(m_szMapName, szValue, sizeof(m_szMapName));
 	}
+#ifdef EZ2
+	// This relies on the "demomap" key value being processed after the "map" key value
+	if ( ez2_demo.GetBool() && FStrEq( szKeyName, "demomap" ) && strlen( szValue ) > 0 )
+	{
+		if (strlen( szValue ) >= cchMapNameMost)
+		{
+			Warning( "Map name '%s' too long (32 chars)\n", szValue );
+			Assert( 0 );
+		}
+		Q_strncpy( m_szMapName, szValue, sizeof( m_szMapName ) );
+	}
+#endif
 	else if (FStrEq(szKeyName, "landmark"))
 	{
 		if (strlen(szValue) >= cchMapNameMost)
