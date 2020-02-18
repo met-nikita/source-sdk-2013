@@ -204,13 +204,6 @@ Disposition_t CEZ2_Player::IRelationType( CBaseEntity *pTarget )
 {
 	Disposition_t base = BaseClass::IRelationType( pTarget );
 
-	// HACKHACK
-	// If this is Clone Cop and there is no map-based relationship for it, always use D_HT
-	if (base == D_LI && pTarget->ClassMatches("npc_clonecop") /*&& FindEntityRelationship(pTarget)->classType == CLASS_COMBINE*/)
-	{
-		return D_HT;
-	}
-
 	return base;
 }
 

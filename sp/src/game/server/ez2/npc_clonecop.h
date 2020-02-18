@@ -27,6 +27,8 @@ public:
 	void		Spawn( void );
 	void		Precache( void );
 
+	Class_T		Classify( void ) { return CLASS_COMBINE_NEMESIS; }
+
 	void		DeathSound( const CTakeDamageInfo &info );
 
 	void		ClearAttackConditions( void );
@@ -34,9 +36,14 @@ public:
 	int			TranslateSchedule( int scheduleType );
 
 	float		GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDamageInfo &info );
+	Vector		GetShootEnemyDir( const Vector &shootOrigin, bool bNoisy = true );
+	Vector		GetActualShootPosition( const Vector &shootOrigin );
 	void		HandleAnimEvent( animevent_t *pEvent );
 
+	void		HandleManhackSpawn( CAI_BaseNPC *pNPC );
+
 	void		Event_Killed( const CTakeDamageInfo &info );
+	void		Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
 
 	Activity	GetFlinchActivity( bool bHeavyDamage, bool bGesture );
 	bool		IsHeavyDamage( const CTakeDamageInfo &info );
@@ -51,6 +58,19 @@ public:
 	// For special base Combine behaviors
 	bool		IsMajorCharacter() { return true; }
 
+protected:
+	//=========================================================
+	// Clone Cop schedules
+	//=========================================================
+	enum
+	{
+		SCHED_COMBINE_FLANK_LINE_OF_FIRE = BaseClass::NEXT_SCHEDULE,
+		SCHED_COMBINE_MERCILESS_RANGE_ATTACK1,
+		SCHED_COMBINE_MERCILESS_SUPPRESS,
+		NEXT_SCHEDULE,
+	};
+
+	DEFINE_CUSTOM_AI;
 };
 
 #endif

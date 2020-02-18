@@ -15,6 +15,7 @@
 #include "gameweaponmanager.h"
 #include "ammodef.h"
 #include "grenade_hopwire.h"
+#include "npc_manhack.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -32,7 +33,7 @@ LINK_ENTITY_TO_CLASS( npc_clonecop, CNPC_CloneCop );
 CNPC_CloneCop::CNPC_CloneCop()
 {
 	// KV will override this if the NPC was spawned by Hammer
-	AddGrenades( 10 );
+	AddGrenades( 99 );
 	SetAlternateCapable( true );
 	AddSpawnFlags( SF_COMBINE_REGENERATE );
 	m_tEzVariant = EZ_VARIANT_RAD;
@@ -46,6 +47,8 @@ void CNPC_CloneCop::Spawn( void )
 	Precache();
 	SetModel( STRING( GetModelName() ) );
 
+	AimGun();
+
 	// Stronger, tougher.
 	SetHealth( sk_clonecop_health.GetFloat() );
 	SetMaxHealth( sk_clonecop_health.GetFloat() );
@@ -56,9 +59,6 @@ void CNPC_CloneCop::Spawn( void )
 	CapabilitiesAdd( bits_CAP_ANIMATEDFACE );
 	CapabilitiesAdd( bits_CAP_MOVE_SHOOT );
 	CapabilitiesAdd( bits_CAP_DOORS_GROUP );
-
-	// We despise the player
-	AddClassRelationship( CLASS_PLAYER, D_HT, 10 );
 
 	BaseClass::Spawn();
 
@@ -141,10 +141,30 @@ int CNPC_CloneCop::TranslateSchedule( int scheduleType )
 
 	switch (scheduleType)
 	{
+		case SCHED_COMBINE_ASSAULT:
+		case SCHED_COMBINE_PRESS_ATTACK:
 		case SCHED_COMBINE_ESTABLISH_LINE_OF_FIRE:
 		{
-			// Clone Cop always attempts to flank the player
+			// Just suppress if we've been damaged recently and we see our enemy's last seen position
+			if (gpGlobals->curtime - GetLastDamageTime() < 15.0f && GetEnemy() && CBaseCombatCharacter::FVisible(GetEnemies()->LastSeenPosition(GetEnemy())))
+				return SCHED_COMBINE_MERCILESS_SUPPRESS;
+
+			// Clone Cop attempts to flank
 			return SCHED_COMBINE_FLANK_LINE_OF_FIRE;
+		} break;
+
+		case SCHED_RANGE_ATTACK1:
+		case SCHED_COMBINE_RANGE_ATTACK1:
+		{
+			// Don't stop firing
+			return SCHED_COMBINE_MERCILESS_RANGE_ATTACK1;
+		} break;
+
+		case SCHED_COMBINE_SUPPRESS:
+		case SCHED_COMBINE_SIGNAL_SUPPRESS:
+		{
+			// Merciless
+			return SCHED_COMBINE_MERCILESS_SUPPRESS;
 		} break;
 	}
 
@@ -165,6 +185,63 @@ float CNPC_CloneCop::GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDama
 	}
 
 	return BaseClass::GetHitgroupDamageMultiplier( iHitGroup, info );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+Vector CNPC_CloneCop::GetShootEnemyDir( const Vector &shootOrigin, bool bNoisy )
+{
+	CBaseEntity *pEnemy = GetEnemy();
+
+	if ( pEnemy )
+	{
+		Vector vecEnemyLKP = GetEnemyLKP();
+		Vector vecEnemyOffset;
+
+		if (GetEnemy()->IsNPC())
+		{
+			float flDist = EnemyDistance( GetEnemy() );
+			if (flDist < 768.0f && flDist > 32.0f)
+			{
+				// Aim for the head, like players do
+				vecEnemyOffset = pEnemy->HeadTarget( shootOrigin ) - pEnemy->GetAbsOrigin();
+			}
+		}
+		else
+		{
+			vecEnemyOffset = pEnemy->BodyTarget( shootOrigin, bNoisy ) - pEnemy->GetAbsOrigin();
+		}
+
+		Vector retval = vecEnemyOffset + vecEnemyLKP - shootOrigin;
+		VectorNormalize( retval );
+		return retval;
+	}
+	else
+	{
+		Vector forward;
+		AngleVectors( GetLocalAngles(), &forward );
+		return forward;
+	}
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+Vector CNPC_CloneCop::GetActualShootPosition( const Vector &shootOrigin )
+{
+	if ( GetEnemy() && GetEnemy()->IsNPC() )
+	{
+		float flDist = EnemyDistance( GetEnemy() );
+		if (flDist < 768.0f && flDist > 32.0f)
+		{
+			// Aim for the head, like players do
+			return GetEnemy()->HeadTarget( shootOrigin );
+		}
+	}
+
+	return BaseClass::GetActualShootPosition( shootOrigin );
 }
 
 
@@ -259,6 +336,17 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 
 //-----------------------------------------------------------------------------
 // Purpose: 
+// Input  : *pEvent - 
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::HandleManhackSpawn( CAI_BaseNPC *pNPC )
+{
+	CNPC_Manhack *pManhack = static_cast<CNPC_Manhack*>(pNPC);
+
+	pManhack->TurnIntoNemesis();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
 // Input  : &info - 
 // Output : Returns true on success, false on failure.
 //-----------------------------------------------------------------------------
@@ -305,6 +393,37 @@ void CNPC_CloneCop::Event_Killed( const CTakeDamageInfo &info )
 	}
 
 	BaseClass::Event_Killed( info );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info )
+{
+	BaseClass::Event_KilledOther(pVictim, info);
+
+	// Actually shoot at the Combine's aim target instead of just aiming
+	// Helps mask some of the other stuff ported from Alyx.
+	if ( GetEnemies()->NumEnemies() == 1 && GetAimTarget() )
+	{
+		// Don't do this against dissolve or blast damage
+		if( !HasShotgun() && !(info.GetDamageType() & (DMG_DISSOLVE | DMG_BLAST)) )
+		{
+			CAI_BaseNPC *pTarget = GetAimTarget()->MyNPCPointer();
+			if (pTarget)
+			{
+				AddEntityRelationship( pTarget, IRelationType(pVictim), IRelationPriority(pVictim) );
+
+				GetEnemies()->UpdateMemory( GetNavigator()->GetNetwork(), pTarget, pTarget->GetAbsOrigin(), 0.0f, true );
+				AI_EnemyInfo_t *pMemory = GetEnemies()->Find( pTarget );
+
+				if( pMemory )
+				{
+					// Pretend we've known about this target longer than we really have.
+					pMemory->timeFirstSeen = gpGlobals->curtime - 10.0f;
+				}
+			}
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -408,3 +527,85 @@ bool CNPC_CloneCop::IsJumpLegal( const Vector &startPos, const Vector &apex, con
 
 	return BaseClass::IsJumpLegal(startPos, apex, endPos, MAX_JUMP_RISE, MAX_JUMP_DROP, MAX_JUMP_DISTANCE);
 }
+
+//-----------------------------------------------------------------------------
+//
+// Schedules
+//
+//-----------------------------------------------------------------------------
+
+AI_BEGIN_CUSTOM_NPC( npc_clonecop, CNPC_CloneCop )
+
+ DEFINE_SCHEDULE 
+ (
+	 SCHED_COMBINE_FLANK_LINE_OF_FIRE,
+
+	 "	Tasks "
+	 "		TASK_SET_FAIL_SCHEDULE			SCHEDULE:SCHED_FAIL_ESTABLISH_LINE_OF_FIRE"
+	 "		TASK_SET_TOLERANCE_DISTANCE		48"
+	 "		TASK_GET_FLANK_ARC_PATH_TO_ENEMY_LOS	0"
+	 "		TASK_COMBINE_SET_STANDING		1"
+	 "		TASK_SPEAK_SENTENCE				1"
+	 "		TASK_RUN_PATH					0"
+	 "		TASK_WAIT_FOR_MOVEMENT			0"
+	 "		TASK_COMBINE_IGNORE_ATTACKS		0.0"
+	 "		TASK_SET_SCHEDULE				SCHEDULE:SCHED_COMBAT_FACE"
+	 "	"
+	 "	Interrupts "
+	 "		COND_NEW_ENEMY"
+	 "		COND_ENEMY_DEAD"
+	 //"		COND_CAN_RANGE_ATTACK1"
+	 //"		COND_CAN_RANGE_ATTACK2"
+	 "		COND_CAN_MELEE_ATTACK1"
+	 "		COND_CAN_MELEE_ATTACK2"
+	 "		COND_HEAR_DANGER"
+	 "		COND_HEAR_MOVE_AWAY"
+	 "		COND_HEAVY_DAMAGE"
+ )
+
+ //===============================================
+ //	> RangeAttack1
+ //===============================================
+ DEFINE_SCHEDULE
+ (
+ 	SCHED_COMBINE_MERCILESS_RANGE_ATTACK1,
+ 
+ 	"	Tasks"
+ 	"		TASK_STOP_MOVING		0"
+ 	"		TASK_FACE_ENEMY			0"
+ 	"		TASK_ANNOUNCE_ATTACK	1"	// 1 = primary attack
+ 	"		TASK_RANGE_ATTACK1		0"
+ 	""
+ 	"	Interrupts"
+ 	"		COND_ENEMY_WENT_NULL"
+ 	"		COND_HEAVY_DAMAGE"
+ 	"		COND_ENEMY_OCCLUDED"
+ 	"		COND_NO_PRIMARY_AMMO"
+ 	"		COND_HEAR_DANGER"
+	"		COND_HEAR_MOVE_AWAY"
+	"		COND_COMBINE_NO_FIRE"
+ 	"		COND_WEAPON_BLOCKED_BY_FRIEND"
+ 	"		COND_WEAPON_SIGHT_OCCLUDED"
+ )
+
+ DEFINE_SCHEDULE
+ (
+	SCHED_COMBINE_MERCILESS_SUPPRESS,
+
+	 "	Tasks"
+	 "		TASK_STOP_MOVING			0"
+	 "		TASK_FACE_ENEMY				0"
+	 "		TASK_COMBINE_SET_STANDING	0"
+	 "		TASK_RANGE_ATTACK1			0"
+	 ""
+	 "	Interrupts"
+	 "		COND_ENEMY_WENT_NULL"
+	 "		COND_HEAVY_DAMAGE"
+	 "		COND_NO_PRIMARY_AMMO"
+	 "		COND_HEAR_DANGER"
+	 "		COND_HEAR_MOVE_AWAY"
+	 "		COND_COMBINE_NO_FIRE"
+	 "		COND_WEAPON_BLOCKED_BY_FRIEND"
+ )
+
+ AI_END_CUSTOM_NPC()
