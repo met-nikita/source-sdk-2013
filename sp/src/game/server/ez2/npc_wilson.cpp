@@ -19,6 +19,7 @@
 #include "te_effect_dispatch.h"
 #include "iservervehicle.h"
 #include "basegrenade_shared.h"
+#include "ai_interactions.h"
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -31,8 +32,6 @@ extern int ACT_FLOOR_TURRET_CLOSED_IDLE;
 extern ConVar	g_debug_turret;
 
 // Interactions
-int	g_interactionXenGrenadeConsume		= 0;
-int	g_interactionXenGrenadeRelease		= 0;
 int g_interactionArbeitScannerStart		= 0;
 int g_interactionArbeitScannerEnd		= 0;
 
@@ -1446,9 +1445,6 @@ void CNPC_Wilson::PostConstructor(const char *szClassname)
 //
 //-----------------------------------------------------------------------------
 AI_BEGIN_CUSTOM_NPC( npc_wilson, CNPC_Wilson )
-
-	DECLARE_INTERACTION( g_interactionXenGrenadeConsume );
-	DECLARE_INTERACTION( g_interactionXenGrenadeRelease );
 
 	DECLARE_INTERACTION( g_interactionArbeitScannerStart );
 	DECLARE_INTERACTION( g_interactionArbeitScannerEnd );

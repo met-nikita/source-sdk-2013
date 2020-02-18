@@ -28,6 +28,10 @@ class CSoundPatch;
 #include "filters.h"
 #endif
 
+#ifdef EZ2
+#define SF_BOUNCEBOMB_HACKED (1 << 0)
+#endif
+
 class CBounceBomb : public CBaseAnimating, public CDefaultPlayerPickupVPhysics
 {
 	DECLARE_CLASS( CBounceBomb, CBaseAnimating );

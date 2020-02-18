@@ -80,4 +80,11 @@ extern int	g_interactionPlayerPuntedHeavyObject;
 // Melee attack will land in one second or so.
 extern int	g_interactionZombieMeleeWarning;
 
+#ifdef EZ2
+// Xen Grenade
+extern int	g_interactionXenGrenadePull;
+extern int	g_interactionXenGrenadeConsume;
+extern int	g_interactionXenGrenadeRelease;
+#endif
+
 #endif	//AI_INTERACTIONS_H

@@ -70,10 +70,10 @@ ConVar g_debug_hopwire( "g_debug_hopwire", "0" );
 #define	MIN_HOP_HEIGHT		(hopwire_minheight.GetFloat())		// Minimum amount the grenade will "hop" upwards when detonated
 
 #ifdef EZ2
-// These are defined in npc_wilson.
-// I don't know if there's a way to make it base-level since Xen grenades aren't NPCs.
-extern int g_interactionXenGrenadeConsume;
-extern int g_interactionXenGrenadeRelease;
+// Xen Grenade Interactions
+int	g_interactionXenGrenadePull			= 0;
+int	g_interactionXenGrenadeConsume		= 0;
+int	g_interactionXenGrenadeRelease		= 0;
 #endif
 
 //-----------------------------------------------------------------------------
@@ -545,11 +545,21 @@ void CGravityVortexController::PullThink( void )
 		// Find the pull force
 		vecForce *= ( 1.0f - ( dist2D / m_flRadius ) ) * m_flStrength * mass;
 		
+
+#ifdef EZ2
+		CTakeDamageInfo info( this, this, vecForce, GetAbsOrigin(), m_flStrength, DMG_BLAST );
+		if ( !pEnts[i]->DispatchInteraction( g_interactionXenGrenadePull, &info, NULL ) && pPhysObject != NULL )
+		{
+			// Pull the object in if there was no special handling
+			pEnts[i]->VPhysicsTakeDamage( info );
+		}
+#else
 		if ( pEnts[i]->VPhysicsGetObject() )
 		{
 			// Pull the object in
 			pEnts[i]->VPhysicsTakeDamage( CTakeDamageInfo( this, this, vecForce, GetAbsOrigin(), m_flStrength, DMG_BLAST ) );
 		}
+#endif
 	}
 
 	// Keep going if need-be
@@ -705,6 +715,14 @@ void CGrenadeHopwire::Precache( void )
 	UTIL_PrecacheXenVariant( "npc_bullsquid" );
 	UTIL_PrecacheXenVariant( "npc_zombine" );
 	UTIL_PrecacheXenVariant( "npc_antlionguard" );
+
+	// Interactions
+	if (g_interactionXenGrenadePull == 0)
+	{
+		g_interactionXenGrenadePull = CBaseCombatCharacter::GetInteractionID();
+		g_interactionXenGrenadeConsume = CBaseCombatCharacter::GetInteractionID();
+		g_interactionXenGrenadeRelease = CBaseCombatCharacter::GetInteractionID();
+	}
 #endif
 
 	BaseClass::Precache();
