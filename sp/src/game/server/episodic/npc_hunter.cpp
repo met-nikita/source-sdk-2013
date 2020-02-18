@@ -89,6 +89,9 @@ ConVar sk_hunter_health("sk_hunter_health", "210");
 // Melee attacks
 ConVar sk_hunter_dmg_one_slash( "sk_hunter_dmg_one_slash", "20" );
 ConVar sk_hunter_dmg_charge( "sk_hunter_dmg_charge", "20" );
+#ifdef EZ2
+ConVar sk_hunter_dmg_one_slash_forcescale( "sk_hunter_dmg_one_slash_forcescale", "0.5" );
+#endif
 
 // Flechette volley attack
 ConVar hunter_flechette_max_range( "hunter_flechette_max_range", "1200" );
@@ -2857,6 +2860,13 @@ int CNPC_Hunter::SelectCombatSchedule()
 
 	if ( HasCondition( COND_TOO_CLOSE_TO_ATTACK ) )
 	{
+#ifdef EZ2
+		// Blixibon - Hunters should be more aggressive with melee attacks
+		// against smaller NPCs, as they often fight in tight spaces
+		if ( pEnemy->MyNPCPointer() && pEnemy->MyNPCPointer()->GetHullType() <= HULL_TINY )
+			return SCHED_HUNTER_CHASE_ENEMY;
+#endif
+
 		return SCHED_MOVE_AWAY_FROM_ENEMY;
 	}
 
@@ -5130,7 +5140,11 @@ CBaseEntity *CNPC_Hunter::MeleeAttack( float flDist, int iDamage, QAngle &qaView
 	vecMins.z = vecMins.x;
 	vecMaxs.z = vecMaxs.x;
 
+#ifdef EZ2
+	CBaseEntity *pHurt = CheckTraceHullAttack( flDist, vecMins, vecMaxs, iDamage, DMG_SLASH, sk_hunter_dmg_one_slash_forcescale.GetFloat() );
+#else
 	CBaseEntity *pHurt = CheckTraceHullAttack( flDist, vecMins, vecMaxs, iDamage, DMG_SLASH );
+#endif
 
 	if ( pHurt )
 	{
@@ -5978,9 +5992,16 @@ float CNPC_Hunter::MaxYawSpeed()
 //-----------------------------------------------------------------------------
 bool CNPC_Hunter::IsJumpLegal(const Vector &startPos, const Vector &apex, const Vector &endPos) const
 {
+#ifdef EZ2
+	// Blixibon - Adjusted jump parameters
+	float MAX_JUMP_RISE		= 192.0f;
+	float MAX_JUMP_DISTANCE	= 420.0f;
+	float MAX_JUMP_DROP		= 384.0f;
+#else
 	float MAX_JUMP_RISE		= 220.0f;
 	float MAX_JUMP_DISTANCE	= 512.0f;
 	float MAX_JUMP_DROP		= 384.0f;
+#endif
 
 	trace_t tr;	
 	UTIL_TraceHull( startPos, startPos, GetHullMins(), GetHullMaxs(), MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &tr );

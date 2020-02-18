@@ -149,6 +149,10 @@ void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 {
+	// Continuous use = turning valves, using chargers, etc.
+	if (pEntity->ObjectCaps() & FCAP_CONTINUOUS_USE)
+		return;
+
 	AI_CriteriaSet modifiers;
 	bool bStealthChat = false;
 	ModifyOrAppendSpeechTargetCriteria(modifiers, pEntity);
@@ -341,6 +345,7 @@ bool CEZ2_Player::CommanderExecuteOne(CAI_BaseNPC * pNpc, const commandgoal_t & 
 
 			modifiers.AppendCriteria("commandpoint_dist_to_player", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - GetAbsOrigin()).Length()));
 			modifiers.AppendCriteria("commandpoint_dist_to_npc", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - pNpc->GetAbsOrigin()).Length()));
+			modifiers.AppendCriteria("distancetoplayer", UTIL_VarArgs("%.0f", (GetAbsOrigin() - pNpc->GetAbsOrigin()).Length()));
 
 			SpeakIfAllowed(TLK_COMMAND_SEND, modifiers);
 		}
@@ -1118,21 +1123,21 @@ void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
+bool CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
 {
 	SetSpeechTarget(pNPC);
 
-	SpeakIfAllowed(TLK_COMMAND_ADD);
+	return SpeakIfAllowed(TLK_COMMAND_ADD);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
+bool CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
 {
 	SetSpeechTarget(pNPC);
 
-	SpeakIfAllowed(TLK_COMMAND_REMOVE);
+	return SpeakIfAllowed(TLK_COMMAND_REMOVE);
 }
 
 //-----------------------------------------------------------------------------

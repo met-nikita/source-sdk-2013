@@ -338,18 +338,18 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 	if (pActivator == UTIL_GetLocalPlayer() && IsCommandable())
 	{
 		bool isInPlayerSquad = IsInPlayerSquad();
+		bool bSpoken = false;
 #ifdef EZ2
 		CEZ2_Player *badcop = assert_cast<CEZ2_Player *>(pActivator);
-
 		if (badcop)
 		{
 			if (isInPlayerSquad)
 			{
-				badcop->HandleRemoveFromPlayerSquad(this);
+				bSpoken = badcop->HandleRemoveFromPlayerSquad(this);
 			}
 			else
 			{
-				badcop->HandleAddToPlayerSquad(this);
+				bSpoken = badcop->HandleAddToPlayerSquad(this);
 			}
 		}
 #endif
@@ -361,7 +361,9 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 			// in case the player just wants them to hold down
 			m_bHoldPositionGoal = true;
 
-			StopFollowSound();
+			if (!bSpoken)
+				StopFollowSound();
+
 			RemoveFromPlayerSquad();
 		}
 		else
@@ -369,7 +371,9 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 			// Blixibon -- Look at the player when asked to follow. (needs head-turning model)
 			AddLookTarget(pActivator, 0.75, 3.0);
 
-			FollowSound();
+			if (!bSpoken)
+				FollowSound();
+
 			AddToPlayerSquad();
 		}
 	}
@@ -2491,9 +2495,16 @@ bool CNPC_Combine::QueryHearSound( CSound *pSound )
 		return false;
 
 #ifdef EZ
-	// Blixibon - Don't be afraid of friendly manhacks
-	if (pSound->m_hOwner && IRelationType( pSound->m_hOwner ) > D_FR)
-		return false;
+	if (pSound->m_hOwner)
+	{
+		// Blixibon - Don't be afraid of allies
+		if (IRelationType( pSound->m_hOwner ) > D_FR)
+			return false;
+
+		// Blixibon - Manhack danger causes soldiers to look stupid
+		if (pSound->m_hOwner->ClassMatches("npc_manhack"))
+			return false;
+	}
 #endif
 
 	return BaseClass::QueryHearSound( pSound );
@@ -4760,7 +4771,10 @@ void CNPC_Combine::OnAnimEventStartDeployManhack( void )
 		pManhack->AddSpawnFlags( SF_NPC_FADE_CORPSE );
 	}
 
-	pManhack->Spawn();
+	// Allow modification of the manhack
+	HandleManhackSpawn( pManhack );
+
+	DispatchSpawn( pManhack );
 
 	// Make us move with his hand until we're deployed
 	pManhack->SetParent( this, handAttachment );
@@ -4796,6 +4810,20 @@ void CNPC_Combine::OnAnimEventDeployManhack( animevent_t *pEvent )
 
 	// Stop dealing with this manhack
 	m_hManhack = NULL;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Combine::OnScheduleChange()
+{
+	BaseClass::OnScheduleChange();
+
+	// Ensures we deploy the manhack
+	if ( m_hManhack && m_hManhack->GetParent() == this )
+	{
+		OnAnimEventDeployManhack( NULL );
+	}
 }
 #endif
 
@@ -5874,34 +5902,7 @@ DEFINE_SCHEDULE
  	"		TASK_PLAY_SEQUENCE					ACTIVITY:ACT_METROPOLICE_DEPLOY_MANHACK"
  	"	"
  	"	Interrupts"
- 	"	"
- );
-
- DEFINE_SCHEDULE 
- (
-	 SCHED_COMBINE_FLANK_LINE_OF_FIRE,
-
-	 "	Tasks "
-	 "		TASK_SET_FAIL_SCHEDULE			SCHEDULE:SCHED_FAIL_ESTABLISH_LINE_OF_FIRE"
-	 "		TASK_SET_TOLERANCE_DISTANCE		48"
-	 "		TASK_GET_FLANK_ARC_PATH_TO_ENEMY_LOS	0"
-	 "		TASK_COMBINE_SET_STANDING		1"
-	 "		TASK_SPEAK_SENTENCE				1"
-	 "		TASK_RUN_PATH					0"
-	 "		TASK_WAIT_FOR_MOVEMENT			0"
-	 "		TASK_COMBINE_IGNORE_ATTACKS		0.0"
-	 "		TASK_SET_SCHEDULE				SCHEDULE:SCHED_COMBAT_FACE"
-	 "	"
-	 "	Interrupts "
-	 "		COND_NEW_ENEMY"
-	 "		COND_ENEMY_DEAD"
-	 //"		COND_CAN_RANGE_ATTACK1"
-	 //"		COND_CAN_RANGE_ATTACK2"
-	 "		COND_CAN_MELEE_ATTACK1"
-	 "		COND_CAN_MELEE_ATTACK2"
-	 "		COND_HEAR_DANGER"
-	 "		COND_HEAR_MOVE_AWAY"
-	 "		COND_HEAVY_DAMAGE"
+ 	"		COND_RECEIVED_ORDERS"
  )
 #endif
 

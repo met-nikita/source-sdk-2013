@@ -155,8 +155,8 @@ public:
 
 	void			Event_SeeEnemy( CBaseEntity *pEnemy );
 	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
-	void			HandleAddToPlayerSquad( CAI_BaseNPC *pNPC );
-	void			HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC );
+	bool			HandleAddToPlayerSquad( CAI_BaseNPC *pNPC );
+	bool			HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC );
 
 	// Blixibon - StartScripting for gag replacement
 	inline bool			IsInAScript( void ) { return m_bInAScript; }
