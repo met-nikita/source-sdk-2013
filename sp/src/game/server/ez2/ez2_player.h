@@ -143,6 +143,7 @@ public:
 	bool			FInTrueViewCone( const Vector &vecSpot );
 
 	virtual int		OnTakeDamage_Alive(const CTakeDamageInfo &info);
+	virtual int		TakeHealth( float flHealth, int bitsDamageType );
 	void			TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator );
 	void			Event_KilledOther(CBaseEntity * pVictim, const CTakeDamageInfo & info);
 	void			Event_KilledEnemy(CBaseCombatCharacter * pVictim, const CTakeDamageInfo & info);

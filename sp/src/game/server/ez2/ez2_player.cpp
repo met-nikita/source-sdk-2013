@@ -261,6 +261,27 @@ int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: give health. Returns the amount of health actually taken.
+//-----------------------------------------------------------------------------
+int CEZ2_Player::TakeHealth( float flHealth, int bitsDamageType )
+{
+	// Cache the player's original health
+	int beforeHealth = m_iHealth;
+
+	// Give health
+	int returnValue = BaseClass::TakeHealth( flHealth, bitsDamageType );
+
+	AI_CriteriaSet modifiers;
+	modifiers.AppendCriteria( "health", UTIL_VarArgs( "%i", beforeHealth ) );
+	modifiers.AppendCriteria( "damage", UTIL_VarArgs( "%i", returnValue ) );
+	modifiers.AppendCriteria( "damage_type", UTIL_VarArgs( "%i", bitsDamageType ) );
+
+	SpeakIfAllowed( TLK_HEAL, modifiers );
+
+	return returnValue;
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Override and copy-paste of CBasePlayer::TraceAttack(), does fake hitgroup calculations
 //-----------------------------------------------------------------------------
 void CEZ2_Player::TraceAttack( const CTakeDamageInfo &inputInfo, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator )
