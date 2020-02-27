@@ -20,12 +20,14 @@
 class CNPC_CloneCop : public CNPC_Combine
 {
 	DECLARE_CLASS( CNPC_CloneCop, CNPC_Combine );
+	DECLARE_DATADESC();
 
 public:
 	CNPC_CloneCop();
 
 	void		Spawn( void );
 	void		Precache( void );
+	void		Activate( void );
 
 	Class_T		Classify( void ) { return CLASS_COMBINE_NEMESIS; }
 
@@ -35,10 +37,16 @@ public:
 	int			SelectSchedule( void );
 	int			TranslateSchedule( int scheduleType );
 
+	int			OnTakeDamage( const CTakeDamageInfo &info );
 	float		GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDamageInfo &info );
 	Vector		GetShootEnemyDir( const Vector &shootOrigin, bool bNoisy = true );
 	Vector		GetActualShootPosition( const Vector &shootOrigin );
 	void		HandleAnimEvent( animevent_t *pEvent );
+
+	void		BleedThink();
+	void		StartBleeding();
+	void		StopBleeding();
+	inline bool	IsBleeding() { return m_bIsBleeding; }
 
 	void		HandleManhackSpawn( CAI_BaseNPC *pNPC );
 
@@ -58,6 +66,8 @@ public:
 	// For special base Combine behaviors
 	bool		IsMajorCharacter() { return true; }
 
+	int			GetArmorValue() { return m_ArmorValue; }
+
 protected:
 	//=========================================================
 	// Clone Cop schedules
@@ -71,6 +81,14 @@ protected:
 	};
 
 	DEFINE_CUSTOM_AI;
+
+private:
+
+	static int gm_nBloodAttachment;
+	static float gm_flBodyRadius;
+
+	int		m_ArmorValue;
+	bool	m_bIsBleeding;
 };
 
 #endif

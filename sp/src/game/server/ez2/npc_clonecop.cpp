@@ -16,6 +16,7 @@
 #include "ammodef.h"
 #include "grenade_hopwire.h"
 #include "npc_manhack.h"
+#include "particle_parse.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -26,7 +27,26 @@ ConVar	sk_clonecop_kick( "sk_clonecop_kick", "40" );
 extern ConVar sk_plr_dmg_buckshot;
 extern ConVar sk_plr_num_shotgun_pellets;
 
+// Think contexts
+static const char *CC_BLEED_THINK = "CCBleed";
+
+int CNPC_CloneCop::gm_nBloodAttachment = -1;
+float CNPC_CloneCop::gm_flBodyRadius = 10.0f;
+
 #define COMBINE_AE_GREN_DROP		( 9 )
+
+//---------------------------------------------------------
+// Save/Restore
+//---------------------------------------------------------
+BEGIN_DATADESC( CNPC_CloneCop )
+
+	DEFINE_INPUT( m_ArmorValue, FIELD_INTEGER, "SetArmor" ),
+	DEFINE_FIELD( m_bIsBleeding, FIELD_BOOLEAN ),
+
+	// Function Pointers
+	DEFINE_THINKFUNC( BleedThink ),
+
+END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( npc_clonecop, CNPC_CloneCop );
 
@@ -37,6 +57,7 @@ CNPC_CloneCop::CNPC_CloneCop()
 	SetAlternateCapable( true );
 	AddSpawnFlags( SF_COMBINE_REGENERATE );
 	m_tEzVariant = EZ_VARIANT_RAD;
+	m_ArmorValue = 200;
 }
 
 //-----------------------------------------------------------------------------
@@ -87,7 +108,27 @@ void CNPC_CloneCop::Precache()
 
 	UTIL_PrecacheOther( "item_ammo_ar2_altfire" );
 
+	PrecacheParticleSystem( "blood_spurt_synth_01" );
+	PrecacheParticleSystem( "blood_drip_synth_01" );
+
 	BaseClass::Precache();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::Activate()
+{
+	gm_nBloodAttachment = LookupAttachment( "body_blood_loc" );
+
+	if ( IsBleeding() )
+	{
+		StartBleeding();
+	}
+
+	BaseClass::Activate();
 }
 
 
@@ -169,6 +210,55 @@ int CNPC_CloneCop::TranslateSchedule( int scheduleType )
 	}
 
 	return scheduleType;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+int CNPC_CloneCop::OnTakeDamage( const CTakeDamageInfo &inputInfo )
+{
+	CTakeDamageInfo info = inputInfo;
+
+	// Clone Cop has his own armor, similar to the player's. 
+	if (info.GetDamage() && m_ArmorValue && !(info.GetDamageType() & (DMG_FALL | DMG_DROWN | DMG_POISON | DMG_RADIATION)) )// armor doesn't protect against fall or drown damage!
+	{
+		float flRatio = 0.2f;
+
+		float flNew = info.GetDamage() * flRatio;
+
+		float flArmor;
+
+		flArmor = (info.GetDamage() - flNew);
+
+		if( flArmor < 1.0 )
+		{
+			flArmor = 1.0;
+		}
+
+		// Does this use more armor than we have?
+		if (flArmor > m_ArmorValue)
+		{
+			flArmor = m_ArmorValue;
+			flNew = info.GetDamage() - flArmor;
+			m_ArmorValue = 0;
+		}
+		else
+		{
+			m_ArmorValue -= flArmor;
+		}
+		
+		info.SetDamage( flNew );
+	}
+
+	if (m_lifeState == LIFE_ALIVE)
+	{
+		// Spark at 30% health.
+		if ( !IsBleeding() && ( GetHealth() <= GetMaxHealth() * 0.3 ) )
+		{
+			StartBleeding();
+		}
+	}
+
+	return BaseClass::OnTakeDamage( info );
 }
 
 //-----------------------------------------------------------------------------
@@ -332,6 +422,60 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 	{
 		m_iLastAnimEventHandled = pEvent->event;
 	}
+}
+
+//-----------------------------------------------------------------------------
+// Our health is low. Show damage effects.
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::BleedThink()
+{
+	if (GetHealth() > GetMaxHealth() * 0.3)
+	{
+		// We don't need to bleed anymore
+		StopBleeding();
+		SetNextThink( TICK_NEVER_THINK, CC_BLEED_THINK );
+		return;
+	}
+
+	// Spurt blood from random points on the hunter's head.
+	Vector vecOrigin;
+	QAngle angDir;
+	GetAttachment( gm_nBloodAttachment, vecOrigin, angDir );
+	
+	Vector vecDir = RandomVector( -1, 1 );
+	VectorNormalize( vecDir );
+	VectorAngles( vecDir, Vector( 0, 0, 1 ), angDir );
+
+	vecDir *= gm_flBodyRadius;
+	DispatchParticleEffect( "blood_spurt_synth_01", vecOrigin + vecDir, angDir );
+
+	SetNextThink( gpGlobals->curtime + random->RandomFloat( 0.7, 1.9 ), CC_BLEED_THINK );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::StartBleeding()
+{
+	// Do this even if we're already bleeding (see OnRestore).
+	m_bIsBleeding = true;
+
+	// Start gushing blood from our... anus or something.
+	DispatchParticleEffect( "blood_drip_synth_01", PATTACH_POINT_FOLLOW, this, gm_nBloodAttachment );
+
+	// Emit spurts of our blood
+	SetContextThink( &CNPC_CloneCop::BleedThink, gpGlobals->curtime + 0.1, CC_BLEED_THINK );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::StopBleeding()
+{
+	m_bIsBleeding = false;
+
+	// Not really any other way to stop the bleeding
+	StopParticleEffects( this );
+
+	SetContextThink( &CNPC_CloneCop::BleedThink, TICK_NEVER_THINK, CC_BLEED_THINK );
 }
 
 //-----------------------------------------------------------------------------
