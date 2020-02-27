@@ -1691,6 +1691,22 @@ void CNPC_Combine::StartTask( const Task_t *pTask )
 					tosound.z = 0;
 					right.z = 0;
 
+#ifdef EZ
+					// HACKHACK: Using sequence names until Mapbase activities are in order
+					int iSeq = -1;
+					if ( DotProduct( right, tosound ) > 0 )
+					{
+						// Right
+						iSeq = LookupSequence( "gesture_signal_right" );
+					}
+					else
+					{
+						// Left
+						iSeq = LookupSequence( "gesture_signal_left" );
+					}
+
+					AddGestureSequence( iSeq );
+#else
 					if( DotProduct( right, tosound ) > 0 )
 					{
 						// Right
@@ -1701,6 +1717,7 @@ void CNPC_Combine::StartTask( const Task_t *pTask )
 						// Left
 						SetIdealActivity( ACT_SIGNAL_LEFT );
 					}
+#endif
 
 					break;
 				}
@@ -1995,7 +2012,9 @@ void CNPC_Combine::RunTask( const Task_t *pTask )
 
 	case TASK_COMBINE_SIGNAL_BEST_SOUND:
 		AutoMovement( );
+#ifndef EZ
 		if ( IsActivityFinished() )
+#endif
 		{
 			TaskComplete();
 		}
