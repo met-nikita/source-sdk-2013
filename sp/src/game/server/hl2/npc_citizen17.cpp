@@ -2589,6 +2589,37 @@ void CNPC_Citizen::OnChangeActivity( Activity eNewActivity )
 		}
 	}
 }
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info )
+{
+	BaseClass::Event_KilledOther( pVictim, info );
+
+	if ( pVictim && pVictim->IsPlayer() )
+	{
+		// Blixibon - Citizens can shoot at Bad Cop's corpse after he dies.
+		if (GetEnemies()->NumEnemies() <= 1 && HasCondition(COND_CIT_WILLPOWER_LOW))
+		{
+			CAI_BaseNPC *pTarget = CreateCustomTarget( pVictim->GetAbsOrigin(), 5.0f );
+			pTarget->SetParent( pVictim );
+
+			AISquadIter_t iter;
+			for ( CAI_BaseNPC *pSquadmate = m_pSquad ? m_pSquad->GetFirstMember(&iter) : this; pSquadmate; pSquadmate = m_pSquad ? m_pSquad->GetNextMember(&iter) : NULL )
+			{
+				if (pSquadmate->GetClassname() != GetClassname())
+					continue;
+
+				// Do the Alyx bullseye relationship code.
+				pSquadmate->AddEntityRelationship( pTarget, IRelationType(pVictim), IRelationPriority(pVictim) );
+				pSquadmate->GetEnemies()->UpdateMemory( GetNavigator()->GetNetwork(), pTarget, pTarget->GetAbsOrigin(), 0.0f, true );
+				AI_EnemyInfo_t *pMemory = pSquadmate->GetEnemies()->Find( pTarget );
+				if( pMemory )
+					pMemory->timeFirstSeen = gpGlobals->curtime - 10.0f;
+			}
+		}
+	}
+}
 #endif
 
 //------------------------------------------------------------------------------
