@@ -367,17 +367,21 @@ Disposition_t CNPC_PlayerCompanion::IRelationType( CBaseEntity *pTarget )
 		{
 			// Citizens are afeared of turrets, so long as the turret
 			// is active... that is, not classifying itself as CLASS_NONE
-#ifdef EZ
-			// Soldiers, however, are not afraid of turrets. They have special behavior towards them.
-			if( !IsCombine() && pTarget->Classify() != CLASS_NONE )
-#else
 			if( pTarget->Classify() != CLASS_NONE )
-#endif
 			{
+#ifdef EZ2
+				if( IsSafeFromFloorTurret(GetAbsOrigin(), pTarget) )
+				{
+					// Blixibon - Soldiers need to hate turrets so their turret charge behavior kicks in,
+					// and citizens should probably at least try to take down hostile turrets.
+					return D_HT;
+				}
+#else
 				if( !hl2_episodic.GetBool() && IsSafeFromFloorTurret(GetAbsOrigin(), pTarget) )
 				{
 					return D_NU;
 				}
+#endif
 
 				return D_FR;
 			}

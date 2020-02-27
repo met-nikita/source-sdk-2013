@@ -138,6 +138,12 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 		m_flMass += pPhysObject->GetMass();
 	}
 
+#ifdef EZ2
+	// Blixibon - Things like turrets use looping sounds that need to be interrupted
+	// before being removed, otherwise they play forever
+	pEnt->EmitSound( "AI_BaseNPC.SentenceStop" );
+#endif
+
 	// Destroy the entity
 	UTIL_Remove( pEnt );
 }

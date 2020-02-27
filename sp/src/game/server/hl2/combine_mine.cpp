@@ -1348,8 +1348,9 @@ bool CBounceBomb::HandleInteraction( int interactionType, void *data, CBaseComba
 #ifdef EZ2
 	else if ( interactionType == g_interactionXenGrenadePull )
 	{
-		// Pretend we're being yanked by the gravity gun
-		if (!m_bHeldByPhysgun)
+		// Pretend we're being yanked by the gravity gun.
+		// The RandomInt() allows for some randomness among the mines.
+		if (!m_bHeldByPhysgun && RandomInt(1, 4) == 1)
 		{
 			UpdateLight( true, 255, 255, 0, 190 );
 			m_flTimeGrabbed = gpGlobals->curtime;
