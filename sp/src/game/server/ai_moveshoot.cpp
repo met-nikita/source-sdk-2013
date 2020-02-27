@@ -91,7 +91,7 @@ bool CAI_MoveAndShootOverlay::CanAimAtEnemy()
 	CAI_ScheduleBits savedConditions;
 
 #ifdef EZ
-	if ( ai_aim_requires_squadslots.GetBool() && pOuter->IsInSquad() && pOuter->CapabilitiesGet( ) & bits_CAP_SQUAD && !pOuter->HasAttackSlot() )
+	if ( ai_aim_requires_squadslots.GetBool() && pOuter->IsInSquad() && !pOuter->HasAttackSlot() && pOuter->AttackSlotOccupied() )
 	{
 		return false;
 	}
