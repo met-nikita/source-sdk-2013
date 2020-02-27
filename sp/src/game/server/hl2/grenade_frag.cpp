@@ -181,6 +181,14 @@ void CGrenadeFrag::OnRestore( void )
 void CGrenadeFrag::CreateEffects( void )
 {
 	// Start up the eye glow
+#ifdef EZ
+	// Blixibon - Rebel grenades use an orange trail
+	bool bResistanceColor = GetThrower() && GetThrower()->Classify() == CLASS_PLAYER_ALLY;
+
+	if (bResistanceColor)
+		m_pMainGlow = CSprite::SpriteCreate( "sprites/physcannon_blueglow.vmt", GetLocalOrigin(), false );
+	else
+#endif
 	m_pMainGlow = CSprite::SpriteCreate( "sprites/redglow1.vmt", GetLocalOrigin(), false );
 
 	int	nAttachment = LookupAttachment( "fuse" );
@@ -189,6 +197,11 @@ void CGrenadeFrag::CreateEffects( void )
 	{
 		m_pMainGlow->FollowEntity( this );
 		m_pMainGlow->SetAttachment( this, nAttachment );
+#ifdef EZ
+		if (bResistanceColor)
+			m_pMainGlow->SetTransparency( kRenderGlow, 255, 192, 0, 200, kRenderFxNoDissipation );
+		else
+#endif
 		m_pMainGlow->SetTransparency( kRenderGlow, 255, 255, 255, 200, kRenderFxNoDissipation );
 		m_pMainGlow->SetScale( 0.2f );
 		m_pMainGlow->SetGlowProxySize( 4.0f );
@@ -201,6 +214,11 @@ void CGrenadeFrag::CreateEffects( void )
 	{
 		m_pGlowTrail->FollowEntity( this );
 		m_pGlowTrail->SetAttachment( this, nAttachment );
+#ifdef EZ
+		if (bResistanceColor)
+			m_pGlowTrail->SetTransparency( kRenderTransAdd, 255, 128, 0, 255, kRenderFxNone );
+		else
+#endif
 		m_pGlowTrail->SetTransparency( kRenderTransAdd, 255, 0, 0, 255, kRenderFxNone );
 		m_pGlowTrail->SetStartWidth( 8.0f );
 		m_pGlowTrail->SetEndWidth( 1.0f );
@@ -307,6 +325,10 @@ void CGrenadeFrag::Precache( void )
 
 	PrecacheModel( "sprites/redglow1.vmt" );
 	PrecacheModel( "sprites/bluelaser1.vmt" );
+#ifdef EZ
+	if (GetThrower() && GetThrower()->Classify() == CLASS_PLAYER_ALLY)
+		PrecacheModel( "sprites/physcannon_blueglow.vmt" );
+#endif
 
 	BaseClass::Precache();
 }
