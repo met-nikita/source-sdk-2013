@@ -13,11 +13,17 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-ConVar sk_zombigaunt_health( "sk_zombigaunt_health", "300" );
+ConVar sk_zombigaunt_health( "sk_zombigaunt_health", "150" );
+ConVar sk_zombigaunt_dmg_rake( "sk_zombigaunt_dmg_rake", "15" );
+ConVar sk_zombigaunt_dispel_time( "sk_zombigaunt_dispel_time", "5" );
+ConVar sk_zombigaunt_dispel_radius( "sk_zombigaunt_dispel_radius", "300" );
+// The range of a zombigaunt's attack is notably less than a vortigaunt's
+ConVar sk_zombigaunt_zap_range( "sk_zombigaunt_zap_range", "30", FCVAR_NONE, "Range of zombie vortigaunt's ranged attack (feet)" );
 
 extern int AE_VORTIGAUNT_CLAW_LEFT;
 extern int AE_VORTIGAUNT_CLAW_RIGHT;
 extern int AE_VORTIGAUNT_SWING_SOUND;
+extern int AE_VORTIGAUNT_DISPEL;
 
 #define ZOMBIE_BLOOD_LEFT_HAND		0
 #define ZOMBIE_BLOOD_RIGHT_HAND		1
@@ -43,7 +49,17 @@ void CNPC_Zombigaunt::Spawn( void )
 	char *szModel = (char *)STRING( GetModelName() );
 	if (!szModel || !*szModel)
 	{
-		szModel = "models/zombie/zombigaunt.mdl";
+		switch ( m_tEzVariant )
+		{
+		case EZ_VARIANT_XEN:
+			// "Shackles. How long have these guys been down here?"
+			szModel = "models/zombie/xenbigaunt.mdl";
+			break;
+		default:
+			szModel = "models/zombie/zombigaunt.mdl";
+			break;
+		}
+
 		SetModelName( AllocPooledString( szModel ) );
 	}
 
@@ -83,6 +99,21 @@ void CNPC_Zombigaunt::Precache()
 	}
 
 	BaseClass::Precache();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose : Translate SCHED_PC_MELEE_AND_MOVE_AWAY to SCHED_MELEE_ATTACK1
+//-----------------------------------------------------------------------------
+int CNPC_Zombigaunt::TranslateSchedule( int scheduleType )
+{
+	int schedule = BaseClass::TranslateSchedule( scheduleType );
+
+    if ( schedule == SCHED_PC_MELEE_AND_MOVE_AWAY )
+    {
+		return SCHED_MELEE_ATTACK1;
+    }
+
+	return schedule;
 }
 
 //------------------------------------------------------------------------------
@@ -132,7 +163,13 @@ void CNPC_Zombigaunt::HandleAnimEvent( animevent_t *pEvent )
 
 		QAngle angle( -3, -5, -3 );
 
-		ClawAttack( 64, 3, angle, right, ZOMBIE_BLOOD_RIGHT_HAND, DMG_SHOCK );
+		// Find our right hand as the starting point
+		Vector vecHandPos;
+		QAngle vecHandAngle;
+		GetAttachment( m_iRightHandAttachment, vecHandPos, vecHandAngle );
+		DispelAntlions( vecHandPos, 200.0f, false ); // Dispel within a smaller radius
+
+		ClawAttack( 64, sk_zombigaunt_dmg_rake.GetInt(), angle, right, ZOMBIE_BLOOD_RIGHT_HAND, DMG_SHOCK );
 		EndHandGlow();
 		return;
 	}
@@ -144,8 +181,22 @@ void CNPC_Zombigaunt::HandleAnimEvent( animevent_t *pEvent )
 		right = right * 50;
 		QAngle angle( -3, 5, -3 );
 
-		ClawAttack( 64, 3, angle, right, ZOMBIE_BLOOD_LEFT_HAND, DMG_SHOCK );
+		// Find our left hand as the starting point
+		Vector vecHandPos;
+		QAngle vecHandAngle;
+		GetAttachment( m_iLeftHandAttachment, vecHandPos, vecHandAngle );
+		DispelAntlions( vecHandPos, 200.0f, false ); // Dispel within a smaller radius
+
+		ClawAttack( 64, sk_zombigaunt_dmg_rake.GetInt(), angle, right, ZOMBIE_BLOOD_LEFT_HAND, DMG_SHOCK );
 		EndHandGlow();
+		return;
+	}
+
+	// Kaboom!
+	// Overridden for Zombigaunts because they have lower dispel range as they use dispel more frequently
+	if (pEvent->event == AE_VORTIGAUNT_DISPEL)
+	{
+		DispelAntlions( GetAbsOrigin(), sk_zombigaunt_dispel_radius.GetFloat() );
 		return;
 	}
 
@@ -230,4 +281,12 @@ void CNPC_Zombigaunt::OnStartSchedule( int scheduleType )
 		if (gpGlobals->curtime < m_flChargeResponseEnd)
 			RemoveActorFromScriptedScenes( this, true, false, STRING(m_iszChargeResponse) );
 	}
+}
+
+//-----------------------------------------------------------------------------
+//  Purpose: Next Vortigaunt dispel time
+//-----------------------------------------------------------------------------
+float CNPC_Zombigaunt::GetNextDispelTime( void )
+{
+	return sk_zombigaunt_dispel_time.GetFloat();
 }
