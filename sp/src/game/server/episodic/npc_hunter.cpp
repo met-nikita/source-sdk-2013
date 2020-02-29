@@ -270,6 +270,13 @@ enum SquadSlot_t
 
 #define HUNTER_RUNDOWN_SQUADDATA 0
 
+#ifdef EZ2
+// Blixibon - A special list of entities which hunters should dodge.
+// Entities involved in this list (e.g. Combine balls) normally extern this
+// and add/remove themselves from it at their constructors/destructors.
+CUtlVector<CBaseEntity*> g_pDodgeableProjectiles;
+#endif
+
 
 //-----------------------------------------------------------------------------
 // We're doing this quite a lot, so this makes the check a lot faster since
@@ -1329,6 +1336,11 @@ private:
 
 	void TaskFindDodgeActivity();
 
+#ifdef EZ2
+	bool CheckDodgeConditions( bool bSeeEnemy );
+	bool CheckDodge( CBaseEntity *pTarget );
+#endif
+
 	void GatherChargeConditions();
 	void GatherIndoorOutdoorConditions();
 
@@ -1473,7 +1485,11 @@ private:
 	bool			m_bIsBleeding;
 
 	Activity		m_eDodgeActivity;
+#ifdef EZ2
+	EHANDLE			m_hDodgeTarget;
+#else // Hunters need to dodge more often
 	CSimpleSimTimer m_RundownDelay;
+#endif
 	CSimpleSimTimer m_IgnoreVehicleTimer;
 
 	bool m_bDisableShooting;	// Range attack disabled via an input. Used for scripting melee attacks.
@@ -1587,7 +1603,11 @@ BEGIN_DATADESC( CNPC_Hunter )
 
 	DEFINE_FIELD( m_nKillingDamageType, FIELD_INTEGER ),
 	DEFINE_FIELD( m_eDodgeActivity, FIELD_INTEGER ),
+#ifdef EZ2
+	DEFINE_FIELD( m_hDodgeTarget, FIELD_EHANDLE ),
+#else
 	DEFINE_EMBEDDED( m_RundownDelay ),
+#endif
 	DEFINE_EMBEDDED( m_IgnoreVehicleTimer ),
 
 	DEFINE_FIELD( m_flNextMeleeTime, FIELD_TIME ),
@@ -2282,6 +2302,22 @@ void CNPC_Hunter::GatherConditions()
 	// Enemy LKP that doesn't get updated by the free knowledge code.
 	// Used for shooting at where our enemy was when we can't see them.
 	ClearCondition( COND_HUNTER_INCOMING_VEHICLE );
+#ifdef EZ2
+	m_hDodgeTarget = NULL;
+	if ( m_IgnoreVehicleTimer.Expired() )
+	{
+		bool bEnemyCondition = (GetEnemy() && HasCondition( COND_SEE_ENEMY ));
+
+		if ( GlobalEntity_GetCounter( s_iszHuntersToRunOver ) <= 0 )
+		{
+			// Blixibon - Check all of the ways in which we can dodge
+			CheckDodgeConditions( bEnemyCondition );
+		}
+
+		if (bEnemyCondition)
+			m_vecEnemyLastSeen = GetEnemy()->GetAbsOrigin();
+	}
+#else
 	if ( m_IgnoreVehicleTimer.Expired() && GetEnemy() && HasCondition( COND_SEE_ENEMY ) )
 	{
 		CBaseEntity *pVehicle = GetEnemyVehicle();
@@ -2360,6 +2396,7 @@ void CNPC_Hunter::GatherConditions()
 
 		m_vecEnemyLastSeen = GetEnemy()->GetAbsOrigin();
 	}
+#endif
 
 	if( !HasCondition(COND_ENEMY_OCCLUDED) )
 	{
@@ -2380,6 +2417,124 @@ void CNPC_Hunter::GatherConditions()
 
 	ManageSiegeTargets();
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Blixibon - Extremely experimental code for dodging numerous types of entities, even outside of combat
+//-----------------------------------------------------------------------------
+bool CNPC_Hunter::CheckDodgeConditions( bool bSeeEnemy )
+{
+	// Attempt to dodge relevant projectiles, e.g. Combine balls
+	for (int i = 0; i < g_pDodgeableProjectiles.Count(); i++)
+	{
+		CBaseEntity *pProjectile = g_pDodgeableProjectiles[i];
+		if (pProjectile /*&& pProjectile->GetOwnerEntity() && IRelationType(pProjectile->GetOwnerEntity()) <= D_FR*/)
+		{
+			if (pProjectile->GetAbsOrigin().AsVector2D().DistToSqr(GetAbsOrigin().AsVector2D()) <= Square(1024))
+			{
+				if (CheckDodge(pProjectile))
+					return true;
+			}
+		}
+	}
+
+	// Always try to dodge the player's vehicle, even when friendly
+	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+	if (pPlayer && pPlayer->IsInAVehicle())
+	{
+		if (CheckDodge( pPlayer->GetVehicleEntity() ))
+			return true;
+	}
+
+	// Finally, still do enemy vehicle checking for NPC vehicles
+	if (bSeeEnemy)
+	{
+		CBaseEntity *pVehicle = GetEnemyVehicle();
+		if (pVehicle)
+		{
+			if (CheckDodge( pVehicle ))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool CNPC_Hunter::CheckDodge( CBaseEntity *pVehicle )
+{
+	static float timeDrawnArrow;
+
+	// Extrapolate the position of the vehicle and see if it's heading toward us.
+	float predictTime = hunter_dodge_warning.GetFloat();
+	Vector2D vecFuturePos = pVehicle->GetAbsOrigin().AsVector2D() + pVehicle->GetSmoothedVelocity().AsVector2D() * predictTime;
+	if ( pVehicle->GetSmoothedVelocity().LengthSqr() > Square( 200 ) )
+	{
+		float t = 0;
+		Vector2D vDirMovement = pVehicle->GetSmoothedVelocity().AsVector2D();
+		if ( hunter_dodge_debug.GetBool() )
+		{
+			NDebugOverlay::Line( pVehicle->GetAbsOrigin(), pVehicle->GetAbsOrigin() + pVehicle->GetSmoothedVelocity(), 255, 255, 255, true, .1 );
+		}
+		vDirMovement.NormalizeInPlace();
+		Vector2D vDirToHunter = GetAbsOrigin().AsVector2D() - pVehicle->GetAbsOrigin().AsVector2D();
+		vDirToHunter.NormalizeInPlace();
+		if ( DotProduct2D( vDirMovement, vDirToHunter ) > hunter_dodge_warning_cone.GetFloat() && 
+			 CalcDistanceSqrToLine2D( GetAbsOrigin().AsVector2D(), pVehicle->GetAbsOrigin().AsVector2D(), vecFuturePos, &t ) < Square( hunter_dodge_warning_width.GetFloat() * .5 ) && 
+			 t > 0.0 && t < 1.0 )
+		{
+			if ( fabs( predictTime - hunter_dodge_warning.GetFloat() ) < .05 || random->RandomInt( 0, 3 ) )
+			{
+				SetCondition( COND_HUNTER_INCOMING_VEHICLE );
+				m_hDodgeTarget = pVehicle;
+			}
+			else
+			{
+				if ( hunter_dodge_debug. GetBool() )
+				{
+					Msg( "Hunter %d failing dodge (ignore)\n", entindex() );
+				}
+			}
+
+			if ( hunter_dodge_debug. GetBool() )
+			{
+				NDebugOverlay::Cross3D( EyePosition(), 100, 255, 255, 255, true, .1 );
+				if ( timeDrawnArrow != gpGlobals->curtime )
+				{
+					timeDrawnArrow = gpGlobals->curtime;
+					Vector vEndpoint( vecFuturePos.x, vecFuturePos.y, UTIL_GetLocalPlayer()->WorldSpaceCenter().z - 24 );
+					NDebugOverlay::HorzArrow( UTIL_GetLocalPlayer()->WorldSpaceCenter() - Vector(0, 0, 24), vEndpoint, hunter_dodge_warning_width.GetFloat(), 255, 0, 0, 64, true, .1 );
+				}
+			}
+		}
+		else if ( hunter_dodge_debug.GetBool() )
+		{
+			if ( t <= 0 )
+			{
+				NDebugOverlay::Cross3D( EyePosition(), 100, 0, 0, 255, true, .1 );
+			}
+			else
+			{
+				NDebugOverlay::Cross3D( EyePosition(), 100, 0, 255, 255, true, .1 );
+			}
+		}
+	}
+	else if ( hunter_dodge_debug.GetBool() )
+	{
+		NDebugOverlay::Cross3D( EyePosition(), 100, 0, 255, 0, true, .1 );
+	}
+	if ( hunter_dodge_debug. GetBool() )
+	{
+		if ( timeDrawnArrow != gpGlobals->curtime )
+		{
+			timeDrawnArrow = gpGlobals->curtime;
+			Vector vEndpoint( vecFuturePos.x, vecFuturePos.y, UTIL_GetLocalPlayer()->WorldSpaceCenter().z - 24 );
+			NDebugOverlay::HorzArrow( UTIL_GetLocalPlayer()->WorldSpaceCenter() - Vector(0, 0, 24), vEndpoint, hunter_dodge_warning_width.GetFloat(), 127, 127, 127, 64, true, .1 );
+		}
+	}
+
+	return m_hDodgeTarget.Get() != NULL;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Search all entities in the map
@@ -2863,7 +3018,7 @@ int CNPC_Hunter::SelectCombatSchedule()
 #ifdef EZ2
 		// Blixibon - Hunters should be more aggressive with melee attacks
 		// against smaller NPCs, as they often fight in tight spaces
-		if ( pEnemy->MyNPCPointer() && pEnemy->MyNPCPointer()->GetHullType() <= HULL_TINY )
+		if ( pEnemy->MyNPCPointer() && pEnemy->MyNPCPointer()->GetHullType() <= HULL_TINY && !GetHintGroup() )
 			return SCHED_HUNTER_CHASE_ENEMY;
 #endif
 
@@ -3020,6 +3175,7 @@ int CNPC_Hunter::SelectSchedule()
 
 	if ( HasCondition( COND_HUNTER_INCOMING_VEHICLE ) )
 	{
+#ifndef EZ2
 		if ( m_RundownDelay.Expired() )
 		{
 			int iRundownCounter = 0;
@@ -3082,7 +3238,23 @@ int CNPC_Hunter::SelectSchedule()
 				}
 			}
 		}
+#endif
 
+#ifdef EZ2
+		if ( FVisible( m_hDodgeTarget ) )
+		{
+			if ( hunter_dodge_debug.GetBool() )
+			{
+				Msg( "Hunter %d try dodge\n", entindex() );
+			}
+			return SCHED_HUNTER_DODGE;
+		}
+		else
+		{
+			SetTarget( m_hDodgeTarget );
+			return SCHED_TARGET_FACE;
+		}
+#else
 		if ( HasCondition( COND_SEE_ENEMY ) )
 		{
 			if ( hunter_dodge_debug.GetBool() )
@@ -3096,6 +3268,7 @@ int CNPC_Hunter::SelectSchedule()
 			SetTarget( UTIL_GetLocalPlayer() );
 			return SCHED_TARGET_FACE;
 		}
+#endif
 
 		CSound *pBestSound = GetBestSound( SOUND_PHYSICS_DANGER );
 		if ( pBestSound && ( pBestSound->SoundContext() & SOUND_CONTEXT_PLAYER_VEHICLE ) )
@@ -3245,18 +3418,30 @@ void CNPC_Hunter::TaskFail( AI_TaskFailureCode_t code )
 //-----------------------------------------------------------------------------
 void CNPC_Hunter::TaskFindDodgeActivity()
 {
+#ifdef EZ2
+	if ( m_hDodgeTarget == NULL )
+	{
+		TaskFail( "No target to dodge" );
+		return;
+	}
+#else
 	if ( GetEnemy() == NULL )
 	{
 		TaskFail( "No enemy to dodge" );
 		return;
 	}
+#endif
 
 	Vector vecUp;
 	Vector vecRight;
 	GetVectors( NULL, &vecRight, &vecUp );
 
 	// TODO: find most perpendicular 8-way dodge when we get the anims
+#ifdef EZ2
+	Vector vecEnemyDir = m_hDodgeTarget->GetAbsOrigin() - GetAbsOrigin();
+#else
 	Vector vecEnemyDir = GetEnemy()->GetAbsOrigin() - GetAbsOrigin();
+#endif
 	//Vector vecDir = CrossProduct( vecEnemyDir, vecUp );
 	VectorNormalize( vecEnemyDir );
 	if ( fabs( DotProduct( vecEnemyDir, vecRight ) ) > 0.7 )
@@ -3267,7 +3452,11 @@ void CNPC_Hunter::TaskFindDodgeActivity()
 
 	// Check left or right randomly first.
 	bool bDodgeLeft = false;
+#ifdef EZ2
+	CBaseEntity *pVehicle = m_hDodgeTarget;
+#else
 	CBaseEntity *pVehicle = GetEnemyVehicle();
+#endif
 	if ( pVehicle  )
 	{
 		Ray_t enemyRay;
@@ -4600,6 +4789,9 @@ void CNPC_Hunter::InputUseSiegeTargets( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CNPC_Hunter::InputDodge( inputdata_t &inputdata )
 {
+#ifdef EZ2
+	m_hDodgeTarget = GetEnemy();
+#endif
 	SetCondition( COND_HUNTER_FORCED_DODGE );
 }
 
@@ -5874,7 +6066,11 @@ void CNPC_Hunter::Event_Killed( const CTakeDamageInfo &info )
 	// Remember the killing blow to make decisions about ragdolling.
 	m_nKillingDamageType = info.GetDamageType();
 
+#ifdef EZ
+	if ( m_EscortBehavior.GetFollowTarget() && FClassnameIs(m_EscortBehavior.GetFollowTarget(), "npc_strider") )
+#else
 	if ( m_EscortBehavior.GetFollowTarget() )
+#endif
 	{
 		if ( AIGetNumFollowers( m_EscortBehavior.GetFollowTarget(), m_iClassname ) == 1 )
 		{
@@ -5886,8 +6082,14 @@ void CNPC_Hunter::Event_Killed( const CTakeDamageInfo &info )
 		}
 	}
 	
+#ifdef EZ2
+	// Blixibon - Hunters now dodge energy balls as well
+	if ( info.GetDamageType() & DMG_VEHICLE || info.GetDamageType() & (DMG_DISSOLVE | DMG_CRUSH) )
+#else
 	if ( info.GetDamageType() & DMG_VEHICLE )
+#endif
 	{
+#ifndef EZ2
 		bool bWasRunDown = false;
 		int iRundownCounter = 0;
 		if ( GetSquad() )
@@ -5902,6 +6104,7 @@ void CNPC_Hunter::Event_Killed( const CTakeDamageInfo &info )
 
 		if ( hunter_dodge_debug.GetBool() )
 			Msg( "Hunter %d was%s run down\n", entindex(), ( bWasRunDown ) ? "" : " not" );
+#endif
 
 		// Death by vehicle! Decrement the hunters to run over counter.
 		// When the counter reaches zero hunters will start dodging.
@@ -6742,9 +6945,15 @@ Activity CNPC_Hunter::GetDeathActivity()
 //-----------------------------------------------------------------------------
 void CAI_HunterEscortBehavior::OnDamage( const CTakeDamageInfo &info )
 {
+#ifdef EZ
+	if ( info.GetDamage() > 0 && info.GetAttacker() && info.GetAttacker()->IsPlayer() &&
+		GetFollowTarget() && ( AIGetNumFollowers( GetFollowTarget() ) > 1 ) &&
+		GetOuter()->GetSquad() && ( GetOuter()->GetSquad()->GetSquadSoundWaitTime() <= gpGlobals->curtime ) ) // && !FarFromFollowTarget()
+#else
 	if ( info.GetDamage() > 0 && info.GetAttacker()->IsPlayer() &&
 		GetFollowTarget() && ( AIGetNumFollowers( GetFollowTarget() ) > 1 ) &&
 		( GetOuter()->GetSquad()->GetSquadSoundWaitTime() <= gpGlobals->curtime ) ) // && !FarFromFollowTarget()
+#endif
 	{
 		// Start the clock ticking. We'll return the the strider when the timer elapses.
 		m_flTimeEscortReturn = gpGlobals->curtime + random->RandomFloat( 15.0f, 25.0f );

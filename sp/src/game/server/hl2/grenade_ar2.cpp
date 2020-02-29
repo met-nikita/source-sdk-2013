@@ -258,7 +258,23 @@ void CGrenadeAR2::Precache( void )
 }
 
 
+#ifdef EZ2
+// Blixibon - Makes SMG grenades dodgable by hunters
+extern CUtlVector<CBaseEntity*> g_pDodgeableProjectiles;
+
+CGrenadeAR2::CGrenadeAR2(void)
+{
+	m_hSmokeTrail  = NULL;
+	g_pDodgeableProjectiles.AddToTail( this );
+}
+
+CGrenadeAR2::~CGrenadeAR2()
+{
+	g_pDodgeableProjectiles.FindAndRemove( this );
+}
+#else
 CGrenadeAR2::CGrenadeAR2(void)
 {
 	m_hSmokeTrail  = NULL;
 }
+#endif
