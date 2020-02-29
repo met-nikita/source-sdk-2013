@@ -161,6 +161,10 @@ BEGIN_DATADESC( CNPC_Manhack )
 	DEFINE_FIELD( m_vecLoiterPosition,		FIELD_POSITION_VECTOR),
 	DEFINE_FIELD( m_fTimeNextLoiterPulse,	FIELD_TIME),
 
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_bNemesis, FIELD_BOOLEAN, "Nemesis" ),
+#endif
+
 	DEFINE_FIELD( m_flBumpSuppressTime,		FIELD_TIME ),
 
 	DEFINE_FIELD( m_bBladesActive,			FIELD_BOOLEAN),
@@ -252,6 +256,12 @@ CNPC_Manhack::~CNPC_Manhack()
 //-----------------------------------------------------------------------------
 Class_T	CNPC_Manhack::Classify(void)
 {
+#ifdef EZ2
+	// This is a "nemesis" manhack
+	if (m_bNemesis)
+		return CLASS_COMBINE_NEMESIS;
+#endif
+
 #ifdef EZ1
 	return CLASS_MANHACK; // Manhacks are always CLASS_MANHACK in EZ1
 #else
@@ -3491,6 +3501,11 @@ void CNPC_Manhack::SetEyeState( int state )
 				else
 #endif
 				{
+#ifdef EZ2
+					if (m_bNemesis)
+						m_pEyeGlow->SetColor( 0, 255, 255 );
+					else
+#endif
 					m_pEyeGlow->SetColor( 255, 0, 0 );
 				}
 
@@ -3509,6 +3524,11 @@ void CNPC_Manhack::SetEyeState( int state )
 				else
 #endif
 				{
+#ifdef EZ2
+					if (m_bNemesis)
+						m_pLightGlow->SetColor( 0, 255, 255 );
+					else
+#endif
 					m_pLightGlow->SetColor( 255, 0, 0 );
 				}
 
@@ -3529,7 +3549,16 @@ void CNPC_Manhack::SetEyeState( int state )
 		if ( m_pEyeGlow )
 		{
 			//Toggle our state
+#ifdef EZ1
 			m_pEyeGlow->SetColor( 0, 255, 255 );
+#elif EZ2
+			if (m_bNemesis)
+				m_pEyeGlow->SetColor( 0, 255, 255 );
+			else
+				m_pEyeGlow->SetColor( 255, 0, 0 );
+#else
+			m_pEyeGlow->SetColor( 255, 0, 0 );
+#endif
 			m_pEyeGlow->SetScale( 0.25f, 0.5f );
 			m_pEyeGlow->SetBrightness( 164, 0.1f );
 			m_pEyeGlow->m_nRenderFX = kRenderFxNone;
@@ -3537,7 +3566,16 @@ void CNPC_Manhack::SetEyeState( int state )
 
 		if ( m_pLightGlow )
 		{
+#ifdef EZ1
 			m_pLightGlow->SetColor( 0, 255, 255 );
+#elif EZ2
+			if (m_bNemesis)
+				m_pLightGlow->SetColor( 0, 255, 255 );
+			else
+				m_pLightGlow->SetColor( 255, 0, 0 );
+#else
+			m_pLightGlow->SetColor( 255, 0, 0 );
+#endif
 			m_pLightGlow->SetScale( 0.25f, 0.5f );
 			m_pLightGlow->SetBrightness( 164, 0.1f );
 			m_pLightGlow->m_nRenderFX = kRenderFxNone;

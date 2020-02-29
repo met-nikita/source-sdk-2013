@@ -142,6 +142,7 @@ public:
 	Activity		NPC_TranslateActivity( Activity eNewActivity );
 #ifdef EZ
 	void			OnChangeActivity( Activity eNewActivity );
+	void			Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
 #endif
 	void 			HandleAnimEvent( animevent_t *pEvent );
 	void			TaskFail( AI_TaskFailureCode_t code );

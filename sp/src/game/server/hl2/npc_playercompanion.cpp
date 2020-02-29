@@ -367,17 +367,21 @@ Disposition_t CNPC_PlayerCompanion::IRelationType( CBaseEntity *pTarget )
 		{
 			// Citizens are afeared of turrets, so long as the turret
 			// is active... that is, not classifying itself as CLASS_NONE
-#ifdef EZ
-			// Soldiers, however, are not afraid of turrets. They have special behavior towards them.
-			if( !IsCombine() && pTarget->Classify() != CLASS_NONE )
-#else
 			if( pTarget->Classify() != CLASS_NONE )
-#endif
 			{
+#ifdef EZ2
+				if( IsSafeFromFloorTurret(GetAbsOrigin(), pTarget) )
+				{
+					// Blixibon - Soldiers need to hate turrets so their turret charge behavior kicks in,
+					// and citizens should probably at least try to take down hostile turrets.
+					return D_HT;
+				}
+#else
 				if( !hl2_episodic.GetBool() && IsSafeFromFloorTurret(GetAbsOrigin(), pTarget) )
 				{
 					return D_NU;
 				}
+#endif
 
 				return D_FR;
 			}
@@ -3549,7 +3553,23 @@ bool CNPC_PlayerCompanion::OverrideMove( float flInterval )
 			else if ( pEntity->m_iClassname == iszBounceBomb )
 			{
 				CBounceBomb *pBomb = static_cast<CBounceBomb *>(pEntity);
+#ifdef EZ2
+				// Blixibon - Soldiers are friendly to regular, non-player-placed hoppers, so they use IsFriend() instead of IsPlayerPlaced().
+				// Since citizens avoided hoppers in HL2 and we don't want them to look dumber than they were in HL2,
+				// they only avoid hoppers if they're in their viewcone, which allows hoppers to catch them by surprise and stops them from being useless.
+				// Citizens also don't at all avoid hoppers using Resistance paint.
+				// 
+				// On the other hand, soldiers avoid mines bearing Resistance imagery, but not their own mines, even if "their own mines" are hostile.
+				// This is consistent with their behavior in HL2, where they didn't avoid hostile hopper mines.
+				bool bAppearsToBeResistance = (pBomb->m_nSkin != 0);
+				if ( pBomb && pBomb->IsAwake() &&
+					(IsCombine() ?
+					bAppearsToBeResistance :
+					(!bAppearsToBeResistance && FInViewCone(pBomb)))
+					&& !pBomb->IsFriend(this) )
+#else
 				if ( pBomb && !pBomb->IsPlayerPlaced() && pBomb->IsAwake() )
+#endif
 				{
 					UTIL_TraceLine( WorldSpaceCenter(), pEntity->WorldSpaceCenter(), MASK_BLOCKLOS, pEntity, COLLISION_GROUP_NONE, &tr );
 					if (tr.fraction == 1.0 && !tr.startsolid)

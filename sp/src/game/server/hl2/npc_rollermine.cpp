@@ -1660,7 +1660,13 @@ void CNPC_RollerMine::RunTask( const Task_t *pTask )
 				{
 					if( gpGlobals->curtime - m_flChargeTime > 1.0 && flTorqueFactor > 1 &&  flDot < 0.0 )
 					{
+#ifdef EZ2
+						// Blixibon - Fixes rollermines constantly opening and closing in the hack lab
+						// ("m_bIsOpen" is already checked in Close() too)
+						if ( (GetEnemy()->GetAbsOrigin().AsVector2D() - GetAbsOrigin().AsVector2D()).LengthSqr() > Square(64.0f) )
+#else
 						if( m_bIsOpen )
+#endif
 						{
 							Close();
 						}
@@ -2180,7 +2186,7 @@ void CNPC_RollerMine::ShockTouch( CBaseEntity *pOther )
 	if ( pOther->GetHealth() <= info.GetDamage() )
 	{
 		CBaseCombatCharacter *pBCC = pOther->MyCombatCharacterPointer();
-		if (pBCC && pBCC->CanBecomeRagdoll() && pBCC->CanBecomeServerRagdoll())
+		if (pBCC && pBCC->CanBecomeRagdoll() && pBCC->CanBecomeServerRagdoll() && !pBCC->ShouldGib(info))
 		{
 			// Instant special death for anyone who can become a ragdoll.
 			Vector vecDamageForce = pOther->WorldSpaceCenter() - WorldSpaceCenter();

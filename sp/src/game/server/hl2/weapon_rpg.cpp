@@ -122,6 +122,10 @@ LINK_ENTITY_TO_CLASS( rpg_missile, CMissile );
 
 class CWeaponRPG;
 
+#ifdef EZ2
+// Blixibon - Makes SMG grenades dodgable by hunters
+extern CUtlVector<CBaseEntity*> g_pDodgeableProjectiles;
+#endif
 
 //-----------------------------------------------------------------------------
 // Constructor
@@ -130,10 +134,16 @@ CMissile::CMissile()
 {
 	m_hRocketTrail = NULL;
 	m_bCreateDangerSounds = false;
+#ifdef EZ2
+	g_pDodgeableProjectiles.AddToTail( this );
+#endif
 }
 
 CMissile::~CMissile()
 {
+#ifdef EZ2
+	g_pDodgeableProjectiles.FindAndRemove( this );
+#endif
 }
 
 

@@ -20,12 +20,16 @@
 class CNPC_CloneCop : public CNPC_Combine
 {
 	DECLARE_CLASS( CNPC_CloneCop, CNPC_Combine );
+	DECLARE_DATADESC();
 
 public:
 	CNPC_CloneCop();
 
 	void		Spawn( void );
 	void		Precache( void );
+	void		Activate( void );
+
+	Class_T		Classify( void ) { return CLASS_COMBINE_NEMESIS; }
 
 	void		DeathSound( const CTakeDamageInfo &info );
 
@@ -33,10 +37,21 @@ public:
 	int			SelectSchedule( void );
 	int			TranslateSchedule( int scheduleType );
 
+	int			OnTakeDamage( const CTakeDamageInfo &info );
 	float		GetHitgroupDamageMultiplier( int iHitGroup, const CTakeDamageInfo &info );
+	Vector		GetShootEnemyDir( const Vector &shootOrigin, bool bNoisy = true );
+	Vector		GetActualShootPosition( const Vector &shootOrigin );
 	void		HandleAnimEvent( animevent_t *pEvent );
 
+	void		BleedThink();
+	void		StartBleeding();
+	void		StopBleeding();
+	inline bool	IsBleeding() { return m_bIsBleeding; }
+
+	void		HandleManhackSpawn( CAI_BaseNPC *pNPC );
+
 	void		Event_Killed( const CTakeDamageInfo &info );
+	void		Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
 
 	Activity	GetFlinchActivity( bool bHeavyDamage, bool bGesture );
 	bool		IsHeavyDamage( const CTakeDamageInfo &info );
@@ -51,6 +66,29 @@ public:
 	// For special base Combine behaviors
 	bool		IsMajorCharacter() { return true; }
 
+	int			GetArmorValue() { return m_ArmorValue; }
+
+protected:
+	//=========================================================
+	// Clone Cop schedules
+	//=========================================================
+	enum
+	{
+		SCHED_COMBINE_FLANK_LINE_OF_FIRE = BaseClass::NEXT_SCHEDULE,
+		SCHED_COMBINE_MERCILESS_RANGE_ATTACK1,
+		SCHED_COMBINE_MERCILESS_SUPPRESS,
+		NEXT_SCHEDULE,
+	};
+
+	DEFINE_CUSTOM_AI;
+
+private:
+
+	static int gm_nBloodAttachment;
+	static float gm_flBodyRadius;
+
+	int		m_ArmorValue;
+	bool	m_bIsBleeding;
 };
 
 #endif

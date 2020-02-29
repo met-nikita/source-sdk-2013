@@ -1044,7 +1044,12 @@ bool CBounceBomb::IsFriend( CBaseEntity *pEntity )
 	bool bIsCombine = false;
 
 	// Unconditional enemies to combine and Player.
+#ifdef EZ2
+	if( classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB || classify == CLASS_ANTLION || 
+		classify == CLASS_BULLSQUID || classify == CLASS_ALIEN_PREDATOR || classify == CLASS_ALIEN_PREY || classify == CLASS_RACE_X)
+#else
 	if( classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB || classify == CLASS_ANTLION )
+#endif
 	{
 		return false;
 	}
@@ -1059,12 +1064,20 @@ bool CBounceBomb::IsFriend( CBaseEntity *pEntity )
 		classify == CLASS_PROTOSNIPER ||
 		classify == CLASS_COMBINE_GUNSHIP ||
 #endif
+#ifdef EZ2
+		classify == CLASS_PLAYER ||
+		classify == CLASS_COMBINE_NEMESIS ||
+#endif
   		classify == CLASS_SCANNER )
 	{
 		bIsCombine = true;
 	}
 
+#ifdef EZ2
+	if ( HasSpawnFlags(SF_BOUNCEBOMB_HACKED) )
+#else
 	if( m_bPlacedByPlayer )
+#endif
 	{
 		return !bIsCombine;
 	}
@@ -1108,6 +1121,17 @@ void CBounceBomb::SearchThink()
 		m_OnPulledUp.FireOutput( this, this );
 #endif
 		SetMineState( MINE_STATE_CAPTIVE );
+#ifdef EZ2
+		// If we have no physics attacker, then we aren't being picked up
+		// Must be a Xen grenade
+		if (!m_hPhysicsAttacker)
+		{
+			m_flTimeGrabbed = FLT_MAX;
+			m_bHeldByPhysgun = false;
+			OpenHooks( true );
+			SetMineState( MINE_STATE_DEPLOY );
+		}
+#endif
 		return;
 	}
 
@@ -1218,7 +1242,12 @@ void CBounceBomb::ExplodeThink()
 	}
 	else
 	{
+#ifdef EZ2
+		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), (pThrower) ? pThrower : this, BOUNCEBOMB_EXPLODE_DAMAGE, BOUNCEBOMB_EXPLODE_RADIUS, true,
+			NULL, HasSpawnFlags(SF_BOUNCEBOMB_HACKED) ? CLASS_NONE : CLASS_COMBINE );
+#else
 		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), (pThrower) ? pThrower : this, BOUNCEBOMB_EXPLODE_DAMAGE, BOUNCEBOMB_EXPLODE_RADIUS, true);
+#endif
 	}
 
 #ifdef MAPBASE
@@ -1287,6 +1316,12 @@ void CBounceBomb::CloseHooks()
 extern int g_interactionBarnacleVictimBite;
 extern int g_interactionBarnacleVictimFinalBite;
 extern int ACT_BARNACLE_BITE_SMALL_THINGS;
+
+#ifdef EZ2
+extern int g_interactionXenGrenadePull;
+extern int g_interactionXenGrenadeConsume;
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose:  Uses the new CBaseEntity interaction implementation and
 //			 replaces the dynamic_casting from npc_barnacle
@@ -1310,6 +1345,36 @@ bool CBounceBomb::HandleInteraction( int interactionType, void *data, CBaseComba
 		ExplodeThink();
 		return true;
 	}
+#ifdef EZ2
+	else if ( interactionType == g_interactionXenGrenadePull )
+	{
+		// Pretend we're being yanked by the gravity gun.
+		// The RandomInt() allows for some randomness among the mines.
+		if (!m_bHeldByPhysgun && RandomInt(1, 4) == 1)
+		{
+			UpdateLight( true, 255, 255, 0, 190 );
+			m_flTimeGrabbed = gpGlobals->curtime;
+			m_bHeldByPhysgun = true;
+			m_hPhysicsAttacker = NULL;
+
+			VPhysicsGetObject()->EnableMotion( true );
+		}
+
+		// Still take the VPhysics damage
+		return false;
+	}
+	else if ( interactionType == g_interactionXenGrenadeConsume )
+	{
+		if ( m_pWarnSound )
+		{
+			CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
+			controller.SoundDestroy( m_pWarnSound );
+		}
+
+		// Still be consumed as usual
+		return false;
+	}
+#endif
 
 	return BaseClass::HandleInteraction(interactionType, data, sourceEnt);
 }
@@ -1387,6 +1452,21 @@ void CBounceBomb::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reason
 		return;
 	}
 
+#ifdef EZ2
+	// Blixibon - All reasons except cannon launch must deploy the mine
+	if( Reason != LAUNCHED_BY_CANNON )
+	{
+		// Set to lock down to ground again.
+		m_bPlacedByPlayer = true;
+		RemoveSpawnFlags( SF_BOUNCEBOMB_HACKED );
+		OpenHooks( true );
+		SetMineState( MINE_STATE_DEPLOY );
+	}
+	else
+	{
+		SetMineState( MINE_STATE_LAUNCHED );
+	}
+#else
 	if( Reason == DROPPED_BY_CANNON )
 	{
 		// Set to lock down to ground again.
@@ -1398,6 +1478,7 @@ void CBounceBomb::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reason
 	{
 		SetMineState( MINE_STATE_LAUNCHED );
 	}
+#endif
 }
 
 //---------------------------------------------------------
@@ -1488,13 +1569,13 @@ void CBounceBomb::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 	{
 		// Only allow pickup if we like the player or we're too busy exploding.
 		// If not, shock them for trying.
-		if (GetMineState() == MINE_STATE_DORMANT || IsPlayerPlaced())
+		if (GetMineState() == MINE_STATE_DORMANT || IsFriend(pPlayer))
 		{
-			//m_bDisarmed = false;
-			SetMineState( MINE_STATE_DEPLOY );
-			//m_bHeldByPhysgun = true;
-
 			pPlayer->PickupObject( this, false );
+
+			//m_bDisarmed = false;
+			SetMineState( MINE_STATE_CAPTIVE );
+			//m_bHeldByPhysgun = true;
 		}
 	}
 }

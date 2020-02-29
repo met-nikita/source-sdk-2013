@@ -241,6 +241,21 @@ IMPLEMENT_SERVERCLASS_ST( CPropCombineBall, DT_PropCombineBall )
 	SendPropBool( SENDINFO( m_bLaunched ) ),
 END_SEND_TABLE()
 
+#ifdef EZ2
+// Blixibon - Makes energy balls dodgable by hunters
+extern CUtlVector<CBaseEntity*> g_pDodgeableProjectiles;
+
+CPropCombineBall::CPropCombineBall()
+{
+	g_pDodgeableProjectiles.AddToTail( this );
+}
+
+CPropCombineBall::~CPropCombineBall()
+{
+	g_pDodgeableProjectiles.FindAndRemove( this );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Gets at the spawner
 //-----------------------------------------------------------------------------

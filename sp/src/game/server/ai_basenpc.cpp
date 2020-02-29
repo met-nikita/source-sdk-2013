@@ -13744,6 +13744,11 @@ bool CAI_BaseNPC::HasAttackSlot()
 {
 	return m_iMySquadSlot == SQUAD_SLOT_ATTACK1 || m_iMySquadSlot == SQUAD_SLOT_ATTACK2;
 }
+
+bool CAI_BaseNPC::AttackSlotOccupied()
+{
+	return IsStrategySlotRangeOccupied( SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2 );
+}
 #endif
 //-----------------------------------------------------------------------------
 

@@ -199,6 +199,10 @@ public:
 
 	virtual void SetEyeState(int state);
 
+#ifdef EZ2
+	void		TurnIntoNemesis() { m_bNemesis = true; }
+#endif
+
 	DEFINE_CUSTOM_AI;
 
 	DECLARE_DATADESC();
@@ -298,6 +302,9 @@ private:
 
 	bool			m_bHeld;
 	bool			m_bHackedByAlyx;
+#ifdef EZ2
+	bool			m_bNemesis;
+#endif
 	Vector			m_vecLoiterPosition;
 	float			m_fTimeNextLoiterPulse;
 

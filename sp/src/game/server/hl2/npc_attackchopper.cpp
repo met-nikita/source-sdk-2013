@@ -4856,6 +4856,28 @@ void CNPC_AttackHelicopter::Hunt( void )
 		{
 			BullrushBombs();
 		}
+#ifdef EZ2
+		// !!!HACKHACK This is another fairly unsavoury hack.
+		// We want the hunter-chopper to aim at different positions searching for its target,
+		// but not actually firing at anything. Gun aiming is only handled in FireGun(),
+		// which is disabled when the gun is disabled. point_posecontroller doesn't seem to work well either.
+		// This may interfere with existing behavior in which the gun will be aiming at its enemy in
+		// situations where it did not aim before, but I'm not very worried about that. -Blixibon
+		else if ( GetEnemy() )
+		{
+			// Get gun attachment points
+			Vector vBasePos;
+			GetAttachment( m_nGunBaseAttachment, vBasePos );
+
+			Vector vecFireAtPosition;
+			ComputeFireAtPosition( &vecFireAtPosition );
+	
+			Vector vTargetDir = vecFireAtPosition - vBasePos;
+			VectorNormalize( vTargetDir );
+
+			PoseGunTowardTargetDirection( vTargetDir );
+		}
+#endif
 	}
 
 #ifdef HL2_EPISODIC

@@ -32,6 +32,11 @@ public:
 	DECLARE_DATADESC();
 	DECLARE_SERVERCLASS();
 
+#ifdef EZ2
+	CPropCombineBall();
+	~CPropCombineBall();
+#endif
+
 	virtual void Precache();
 	virtual void Spawn();
 	virtual void UpdateOnRemove();

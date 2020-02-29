@@ -22,6 +22,7 @@
 #include "sceneentity.h"
 #include "fmtstr.h"
 #include "mapbase\info_remarkable.h"
+#include "combine_mine.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -149,6 +150,10 @@ void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 {
+	// Continuous use = turning valves, using chargers, etc.
+	if (pEntity->ObjectCaps() & FCAP_CONTINUOUS_USE)
+		return;
+
 	AI_CriteriaSet modifiers;
 	bool bStealthChat = false;
 	ModifyOrAppendSpeechTargetCriteria(modifiers, pEntity);
@@ -157,7 +162,7 @@ void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 	if ( pNPC )
 	{
 		// Is Bad Cop trying to scare a rebel that doesn't see him?
-		if ( pNPC->IRelationType( this ) <= D_FR && pNPC->GetEnemy() != this )
+		if ( pNPC->IRelationType( this ) <= D_FR && pNPC->GetEnemy() != this && (!pNPC->GetExpresser() || !pNPC->GetExpresser()->IsSpeaking()) )
 		{
 			modifiers.AppendCriteria( "stealth_chat", "1" );
 			bStealthChat = true;
@@ -170,8 +175,21 @@ void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 	{
 		// "Fascinating."
 		// "Holy shit!"
-		pNPC->AddFacingTarget(this, 5.0f, 3.0f, 2.0f);
-		pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
+
+		if (pNPC->GetExpresser())
+		{
+			pNPC->GetExpresser()->Speak( TLK_USE_SCARE );
+
+			// If the chosen response has no speech, force the NPC to be recognized as *not* speaking.
+			// This lets them say their alert concept while turning to look at the player.
+			if (!IsRunningScriptedSceneWithSpeech(pNPC))
+				pNPC->GetExpresser()->ForceNotSpeaking();
+		}
+		else
+		{
+			pNPC->AddFacingTarget(this, 5.0f, 3.0f, 2.0f);
+			pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
+		}
 
 		//CSoundEnt::InsertSound( SOUND_PLAYER, EyePosition(), 128, 0.1, this );
 	}
@@ -203,13 +221,6 @@ bool CEZ2_Player::HandleInteraction( int interactionType, void *data, CBaseComba
 Disposition_t CEZ2_Player::IRelationType( CBaseEntity *pTarget )
 {
 	Disposition_t base = BaseClass::IRelationType( pTarget );
-
-	// HACKHACK
-	// If this is Clone Cop and there is no map-based relationship for it, always use D_HT
-	if (base == D_LI && pTarget->ClassMatches("npc_clonecop") /*&& FindEntityRelationship(pTarget)->classType == CLASS_COMBINE*/)
-	{
-		return D_HT;
-	}
 
 	return base;
 }
@@ -369,6 +380,7 @@ bool CEZ2_Player::CommanderExecuteOne(CAI_BaseNPC * pNpc, const commandgoal_t & 
 
 			modifiers.AppendCriteria("commandpoint_dist_to_player", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - GetAbsOrigin()).Length()));
 			modifiers.AppendCriteria("commandpoint_dist_to_npc", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - pNpc->GetAbsOrigin()).Length()));
+			modifiers.AppendCriteria("distancetoplayer", UTIL_VarArgs("%.0f", (GetAbsOrigin() - pNpc->GetAbsOrigin()).Length()));
 
 			SpeakIfAllowed(TLK_COMMAND_SEND, modifiers);
 		}
@@ -1056,27 +1068,43 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 	// "Mourn" dead allies
 	if (pVictim->IsPlayerAlly(this))
 	{
-		AllyKilled(pVictim, info);
+		AllyDied(pVictim, info);
 		return;
 	}
 
-	// Check to see if they were killed by an ally.
-	if (info.GetAttacker() && info.GetAttacker()->IsNPC() &&
-		info.GetAttacker()->MyNPCPointer()->IsPlayerAlly(this))
+	if (info.GetAttacker())
 	{
-		// Cheer them on, maybe!
-		AI_CriteriaSet modifiers;
-		ModifyOrAppendDamageCriteria(modifiers, info, false);
-		ModifyOrAppendEnemyCriteria(modifiers, pVictim);
-		SetSpeechTarget(info.GetAttacker());
-
-		if (m_iVisibleEnemies <= 1 && GetNPCComponent() && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
+		// Check to see if they were killed by an ally.
+		if (info.GetAttacker()->IsNPC())
 		{
-			ModifyOrAppendFinalEnemyCriteria( modifiers, pVictim, info );
+			if (info.GetAttacker()->MyNPCPointer()->IsPlayerAlly(this))
+			{
+				// Cheer them on, maybe!
+				AllyKilledEnemy(info.GetAttacker(), pVictim, info);
+				return;
+			}
 		}
 
-		SpeakIfAllowed(TLK_ALLY_KILLED_NPC, modifiers);
-		return;
+		// Check to see if they were killed by a hopper mine.
+		else if (FClassnameIs(info.GetAttacker(), "combine_mine"))
+		{
+			CBounceBomb *pBomb = static_cast<CBounceBomb*>(info.GetAttacker());
+			if (pBomb)
+			{
+				if (pBomb->IsPlayerPlaced())
+				{
+					// Pretend we killed it.
+					Event_KilledEnemy(pVictim, info);
+					return;
+				}
+				else if (pBomb->IsFriend(this))
+				{
+					// Cheer them on, maybe!
+					AllyKilledEnemy(info.GetAttacker(), pVictim, info);
+					return;
+				}
+			}
+		}
 	}
 
 	// Finally, see if they were an ignited NPC we were attacking.
@@ -1092,7 +1120,7 @@ void CEZ2_Player::Event_NPCKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &i
 //-----------------------------------------------------------------------------
 // Purpose: Event fired by killed allies
 //-----------------------------------------------------------------------------
-void CEZ2_Player::AllyKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &info)
+void CEZ2_Player::AllyDied( CAI_BaseNPC *pVictim, const CTakeDamageInfo &info )
 {
 	AI_CriteriaSet modifiers;
 
@@ -1106,6 +1134,25 @@ void CEZ2_Player::AllyKilled(CAI_BaseNPC *pVictim, const CTakeDamageInfo &info)
 		modifiers.AppendCriteria("speechtarget_humanoid", "1");
 
 	SpeakIfAllowed(TLK_ALLY_KILLED, modifiers);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Event fired by NPCs killed by allies
+//-----------------------------------------------------------------------------
+void CEZ2_Player::AllyKilledEnemy( CBaseEntity *pAlly, CAI_BaseNPC *pVictim, const CTakeDamageInfo &info )
+{
+	AI_CriteriaSet modifiers;
+
+	ModifyOrAppendDamageCriteria(modifiers, info, false);
+	ModifyOrAppendEnemyCriteria(modifiers, pVictim);
+	SetSpeechTarget(pAlly);
+
+	if (m_iVisibleEnemies <= 1 && GetNPCComponent() && GetNPCComponent()->GetEnemy() == pVictim && GetMemoryComponent()->InEngagement())
+	{
+		ModifyOrAppendFinalEnemyCriteria( modifiers, pVictim, info );
+	}
+
+	SpeakIfAllowed(TLK_ALLY_KILLED_NPC, modifiers);
 }
 
 //-----------------------------------------------------------------------------
@@ -1146,21 +1193,21 @@ void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
+bool CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
 {
 	SetSpeechTarget(pNPC);
 
-	SpeakIfAllowed(TLK_COMMAND_ADD);
+	return SpeakIfAllowed(TLK_COMMAND_ADD);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
+bool CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
 {
 	SetSpeechTarget(pNPC);
 
-	SpeakIfAllowed(TLK_COMMAND_REMOVE);
+	return SpeakIfAllowed(TLK_COMMAND_REMOVE);
 }
 
 //-----------------------------------------------------------------------------

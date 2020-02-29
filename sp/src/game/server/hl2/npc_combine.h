@@ -50,7 +50,6 @@
 class CNPC_Combine : public CNPC_PlayerCompanion
 {
 	DECLARE_DATADESC();
-	DEFINE_CUSTOM_AI;
 	DECLARE_CLASS( CNPC_Combine, CNPC_PlayerCompanion );
 #else
 #ifdef MAPBASE
@@ -167,6 +166,9 @@ public:
 	virtual bool	ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior );
 
 	virtual bool	IsMajorCharacter() { return IsCommandable(); }
+
+	// Blixibon - Elites in ball attacks should aim while moving, even if they can't shoot
+	bool			HasAttackSlot() { return BaseClass::HasAttackSlot() || HasStrategySlot( SQUAD_SLOT_SPECIAL_ATTACK ); }
 #endif
 
 	bool			UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
@@ -232,6 +234,8 @@ public:
 	void			ReleaseManhack( void );
 	void			OnAnimEventDeployManhack( animevent_t *pEvent );
 	void			OnAnimEventStartDeployManhack( void );
+	void			OnScheduleChange();
+	virtual void	HandleManhackSpawn( CAI_BaseNPC *pNPC ) {}
 #endif
 
 	bool			OnBeginMoveAndShoot();
@@ -364,7 +368,6 @@ private:
 		SCHED_COMBINE_MOVE_TO_MELEE,
 #ifdef EZ
 		SCHED_COMBINE_DEPLOY_MANHACK,
-		SCHED_COMBINE_FLANK_LINE_OF_FIRE,
 #endif
 		NEXT_SCHEDULE,
 	};
@@ -400,6 +403,11 @@ private:
 		COND_COMBINE_ATTACK_SLOT_AVAILABLE,
 		NEXT_CONDITION
 	};
+
+#ifdef EZ
+	// Moved down here
+	DEFINE_CUSTOM_AI;
+#endif
 
 private:
 	// Select the combat schedule
