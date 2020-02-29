@@ -19,9 +19,9 @@
 
 #define	SLAM_SPRITE	"sprites/redglow1.vmt"
 
-ConVar    sk_plr_dmg_satchel		( "sk_plr_dmg_satchel","0");
-ConVar    sk_npc_dmg_satchel		( "sk_npc_dmg_satchel","0");
-ConVar    sk_satchel_radius			( "sk_satchel_radius","0");
+ConVar    sk_plr_dmg_satchel		( "sk_plr_dmg_satchel", "150" );
+ConVar    sk_npc_dmg_satchel		( "sk_npc_dmg_satchel", "0" );
+ConVar    sk_satchel_radius			( "sk_satchel_radius", "200" );
 
 BEGIN_DATADESC( CSatchelCharge )
 
@@ -29,7 +29,7 @@ BEGIN_DATADESC( CSatchelCharge )
 	DEFINE_FIELD( m_bInAir, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_vLastPosition, FIELD_POSITION_VECTOR ),
 	DEFINE_FIELD( m_pMyWeaponSLAM, FIELD_CLASSPTR ),
-	DEFINE_FIELD( m_bIsAttached, FIELD_BOOLEAN ),
+	DEFINE_KEYFIELD( m_bIsAttached, FIELD_BOOLEAN, "IsAttached" ),
 
 	// Function Pointers
 	DEFINE_THINKFUNC( SatchelThink ),
@@ -64,8 +64,6 @@ void CSatchelCharge::Spawn( void )
 	SetModel( "models/Weapons/w_slam.mdl" );
 
 	VPhysicsInitNormal( SOLID_BBOX, GetSolidFlags() | FSOLID_TRIGGER, false );
-	SetMoveType( MOVETYPE_VPHYSICS );
-
 	SetCollisionGroup( COLLISION_GROUP_WEAPON );
 
 	UTIL_SetSize(this, Vector( -6, -6, -2), Vector(6, 6, 2));
@@ -77,13 +75,19 @@ void CSatchelCharge::Spawn( void )
 	m_DmgRadius		= sk_satchel_radius.GetFloat();
 	m_takedamage	= DAMAGE_YES;
 	m_iHealth		= 1;
-
-	SetGravity( UTIL_ScaleForGravity( 560 ) );	// slightly lower gravity
-	SetFriction( 1.0 );
+	if ( m_bIsAttached )
+	{
+		SetMoveType( MOVETYPE_NONE );
+	}
+	else
+	{
+		SetMoveType( MOVETYPE_VPHYSICS );
+		SetGravity( UTIL_ScaleForGravity( 560 ) );	// slightly lower gravity
+		SetFriction( 1.0 );
+	}
 	SetSequence( 1 );
-	SetDamage( 150 );
+	SetDamage( sk_plr_dmg_satchel.GetFloat() );
 
-	m_bIsAttached			= false;
 	m_bInAir				= true;
 	m_flNextBounceSoundTime	= 0;
 
@@ -118,9 +122,8 @@ void CSatchelCharge::CreateEffects( void )
 //-----------------------------------------------------------------------------
 void CSatchelCharge::InputExplode( inputdata_t &inputdata )
 {
-	ExplosionCreate( GetAbsOrigin() + Vector( 0, 0, 16 ), GetAbsAngles(), GetThrower(), GetDamage(), 200, 
-		SF_ENVEXPLOSION_NOSPARKS | SF_ENVEXPLOSION_NODLIGHTS | SF_ENVEXPLOSION_NOSMOKE, 0.0f, this);
-
+	ExplosionCreate( GetAbsOrigin() + Vector( 0, 0, 16 ), GetAbsAngles(), GetThrower(), GetDamage(), sk_satchel_radius.GetFloat(),
+		SF_ENVEXPLOSION_NOSPARKS | SF_ENVEXPLOSION_NODLIGHTS | SF_ENVEXPLOSION_NOSMOKE, 0.0f, this );
 	UTIL_Remove( this );
 }
 

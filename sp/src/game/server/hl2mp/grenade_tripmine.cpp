@@ -215,7 +215,11 @@ void CTripmineGrenade::MakeBeam( void )
 	// to appear if person right in front of it
 	SetNextThink( gpGlobals->curtime + 1.0f );
 
+#ifndef EZ
 	Vector vecTmpEnd = GetLocalOrigin() + m_vecDir * 2048 * drawLength;
+#else
+	Vector vecTmpEnd = GetAbsOrigin() + m_vecDir * 2048 * drawLength;
+#endif
 
 	m_pBeam = CBeam::BeamCreate( g_pModelNameLaser, 0.35 );
 	m_pBeam->PointEntInit( vecTmpEnd, this );
