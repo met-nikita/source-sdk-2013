@@ -3197,6 +3197,20 @@ void CNPC_Citizen::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 	set.AppendCriteria("medic", IsMedic() ? "1" : "0");
 
 	set.AppendCriteria("citizentype", UTIL_VarArgs("%i", m_Type));
+
+#ifdef EZ
+	GatherWillpowerConditions();
+
+	int iWillpower = 0;
+	if (HasCondition(COND_CIT_WILLPOWER_VERY_LOW))
+		iWillpower = -2;
+	else if (HasCondition(COND_CIT_WILLPOWER_LOW))
+		iWillpower = -1;
+	else if (HasCondition(COND_CIT_WILLPOWER_HIGH))
+		iWillpower = 1;
+
+	set.AppendCriteria("willpower", UTIL_VarArgs("%i", iWillpower));
+#endif
 }
 #endif
 
