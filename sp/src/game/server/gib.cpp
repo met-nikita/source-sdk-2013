@@ -271,7 +271,11 @@ void CGib::SpawnSpecificGibs(	CBaseEntity*	pVictim,
 								float			vMinVelocity, 
 								float			vMaxVelocity, 
 								const char*		cModelName,
-								float			flLifetime)
+								float			flLifetime
+#ifdef EZ
+								,int			iBloodColor
+#endif
+															)
 {
 	for (int i=0;i<nNumGibs;i++)
 	{
@@ -285,6 +289,10 @@ void CGib::SpawnSpecificGibs(	CBaseEntity*	pVictim,
 		{
 			pGib->SetOwnerEntity( pVictim );
 		}
+
+#ifdef EZ
+		pGib->SetBloodColor( iBloodColor );
+#endif
 	}
 }
 
@@ -300,7 +308,9 @@ void CGib::SpawnRandomGibs( CBaseEntity *pVictim, int cGibs, GibType_e eGibType 
 	for ( cSplat = 0 ; cSplat < cGibs ; cSplat++ )
 	{
 		CGib *pGib = CREATE_ENTITY( CGib, "gib" );
-
+#ifdef EZ
+		int bloodColor = pVictim->BloodColor();
+#endif
 		if ( g_Language.GetInt() == LANGUAGE_GERMAN )
 		{
 			pGib->Spawn( "models/germangibs.mdl" );
@@ -330,7 +340,7 @@ void CGib::SpawnRandomGibs( CBaseEntity *pVictim, int cGibs, GibType_e eGibType 
 					pGib->Spawn( "models/gibs/hgibs_spine.mdl" );
 					break;
 				}
-				pGib->SetBloodColor( BLOOD_COLOR_RED );
+				bloodColor = BLOOD_COLOR_RED;
 #endif
 
 				break;
@@ -338,7 +348,7 @@ void CGib::SpawnRandomGibs( CBaseEntity *pVictim, int cGibs, GibType_e eGibType 
 				// alien pieces
 #ifdef EZ
 				pGib->Spawn( "models/gibs/agibs2.mdl" );
-				pGib->SetBloodColor( BLOOD_COLOR_GREEN );
+				bloodColor = BLOOD_COLOR_GREEN;
 #else
 				pGib->Spawn( "models/gibs/agibs.mdl" );
 #endif
@@ -347,6 +357,9 @@ void CGib::SpawnRandomGibs( CBaseEntity *pVictim, int cGibs, GibType_e eGibType 
 			}
 		}
 		pGib->InitGib( pVictim, 300, 400);
+#ifdef EZ
+		pGib->SetBloodColor( bloodColor );
+#endif
 	}
 }
 
@@ -648,7 +661,12 @@ void CGib::Spawn( const char *szGibModel )
 	m_nRenderFX = kRenderFxNone;
 	
 	// hopefully this will fix the VELOCITY TOO LOW crap
+#ifndef EZ
 	m_takedamage = DAMAGE_EVENTS_ONLY;
+#else
+	m_takedamage = DAMAGE_YES;
+	m_iHealth = 20;
+#endif
 	SetSolid( SOLID_BBOX );
 	AddSolidFlags( FSOLID_NOT_STANDABLE );
 	SetCollisionGroup( COLLISION_GROUP_DEBRIS );

@@ -2200,12 +2200,13 @@ bool CBaseHeadcrab::HandleInteraction(int interactionType, void *data, CBaseComb
 
 
 #ifdef EZ
+extern ConVar ai_force_serverside_ragdoll;
 //-----------------------------------------------------------------------------
 // Purpose: In Entropy : Zero, headcrabs should gib if monched by squids
 //-----------------------------------------------------------------------------
 bool CBaseHeadcrab::ShouldGib( const CTakeDamageInfo & info )
 {
-	if (info.GetAttacker()->Classify() == CLASS_BULLSQUID  )
+	if ( !ai_force_serverside_ragdoll.GetBool() && info.GetAttacker()->Classify() == CLASS_BULLSQUID  )
 	{
 		return true;
 	}

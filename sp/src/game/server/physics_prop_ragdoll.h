@@ -80,6 +80,16 @@ public:
 	virtual void OnSave( IEntitySaveUtils *pUtils );
 	virtual void OnRestore();
 
+#ifdef EZ2	
+	// Ragdoll smells
+	virtual void EmitScent();
+	virtual void SetNextScentTime( float flNextScentTime ) { m_flNextScentTime = flNextScentTime; };
+	virtual void SetEmitScent( bool bEmitScent ) { m_bEmitScent = bEmitScent; };
+
+	// Ragdoll flesh / blood type
+	virtual int GetBloodColor();
+#endif
+
 	// Purpose: CDefaultPlayerPickupVPhysics
 	virtual void VPhysicsCollision( int index, gamevcollisionevent_t *pEvent );
  	virtual void OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason );
@@ -112,6 +122,11 @@ public:
 	void			InputTurnOff( inputdata_t &inputdata );
 	void			InputFadeAndRemove( inputdata_t &inputdata );
 
+#ifdef EZ2
+	void			InputEnableScent( inputdata_t &inputdata );
+	void			InputDisableScent( inputdata_t &inputdata );
+#endif
+
 	DECLARE_DATADESC();
 
 protected:
@@ -143,6 +158,10 @@ private:
 	float				m_flFadeOutStartTime;
 	float				m_flFadeTime;
 
+#ifdef EZ2
+	float				m_flNextScentTime;
+	bool				m_bEmitScent;
+#endif
 
 	string_t			m_strSourceClassName;
 	bool				m_bHasBeenPhysgunned;

@@ -230,8 +230,7 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 
 			// Invoke effects similar to that of being lifted by a barnacle.
 			pNPC->AddEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
-			pNPC->AddSolidFlags( FSOLID_NOT_SOLID );
-			pNPC->KillSprites(0.5f);
+			pNPC->KillSprites( 0.0f );
 			pNPC->SetSleepState( AISS_IGNORE_INPUT );
 			pNPC->Sleep();
 			
@@ -240,10 +239,6 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 			{
 				pWeapon->AddEffects( EF_NODRAW );
 			}
-
-			m_hDisplacedEntity = pNPC;
-			m_hDisplacedEntity->SetNextThink( TICK_NEVER_THINK );
-			return true;
 		}
 
 		IPhysicsObject *pPhysicsObject = pEnt->VPhysicsGetObject();
@@ -259,13 +254,13 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 				DevMsg( "Displacer pistol can't displace physics object %s because it has motion disabled!\n", pEnt->GetDebugName() );
 				return false;
 			}
-
-			pEnt->AddSolidFlags( FSOLID_NOT_SOLID );
-			pEnt->AddEffects( EF_NODRAW );
-			m_hDisplacedEntity = pEnt;
-			m_hDisplacedEntity->SetNextThink( TICK_NEVER_THINK );
-			return true;
 		}
+
+		pEnt->AddSolidFlags( FSOLID_NOT_SOLID );
+		pEnt->AddEffects( EF_NODRAW );
+		m_hDisplacedEntity = pEnt;
+		m_hDisplacedEntity->SetNextThink( TICK_NEVER_THINK );
+		return true;
 	}
 
 	return false;

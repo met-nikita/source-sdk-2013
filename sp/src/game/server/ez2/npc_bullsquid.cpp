@@ -332,13 +332,15 @@ int CNPC_Bullsquid::RangeAttack1Conditions( float flDot, float flDist )
 	return(BaseClass::RangeAttack1Conditions( flDot, flDist ));
 }
 
+extern ConVar ai_force_serverside_ragdoll;
+
 //=========================================================
 // MeleeAttack2Conditions
 //=========================================================
 int CNPC_Bullsquid::MeleeAttack1Conditions( float flDot, float flDist )
 {
 	// Don't tail whip prey - monch it!
-	if ( IsPrey( GetEnemy() ) )
+	if ( !ai_force_serverside_ragdoll.GetBool() && IsPrey( GetEnemy() ) )
 	{
 		return ( COND_NONE );
 	}
@@ -398,28 +400,9 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 
 		case PREDATOR_AE_BITE:
 		{
-			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), GetBiteDamage(), DMG_SLASH );
-			if ( pHurt )
-			{
-				BiteSound(); // Only play the bite sound if we have a target
-				CBaseCombatCharacter *pVictim = ToBaseCombatCharacter( pHurt );
-				// Try to eat the target
-				if ( pVictim && pVictim->DispatchInteraction( g_interactionBullsquidMonch, NULL, this ) )
-				{
-					OnFed();
-					m_flHungryTime = gpGlobals->curtime + 10.0f; // Headcrabs only satiate the squid for 10 seconds
-				}
-				// I don't want that!
-				else
-				{
-					Vector forward, up;
-					AngleVectors( GetAbsAngles(), &forward, NULL, &up );
-					pHurt->ApplyAbsVelocityImpulse( 100 * (up-forward) * GetModelScale() );
-					pHurt->SetGroundEntity( NULL );
-				}				
-			}
+			CBaseEntity *pHurt = BiteAttack( 70, Vector( -16, -16, -16), Vector( 16, 16, 16 ));
 			// Reusing this activity / animation event for babysquid spawning
-			else if ( m_bReadyToSpawn )
+			if ( !pHurt && m_bReadyToSpawn )
 			{
 				Vector forward, up, spawnPos;
 				AngleVectors( GetAbsAngles(), &forward, NULL, &up );
@@ -443,6 +426,7 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), GetWhipDamage(), DMG_SLASH );
 			if ( pHurt ) 
 			{
+				// TODO - This should ALWAYS create a server ragdoll regardless of the convar setting
 				Vector right, up;
 				AngleVectors( GetAbsAngles(), NULL, &right, &up );
 
@@ -520,6 +504,35 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 		default:
 			BaseClass::HandleAnimEvent( pEvent );
 	}
+}
+
+//=========================================================
+// Bite attack
+//=========================================================
+CBaseEntity * CNPC_Bullsquid::BiteAttack( float flDist, const Vector & mins, const Vector & maxs )
+{
+	CBaseEntity *pHurt = CheckTraceHullAttack( flDist, mins, maxs, GetBiteDamage(), DMG_SLASH | DMG_ALWAYSGIB );
+	if ( pHurt )
+	{
+		BiteSound(); // Only play the bite sound if we have a target
+		CBaseCombatCharacter *pVictim = ToBaseCombatCharacter( pHurt );
+		// Try to eat the target
+		if (pVictim && pVictim->DispatchInteraction( g_interactionBullsquidMonch, NULL, this ))
+		{
+			OnFed();
+			m_flHungryTime = gpGlobals->curtime + 10.0f; // Headcrabs only satiate the squid for 10 seconds
+		}
+		// I don't want that!
+		else
+		{
+			Vector forward, up;
+			AngleVectors( GetAbsAngles(), &forward, NULL, &up );
+			pHurt->ApplyAbsVelocityImpulse( 100 * (up-forward) * GetModelScale() );
+			pHurt->SetGroundEntity( NULL );
+		}
+	}
+
+	return pHurt;
 }
 
 //=========================================================

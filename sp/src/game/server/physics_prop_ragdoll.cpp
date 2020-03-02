@@ -23,6 +23,10 @@
 #ifdef MAPBASE
 #include "decals.h"
 #endif
+#ifdef EZ2
+#include "gib.h"
+#include "particle_parse.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -30,6 +34,12 @@
 #ifdef MAPBASE
 ConVar ragdoll_autointeractions("ragdoll_autointeractions", "1", FCVAR_NONE, "Controls whether we should rely on hardcoded keyvalues or automatic flesh checks for ragdoll physgun interactions.");
 #define IsBody() VPhysicsIsFlesh()
+#endif
+
+#ifdef EZ2
+ConVar ragdoll_ai_scent_radius( "ragdoll_ai_scent_radius", "2048", FCVAR_NONE, "Radius for server ragdoll AI scents" );
+ConVar ragdoll_ai_scent_time( "ragdoll_ai_scent_time", "15", FCVAR_NONE, "Duration for server ragdoll AI scents" );
+ConVar ragdoll_gibs( "ragdoll_gibs", "1", FCVAR_NONE, "Should death ragdolls be destructible?" );
 #endif
 
 //-----------------------------------------------------------------------------
@@ -91,6 +101,13 @@ BEGIN_DATADESC(CRagdollProp)
 
 	DEFINE_KEYFIELD( m_bStartDisabled, FIELD_BOOLEAN, "StartDisabled" ),
 
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_bEmitScent, FIELD_BOOLEAN, "EmitScent" ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableScent", InputEnableScent ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableScent", InputDisableScent ),
+#endif
+
 #ifdef MAPBASE
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "StartRagdollBoogie", InputStartRadgollBoogie ),
 #else
@@ -126,6 +143,9 @@ BEGIN_DATADESC(CRagdollProp)
 	DEFINE_THINKFUNC( SetDebrisThink ),
 	DEFINE_THINKFUNC( ClearFlagsThink ),
 	DEFINE_THINKFUNC( FadeOutThink ),
+#ifdef EZ2
+	DEFINE_THINKFUNC( EmitScent ),
+#endif
 
 	DEFINE_FIELD( m_ragdoll.listCount, FIELD_INTEGER ),
 	DEFINE_FIELD( m_ragdoll.allowStretch, FIELD_BOOLEAN ),
@@ -215,6 +235,12 @@ void CRagdollProp::Spawn( void )
 	{
 		AddEffects( EF_NODRAW );
 	}
+
+#ifdef EZ2
+	RegisterThinkContext( "RagdollScentContext" );
+	m_flNextScentTime = gpGlobals->curtime + ragdoll_ai_scent_time.GetFloat();
+	SetContextThink( &CRagdollProp::EmitScent, m_flNextScentTime, "RagdollScentContext" );
+#endif
 }
 
 void CRagdollProp::SetSourceClassName( const char *pClassname )
@@ -255,6 +281,62 @@ void CRagdollProp::OnRestore()
 	RagdollSetupCollisions( m_ragdoll, modelinfo->GetVCollide( GetModelIndex() ), GetModelIndex() );
 	VPhysicsUpdate( VPhysicsGetObject() );
 }
+
+#ifdef EZ2
+extern ConVar sk_gib_carcass_smell;
+
+void CRagdollProp::EmitScent()
+{
+	// If this is an organic ragdoll, emit a smell upon collision
+	int bloodColor = GetBloodColor();
+	if ( bloodColor != DONT_BLEED && m_bEmitScent )
+	{
+		if ( gpGlobals->curtime >= m_flNextScentTime )
+		{
+			int flags = SOUND_MEAT;
+			// The 'exlude zombies' thing is a little bit weird. Gonomes spawn these when they create headcrabs, plus headcrabs spawn them.
+			// For that reason, it would be awkward if gonomes could eat these. Maybe that can be improved.
+			if ( bloodColor == BLOOD_COLOR_GREEN )
+			{
+				flags |= SOUND_CONTEXT_EXCLUDE_ZOMBIE;
+			}
+
+			CSoundEnt::InsertSound( flags, GetAbsOrigin(), ragdoll_ai_scent_radius.GetFloat(), ragdoll_ai_scent_time.GetFloat(), this );
+
+			// Visually represent this smell with a blood decal
+			if ( g_Language.GetInt() != LANGUAGE_GERMAN )
+			{
+				trace_t tr;
+				Vector vecSpot = GetAbsOrigin() + Vector ( 0, 0, 8 );//move up a bit, and trace down.
+				UTIL_TraceLine ( vecSpot, vecSpot + Vector ( 0, 0, -24 ), MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );
+
+				UTIL_BloodDecalTrace( &tr, bloodColor );
+			}
+		}
+
+		m_flNextScentTime = gpGlobals->curtime + ragdoll_ai_scent_time.GetFloat();
+		// Next scent will be emitted automatically between 1 and 3 times the next scent time.
+		// If the ragdoll sustains damage after the next scent time, this will be interrupted early
+		SetNextThink( gpGlobals->curtime + ( random->RandomFloat( 1.0f, 2.0f ) * ragdoll_ai_scent_time.GetFloat() ), "RagdollScentContext" );
+	}
+}
+
+int CRagdollProp::GetBloodColor()
+{
+	int iVPhysicsFlesh = VPhysicsGetFlesh();
+	if ( iVPhysicsFlesh == CHAR_TEX_ALIENFLESH || iVPhysicsFlesh == CHAR_TEX_ANTLION )
+	{
+		return BLOOD_COLOR_GREEN;
+	}
+	
+	if ( iVPhysicsFlesh == CHAR_TEX_BLOODYFLESH || iVPhysicsFlesh == CHAR_TEX_FLESH )
+	{
+		return BLOOD_COLOR_RED;
+	}
+
+	return DONT_BLEED;
+}
+#endif
 
 void CRagdollProp::CalcRagdollSize( void )
 {
@@ -299,6 +381,9 @@ CRagdollProp::~CRagdollProp( void )
 
 void CRagdollProp::Precache( void )
 {
+#ifdef EZ
+	PrecacheParticleSystem( "hgib" );
+#endif
 	PrecacheModel( STRING( GetModelName() ) );
 	BaseClass::Precache();
 }
@@ -490,7 +575,6 @@ CBasePlayer *CRagdollProp::HasPhysicsAttacker( float dt )
 	}
 	return NULL;
 }
-
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -732,7 +816,18 @@ void CRagdollProp::InitRagdoll( const Vector &forceVector, int forceBone, const 
 	SetMoveType( MOVETYPE_VPHYSICS );
 	SetSolid( SOLID_VPHYSICS );
 	AddSolidFlags( FSOLID_CUSTOMRAYTEST | FSOLID_CUSTOMBOXTEST );
+#ifndef EZ2
 	m_takedamage = DAMAGE_EVENTS_ONLY;
+#else
+	if ( m_iHealth > 0 )
+	{
+		m_takedamage = DAMAGE_YES;
+	}
+	else
+	{
+		m_takedamage = DAMAGE_EVENTS_ONLY;
+	}
+#endif
 
 	ragdollparams_t params;
 	params.pGameData = static_cast<void *>( static_cast<CBaseEntity *>(this) );
@@ -833,17 +928,51 @@ void CRagdollProp::SetDamageEntity( CBaseEntity *pEntity )
 //-----------------------------------------------------------------------------
 int	CRagdollProp::OnTakeDamage( const CTakeDamageInfo &info )
 {
+#ifdef EZ2
+	EmitScent();
+	CTakeDamageInfo subInfo = info;
+#endif
+
 	// If we have a damage entity, we want to pass damage to it. Add the
 	// Never Ragdoll flag, on the assumption that if the entity dies, we'll
 	// actually be taking the role of its ragdoll.
 	if ( m_hDamageEntity.Get() )
 	{
+#ifndef EZ2
 		CTakeDamageInfo subInfo = info;
+#endif
 		subInfo.AddDamageType( DMG_REMOVENORAGDOLL );
 		return m_hDamageEntity->OnTakeDamage( subInfo );
 	}
 
+#if EZ2
+	if ( m_takedamage == DAMAGE_YES )
+	{
+		int bloodColor = GetBloodColor();
+		// Ragdolls that take damage only take damage from explosions or alwaysgib attacks
+		if ( !( info.GetDamageType() & DMG_ALWAYSGIB ) )
+		{
+			subInfo.SetDamage( 0.0f );
+		}
+		else if ( m_iHealth - info.GetDamage() <= 0 && bloodColor != DONT_BLEED )
+		{
+			if ( bloodColor == BLOOD_COLOR_RED )
+			{
+				CGib::SpawnHeadGib( this );
+				CGib::SpawnRandomGibs( this, 4, GIB_HUMAN );	// throw some human gibs.
+																// Explode dramatically
+				DispatchParticleEffect( "hgib", WorldSpaceCenter(), GetAbsAngles() );
+			}
+			else
+			{
+				CGib::SpawnRandomGibs( this, 4, GIB_ALIEN );	// throw some alien gibs.
+			}
+		}
+	}
+	return BaseClass::OnTakeDamage( subInfo );
+#else
 	return BaseClass::OnTakeDamage( info );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1364,6 +1493,26 @@ CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, con
 	pRagdoll->CopyAnimationDataFrom( pAnimating );
 	pRagdoll->SetOwnerEntity( pAnimating );
 
+#ifdef EZ2
+	// EZ2 ragdolls have health and can be gibbed
+	if ( ragdoll_gibs.GetBool() )
+	{
+        pRagdoll->SetHealth( pAnimating->GetMaxHealth() );
+	}
+
+	// EZ2 ragdolls are valid displacer targets
+	pRagdoll->SetDisplacementImpossible( false );
+	
+	// There's no spawn, so register the smell context now
+	if ( sk_gib_carcass_smell.GetBool() )
+	{
+		pRagdoll->SetEmitScent( true );
+		pRagdoll->RegisterThinkContext( "RagdollScentContext" );
+		float flNextScentTime = gpGlobals->curtime + 5.0f; // Only five seconds for the initial kill
+		pRagdoll->SetNextScentTime( flNextScentTime );
+		pRagdoll->SetContextThink( &CRagdollProp::EmitScent, flNextScentTime, "RagdollScentContext" );
+	}
+#endif
 	pRagdoll->InitRagdollAnimation();
 	matrix3x4_t pBoneToWorld[MAXSTUDIOBONES], pBoneToWorldNext[MAXSTUDIOBONES];
 	
@@ -1802,6 +1951,25 @@ void CRagdollProp::InputFadeAndRemove( inputdata_t &inputdata )
 
 	FadeOut( 0.0f, flFadeDuration );
 }
+
+#ifdef EZ2
+void CRagdollProp::InputEnableScent( inputdata_t & inputdata )
+{
+	// Enable scent emission
+	SetEmitScent( true );
+
+	// Set timer to now
+	m_flNextScentTime = gpGlobals->curtime;
+
+	// Emit a scent now and restart the timer
+	EmitScent();
+}
+
+void CRagdollProp::InputDisableScent( inputdata_t & inputdata )
+{
+	SetEmitScent( false );
+}
+#endif
 
 void Ragdoll_GetAngleOverrideString( char *pOut, int size, CBaseEntity *pEntity )
 {
