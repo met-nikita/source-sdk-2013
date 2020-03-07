@@ -25,6 +25,9 @@
 #ifdef MAPBASE
 #include "mapbase/matchers.h"
 #endif
+#ifdef EZ2
+#include "saverestore_utlvector.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -608,6 +611,9 @@ public:
 	bool		ShouldPrecache()	{ return m_bPrecache; }
 	bool		IsCustomManagable()	{ return m_bCustomManagable; }
 
+#ifdef EZ2
+	virtual
+#endif
 	void		Clear();
 
 	void		DumpDictionary( const char *pszName );
@@ -3096,6 +3102,62 @@ private:
 	char *m_pszScriptFile;
 };
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: A special purpose response system made specifically for Xen grenades
+// since they require long strings which cannot fit in conventional responses.
+//-----------------------------------------------------------------------------
+class CXenGrenadeRecipeResponseSystem : public CInstancedResponseSystem
+{
+	DECLARE_DATADESC();
+
+	typedef CInstancedResponseSystem BaseClass;
+
+public:
+
+	CXenGrenadeRecipeResponseSystem( const char *scriptfile ) :
+	  CInstancedResponseSystem( scriptfile )
+	{
+	}
+
+	virtual bool Init()
+	{
+		bool bBase = BaseClass::Init();
+
+		if (bBase && m_ResponseStrings.Count() <= 0)
+		{
+			// Convert all responses into indices
+			int count = m_Responses.Count();
+			for (int i = 0; i < count; i++)
+			{
+				int count2 = m_Responses[i].group.Count();
+				for (int i2 = 0; i2 < count2; i2++)
+				{
+					int index = m_ResponseStrings.AddToTail( m_Responses[i].group[i2].value );
+					m_Responses[i].group[i2].value = CopyString((CNumStr( index ).String()));
+				}
+			}
+		}
+
+		return bBase;
+	}
+
+	virtual void Clear()
+	{
+		BaseClass::Clear();
+		m_ResponseStrings.RemoveAll();
+	}
+
+	CUtlVector<char*> m_ResponseStrings;
+};
+
+BEGIN_DATADESC_NO_BASE( CXenGrenadeRecipeResponseSystem )
+
+	DEFINE_UTLVECTOR( m_ResponseStrings, FIELD_STRING ),
+
+END_DATADESC()
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: The default response system for expressive AIs
 //-----------------------------------------------------------------------------
@@ -3836,6 +3898,42 @@ void DestroyCustomResponseSystems()
 {
 	defaultresponsesytem.DestroyCustomResponseSystems();
 }
+
+#ifdef EZ2
+IResponseSystem *PrecacheXenGrenadeResponseSystem( const char *scriptfile )
+{
+	CInstancedResponseSystem *sys = ( CInstancedResponseSystem * )defaultresponsesytem.FindResponseSystem( scriptfile );
+	if ( !sys )
+	{
+		sys = new CXenGrenadeRecipeResponseSystem( scriptfile );
+		if ( !sys )
+		{
+			Error( "Failed to load response system data from %s", scriptfile );
+		}
+
+		if ( !sys->Init() )
+		{
+			Error( "CInstancedResponseSystem:  Failed to init response system from %s!", scriptfile );
+		}
+
+		defaultresponsesytem.AddInstancedResponseSystem( scriptfile, sys );
+	}
+
+	sys->Precache();
+
+	return ( IResponseSystem * )sys;
+}
+
+void GetXenGrenadeResponseFromSystem( char *szResponse, size_t szResponseSize, IResponseSystem *sys, const char *szIndex )
+{
+	int index = atoi( szIndex );
+	CXenGrenadeRecipeResponseSystem *xsys = (CXenGrenadeRecipeResponseSystem*)sys;
+	if ( xsys && index >= 0 )
+	{
+		Q_strncpy( szResponse, xsys->m_ResponseStrings[index], szResponseSize );
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

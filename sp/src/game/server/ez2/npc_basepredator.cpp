@@ -889,6 +889,27 @@ bool CNPC_BasePredator::OverrideMove( float flInterval )
 	return overrode;
 }
 
+#ifdef EZ2
+extern int g_interactionXenGrenadeCreate;
+//-----------------------------------------------------------------------------
+// Purpose:  
+// Input  :  The type of interaction, extra info pointer, and who started it
+// Output :	 true  - if sub-class has a response for the interaction
+//			 false - if sub-class has no response
+//-----------------------------------------------------------------------------
+bool CNPC_BasePredator::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
+{
+	if ( interactionType == g_interactionXenGrenadeCreate )
+	{
+		InputSetWanderAlways( inputdata_t() );
+		InputEnableSpawning( inputdata_t() );
+		return true;
+	}
+
+	return BaseClass::HandleInteraction(interactionType, data, sourceEnt);
+}
+#endif
+
 
 //------------------------------------------------------------------------------
 //

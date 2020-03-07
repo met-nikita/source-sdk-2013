@@ -1425,6 +1425,9 @@ void CNPC_Crow::FlapSound( void )
 #ifdef EZ
 extern ConVar sk_gib_carcass_smell;
 #endif
+#ifdef EZ2
+extern int g_interactionXenGrenadeCreate;
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose:  This is a generic function (to be implemented by sub-classes) to
@@ -1466,6 +1469,13 @@ bool CNPC_Crow::HandleInteraction( int interactionType, void *data, CBaseCombatC
 		OnTakeDamage ( CTakeDamageInfo( sourceEnt, sourceEnt, m_iHealth, DMG_CRUSH | DMG_ALWAYSGIB ) );
 		// Give the predator health if gibs do not count as food sources, otherwise don't
 		return !sk_gib_carcass_smell.GetBool();
+	}
+#endif
+#ifdef EZ2
+	else if ( interactionType == g_interactionXenGrenadeCreate )
+	{
+		AddSpawnFlags( SF_CROW_FLYING );
+		return true;
 	}
 #endif
 

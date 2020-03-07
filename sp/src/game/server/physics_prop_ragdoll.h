@@ -59,6 +59,11 @@ public:
 	virtual IResponseSystem *GetResponseSystem();
 	virtual void ModifyOrAppendCriteria( AI_CriteriaSet& set );
 	void SetSourceClassName( const char *pClassname );
+#ifdef EZ2
+	string_t GetSourceClassName() { return m_strSourceClassName; }
+
+	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+#endif
 
 	// Physics attacker
 	virtual CBasePlayer *HasPhysicsAttacker( float dt );
