@@ -81,7 +81,12 @@ ConVar ai_force_serverside_ragdoll( "ai_force_serverside_ragdoll", "0" );
 // The benefits are overwwhelming: They can be consumed by Xen grenades, bullsquids can use them as food
 // they are valid targets of the displacer pistol, and they can interact with other physics objects.
 // As long as there aren't any performance drawbacks, this is the behavior we want for EZ2.
-ConVar ai_force_serverside_ragdoll( "ai_force_serverside_ragdoll", "1" );
+//
+// This has been switched back to 0 for now because of some crashes that may or may not have to do with
+// too many server ragdolls as well as some NPCs not being prepared to have force serverside ragdolls enabled,
+// such as rollermines.
+// We will get there!
+ConVar ai_force_serverside_ragdoll( "ai_force_serverside_ragdoll", "0" );
 #endif
 
 ConVar nb_last_area_update_tolerance( "nb_last_area_update_tolerance", "4.0", FCVAR_CHEAT, "Distance a character needs to travel in order to invalidate cached area" ); // 4.0 tested as sweet spot (for wanderers, at least). More resulted in little benefit, less quickly diminished benefit [7/31/2008 tom]
