@@ -1183,6 +1183,12 @@ void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )
 //-----------------------------------------------------------------------------
 void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 {
+	if (FClassnameIs(pWeapon, "weapon_hopwire"))
+	{
+		// Take note of Xen grenade throws for 20 minutes
+		AddContext("xen_grenade_thrown", "1", 1200.0f);
+	}
+
 	AI_CriteriaSet modifiers;
 
 	ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
