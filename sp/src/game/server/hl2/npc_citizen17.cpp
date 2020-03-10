@@ -165,6 +165,7 @@ const float HEAL_TARGET_RANGE_Z = 72; // a second check that Gordon isn't too fa
 
 #ifdef EZ
 #define BRUTE_MASK_MODEL "models/humans/group03b/welding_mask.mdl"
+#define BRUTE_MASK_NUM_SKINS 3
 #define BRUTE_MASK_BODYGROUP 1
 
 #define LONGFALL_GEAR_BODYGROUP 1
@@ -659,6 +660,12 @@ void CNPC_Citizen::Spawn()
 		CapabilitiesAdd( bits_CAP_MOVE_JUMP );
 	}
 	#endif
+
+	if ( m_Type == CT_BRUTE )
+	{
+		// Randomize brute mask skin based on entity index
+		m_nSkin = entindex() % BRUTE_MASK_NUM_SKINS;
+	}
 #endif
 	m_flTimePlayerStare = FLT_MAX;
 #ifndef EZ
@@ -2444,8 +2451,16 @@ void CNPC_Citizen::RunTask( const Task_t *pTask )
 						// Pull the laserdot towards the target
 						Vector vecToTarget = (vecEnemyPos - vecLaserPos);
 						float distToMove = VectorNormalize( vecToTarget );
+#ifdef EZ2
+						// Decrease distToMove the closer it is to the target
+						if ( distToMove > 500 )
+							distToMove -= 100;
+						else if ( distToMove > 90 )
+							distToMove *= 0.8f;
+#else
 						if ( distToMove > 90 )
 							distToMove = 90;
+#endif
 						vecLaserPos += vecToTarget * distToMove;
 					}
 				}
@@ -2716,6 +2731,7 @@ void CNPC_Citizen::Event_Killed( const CTakeDamageInfo &info )
 			if (pGib)
 			{
 				pGib->SetModelName( AllocPooledString(BRUTE_MASK_MODEL) );
+				pGib->GetBaseAnimating()->m_nSkin = m_nSkin;
 				pGib->AddSpawnFlags( SF_PHYSPROP_DEBRIS | SF_PHYSPROP_IS_GIB );
 				DispatchSpawn( pGib );
 
