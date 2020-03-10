@@ -56,6 +56,10 @@ ConVar hopwire_strength( "hopwire_strength", "256" );
 ConVar hopwire_hopheight( "hopwire_hopheight", "200" );
 ConVar hopwire_ragdoll_radius( "hopwire_ragdoll_radius", "96" );
 ConVar hopwire_spawn_life("hopwire_spawn_life", "1");
+ConVar hopwire_spawn_node_radius( "hopwire_spawn_node_radius", "256" );
+ConVar hopwire_spawn_interval_min( "hopwire_spawn_interval_min", "0.35" );
+ConVar hopwire_spawn_interval_max( "hopwire_spawn_interval_max", "0.65" );
+ConVar hopwire_spawn_interval_fail( "hopwire_spawn_interval_fail", "0.1" );
 ConVar hopwire_guard_mass("hopwire_guard_mass", "1500");
 ConVar hopwire_zombine_mass( "hopwire_zombine_mass", "800" );
 ConVar hopwire_zombigaunt_mass( "hopwire_zombigaunt_mass", "1000" );
@@ -100,6 +104,8 @@ template<class ... Args> void XenGrenadeDebugMsg( const char *szMsg, Args ... ar
 	ConColorMsg( XenColor, szMsg, args... );
 }
 
+static const char *g_SpawnThinkContext = "SpawnThink";
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -123,8 +129,8 @@ public:
 
 	bool FindBestRecipe( char *szRecipe, size_t szRecipeSize, AI_CriteriaSet &set, CGravityVortexController *pActivator );
 
-	bool SpawnRecipe( char *szRecipe, CGravityVortexController *pActivator, CUtlMap<Vector, int, int> &HullMap );
-	bool SpawnRecipeBlock( char *szRecipe, CGravityVortexController *pActivator, CUtlMap<Vector, int, int> &HullMap );
+	bool ParseRecipe( char *szRecipe, CGravityVortexController *pActivator );
+	bool ParseRecipeBlock( char *szRecipe, CGravityVortexController *pActivator );
 
 protected:
 	IResponseSystem *m_pInstancedResponseSystem;
@@ -243,9 +249,9 @@ bool CXenGrenadeRecipeManager::FindBestRecipe( char *szRecipe, size_t szRecipeSi
 // Purpose: 
 // Input  : *conceptName - 
 //-----------------------------------------------------------------------------
-bool CXenGrenadeRecipeManager::SpawnRecipe( char *szRecipe, CGravityVortexController *pActivator, CUtlMap<Vector, int, int> &HullMap )
+bool CXenGrenadeRecipeManager::ParseRecipe( char *szRecipe, CGravityVortexController *pActivator )
 {
-	XenGrenadeDebugMsg( "	SpawnRecipe: Start\n" );
+	XenGrenadeDebugMsg( "	ParseRecipe: Start\n" );
 
 	bool bSucceed = false;
 
@@ -254,7 +260,7 @@ bool CXenGrenadeRecipeManager::SpawnRecipe( char *szRecipe, CGravityVortexContro
 	V_SplitString( szRecipe, ";", vecBlocks );
 	FOR_EACH_VEC( vecBlocks, i )
 	{
-		if (SpawnRecipeBlock( vecBlocks[i], pActivator, HullMap ))
+		if (ParseRecipeBlock( vecBlocks[i], pActivator ))
 			bSucceed = true;
 	}
 
@@ -265,9 +271,9 @@ bool CXenGrenadeRecipeManager::SpawnRecipe( char *szRecipe, CGravityVortexContro
 // Purpose: 
 // Input  : *conceptName - 
 //-----------------------------------------------------------------------------
-bool CXenGrenadeRecipeManager::SpawnRecipeBlock( char *szRecipe, CGravityVortexController *pActivator, CUtlMap<Vector, int, int> &HullMap )
+bool CXenGrenadeRecipeManager::ParseRecipeBlock( char *szRecipe, CGravityVortexController *pActivator )
 {
-	XenGrenadeDebugMsg( "	SpawnRecipeBlock: Start \"%s\"\n", szRecipe );
+	XenGrenadeDebugMsg( "	ParseRecipeBlock: Start \"%s\"\n", szRecipe );
 
 	char *colon1 = Q_strstr( szRecipe, ":" );
 	char szheader[128];
@@ -308,52 +314,22 @@ bool CXenGrenadeRecipeManager::SpawnRecipeBlock( char *szRecipe, CGravityVortexC
 		}
 	}
 
-	XenGrenadeDebugMsg( "	SpawnRecipeBlock: Header is \"%s\", \"%i\"\n", STRING(iszClass), iNumEnts );
+	XenGrenadeDebugMsg( "	ParseRecipeBlock: Header is \"%s\", \"%i\"\n", STRING(iszClass), iNumEnts );
 
+	string_t kv = NULL_STRING;
 	if (colon1)
 	{
-		// Now check the rest of the string for KV
-		V_SplitString( colon1+1, " ", vecParams );
-		FOR_EACH_VEC( vecParams, i )
-		{
-			if ( (i + 1) < vecParams.Count() )
-			{
-				if (vecParams[i][0] == '^')
-				{
-					// Ragdoll override animation strings can be fairly large
-					char szValue[384];
-					Q_strncpy(szValue, vecParams[i]+1, sizeof(szValue));
+		kv = AllocPooledString( colon1+1 );
 
-					// Treat ^ as quotes
-					for (i++ ; i < vecParams.Count(); i++)
-					{
-						if (vecParams[i][strlen(vecParams[i])-1] == '^')
-						{
-							vecParams[i][strlen(vecParams[i])-1] = '\0';
-							Q_snprintf( szValue, sizeof( szValue ), "%s %s", szValue, vecParams[i] );
-							break;
-						}
-						else
-							Q_snprintf( szValue, sizeof( szValue ), "%s %s", szValue, vecParams[i] );
-					}
-
-					XenGrenadeDebugMsg( "	SpawnRecipeBlock: Quoted text is \"%s\"\n", szValue );
-
-					EntKV.Insert( vecParams[i], szValue );
-				}
-				else
-				{
-					EntKV.Insert( vecParams[i], vecParams[i+1] );
-				}
-			}
-		}
+		XenGrenadeDebugMsg( "		ParseRecipeBlock: KV is \"%s\"\n", STRING(kv) );
 	}
 
 	if (iszClass != NULL_STRING)
 	{
 		for (int i = 0; i < iNumEnts; i++)
 		{
-			pActivator->TryCreateRecipeNPC(STRING(iszClass), EntKV, HullMap);
+			pActivator->m_SpawnList.Insert( iszClass, kv );
+			XenGrenadeDebugMsg( "	ParseRecipeBlock: Added \"%s\" number %i to spawn list\n", STRING( iszClass ), iNumEnts );
 		}
 	}
 
@@ -456,7 +432,10 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 		string_t iszModelName = pEnt->GetModelName();
 		if (iszModelName != NULL_STRING)
 		{
-			iszModelName = MAKE_STRING(strrchr(STRING(iszModelName), '/' )+1);
+			const char *slash = strrchr(STRING(iszModelName), '/' );
+			if (slash)
+				iszModelName = MAKE_STRING(slash+1);
+
 			if ( iszModelName == NULL_STRING )
 				iszModelName = pEnt->GetModelName();
 
@@ -635,6 +614,11 @@ void CGravityVortexController::CreateDenseBall( void )
 	}
 }
 #ifdef EZ2
+bool VectorLessFunc( const Vector &lhs, const Vector &rhs )
+{
+	return lhs.LengthSqr() < rhs.LengthSqr();
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : &restore - 
@@ -647,12 +631,13 @@ int	CGravityVortexController::Restore( IRestore &restore )
 	m_ModelMass.EnsureCapacity( 128 );
 	m_ClassMass.EnsureCapacity( 128 );
 
-	return BaseClass::Restore( restore );
-}
+	m_HullMap.SetLessFunc( VectorLessFunc );
+	m_HullMap.EnsureCapacity( 32 );
 
-bool VectorLessFunc( const Vector &lhs, const Vector &rhs )
-{
-	return lhs.LengthSqr() < rhs.LengthSqr();
+	SetDefLessFunc( m_SpawnList );
+	m_SpawnList.EnsureCapacity( 16 );
+
+	return BaseClass::Restore( restore );
 }
 
 //-----------------------------------------------------------------------------
@@ -734,10 +719,6 @@ void CGravityVortexController::CreateXenLife()
 
 	// Now we'll test hull permissions
 	// Go through each node and find available links.
-	CUtlMap<Vector, int, int> HullMap;
-	HullMap.EnsureCapacity( 32 );
-	HullMap.SetLessFunc( VectorLessFunc );
-
 	int iTotalHulls = 0;
 
 	Vector vecHopTo = vec3_invalid;
@@ -745,10 +726,10 @@ void CGravityVortexController::CreateXenLife()
 	{
 		CAI_Node *pNode = g_pBigAINet->GetNode(node);
 
-		if ((GetAbsOrigin() - pNode->GetOrigin()).LengthSqr() > Square(256.0f))
+		if ((GetAbsOrigin() - pNode->GetOrigin()).LengthSqr() > Square( hopwire_spawn_node_radius.GetFloat() ))
 			continue;
 
-		// Only hop towards ground nodes
+		// Only use ground nodes
 		if (pNode->GetType() != NODE_GROUND)
 			continue;
 
@@ -797,15 +778,16 @@ void CGravityVortexController::CreateXenLife()
 
 		if (hullbits > 0)
 		{
-			HullMap.Insert( GetAbsOrigin() - pNode->GetOrigin(), hullbits );
+			// Add to our hull map
+			m_HullMap.Insert( GetAbsOrigin() - pNode->GetOrigin(), hullbits );
 			iTotalHulls |= hullbits;
 
-			if (HullMap.Count() >= (unsigned int)HullMap.MaxElement())
+			if (m_HullMap.Count() >= (unsigned int)m_HullMap.MaxElement())
 				break;
 		}
 	}
 
-	set.AppendCriteria( "available_nodes", CNumStr(HullMap.Count()) );
+	set.AppendCriteria( "available_nodes", CNumStr(m_HullMap.Count()) );
 	set.AppendCriteria( "available_hulls", CNumStr(iTotalHulls) );
 
 	if (m_flMass >= hopwire_boid_mass.GetFloat())
@@ -825,15 +807,106 @@ void CGravityVortexController::CreateXenLife()
 	char szRecipe[512];
 	if (g_hXenGrenadeRecipeManager->FindBestRecipe(szRecipe, sizeof(szRecipe), set, this))
 	{
-		g_hXenGrenadeRecipeManager->SpawnRecipe(szRecipe, this, HullMap);
+		if (g_hXenGrenadeRecipeManager->ParseRecipe(szRecipe, this))
+			StartSpawning();
 	}
 }
 
-bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, CUtlDict<char*> &KVMap, CUtlMap<Vector, int, int> &HullMap )
+void CGravityVortexController::StartSpawning()
+{
+	SetContextThink( &CGravityVortexController::SpawnThink, gpGlobals->curtime, g_SpawnThinkContext );
+}
+
+void CGravityVortexController::SpawnThink()
+{
+	if ( m_iCurSpawned >= m_SpawnList.Count() )
+	{
+		SetContextThink( NULL, TICK_NEVER_THINK, g_SpawnThinkContext );
+		return;
+	}
+
+	XenGrenadeDebugMsg( "	SpawnThink: Trying \"%s\" (%i/%i)\n", m_SpawnList.Key(m_iCurSpawned), m_iCurSpawned+1, m_SpawnList.Count() );
+
+	if ( TryCreateRecipeNPC(STRING(m_SpawnList.Key(m_iCurSpawned)), STRING(m_SpawnList.Element(m_iCurSpawned))) )
+		SetContextThink( &CGravityVortexController::SpawnThink, gpGlobals->curtime + RandomFloat( hopwire_spawn_interval_min.GetFloat(), hopwire_spawn_interval_max.GetFloat() ), g_SpawnThinkContext );
+	else
+		SetContextThink( &CGravityVortexController::SpawnThink, gpGlobals->curtime + hopwire_spawn_interval_fail.GetFloat(), g_SpawnThinkContext );
+
+	m_iCurSpawned++;
+}
+
+//------------------------------------------------------------------------------
+// A small wrapper around SV_Move that never clips against the supplied entity.
+//------------------------------------------------------------------------------
+static bool TestXentityPosition( CBaseEntity *pEntity )
+{	
+	trace_t	trace;
+	UTIL_TraceEntity( pEntity, pEntity->GetAbsOrigin(), pEntity->GetAbsOrigin(), pEntity->IsNPC() ? MASK_NPCSOLID : MASK_SOLID, &trace );
+	return (trace.startsolid == 0);
+}
+
+
+//------------------------------------------------------------------------------
+// Searches along the direction ray in steps of "step" to see if 
+// the entity position is passible.
+// Used for putting the player in valid space when toggling off noclip mode.
+//------------------------------------------------------------------------------
+static bool FindPassableXenGrenadeSpace( CBaseEntity *pEntity, const Vector& direction, float step, Vector& oldorigin )
+{
+	int i;
+	for ( i = 0; i < 100; i++ )
+	{
+		Vector origin = pEntity->GetAbsOrigin();
+		VectorMA( origin, step, direction, origin );
+		pEntity->SetAbsOrigin( origin );
+		if ( TestXentityPosition( pEntity ) )
+		{
+			VectorCopy( pEntity->GetAbsOrigin(), oldorigin );
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool FindPassableSpaceForXentity( CBaseEntity *pEntity )
+{
+	Vector vecOrigin = pEntity->GetAbsOrigin();
+	Vector forward, right, up;
+
+	AngleVectors( pEntity->GetAbsAngles(), &forward, &right, &up);
+	
+	// Try to move into the world
+	if ( !FindPassableXenGrenadeSpace( pEntity, forward, 1, vecOrigin ) )
+	{
+		if ( !FindPassableXenGrenadeSpace( pEntity, right, 1, vecOrigin ) )
+		{
+			if ( !FindPassableXenGrenadeSpace( pEntity, right, -1, vecOrigin ) )		// left
+			{
+				if ( !FindPassableXenGrenadeSpace( pEntity, up, 1, vecOrigin ) )	// up
+				{
+					if ( !FindPassableXenGrenadeSpace( pEntity, up, -1, vecOrigin ) )	// down
+					{
+						if ( !FindPassableXenGrenadeSpace( pEntity, forward, -1, vecOrigin ) )	// back
+						{
+							return false;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	pEntity->SetAbsOrigin( vecOrigin );
+	return true;
+}
+
+bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const char *szKV )
 {
 	CBaseEntity * pEntity = CreateEntityByName( szClass );
 	if (pEntity == NULL)
 		return false;
+
+	XenGrenadeDebugMsg( "	TryCreateRecipeNPC: \"%s\" created\n", szClass );
 
 	// Spawning a large number of entities at the origin tends to cause crashes,
 	// even though they're teleported later on in the function
@@ -856,21 +929,22 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, CUtlDict
 		baseNPC->SetSquadName( AllocPooledString( squadname ) );
 	}
 
-	// Append the keyvalues
-	int iCount = KVMap.Count();
-	for (int i = 0; i < iCount; i++)
+	if (szKV != NULL)
 	{
-		pEntity->KeyValue( KVMap.GetElementName(i), KVMap[i] );
+		// Append any keyvalues
+		ParseKeyValues( pEntity, szKV );
 	}
 
 	pEntity->DispatchInteraction( g_interactionXenGrenadeCreate, this, GetThrower() );
 
 	DispatchSpawn( pEntity );
 
+	XenGrenadeDebugMsg( "	TryCreateRecipeNPC: \"%s\" spawned\n", szClass );
+
 	// Now find a valid space
 	Vector vecBestSpace = vec3_invalid;
 	float flBestDistSqr = FLT_MAX;
-	unsigned int iBestIndex = 0;
+	short iBestIndex = -1;
 
 	trace_t tr;
 	int hull;
@@ -890,12 +964,12 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, CUtlDict
 		vecHullMaxs = pEntity->WorldAlignMaxs();
 	}
 
-	for (unsigned int i = 0; i < HullMap.Count(); i++)
+	for (unsigned int i = 0; i < m_HullMap.Count(); i++)
 	{
-		if (HullMap.Element(i) & hull && (HullMap.Key(i).LengthSqr() < flBestDistSqr))
+		if (m_HullMap.Element(i) & hull && (m_HullMap.Key(i).LengthSqr() < flBestDistSqr))
 		{
 			// See if we could actually fit at this space
-			Vector vecSpace = GetAbsOrigin() + HullMap.Key(i);
+			Vector vecSpace = GetAbsOrigin() + m_HullMap.Key(i);
 			Vector vUpBit = vecSpace;
 			vUpBit.z += 1;
 			AI_TraceHull( vecSpace, vUpBit, vecHullMins, vecHullMaxs,
@@ -916,7 +990,7 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, CUtlDict
 				}
 
 				vecBestSpace = vecSpace;
-				flBestDistSqr = HullMap.Key(i).LengthSqr();
+				flBestDistSqr = m_HullMap.Key(i).LengthSqr();
 				iBestIndex = i;
 			}
 		}
@@ -924,21 +998,27 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, CUtlDict
 
 	if ( vecBestSpace == vec3_invalid )
 	{
-		// Just check the origin we assigned to the entity if there's no available node space
-		vecBestSpace = pEntity->GetAbsOrigin();
+		// Just check the origin if there's no available node space
+		vecBestSpace = GetAbsOrigin();
 		Vector vUpBit = vecBestSpace;
 		vUpBit.z += 1;
 		AI_TraceHull( vecBestSpace, vUpBit, vecHullMins, vecHullMaxs,
 			baseNPC ? MASK_NPCSOLID : MASK_SOLID, pEntity, COLLISION_GROUP_NONE, &tr );
 		if ( tr.startsolid || (tr.fraction < 1.0) )
 		{
-			DevMsg( "Xen grenade can't create %s.  Bad Position!\n", szClass );
-			pEntity->SUB_Remove();
-			return false;
+			if (FindPassableSpaceForXentity( pEntity ))
+				DevMsg( "Xen grenade found space for %s\n", szClass );
+			else
+			{
+				DevMsg( "Xen grenade can't create %s.  Bad Position!\n", szClass );
+				UTIL_Remove( pEntity );
+				return false;
+			}
 		}
 	}
 
-	HullMap.RemoveAt(iBestIndex);
+	if (m_HullMap.IsValidIndex(iBestIndex))
+		m_HullMap.RemoveAt(iBestIndex);
 
 	// SetAbsOrigin() doesn't seem to work here for some reason
 	// and ragdoll Teleport() always crashes
@@ -1019,7 +1099,48 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, CUtlDict
 	}
 	*/
 
+	XenGrenadeDebugMsg( "	TryCreateRecipeNPC: \"%s\" reached end of function\n", szClass );
 	return true;
+}
+
+void CGravityVortexController::ParseKeyValues( CBaseEntity *pEntity, const char *szKV )
+{
+	// Now check the rest of the string for KV
+	CUtlStringList vecParams;
+	V_SplitString( szKV, " ", vecParams );
+	FOR_EACH_VEC( vecParams, i )
+	{
+		if ( (i + 1) < vecParams.Count() )
+		{
+			if (vecParams[i][0] == '^')
+			{
+				// Ragdoll override animation strings can be fairly large
+				char szValue[384];
+				Q_strncpy(szValue, vecParams[i]+1, sizeof(szValue));
+
+				// Treat ^ as quotes
+				for (i++ ; i < vecParams.Count(); i++)
+				{
+					if (vecParams[i][strlen(vecParams[i])-1] == '^')
+					{
+						vecParams[i][strlen(vecParams[i])-1] = '\0';
+						Q_snprintf( szValue, sizeof( szValue ), "%s %s", szValue, vecParams[i] );
+						break;
+					}
+					else
+						Q_snprintf( szValue, sizeof( szValue ), "%s %s", szValue, vecParams[i] );
+				}
+
+				XenGrenadeDebugMsg( "	ParseKeyValues: Quoted text is \"%s\"\n", szValue );
+
+				pEntity->KeyValue( vecParams[i], szValue );
+			}
+			else
+			{
+				pEntity->KeyValue( vecParams[i], vecParams[i+1] );
+			}
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1211,8 +1332,9 @@ void CGravityVortexController::PullThink( void )
 		IPhysicsObject *pPhysObject = NULL;
 
 #ifdef EZ2
-		// Don't consume entities already in the process of being removed
-		if ( pEnts[i]->IsMarkedForDeletion() )
+		// Don't consume entities already in the process of being removed.
+		// NPCs which generate ragdolls might not be removed in time, so check for EF_NODRAW as well.
+		if ( pEnts[i]->IsMarkedForDeletion() || pEnts[i]->IsEffectActive(EF_NODRAW) )
 			continue;
 
 		// Hackhack - don't suck voltigores
@@ -1362,8 +1484,10 @@ void CGravityVortexController::PullThink( void )
 		else if ( hopwire_spawn_life.GetInt() == 2 )
 			CreateOldXenLife();
 
+		// Remove at the maximum possible time of when we would be finished spawning entities
 		SetThink( &CBaseEntity::SUB_Remove );
-		SetNextThink( gpGlobals->curtime + 1.0f );
+		SetNextThink( gpGlobals->curtime + (m_SpawnList.Count() * hopwire_spawn_interval_max.GetFloat() + 1.0f) );
+		XenGrenadeDebugMsg("REMOVE TIME: Count %i * interval %f + 1.0 = %f\n", m_SpawnList.Count(), hopwire_spawn_interval_max.GetFloat(), (m_SpawnList.Count() * hopwire_spawn_interval_max.GetFloat() + 1.0f) );
 #else
 		//Msg( "Consumed %.2f kilograms\n", m_flMass );
 		//CreateDenseBall();
@@ -1387,8 +1511,14 @@ void CGravityVortexController::StartPull( const Vector &origin, float radius, fl
 
 	SetDefLessFunc( m_ModelMass );
 	SetDefLessFunc( m_ClassMass );
-	m_ModelMass.EnsureCapacity( 128 );
-	m_ClassMass.EnsureCapacity( 128 );
+	m_ModelMass.EnsureCapacity( 64 );
+	m_ClassMass.EnsureCapacity( 64 );
+
+	m_HullMap.SetLessFunc( VectorLessFunc );
+	m_HullMap.EnsureCapacity( 32 );
+
+	SetDefLessFunc( m_SpawnList );
+	m_SpawnList.EnsureCapacity( 16 );
 #endif
 
 	SetThink( &CGravityVortexController::PullThink );
@@ -1433,6 +1563,10 @@ BEGIN_DATADESC( CGravityVortexController )
 
 	DEFINE_UTLMAP( m_ClassMass, FIELD_STRING, FIELD_FLOAT ),
 	DEFINE_UTLMAP( m_ModelMass, FIELD_STRING, FIELD_FLOAT ),
+	DEFINE_UTLMAP( m_HullMap, FIELD_VECTOR, FIELD_INTEGER ),
+
+	DEFINE_UTLMAP( m_SpawnList, FIELD_STRING, FIELD_STRING ),
+	DEFINE_FIELD( m_iCurSpawned, FIELD_INTEGER ),
 
 	DEFINE_FIELD( m_iSuckedProps, FIELD_INTEGER ),
 	DEFINE_FIELD( m_iSuckedNPCs, FIELD_INTEGER ),

@@ -28,7 +28,10 @@ public:
 #ifdef EZ2
 	static CGravityVortexController *Create( const Vector &origin, float radius, float strength, float duration, CBaseEntity *pGrenade = NULL );
 
-	bool	TryCreateRecipeNPC( const char *szClass, CUtlDict<char*> &KVMap, CUtlMap<Vector, int, int> &HullMap );
+	void	StartSpawning();
+	void	SpawnThink();
+	bool	TryCreateRecipeNPC( const char *szClass, const char *szKV );
+	void	ParseKeyValues( CBaseEntity *pEntity, const char *szKV );
 
 	void	SetThrower( CBaseCombatCharacter *pBCC ) { m_hThrower.Set( pBCC ); }
 	CBaseCombatCharacter *GetThrower() { return m_hThrower.Get(); }
@@ -70,6 +73,11 @@ private:
 	// Stuff gathered for recipes
 	CUtlMap<string_t, float, short> m_ModelMass;
 	CUtlMap<string_t, float, short> m_ClassMass;
+	CUtlMap<Vector, int, short> m_HullMap;
+
+public:
+	CUtlMap<string_t, string_t> m_SpawnList;
+	unsigned int m_iCurSpawned;
 
 	int m_iSuckedProps;
 	int m_iSuckedNPCs;
