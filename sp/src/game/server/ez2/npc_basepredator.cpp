@@ -155,6 +155,36 @@ bool CNPC_BasePredator::IsJumpLegal( const Vector & startPos, const Vector & ape
 	return BaseClass::IsJumpLegal( startPos, apex, endPos, maxUp, maxDown, maxDist );
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Allows for modification of the interrupt mask for the current schedule.
+//			In the most cases the base implementation should be called first.
+//-----------------------------------------------------------------------------
+void CNPC_BasePredator::BuildScheduleTestBits()
+{
+	BaseClass::BuildScheduleTestBits();
+
+	// Allow these schedules to stop for melee attacks
+	// just like player companions
+	if (IsCurSchedule( SCHED_RANGE_ATTACK1 ) ||
+		IsCurSchedule( SCHED_BACK_AWAY_FROM_ENEMY ) ||
+		IsCurSchedule( SCHED_RUN_FROM_ENEMY )
+		)
+	{
+		SetCustomInterruptCondition( COND_CAN_MELEE_ATTACK1 );
+	}
+
+	// Like zombies, ignore damage if we're attacking.
+	switch (GetActivity())
+	{
+	case ACT_MELEE_ATTACK1:
+	case ACT_MELEE_ATTACK2:
+	case ACT_RANGE_ATTACK2:
+		ClearCustomInterruptCondition( COND_LIGHT_DAMAGE );
+		ClearCustomInterruptCondition( COND_HEAVY_DAMAGE );
+		break;
+	}
+}
+
 //=========================================================
 // SetYawSpeed - allows each sequence to have a different
 // turn rate associated with it.
@@ -375,6 +405,27 @@ void CNPC_BasePredator::OnFed()
 
 	// Fire output
 	m_OnFed.FireOutput( this, this );
+
+	// Damage props underneath this predator
+	EatAttack();
+}
+
+//-----------------------------------------------------------------------------
+// Deal damage to props / ragdolls / gibs while eating
+//-----------------------------------------------------------------------------
+void CNPC_BasePredator::EatAttack()
+{
+	// TODO This functionality needs to be rewritten for a few reasons.
+	// It should be called from an animation event rather than upon restoring health
+	// so that certain predators like the zassassin deal damage at the right time.
+	// It should damage props but not other NPCs.
+	//
+	// For now, this will do.
+	CTakeDamageInfo info = CTakeDamageInfo( this, this, 100.0f, DMG_SLASH | DMG_ALWAYSGIB );
+	Vector vBitePos;
+
+	GetAttachment( "Mouth", vBitePos );
+	RadiusDamage( info, vBitePos, 64.0f, Classify(), this );
 }
 
 //-----------------------------------------------------------------------------
@@ -573,7 +624,6 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 	case TASK_PREDATOR_REGEN:
 	{
 		OnFed();
-		
 		TaskComplete();
 		break;
 	}
@@ -663,7 +713,7 @@ int CNPC_BasePredator::SelectSchedule( void )
 	if ( bossSchedule != SCHED_NONE )
 		return bossSchedule;
 
-	if (m_bReadyToSpawn && m_flNextSpawnTime <= gpGlobals->curtime)
+	if ( m_bReadyToSpawn && gpGlobals->curtime > m_flNextSpawnTime )
 	{
 		return SCHED_PREDATOR_SPAWN;
 	}
@@ -1123,9 +1173,6 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 			"		TASK_PREDATOR_REGEN					0"
 			"	"
 			"	Interrupts"
-			"		COND_LIGHT_DAMAGE"
-			"		COND_HEAVY_DAMAGE"
-			"		COND_NEW_ENEMY"
 			"		COND_CAN_MELEE_ATTACK1"
 			"		COND_CAN_MELEE_ATTACK2"
 		)
@@ -1241,7 +1288,6 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 		"		TASK_SOUND_WAKE				0"
 		"		TASK_PREDATOR_SPAWN_SOUND	0"
 		"		TASK_PREDATOR_SPAWN			0"
-		"		TASK_WAIT					1"
 		"	"
 		"	Interrupts"
 	)

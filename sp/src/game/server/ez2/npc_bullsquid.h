@@ -53,6 +53,7 @@ public:
 	float GetBiteDamage( void );
 
 	int OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo );
+	virtual CBaseEntity * BiteAttack( float flDist, const Vector &mins, const Vector &maxs );
 
 	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_HEADCRAB || pTarget->Classify() == CLASS_EARTH_FAUNA  || pTarget->Classify() == CLASS_ALIEN_FAUNA; }
 	virtual bool ShouldInfight( CBaseEntity * pTarget ); // Could this target npc be a rival I need to kill?

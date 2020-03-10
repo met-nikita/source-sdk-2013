@@ -115,6 +115,8 @@ public:
 
 	float MaxYawSpeed ( void );
 
+	virtual void BuildScheduleTestBits();
+
 	virtual int RangeAttack1Conditions( float flDot, float flDist );
 	virtual int MeleeAttack1Conditions( float flDot, float flDist );
 	virtual int MeleeAttack2Conditions( float flDot, float flDist );
@@ -134,11 +136,12 @@ public:
 	bool FValidateHintType ( CAI_Hint *pHint );
 	virtual void RemoveIgnoredConditions( void );
 	Disposition_t IRelationType( CBaseEntity *pTarget );
-#ifdef EZ2
+
 	bool JustStartedFearing( CBaseEntity *pTarget ); // Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
-#endif
 	int OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo );
 	virtual void OnFed();
+	virtual CBaseEntity *	BiteAttack( float flDist, const Vector &mins, const Vector &maxs ) { return NULL; }
+	virtual void			EatAttack();
 
 	virtual bool IsPrey( CBaseEntity* pTarget ) { return false; } // Override this method to choose an NPC to get excited about - like bullsquids with headcrabs
 	virtual bool IsSameSpecies( CBaseEntity* pTarget ) { return Classify() == pTarget->Classify(); } // Is this NPC the same species as me?
@@ -148,7 +151,11 @@ public:
 	virtual bool ShouldEatInCombat();
 
 	virtual bool IsBaby() { return m_bIsBaby; };
-	virtual void setIsBaby( bool bIsBaby ) { m_bIsBaby = bIsBaby; };
+	virtual void SetIsBaby( bool bIsBaby ) { m_bIsBaby = bIsBaby; };
+	virtual void SetReadyToSpawn ( bool bIsReadyToSpawn ) { m_bReadyToSpawn = bIsReadyToSpawn; };
+	virtual void SetNextSpawnTime ( float flNextSpawnTime ) { m_flNextSpawnTime  = flNextSpawnTime; };
+	virtual void SetHungryTime ( float flHungryTime ) { m_flHungryTime = flHungryTime; };
+	virtual void SetTimesFed ( int iTimesFed ) { m_iTimesFed = iTimesFed; };
 
 	int GetSoundInterests ( void );
 	void RunAI ( void );
@@ -184,9 +191,7 @@ protected:
 	float m_flHungryTime;// set this is a future time to stop the monster from eating for a while. 
 	float m_flNextSpawnTime; // Next time the bullsquid can birth offspring
 
-#ifdef EZ2
 	float m_flStartedFearingEnemy; // Blixibon - Needed for Bad Cop's speech AI
-#endif
 
 	// Spawning offspring
 	bool  m_bSpawningEnabled;

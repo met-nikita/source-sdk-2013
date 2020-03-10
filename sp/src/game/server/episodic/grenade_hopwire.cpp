@@ -1256,9 +1256,18 @@ bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool 
 	CNPC_BasePredator * pPredator = dynamic_cast< CNPC_BasePredator * >(baseNPC);
 	if (pPredator != NULL)
 	{
-		pPredator->setIsBaby( isBaby );
+		pPredator->SetIsBaby( isBaby );
 		pPredator->InputSetWanderAlways( inputdata_t() );
 		pPredator->InputEnableSpawning( inputdata_t() );
+		if ( !isBaby )
+		{
+			// Xen bullsquids come into the world ready to spawn.
+			// Ready for the infestation?
+			pPredator->SetReadyToSpawn( true );
+			pPredator->SetNextSpawnTime( gpGlobals->curtime + 15.0f ); // 15 seconds to first spawn
+			pPredator->SetHungryTime( gpGlobals->curtime ); // Be ready to eat as soon as we come through
+			pPredator->SetTimesFed( 2 ); // Twins!
+		}
 	}
 
 	DispatchSpawn( baseNPC );

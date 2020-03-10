@@ -72,7 +72,22 @@ extern int GetSMG1ActtableCount();
 extern ConVar weapon_showproficiency;
 
 ConVar ai_show_hull_attacks( "ai_show_hull_attacks", "0" );
+#ifndef EZ2
 ConVar ai_force_serverside_ragdoll( "ai_force_serverside_ragdoll", "0" );
+#else
+// All ragdolls in EZ2 are calculated server side by default.
+// We should test and see if there are any deleterious effects of enabling server side ragdoll physics
+// on all death ragdolls.
+// The benefits are overwwhelming: They can be consumed by Xen grenades, bullsquids can use them as food
+// they are valid targets of the displacer pistol, and they can interact with other physics objects.
+// As long as there aren't any performance drawbacks, this is the behavior we want for EZ2.
+//
+// This has been switched back to 0 for now because of some crashes that may or may not have to do with
+// too many server ragdolls as well as some NPCs not being prepared to have force serverside ragdolls enabled,
+// such as rollermines.
+// We will get there!
+ConVar ai_force_serverside_ragdoll( "ai_force_serverside_ragdoll", "0" );
+#endif
 
 ConVar nb_last_area_update_tolerance( "nb_last_area_update_tolerance", "4.0", FCVAR_CHEAT, "Distance a character needs to travel in order to invalidate cached area" ); // 4.0 tested as sweet spot (for wanderers, at least). More resulted in little benefit, less quickly diminished benefit [7/31/2008 tom]
 
@@ -1574,6 +1589,14 @@ CBaseEntity *CBaseCombatCharacter::BecomeRagdollBoogie( CBaseEntity *pKiller, co
 //-----------------------------------------------------------------------------
 bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vector &forceVector )
 {
+#ifdef EZ
+	// AR2 ball kills are always clientside ragdolls to properly handle the dissolve effect
+	if (info.GetDamageType() & DMG_DISSOLVE)
+	{
+		return BecomeRagdollOnClient( forceVector );
+	}
+#endif
+
 	if ( (info.GetDamageType() & DMG_VEHICLE) && !g_pGameRules->IsMultiplayer() )
 	{
 		CTakeDamageInfo info2 = info;
@@ -1640,7 +1663,9 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 		//FIXME: This is fairly leafy to be here, but time is short!
 		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
 		FixupBurningServerRagdoll( pRagdoll );
+#ifndef EZ
 		PhysSetEntityGameFlags( pRagdoll, FVPHYSICS_NO_SELF_COLLISIONS );
+#endif
 		RemoveDeferred();
 
 		return true;

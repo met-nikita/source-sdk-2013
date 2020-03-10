@@ -16,8 +16,8 @@
 #include "tier0/memdbgon.h"
 
 ConVar sk_flyingpredator_health( "sk_flyingpredator_health", "100" );
-ConVar sk_flyingpredator_dmg_spit( "sk_flyingpredator_dmg_spit", "33" );
 ConVar sk_flyingpredator_dmg_dive( "sk_flyingpredator_dmg_dive", "33" );
+ConVar sk_flyingpredator_dmg_explode( "sk_flyingpredator_dmg_explode", "75" );
 ConVar sk_flyingpredator_spit_gravity( "sk_flyingpredator_spit_gravity", "600" );
 ConVar sk_flyingpredator_spit_arc_size( "sk_flyingpredator_spit_arc_size", "3");
 ConVar sk_flyingpredator_spit_min_wait( "sk_flyingpredator_spit_min_wait", "0.5");
@@ -592,9 +592,9 @@ void CNPC_FlyingPredator::ExplosionEffect( void )
 {
 	DispatchParticleEffect( "bullsquid_explode", WorldSpaceCenter(), GetAbsAngles() );
 
-	CTakeDamageInfo info( this, this, sk_flyingpredator_dmg_spit.GetFloat(), DMG_BLAST_SURFACE | DMG_ACID | DMG_ALWAYSGIB );
+	CTakeDamageInfo info( this, this, sk_flyingpredator_dmg_explode.GetFloat(), DMG_BLAST_SURFACE | DMG_ACID | DMG_ALWAYSGIB );
 
-	RadiusDamage( info, GetAbsOrigin(), 160, CLASS_NONE, this );
+	RadiusDamage( info, GetAbsOrigin(), 300, CLASS_NONE, this );
 	EmitSound( "NPC_FlyingPredator.Explode" );
 }
 
