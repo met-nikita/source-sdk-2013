@@ -953,6 +953,15 @@ bool CNPC_BasePredator::HandleInteraction( int interactionType, void *data, CBas
 	{
 		InputSetWanderAlways( inputdata_t() );
 		InputEnableSpawning( inputdata_t() );
+		if ( !m_bIsBaby )
+		{
+			// Xen predators come into the world ready to spawn.
+			// Ready for the infestation?
+			SetReadyToSpawn( true );
+			SetNextSpawnTime( gpGlobals->curtime + 15.0f ); // 15 seconds to first spawn
+			SetHungryTime( gpGlobals->curtime ); // Be ready to eat as soon as we come through
+			SetTimesFed( 2 ); // Twins!
+		}
 		return true;
 	}
 
