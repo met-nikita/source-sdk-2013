@@ -314,7 +314,7 @@ bool CBaseCombatCharacter::HasAlienGibs( void )
 #ifdef EZ
 		myClass == CLASS_BULLSQUID ||
 		myClass == CLASS_ALIEN_PREDATOR ||
-		myClass == CLASS_ALIEN_PREY ||
+		myClass == CLASS_ALIEN_FAUNA ||
 #endif
 		myClass == CLASS_HEADCRAB )
 	{
@@ -327,7 +327,7 @@ bool CBaseCombatCharacter::HasAlienGibs( void )
 		 myClass == CLASS_ALIEN_MONSTER	||
 		 myClass == CLASS_INSECT  ||
 		 myClass == CLASS_ALIEN_PREDATOR  ||
-		 myClass == CLASS_ALIEN_PREY )
+		 myClass == CLASS_ALIEN_FAUNA )
 	{
 		return true;
 	}

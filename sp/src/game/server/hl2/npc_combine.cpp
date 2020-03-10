@@ -5765,6 +5765,34 @@ DEFINE_SCHEDULE
  //	Used to run straight at enemy turrets to knock them over.
  //  Prevents squadmates from throwing grenades during.
  //=========================================================
+#ifdef EZ
+ DEFINE_SCHEDULE
+ (
+ SCHED_COMBINE_CHARGE_TURRET,
+
+ "	Tasks"
+ "		TASK_COMBINE_DEFER_SQUAD_GRENADES	0"
+ "		TASK_STOP_MOVING					0"
+ "		TASK_SET_FAIL_SCHEDULE				SCHEDULE:SCHED_CHASE_ENEMY_FAILED"
+ "		TASK_GET_CHASE_PATH_TO_ENEMY		300"
+ "		TASK_RUN_PATH						0"
+ "		TASK_WAIT_FOR_MOVEMENT				0"
+ "		TASK_FACE_ENEMY						0"
+ ""
+ "	Interrupts"
+ "		COND_NEW_ENEMY"
+ "		COND_ENEMY_DEAD"
+ "		COND_ENEMY_UNREACHABLE"
+ "		COND_CAN_MELEE_ATTACK1"
+ "		COND_CAN_MELEE_ATTACK2"
+ "		COND_TOO_CLOSE_TO_ATTACK"
+ "		COND_TASK_FAILED"
+ "		COND_LOST_ENEMY"
+ "		COND_BETTER_WEAPON_AVAILABLE"
+ "		COND_HEAR_DANGER"
+ "		COND_ENEMY_FACING_ME" // Blixibon - Makes soldiers stop charging a turret if the turret starts facing them (fixes a problem in ez2_c5_2)
+ )
+#else
  DEFINE_SCHEDULE
  (
  SCHED_COMBINE_CHARGE_TURRET,
@@ -5790,6 +5818,7 @@ DEFINE_SCHEDULE
  "		COND_BETTER_WEAPON_AVAILABLE"
  "		COND_HEAR_DANGER"
  )
+#endif
 
  //=========================================================
  // SCHED_COMBINE_CHARGE_PLAYER

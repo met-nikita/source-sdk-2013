@@ -341,7 +341,7 @@ public:
 	// Set up relationship tables first, then uncomment this!
 	Class_T	Classify( void )
 	{
-		return( CLASS_ALIEN_PREY );
+		return( CLASS_ALIEN_FAUNA );
 	}
 
 	//-----------------------------------------------------------------------------
