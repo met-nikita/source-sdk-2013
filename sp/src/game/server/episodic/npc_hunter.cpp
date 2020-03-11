@@ -66,6 +66,9 @@
 #ifdef MAPBASE
 #include "mapbase/GlobalStrings.h"
 #endif
+#ifdef EZ2
+#include "npc_playercompanion.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -1060,7 +1063,15 @@ public:
 	CNPC_Hunter *GetOuter() { return (CNPC_Hunter *)( BaseClass::GetOuter() ); }
 
 	void SetEscortTarget( CNPC_Strider *pLeader, bool fFinishCurSchedule = false );
+#ifdef EZ
+	CNPC_Strider * GetEscortTarget() { return GetFollowTarget() && GetFollowTarget()->m_iClassname == gm_isz_class_Strider ? (CNPC_Strider *)GetFollowTarget() : NULL; }
+#else
 	CNPC_Strider * GetEscortTarget() { return (CNPC_Strider *)GetFollowTarget(); }
+#endif
+
+#ifdef EZ2
+	CBaseEntity *GetVehicleTarget();
+#endif
 
 	bool FarFromFollowTarget()
 	{ 
@@ -1150,9 +1161,15 @@ impactdamagetable_t s_HunterImpactDamageTable =
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
+#ifdef EZ2
+class CNPC_Hunter : public CNPC_PlayerCompanion
+{
+	DECLARE_CLASS( CNPC_Hunter, CNPC_PlayerCompanion );
+#else
 class CNPC_Hunter : public CAI_BaseActor
 {
 	DECLARE_CLASS( CNPC_Hunter, CAI_BaseActor );
+#endif
 
 public:
 	CNPC_Hunter();
@@ -1321,6 +1338,10 @@ public:
 	bool			ShouldProbeCollideAgainstEntity( CBaseEntity *pEntity );
 	void            TaskFail( AI_TaskFailureCode_t code );
 	void			TaskFail( const char *pszGeneralFailText )	{ TaskFail( MakeFailCode( pszGeneralFailText ) ); }
+
+#ifdef EZ
+	bool			ShouldRegenerateHealth( void ) { return m_bCompanionHunter; }
+#endif
 
 	CAI_BaseNPC *	GetEntity() { return this; }
 
@@ -1506,6 +1527,10 @@ private:
 	bool m_bMissLeft;
 	bool m_bEnableUnplantedShooting;
 
+#ifdef EZ2
+	bool m_bCompanionHunter;
+#endif
+
 	static float	gm_flMinigunDistZ;
 	static Vector	gm_vecLocalRelativePositionMinigun;
 
@@ -1522,6 +1547,10 @@ private:
 
 	static int gm_nUnplantedNode;
 	static int gm_nPlantedNode;
+
+#ifdef EZ2
+	virtual CAI_FollowBehavior &GetFollowBehavior( void ) { return m_EscortBehavior; }
+#endif
 
 	CAI_HunterEscortBehavior m_EscortBehavior;
 
@@ -1643,6 +1672,10 @@ BEGIN_DATADESC( CNPC_Hunter )
 	DEFINE_FIELD( m_flNextFlechetteTime, FIELD_TIME ),
 	DEFINE_UTLVECTOR( m_hAttachedBusters, FIELD_EHANDLE ),
 	DEFINE_UTLVECTOR( m_pSiegeTargets, FIELD_EHANDLE ),
+
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_bCompanionHunter, FIELD_BOOLEAN, "CompanionHunter" ),
+#endif
 
 	// inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Dodge", InputDodge ),
@@ -1780,7 +1813,12 @@ void CNPC_Hunter::Spawn()
 	//m_debugOverlays |= OVERLAY_NPC_ROUTE_BIT | OVERLAY_BBOX_BIT | OVERLAY_PIVOT_BIT;
 
 	SetHullType( HULL_MEDIUM_TALL );
+#ifdef EZ2
+	// Needed so HULL_HUMAN isn't used from companion class
+	SetHullSizeNormal( true );
+#else
 	SetHullSizeNormal();
+#endif
 	SetDefaultEyeOffset();
 	
 	SetNavType( NAV_GROUND );
@@ -4735,6 +4773,24 @@ void CAI_HunterEscortBehavior::SetEscortTarget( CNPC_Strider *pStrider, bool fFi
 }
 
 
+#ifdef EZ2
+CBaseEntity *CAI_HunterEscortBehavior::GetVehicleTarget()
+{
+	CBaseEntity *pFollowTarget = GetFollowTarget();
+	if (!pFollowTarget)
+		return NULL;
+
+	if (pFollowTarget->GetServerVehicle())
+		return pFollowTarget;
+
+	if (pFollowTarget->IsCombatCharacter())
+		return pFollowTarget->MyCombatCharacterPointer()->GetVehicleEntity();
+
+	return NULL;
+}
+#endif
+
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CNPC_Hunter::InputEnableUnplantedShooting( inputdata_t &inputdata )
@@ -6067,7 +6123,7 @@ void CNPC_Hunter::Event_Killed( const CTakeDamageInfo &info )
 	m_nKillingDamageType = info.GetDamageType();
 
 #ifdef EZ
-	if ( m_EscortBehavior.GetFollowTarget() && FClassnameIs(m_EscortBehavior.GetFollowTarget(), "npc_strider") )
+	if ( m_EscortBehavior.GetEscortTarget() )
 #else
 	if ( m_EscortBehavior.GetFollowTarget() )
 #endif
