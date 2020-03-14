@@ -29,6 +29,7 @@ class CEZ2_Player;
 #define TLK_THROWGRENADE "TLK_THROWGRENADE" // Grenade was thrown
 #define TLK_ALLY_KILLED_NPC "TLK_ALLY_KILLED_NPC" // Ally killed a NPC
 #define TLK_KILLED_ALLY "TLK_KILLED_ALLY" // Bad Cop killed an ally (intention ambiguous)
+#define TLK_DISPLACER_RELEASE "TLK_DISPLACER_RELEASE" // Bad Cop released an entity via the displacer pistol
 
 //=============================================================================
 // >> EZ2_PLAYERMEMORY
@@ -156,9 +157,11 @@ public:
 	void			AllyKilledEnemy( CBaseEntity *pAlly, CAI_BaseNPC *pVictim, const CTakeDamageInfo &info );
 
 	void			Event_SeeEnemy( CBaseEntity *pEnemy );
-	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
 	bool			HandleAddToPlayerSquad( CAI_BaseNPC *pNPC );
 	bool			HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC );
+
+	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
+	void			Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity );
 
 	// Blixibon - StartScripting for gag replacement
 	inline bool			IsInAScript( void ) { return m_bInAScript; }

@@ -1181,6 +1181,26 @@ void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+bool CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
+{
+	SetSpeechTarget(pNPC);
+
+	return SpeakIfAllowed(TLK_COMMAND_ADD);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
+{
+	SetSpeechTarget(pNPC);
+
+	return SpeakIfAllowed(TLK_COMMAND_REMOVE);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 {
 	if (FClassnameIs(pWeapon, "weapon_hopwire"))
@@ -1199,21 +1219,22 @@ void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-bool CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
+void CEZ2_Player::Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity )
 {
-	SetSpeechTarget(pNPC);
+	AI_CriteriaSet modifiers;
 
-	return SpeakIfAllowed(TLK_COMMAND_ADD);
-}
+	ModifyOrAppendWeaponCriteria( modifiers, pWeapon );
+	ModifyOrAppendEnemyCriteria( modifiers, pVictimEntity );
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-bool CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
-{
-	SetSpeechTarget(pNPC);
-
-	return SpeakIfAllowed(TLK_COMMAND_REMOVE);
+	if (!SpeakIfAllowed( TLK_DISPLACER_RELEASE, modifiers ))
+	{
+		CAI_PlayerAlly *pSquadRep = dynamic_cast<CAI_PlayerAlly*>(GetSquadCommandRepresentative());
+		if (pSquadRep)
+		{
+			// Have a nearby soldier make a comment instead
+			pSquadRep->SpeakIfAllowed( TLK_DISPLACER_RELEASE, modifiers, true );
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
