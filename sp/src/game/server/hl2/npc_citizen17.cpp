@@ -2805,6 +2805,12 @@ void CNPC_Citizen::OnChangeActivity( Activity eNewActivity )
 			} break;
 		}
 	}
+
+	if (eNewActivity == ACT_MELEE_ATTACK1 && GetEnemy())
+	{
+		// Say something when we begin a melee attack
+		SpeakIfAllowed( TLK_MELEE );
+	}
 }
 
 //-----------------------------------------------------------------------------

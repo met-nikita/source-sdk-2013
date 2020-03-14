@@ -135,6 +135,8 @@ ConceptInfo_t g_ConceptInfos[] =
 
 #ifdef EZ
 	{ TLK_SURRENDER,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_MELEE,			SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_THROWGRENADE,			SPEECH_PRIORITY, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
 #endif
 
 #ifdef EZ2

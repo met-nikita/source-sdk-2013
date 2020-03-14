@@ -1249,6 +1249,10 @@ int CNPC_PlayerCompanion::TranslateSchedule( int scheduleType )
 		{
 			// If this companion has the balls to alt-fire the enemy's last known position,
 			// do so!
+#ifdef EZ
+			// TODO: Add this to Mapbase?
+			SpeakIfAllowed( TLK_THROWGRENADE, "altfire:1" );
+#endif
 			return SCHED_PC_AR2_ALTFIRE;
 		}
 #endif
@@ -1291,6 +1295,10 @@ int CNPC_PlayerCompanion::TranslateSchedule( int scheduleType )
 			// Since I'm holding this squadslot, no one else can try right now. If I die before the shot 
 			// goes off, I won't have affected anyone else's ability to use this attack at their nearest
 			// convenience.
+#ifdef EZ
+			// TODO: Add this to Mapbase?
+			SpeakIfAllowed( TLK_THROWGRENADE, "altfire:1" );
+#endif
 			return SCHED_PC_AR2_ALTFIRE;
 		}
 
@@ -1301,6 +1309,10 @@ int CNPC_PlayerCompanion::TranslateSchedule( int scheduleType )
 			{
 				if ( OccupyStrategySlot( SQUAD_SLOT_SPECIAL_ATTACK ) )
 				{
+#ifdef EZ
+					// TODO: Add this to Mapbase?
+					SpeakIfAllowed( TLK_THROWGRENADE );
+#endif
 					return SCHED_PC_RANGE_ATTACK2;
 				}
 			}
@@ -1369,6 +1381,10 @@ int CNPC_PlayerCompanion::TranslateSchedule( int scheduleType )
 			if( CanGrenadeEnemy() && OccupyStrategySlot( SQUAD_SLOT_SPECIAL_ATTACK ) && random->RandomInt( 0, 100 ) < 20 )
 			{
 				// If I COULD throw a grenade and I need to reload, 20% chance I'll throw a grenade before I hide to reload.
+#ifdef EZ
+				// TODO: Add this to Mapbase?
+				SpeakIfAllowed( TLK_THROWGRENADE );
+#endif
 				return SCHED_PC_RANGE_ATTACK2;
 			}
 		}
