@@ -443,6 +443,27 @@ void CRagdollProp::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 }
 
 
+#ifdef EZ2
+extern int g_interactionXenGrenadeCreate;
+//-----------------------------------------------------------------------------
+// Purpose:  Uses the new CBaseEntity interaction implementation
+// Input  :  The type of interaction, extra info pointer, and who started it
+// Output :	 true  - if sub-class has a response for the interaction
+//			 false - if sub-class has no response
+//-----------------------------------------------------------------------------
+bool CRagdollProp::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
+{
+	if ( interactionType == g_interactionXenGrenadeCreate )
+	{
+		AddSpawnFlags( SF_RAGDOLLPROP_DEBRIS );
+		return true;
+	}
+
+	return BaseClass::HandleInteraction(interactionType, data, sourceEnt);
+}
+#endif
+
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------

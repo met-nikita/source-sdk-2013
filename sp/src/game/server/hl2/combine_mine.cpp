@@ -1046,7 +1046,7 @@ bool CBounceBomb::IsFriend( CBaseEntity *pEntity )
 	// Unconditional enemies to combine and Player.
 #ifdef EZ2
 	if( classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB || classify == CLASS_ANTLION || 
-		classify == CLASS_BULLSQUID || classify == CLASS_ALIEN_PREDATOR || classify == CLASS_ALIEN_PREY || classify == CLASS_RACE_X)
+		classify == CLASS_BULLSQUID || classify == CLASS_ALIEN_PREDATOR || classify == CLASS_ALIEN_FAUNA || classify == CLASS_RACE_X)
 #else
 	if( classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB || classify == CLASS_ANTLION )
 #endif

@@ -141,6 +141,8 @@ public:
 	
 	Activity		NPC_TranslateActivity( Activity eNewActivity );
 #ifdef EZ
+	void			TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator );
+	void			Event_Killed( const CTakeDamageInfo &info );
 	void			OnChangeActivity( Activity eNewActivity );
 	void			Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
 #endif

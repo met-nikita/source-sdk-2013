@@ -964,6 +964,17 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 
 		if (iState == NPC_STATE_IDLE)
 		{
+			// Occasionally remind players about things they've neglected.
+			{
+				// Check for Xen grenade usage
+				// "xen_grenade_thrown" is a context set in CEZ2_Player.
+				if (pTarget->GetAmmoCount("XenGrenade") > 0 && pTarget->HasContext("xen_grenade_thrown"))
+				{
+					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, NULL, pTarget, pSelection ) )
+						return true;
+				}
+			}
+
 			// Citizens, etc. only told the player to reload when they themselves were reloading.
 			// That can't apply to Will-E and we don't want him to say this in the middle of combat,
 			// so we only have Will-E comment on the player's ammo when he's idle.

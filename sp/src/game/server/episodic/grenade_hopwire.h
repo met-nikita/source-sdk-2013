@@ -25,7 +25,19 @@ public:
 	CGravityVortexController( void ) : m_flEndTime( 0.0f ), m_flRadius( 256 ), m_flStrength( 256 ), m_flMass( 0.0f ) {}
 	float	GetConsumedMass( void ) const;
 
+#ifdef EZ2
+	static CGravityVortexController *Create( const Vector &origin, float radius, float strength, float duration, CBaseEntity *pGrenade = NULL );
+
+	void	StartSpawning();
+	void	SpawnThink();
+	bool	TryCreateRecipeNPC( const char *szClass, const char *szKV );
+	void	ParseKeyValues( CBaseEntity *pEntity, const char *szKV );
+
+	void	SetThrower( CBaseCombatCharacter *pBCC ) { m_hThrower.Set( pBCC ); }
+	CBaseCombatCharacter *GetThrower() { return m_hThrower.Get(); }
+#else
 	static CGravityVortexController *Create( const Vector &origin, float radius, float strength, float duration );
+#endif
 
 private:
 
@@ -34,7 +46,10 @@ private:
 	bool	KillNPCInRange( CBaseEntity *pVictim, IPhysicsObject **pPhysObj );
 	void	CreateDenseBall( void );
 #ifdef EZ2
-	void	CreateXenLife( void ); // 1upD - Create headcrab or bullsquid 
+	int		Restore( IRestore &restore );
+	void	CreateXenLife();
+
+	void	CreateOldXenLife( void ); // 1upD - Create headcrab or bullsquid 
 	bool	TryCreateNPC( const char *className ); // 1upD - Try to spawn an NPC
 	bool	TryCreateBaby( const char *className ); // 1upD - Try to spawn an NPC
 	bool	TryCreateBird( const char *className ); // 1upD - Try to spawn an NPC
@@ -52,6 +67,20 @@ private:
 							// If this points to an entity, the Xen grenade will always call g_interactionXenGrenadeRelease on it instead of spawning Xen life.
 							// This is so Will-E pops back out of Xen grenades.
 	CHandle<CBaseCombatCharacter>	m_hReleaseEntity;
+
+	CHandle<CBaseCombatCharacter>	m_hThrower;
+
+	// Stuff gathered for recipes
+	CUtlMap<string_t, float, short> m_ModelMass;
+	CUtlMap<string_t, float, short> m_ClassMass;
+	CUtlMap<Vector, int, short> m_HullMap;
+
+public:
+	CUtlMap<string_t, string_t> m_SpawnList;
+	unsigned int m_iCurSpawned;
+
+	int m_iSuckedProps;
+	int m_iSuckedNPCs;
 #endif
 };
 
@@ -68,6 +97,14 @@ public:
 	void	SetTimer( float timer );
 	void	SetVelocity( const Vector &velocity, const AngularImpulse &angVelocity );
 	void	Detonate( void );
+
+#ifdef EZ2
+	void	DelayThink();
+	void	SpriteOff();
+	void	BlipSound() { EmitSound( "WeaponXenGrenade.Blip" ); }
+	void	OnRestore( void );
+	void	CreateEffects( void );
+#endif
 	
 	void	EndThink( void );		// Last think before going away
 	void	CombatThink( void );	// Makes the main explosion go off
@@ -83,6 +120,12 @@ protected:
 	char	szWorldModelOpen[MAX_WEAPON_STRING]; // "models/roller_spikes.mdl"
 
 	CHandle<CGravityVortexController>	m_hVortexController;
+
+#ifdef EZ2
+	CHandle<CSprite>		m_pMainGlow;
+
+	float	m_flNextBlipTime;
+#endif
 };
 
 extern CBaseGrenade *HopWire_Create( const Vector &position, const QAngle &angles, const Vector &velocity, const AngularImpulse &angVelocity, CBaseEntity *pOwner, float timer, const char * modelClosed, const char * modelOpen );

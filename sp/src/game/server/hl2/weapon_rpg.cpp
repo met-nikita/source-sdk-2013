@@ -2410,7 +2410,12 @@ void CLaserDot::LaserThink( void )
 
 void CLaserDot::SetLaserPosition( const Vector &origin, const Vector &normal )
 {
+#ifdef EZ2
+	// Blixibon - Teleport() uses position interpolation and makes this look slightly less jittery
+	Teleport( &origin, NULL, NULL );
+#else
 	SetAbsOrigin( origin );
+#endif
 	m_vecSurfaceNormal = normal;
 }
 
