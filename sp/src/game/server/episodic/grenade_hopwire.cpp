@@ -70,6 +70,9 @@ ConVar hopwire_zombie_mass( "hopwire_zombie_mass", "250" ); // TODO Zombies shou
 ConVar hopwire_babysquid_mass( "hopwire_babysquid_mass", "200" );
 ConVar hopwire_headcrab_mass("hopwire_headcrab_mass", "100");
 ConVar hopwire_boid_mass( "hopwire_boid_mass", "50" );
+
+// Move this elsewhere if this concept is expanded
+ConVar ez2_spoilers_enabled( "ez2_spoilers_enabled", "0", FCVAR_NONE, "Enables the you-know-whats and you-know-whos that shouldn't shown in streams, but might make accidental cameos. This is on by default as a precaution." );
 #endif
 
 ConVar g_debug_hopwire( "g_debug_hopwire", "0" );
@@ -902,6 +905,15 @@ static bool FindPassableSpaceForXentity( CBaseEntity *pEntity )
 
 bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const char *szKV )
 {
+	if (!ez2_spoilers_enabled.GetBool())
+	{
+		if (FStrEq(szClass, "npc_zassassin"))
+		{
+			Warning("Stopping spoiler NPC from loading due to ez2_spoilers_enabled; replacing with npc_zombie\n");
+			szClass = "npc_zombie";
+		}
+	}
+
 	CBaseEntity * pEntity = CreateEntityByName( szClass );
 	if (pEntity == NULL)
 		return false;
