@@ -111,6 +111,13 @@ void CEZ2_Player::PostThink(void)
 	BaseClass::PostThink();
 }
 
+void CEZ2_Player::Precache( void )
+{
+	BaseClass::Precache();
+
+	PrecacheModel( "models/bad_cop.mdl" );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -121,6 +128,8 @@ void CEZ2_Player::Spawn( void )
 	CreateNPCComponent();
 
 	BaseClass::Spawn();
+
+	SetModel( "models/bad_cop.mdl" );
 }
 
 //-----------------------------------------------------------------------------

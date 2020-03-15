@@ -99,6 +99,7 @@ class CEZ2_Player : public CAI_ExpresserHost<CHL2_Player>
 {
 	DECLARE_CLASS(CEZ2_Player, CAI_ExpresserHost<CHL2_Player>);
 public:
+	void			Precache( void );
 	void			Spawn( void );
 	void			UpdateOnRemove( void );
 

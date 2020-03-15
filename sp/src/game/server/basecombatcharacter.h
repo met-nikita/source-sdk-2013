@@ -371,6 +371,8 @@ public:
 	// Blixibon - Used by the player's speech AI to prevent cases where enemies are picked up as D_FR
 	// before it could possibly be apparent to the player
 	virtual bool			JustStartedFearing( CBaseEntity *pTarget ) { return false; }
+
+	virtual bool            TestRagdollPin( const Vector &vecOrigin, const Vector &vecDirection );
 #endif
 
 	virtual void			SetLightingOriginRelative( CBaseEntity *pLightingOrigin );

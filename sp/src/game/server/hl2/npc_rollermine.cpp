@@ -226,6 +226,9 @@ public:
 #ifdef EZ
 	// Blixibon - Crude rollermine commanding
 	bool	IsCommandable() { return HasSpawnFlags(SF_ROLLERMINE_FOLLOW_PLAYER); }
+
+	// Why would rollermines become server ragdolls!?
+	bool    CanBecomeServerRagdoll() { return false; }
 #endif
 
 	bool	OverrideMove( float flInterval ) { return true; }
