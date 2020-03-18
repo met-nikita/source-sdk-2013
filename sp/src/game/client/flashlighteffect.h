@@ -17,7 +17,8 @@ enum flashlighttype
 {
 	FLASHLIGHT,
 	NVG,
-	MUZZLEFLASH
+	MUZZLEFLASH,
+	HEADLAMP
 };
 #endif
 

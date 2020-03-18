@@ -38,6 +38,7 @@ static ConVar r_swingflashlight( "r_swingflashlight", "1", FCVAR_CHEAT );
 static ConVar r_flashlightlockposition( "r_flashlightlockposition", "0", FCVAR_CHEAT );
 #ifdef EZ
 static ConVar r_nvgfov( "r_nvgfov", "100", FCVAR_CHEAT ); // Breadman - Changed for NVG effect
+static ConVar r_nvgshadows( "r_nvgshadows", "1", FCVAR_CHEAT ); // Should the NVG cast shadows?
 #endif
 static ConVar r_flashlightfov( "r_flashlightfov", "45.0", FCVAR_CHEAT );
 static ConVar r_flashlightoffsetx( "r_flashlightoffsetx", "10.0", FCVAR_CHEAT );
@@ -109,6 +110,10 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex)
 	else if ( IsNVG() )
 	{
 		m_FlashlightTexture.Init( "effects/Ez_MetroVision", TEXTURE_GROUP_OTHER, true );
+	}
+	else if ( m_iFlashLightType == HEADLAMP )
+	{
+		m_FlashlightTexture.Init( "effects/headlamp001", TEXTURE_GROUP_OTHER, true );
 	}
 	else
 #endif
@@ -413,7 +418,7 @@ void CFlashlightEffect::UpdateLightNew(const Vector &vecPos, const Vector &vecFo
 	state.m_FarZ = flashlightFar;
 #ifdef EZ
 	// The NVG projected texture should not cast shadows
-	state.m_bEnableShadows = m_iFlashLightType == FLASHLIGHT && r_flashlightdepthtexture.GetBool();
+	state.m_bEnableShadows = ( m_iFlashLightType == FLASHLIGHT ||  ( m_iFlashLightType == HEADLAMP && r_nvgshadows.GetBool() ) ) && r_flashlightdepthtexture.GetBool();
 #else
 	state.m_bEnableShadows = r_flashlightdepthtexture.GetBool();
 #endif

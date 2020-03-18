@@ -541,6 +541,9 @@ private:
 
 	// Player flashlight dynamic light pointers
 	CFlashlightEffect *m_pFlashlight;
+#ifdef EZ2
+	CFlashlightEffect *m_pFlashlight2;
+#endif
 
 	typedef CHandle<C_BaseCombatWeapon> CBaseCombatWeaponHandle;
 	CNetworkVar( CBaseCombatWeaponHandle, m_hLastWeapon );

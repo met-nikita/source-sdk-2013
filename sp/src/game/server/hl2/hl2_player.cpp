@@ -134,6 +134,8 @@ ConVar sv_stickysprint("sv_stickysprint", "0", FCVAR_ARCHIVE | FCVAR_ARCHIVE_XBO
 ConVar sv_player_death_smell( "sv_player_death_smell", "1", FCVAR_REPLICATED );
 ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "1", FCVAR_REPLICATED);
 ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "0", FCVAR_REPLICATED);
+ConVar sv_flashlight_cc_enabled( "sv_flashlight_cc_enabled", "1", FCVAR_REPLICATED );
+ConVar sv_flashlight_cc_maxweight( "sv_flashlight_cc_maxweight", "100", FCVAR_REPLICATED );
 #else
 ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "0", FCVAR_REPLICATED);
 ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "1", FCVAR_REPLICATED);
@@ -560,6 +562,7 @@ BEGIN_DATADESC( CHL2_Player )
 	DEFINE_FIELD( m_QueuedCommand, FIELD_INTEGER ),
 #ifdef EZ
 	DEFINE_FIELD( m_hCommandPointProp, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hFlashlightColorCorrection, FIELD_EHANDLE ),
 #endif
 
 	DEFINE_FIELD( m_flTimeIgnoreFallDamage, FIELD_TIME ),
@@ -2696,6 +2699,9 @@ void CHL2_Player::FlashlightTurnOn( void )
 		return;
 	}
 #endif
+#ifdef EZ2
+	ApplyFlashlightColorCorrection( true );
+#endif
 
 	AddEffects( EF_DIMLIGHT );
 	EmitSound( "HL2Player.FlashLightOn" );
@@ -2715,6 +2721,10 @@ void CHL2_Player::FlashlightTurnOff( void )
 		if( !SuitPower_RemoveDevice( SuitDeviceFlashlight ) )
 			return;
 	}
+
+#ifdef EZ2
+	ApplyFlashlightColorCorrection( false );
+#endif
 
 	RemoveEffects( EF_DIMLIGHT );
 	EmitSound( "HL2Player.FlashLightOff" );
@@ -4423,6 +4433,14 @@ void CHL2_Player::ItemPostFrame()
 		m_bPlayUseDenySound = false;
 		EmitSound( "HL2Player.UseDeny" );
 	}
+
+#ifdef EZ2
+	if ( !m_bHandledColorCorrection )
+	{
+		ApplyFlashlightColorCorrection( IsEffectActive( EF_DIMLIGHT ) );
+		m_bHandledColorCorrection = true;
+	}
+#endif
 }
 
 
@@ -4864,6 +4882,52 @@ inline float CHL2_Player::GetFlashlightBattery()
 #else
 	return SuitPower_GetCurrentPercentage();
 #endif
+}
+#endif
+
+#ifdef EZ2
+// This method is a little bit dirty - it directly mocks the way that a color correction
+// filter would be set up for a flashlight with a logic player proxy.
+// The color correction entity remains an anonymous CBaseEntity and is manipulated
+// via KeyValue() and AcceptInput()
+void CHL2_Player::ApplyFlashlightColorCorrection( bool bColorCorrectionEnabled )
+{
+	// Clean up any existing CCs that might be confounding this
+	if (m_hFlashlightColorCorrection != NULL)
+	{
+		variant_t emptyVariant;
+		m_hFlashlightColorCorrection->AcceptInput( "Disable", this, this, emptyVariant, 0 );
+		m_hFlashlightColorCorrection->SUB_Remove();
+		m_hFlashlightColorCorrection = NULL;
+	}
+
+	// Clean up any old NVG CC lying around
+	CBaseEntity * oldCC = FindNamedEntity( "cc_nvg" );
+	if (oldCC != NULL)
+	{
+		oldCC->SUB_Remove();
+	}
+
+	if ( bColorCorrectionEnabled )
+	{
+		// If the ConVar isn't set, cancel!
+		if ( !sv_flashlight_cc_enabled.GetBool() )
+			return;
+
+		m_hFlashlightColorCorrection = CreateNoSpawn( "color_correction", GetAbsOrigin(), GetAbsAngles(), this );
+		m_hFlashlightColorCorrection->KeyValue( "targetname", "cc_nvg" );
+		m_hFlashlightColorCorrection->KeyValue( "fadeInDuration", 0.0f );
+		m_hFlashlightColorCorrection->KeyValue( "fadeOutDuration", 0.0f );
+		m_hFlashlightColorCorrection->KeyValue( "filename", "ez2_nvg.raw" );
+		m_hFlashlightColorCorrection->KeyValue( "maxfalloff", -1.0f );
+		m_hFlashlightColorCorrection->KeyValue( "minfalloff", 0.0f );
+		m_hFlashlightColorCorrection->KeyValue( "maxweight", sv_flashlight_cc_maxweight.GetFloat() );
+
+		DispatchSpawn( m_hFlashlightColorCorrection );
+
+		variant_t emptyVariant;
+		m_hFlashlightColorCorrection->AcceptInput( "Enable", this, this, emptyVariant, 0 );
+	}
 }
 #endif
 

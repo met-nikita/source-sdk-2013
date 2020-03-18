@@ -440,6 +440,9 @@ C_BasePlayer::C_BasePlayer() : m_iv_vecViewOffset( "C_BasePlayer::m_iv_vecViewOf
 #endif
 
 	m_pFlashlight = NULL;
+#ifdef EZ2
+	m_pFlashlight2 = NULL;
+#endif
 
 	m_pCurrentVguiScreen = NULL;
 	m_pCurrentCommand = NULL;
@@ -1267,18 +1270,57 @@ void C_BasePlayer::UpdateFlashlight()
 			m_pFlashlight->TurnOn();
 		}
 
+#ifdef EZ2
+		if (!m_pFlashlight2)
+		{
+			// Turned on the headlight; create it.
+			m_pFlashlight2 = new CFlashlightEffect( index, HEADLAMP );
+
+			if (!m_pFlashlight2)
+				return;
+
+			m_pFlashlight2->TurnOn();
+		}
+#endif
+
+
 		Vector vecForward, vecRight, vecUp;
 		EyeVectors( &vecForward, &vecRight, &vecUp );
 
 		// Update the light with the new position and direction.		
+#ifndef EZ2
 		m_pFlashlight->UpdateLight( EyePosition(), vecForward, vecRight, vecUp, FLASHLIGHT_DISTANCE );
+#else
+		m_pFlashlight->UpdateLight( EyePosition(), vecForward, vecRight, vecUp, FLASHLIGHT_DISTANCE * 4 );
+		m_pFlashlight2->UpdateLight( EyePosition(), vecForward, vecRight, vecUp, FLASHLIGHT_DISTANCE );
+#endif
+
 	}
+#ifndef EZ2
 	else if (m_pFlashlight)
 	{
 		// Turned off the flashlight; delete it.
 		delete m_pFlashlight;
 		m_pFlashlight = NULL;
 	}
+#else
+	else
+	{
+		if (m_pFlashlight)
+		{
+			// Turned off the flashlight; delete it.
+			delete m_pFlashlight;
+			m_pFlashlight = NULL;
+		}
+
+		if (m_pFlashlight2)
+		{
+			// Turned off the flashlight; delete it.
+			delete m_pFlashlight2;
+			m_pFlashlight2 = NULL;
+		}
+	}
+#endif
 }
 
 

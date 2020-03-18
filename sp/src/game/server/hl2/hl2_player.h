@@ -157,6 +157,10 @@ public:
 	float GetFlashlightBattery();
 #endif
 
+#ifdef EZ2
+	virtual void ApplyFlashlightColorCorrection( bool bColorCorrectionEnabled );
+#endif
+
 	// Apply a battery
 	bool ApplyBattery( float powerMultiplier = 1.0 );
 
@@ -207,7 +211,7 @@ public:
 	bool IsSprinting( void ) { return m_fIsSprinting; }
 	bool CanSprint( void );
 	void EnableSprint( bool bEnable);
-
+	
 	bool CanZoom( CBaseEntity *pRequester );
 	void ToggleZoom(void);
 	void StartZooming( void );
@@ -397,6 +401,11 @@ private:
 
 	float				m_flNextFlashlightCheckTime;
 	float				m_flFlashlightPowerDrainScale;
+
+#ifdef EZ2
+	EHANDLE				m_hFlashlightColorCorrection;
+	bool				m_bHandledColorCorrection; // NOT saved - this tells us that within this session, CC hasn't been cleaned up yet
+#endif
 
 	// Aiming heuristics code
 	float				m_flIdleTime;		//Amount of time we've been motionless
