@@ -544,6 +544,7 @@ void CFastZombie::Precache( void )
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
+	PrecacheModel( STRING( GetLivingTorsoModelName() ) );
 
 	BaseClass::Precache();
 #else
