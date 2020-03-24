@@ -26,6 +26,7 @@
 #define MIN_SPREAD_COMPONENT 0.03490 // Was 0.13053
 #define MAX_SPREAD_COMPONENT 0.34202 // Was 0.25881
 
+ConVar weapon_smg2_altfire_enabled( "weapon_smg2_altfire_enabled", "0", FCVAR_NONE, "Allows weapon_smg2 to fire full auto if the player holds down the secondary attack button." );
 
 class CWeaponSMG2 : public CHLSelectFireMachineGun
 {
@@ -303,7 +304,10 @@ void CWeaponSMG2::PrimaryAttack(void)
 //-----------------------------------------------------------------------------
 void CWeaponSMG2::SecondaryAttack(void)
 {
-	BurstAttack( 1, GetFullAutoFireRate() );
+	if ( weapon_smg2_altfire_enabled.GetBool() )
+	{
+		BurstAttack( 1, GetFullAutoFireRate() );
+	}
 }
 
 //-----------------------------------------------------------------------------
