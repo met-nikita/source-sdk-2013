@@ -22,9 +22,11 @@ ConVar sk_bullsquid_dmg_whip( "sk_bullsquid_dmg_whip", "25" );
 ConVar sk_bullsquid_spit_arc_size( "sk_bullsquid_spit_arc_size", "3");
 ConVar sk_bullsquid_spit_min_wait( "sk_bullsquid_spit_min_wait", "0.5");
 ConVar sk_bullsquid_spit_max_wait( "sk_bullsquid_spit_max_wait", "5");
+ConVar sk_bullsquid_spit_speed( "sk_bullsquid_spit_speed", "600" );
 ConVar sk_bullsquid_gestation( "sk_bullsquid_gestation", "15.0" );
 ConVar sk_bullsquid_spawn_time( "sk_bullsquid_spawn_time", "5.0" );
 ConVar sk_bullsquid_monster_infighting( "sk_bullsquid_monster_infighting", "1" );
+ConVar sk_bullsquid_antlion_style_spit( "sk_bullsquid_antlion_style_spit", "1" );
 ConVar sk_max_squad_squids( "sk_max_squad_squids", "4" ); // How many squids in a pack before offspring start branching off into their own pack?
 
 //=========================================================
@@ -361,40 +363,121 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 		{
 			if ( GetEnemy() )
 			{
-				Vector vSpitPos;
+				if ( sk_bullsquid_antlion_style_spit.GetBool() ) {
+					Vector vSpitPos;
+					GetAttachment( "Mouth", vSpitPos );
 
-				GetAttachment( "Mouth", vSpitPos );
-				
-				Vector			vTarget = GetEnemy()->GetAbsOrigin();
-				Vector			vToss;
-				CBaseEntity*	pBlocker;
-				float flGravity  = SPIT_GRAVITY;
-				ThrowLimit(vSpitPos, vTarget, flGravity, sk_bullsquid_spit_arc_size.GetFloat(), Vector(0,0,0), Vector(0,0,0), GetEnemy(), &vToss, &pBlocker);
+					Vector	vTarget;
 
-				CGrenadeSpit *pGrenade = (CGrenadeSpit*)CreateNoSpawn( "grenade_spit", vSpitPos, vec3_angle, this );
-				//pGrenade->KeyValue( "velocity", vToss );
-				DispatchSpawn( pGrenade );
-				pGrenade->SetThrower( this );
-				pGrenade->SetOwnerEntity( this );
-				pGrenade->SetSpitSize( 2 );
-				pGrenade->SetAbsVelocity( vToss );
+					// If our enemy is looking at us and far enough away, lead him
+					if ( HasCondition( COND_ENEMY_FACING_ME ) && UTIL_DistApprox( GetAbsOrigin(), GetEnemy()->GetAbsOrigin() ) > ( 40*12 ) )
+					{
+						UTIL_PredictedPosition( GetEnemy(), 0.5f, &vTarget );
+						vTarget.z = GetEnemy()->GetAbsOrigin().z;
+					}
+					else
+					{
+						// Otherwise he can't see us and he won't be able to dodge
+						vTarget = GetEnemy()->BodyTarget( vSpitPos, true );
+					}
 
-				// Tumble through the air
-				pGrenade->SetLocalAngularVelocity(
-					QAngle(
-						random->RandomFloat( -100, -500 ),
-						random->RandomFloat( -100, -500 ),
-						random->RandomFloat( -100, -500 )
-					)
-				);
-						
-				AttackSound();
-			
-				CPVSFilter filter( vSpitPos );
+					vTarget[2] += random->RandomFloat( 0.0f, 32.0f );
 
-				// Don't show a sprite because grenade_spit now has the antlion worker model
-				//te->SpriteSpray( filter, 0.0,
-				//	&vSpitPos, &vToss, m_nSquidSpitSprite, 5, 10, 15 );
+					// Try and spit at our target
+					Vector	vecToss;
+					if (GetSpitVector( vSpitPos, vTarget, &vecToss ) == false)
+					{
+						// Now try where they were
+						if (GetSpitVector( vSpitPos, m_vSavePosition, &vecToss ) == false)
+						{
+							// Failing that, just shoot with the old velocity we calculated initially!
+							vecToss = m_vecSaveSpitVelocity;
+						}
+					}
+
+					// Find what our vertical theta is to estimate the time we'll impact the ground
+					Vector vecToTarget = ( vTarget - vSpitPos );
+					VectorNormalize( vecToTarget );
+					float flVelocity = VectorNormalize( vecToss );
+					float flCosTheta = DotProduct( vecToTarget, vecToss );
+					float flTime = ( vSpitPos-vTarget ).Length2D() / ( flVelocity * flCosTheta );
+
+					// Emit a sound where this is going to hit so that targets get a chance to act correctly
+					CSoundEnt::InsertSound( SOUND_DANGER, vTarget, (15*12), flTime, this );
+
+					// Don't fire again until this volley would have hit the ground (with some lag behind it)
+					SetNextAttack( gpGlobals->curtime + flTime + random->RandomFloat( 0.5f, 2.0f ) );
+
+					for (int i = 0; i < 6; i++)
+					{
+						CGrenadeSpit *pGrenade = ( CGrenadeSpit* )CreateEntityByName( "grenade_spit" );
+						pGrenade->SetAbsOrigin( vSpitPos );
+						pGrenade->SetAbsAngles( vec3_angle );
+						DispatchSpawn( pGrenade );
+						pGrenade->SetThrower( this );
+						pGrenade->SetOwnerEntity( this );
+
+						if (i == 0)
+						{
+							pGrenade->SetSpitSize( SPIT_LARGE );
+							pGrenade->SetAbsVelocity( vecToss * flVelocity );
+						}
+						else
+						{
+							pGrenade->SetAbsVelocity( (vecToss + RandomVector( -0.035f, 0.035f )) * flVelocity );
+							pGrenade->SetSpitSize( random->RandomInt( SPIT_SMALL, SPIT_MEDIUM ) );
+						}
+
+						// Tumble through the air
+						pGrenade->SetLocalAngularVelocity(
+							QAngle( random->RandomFloat( -250, -500 ),
+								random->RandomFloat( -250, -500 ),
+								random->RandomFloat( -250, -500 ) ) );
+					}
+
+					for ( int i = 0; i < 8; i++ )
+					{
+						DispatchParticleEffect( "blood_impact_yellow_01", vSpitPos + RandomVector( -12.0f, 12.0f ), RandomAngle( 0, 360 ) );
+					}
+					AttackSound();
+				}
+				else
+				{
+					Vector vSpitPos;
+
+					GetAttachment( "Mouth", vSpitPos );
+
+					Vector			vTarget = GetEnemy()->GetAbsOrigin();
+					Vector			vToss;
+					CBaseEntity*	pBlocker;
+					float flGravity  = SPIT_GRAVITY;
+					ThrowLimit( vSpitPos, vTarget, flGravity, sk_bullsquid_spit_arc_size.GetFloat(), Vector( 0, 0, 0 ), Vector( 0, 0, 0 ), GetEnemy(), &vToss, &pBlocker );
+
+					CGrenadeSpit *pGrenade = (CGrenadeSpit*)CreateNoSpawn( "grenade_spit", vSpitPos, vec3_angle, this );
+					//pGrenade->KeyValue( "velocity", vToss );
+					DispatchSpawn( pGrenade );
+					pGrenade->SetThrower( this );
+					pGrenade->SetOwnerEntity( this );
+					pGrenade->SetSpitSize( 2 );
+					pGrenade->SetAbsVelocity( vToss );
+
+					// Tumble through the air
+					pGrenade->SetLocalAngularVelocity(
+						QAngle(
+							random->RandomFloat( -100, -500 ),
+							random->RandomFloat( -100, -500 ),
+							random->RandomFloat( -100, -500 )
+						)
+					);
+
+					AttackSound();
+
+					CPVSFilter filter( vSpitPos );
+
+					// Don't show a sprite because grenade_spit now has the antlion worker model
+					//te->SpriteSpray( filter, 0.0,
+					//	&vSpitPos, &vToss, m_nSquidSpitSprite, 5, 10, 15 );
+				}
 			}
 		}
 		break;
@@ -567,6 +650,39 @@ float CNPC_Bullsquid::GetBiteDamage( void )
 	return sk_bullsquid_dmg_bite.GetFloat() * GetModelScale();
 }
 
+// Helper function from Antlion
+extern Vector VecCheckThrowTolerance( CBaseEntity *pEdict, const Vector &vecSpot1, Vector vecSpot2, float flSpeed, float flTolerance );
+
+//-----------------------------------------------------------------------------
+// Purpose: Get a toss direction that will properly lob spit to hit a target
+//			Copied from antlion worker
+// Input  : &vecStartPos - Where the spit will start from
+//			&vecTarget - Where the spit is meant to land
+//			*vecOut - The resulting vector to lob the spit
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CNPC_Bullsquid::GetSpitVector( const Vector &vecStartPos, const Vector &vecTarget, Vector *vecOut )
+{
+	// Try the most direct route
+	Vector vecToss = VecCheckThrowTolerance( this, vecStartPos, vecTarget, sk_bullsquid_spit_speed.GetFloat(), (10.0f*12.0f) );
+
+	// If this failed then try a little faster (flattens the arc)
+	if ( vecToss == vec3_origin )
+	{
+		vecToss = VecCheckThrowTolerance( this, vecStartPos, vecTarget, sk_bullsquid_spit_speed.GetFloat() * 1.5f, (10.0f*12.0f) );
+		if ( vecToss == vec3_origin )
+			return false;
+	}
+
+	// Save out the result
+	if ( vecOut )
+	{
+		*vecOut = vecToss;
+	}
+
+	return true;
+
+}
 
 //=========================================================
 // Bullsquids have a complicated relationship check

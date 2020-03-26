@@ -52,6 +52,9 @@ public:
 	float GetWhipDamage( void );
 	float GetBiteDamage( void );
 
+	// Antlion worker styled spit attack
+	virtual bool GetSpitVector( const Vector &vecStartPos, const Vector &vecTarget, Vector *vecOut );
+
 	int OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo );
 	virtual CBaseEntity * BiteAttack( float flDist, const Vector &mins, const Vector &maxs );
 
@@ -78,7 +81,9 @@ public:
 
 private:	
 	int   m_nSquidSpitSprite;
-
 	float m_nextSquidSoundTime;
+
+	// Antlion worker styled spit attack
+	Vector	m_vecSaveSpitVelocity;	// Saved when we start to attack and used if we failed to get a clear shot once we release
 };
 #endif // NPC_BULLSQUID_H
