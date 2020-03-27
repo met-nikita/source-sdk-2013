@@ -75,6 +75,10 @@ protected:
 	bool	m_inSolid;
 	bool	m_combineSpawned;
 	bool	m_punted;
+
+#ifdef EZ
+	bool	m_bRebelColor;
+#endif
 };
 
 LINK_ENTITY_TO_CLASS( npc_grenade_frag, CGrenadeFrag );
@@ -88,6 +92,10 @@ BEGIN_DATADESC( CGrenadeFrag )
 	DEFINE_FIELD( m_inSolid, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_combineSpawned, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_punted, FIELD_BOOLEAN ),
+
+#ifdef EZ
+	DEFINE_KEYFIELD( m_bRebelColor, FIELD_BOOLEAN, "RebelColor" ),
+#endif
 	
 	// Function Pointers
 	DEFINE_THINKFUNC( DelayThink ),
@@ -107,6 +115,12 @@ CGrenadeFrag::~CGrenadeFrag( void )
 
 void CGrenadeFrag::Spawn( void )
 {
+#ifdef EZ
+	// Blixibon - Rebel grenades use an orange trail
+	if (GetThrower() && GetThrower()->Classify() == CLASS_PLAYER_ALLY)
+		m_bRebelColor = true;
+#endif
+
 	Precache( );
 
 	SetModel( GRENADE_MODEL );
@@ -182,10 +196,7 @@ void CGrenadeFrag::CreateEffects( void )
 {
 	// Start up the eye glow
 #ifdef EZ
-	// Blixibon - Rebel grenades use an orange trail
-	bool bResistanceColor = GetThrower() && GetThrower()->Classify() == CLASS_PLAYER_ALLY;
-
-	if (bResistanceColor)
+	if (m_bRebelColor)
 		m_pMainGlow = CSprite::SpriteCreate( "sprites/physcannon_blueglow.vmt", GetLocalOrigin(), false );
 	else
 #endif
@@ -198,7 +209,7 @@ void CGrenadeFrag::CreateEffects( void )
 		m_pMainGlow->FollowEntity( this );
 		m_pMainGlow->SetAttachment( this, nAttachment );
 #ifdef EZ
-		if (bResistanceColor)
+		if (m_bRebelColor)
 			m_pMainGlow->SetTransparency( kRenderGlow, 255, 192, 0, 200, kRenderFxNoDissipation );
 		else
 #endif
@@ -215,7 +226,7 @@ void CGrenadeFrag::CreateEffects( void )
 		m_pGlowTrail->FollowEntity( this );
 		m_pGlowTrail->SetAttachment( this, nAttachment );
 #ifdef EZ
-		if (bResistanceColor)
+		if (m_bRebelColor)
 			m_pGlowTrail->SetTransparency( kRenderTransAdd, 255, 128, 0, 255, kRenderFxNone );
 		else
 #endif
@@ -326,7 +337,7 @@ void CGrenadeFrag::Precache( void )
 	PrecacheModel( "sprites/redglow1.vmt" );
 	PrecacheModel( "sprites/bluelaser1.vmt" );
 #ifdef EZ
-	if (GetThrower() && GetThrower()->Classify() == CLASS_PLAYER_ALLY)
+	if (m_bRebelColor)
 		PrecacheModel( "sprites/physcannon_blueglow.vmt" );
 #endif
 
