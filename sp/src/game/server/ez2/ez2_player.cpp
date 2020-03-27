@@ -140,9 +140,13 @@ void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 {
 	BaseClass::Weapon_Equip( pWeapon );
 
-	AI_CriteriaSet modifiers;
-	ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
-	SpeakIfAllowed(TLK_NEWWEAPON, modifiers);
+	// Only comment on weapons we didn't spawn with
+	if (gpGlobals->curtime > 1.0f)
+	{
+		AI_CriteriaSet modifiers;
+		ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
+		SpeakIfAllowed(TLK_NEWWEAPON, modifiers);
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -210,6 +214,17 @@ bool CEZ2_Player::HandleInteraction( int interactionType, void *data, CBaseComba
 
 		// Fall in on base
 		//return true;
+	}
+	else if ( interactionType == g_interactionScannerInspectBegin )
+	{
+		AI_CriteriaSet modifiers;
+
+		if (sourceEnt)
+			ModifyOrAppendEnemyCriteria(modifiers, sourceEnt);
+
+		SpeakIfAllowed(TLK_SCANNER_FLASH, modifiers);
+
+		return true;
 	}
 
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
@@ -444,7 +459,11 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 	// Look for Will-E.
 	if (CNPC_Wilson *pWilson = CNPC_Wilson::GetWilson())
 	{
-		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<64>( "%f", (pWilson->GetAbsOrigin() - GetAbsOrigin()).Length() ));
+		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<32>( "%f.3", (pWilson->GetAbsOrigin() - GetAbsOrigin()).Length() ));
+	}
+	else
+	{
+		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<32>( "%f", FLT_MAX ));
 	}
 
 	// Do we have a speech filter? If so, append its criteria too
@@ -548,6 +567,8 @@ void CEZ2_Player::ModifyOrAppendEnemyCriteria(AI_CriteriaSet& set, CBaseEntity *
 			}
 
 			set.AppendCriteria( "enemy_activity", CAI_BaseNPC::GetActivityName( pNPC->GetActivity() ) );
+
+			set.AppendCriteria( "enemy_weapon", pNPC->GetActiveWeapon() ? pNPC->GetActiveWeapon()->GetClassname() : "0" );
 
 			// NPC and class-specific criteria
 			pNPC->ModifyOrAppendCriteriaForPlayer(this, set);
