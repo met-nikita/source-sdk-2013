@@ -1413,6 +1413,10 @@ void CNPC_FloorTurret::ReturnToLife( void )
 	m_flThrashTime = 0;
 
 	// Enable the tip controller
+#ifdef EZ2
+	// Strange edge case with the Xen grenade seems to remove m_pMotionController before this code stops running.
+	if (m_pMotionController != NULL)
+#endif
 	m_pMotionController->Enable( true );
 
 	// Return to life
@@ -1544,6 +1548,10 @@ bool CNPC_FloorTurret::PreThink( turretState_e state )
 			m_lifeState = LIFE_DEAD;
 
 			//Disable the tip controller
+#ifdef EZ2
+			// Strange edge case with the Xen grenade seems to remove m_pMotionController before this code stops running.
+			if (m_pMotionController != NULL)
+#endif
 			m_pMotionController->Enable( false );
 
 			//Debug visualization

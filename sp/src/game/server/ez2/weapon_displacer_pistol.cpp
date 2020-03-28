@@ -21,6 +21,7 @@
 #include "te_effect_dispatch.h"
 #include "beam_shared.h"
 #include "weapon_displacer_pistol.h"
+#include "ez2_player.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -367,6 +368,16 @@ bool CDisplacerPistol::ReleaseEntity( CBaseEntity * pCollidedEntity )
 			// "Wake" the physics object
 			// Make sure it doesn't spawn frozen!
 			pPhysicsObject->Wake();
+		}
+
+		if (GetOwner())
+		{
+			// Notify the E:Z2 player
+			CEZ2_Player *pEZ2Player = assert_cast<CEZ2_Player*>(GetOwner());
+			if (pEZ2Player)
+			{
+				pEZ2Player->Event_DisplacerPistolRelease( this, m_hDisplacedEntity, pCollidedEntity );
+			}
 		}
 
 		// Deal damage to any entity we might have collided with

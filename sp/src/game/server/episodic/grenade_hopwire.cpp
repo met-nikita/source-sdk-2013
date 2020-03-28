@@ -70,6 +70,9 @@ ConVar hopwire_zombie_mass( "hopwire_zombie_mass", "250" ); // TODO Zombies shou
 ConVar hopwire_babysquid_mass( "hopwire_babysquid_mass", "200" );
 ConVar hopwire_headcrab_mass("hopwire_headcrab_mass", "100");
 ConVar hopwire_boid_mass( "hopwire_boid_mass", "50" );
+
+// Move this elsewhere if this concept is expanded
+ConVar ez2_spoilers_enabled( "ez2_spoilers_enabled", "0", FCVAR_NONE, "Enables the you-know-whats and you-know-whos that shouldn't shown in streams, but might make accidental cameos. This is on by default as a precaution." );
 #endif
 
 ConVar g_debug_hopwire( "g_debug_hopwire", "0" );
@@ -493,7 +496,11 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 #endif
 
 	// Destroy the entity
+#ifdef EZ
+	pEnt->RemoveDeferred();
+#else
 	UTIL_Remove( pEnt );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -579,6 +586,14 @@ bool CGravityVortexController::KillNPCInRange( CBaseEntity *pVictim, IPhysicsObj
 
 		// Become ragdoll
 		CTakeDamageInfo info( this, this, 1.0f, DMG_GENERIC );
+#ifdef EZ2
+		// Don't infinitely generate ragdolls of entities we can't kill
+		if ( !pVictim->PassesDamageFilter( info ) )
+		{
+			*pPhysObj = NULL;
+			return false;
+		}
+#endif
 		CBaseEntity *pRagdoll = CreateServerRagdoll( pBCC, 0, info, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
 		pRagdoll->SetCollisionBounds( pVictim->CollisionProp()->OBBMins(), pVictim->CollisionProp()->OBBMaxs() );
 
@@ -731,6 +746,10 @@ void CGravityVortexController::CreateXenLife()
 
 		// Only use ground nodes
 		if (pNode->GetType() != NODE_GROUND)
+			continue;
+
+		// Only use nodes which we can trace from the vortex
+		if (!FVisible( pNode->GetOrigin(), MASK_SOLID ))
 			continue;
 
 		// Iterate through these hulls to find each space we should care about.
@@ -902,6 +921,15 @@ static bool FindPassableSpaceForXentity( CBaseEntity *pEntity )
 
 bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const char *szKV )
 {
+	if (!ez2_spoilers_enabled.GetBool())
+	{
+		if (FStrEq(szClass, "npc_zassassin"))
+		{
+			Warning("Stopping spoiler NPC from loading due to ez2_spoilers_enabled; replacing with npc_zombie\n");
+			szClass = "npc_zombie";
+		}
+	}
+
 	CBaseEntity * pEntity = CreateEntityByName( szClass );
 	if (pEntity == NULL)
 		return false;

@@ -2072,6 +2072,11 @@ void CNPC_CScanner::BlindFlashTarget( CBaseEntity *pTarget )
 
 			float flFadeTime = ( IsX360() ) ? 0.5f : 3.0f;
 			UTIL_ScreenFade( pTarget, white, flFadeTime, 0.5, FFADE_IN );
+
+#ifdef EZ2
+			// Bad Cop has special handling for when he's flashed
+			pTarget->MyCombatCharacterPointer()->DispatchInteraction( g_interactionScannerInspectBegin, NULL, this );
+#endif
 		}
 	}
 }
