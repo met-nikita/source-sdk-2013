@@ -196,6 +196,7 @@ ConVar	sk_headcrab_poison_npc_damage( "sk_headcrab_poison_npc_damage", "0" );
 #ifdef EZ
 ConVar  sk_headcrab_carcass_smell ( "sk_headcrab_carcass_smell", "1" );
 ConVar  sk_gib_carcass_smell ( "sk_gib_carcass_smell", "1" );
+ConVar	sk_headcrab_temporal_health( "sk_headcrab_temporal_health", "0" );
 #endif
 
 BEGIN_DATADESC( CBaseHeadcrab )
@@ -261,7 +262,21 @@ void CBaseHeadcrab::Spawn( void )
 
 	SetViewOffset( Vector(6, 0, 11) ) ;		// Position of the eyes relative to NPC's origin.
 
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_RAD :
+	case EZ_VARIANT_TEMPORAL:
+		SetBloodColor( BLOOD_COLOR_BLUE );
+		break;
+	default:
+		SetBloodColor( BLOOD_COLOR_GREEN );
+		break;
+	}
+	
+#else
 	SetBloodColor( BLOOD_COLOR_GREEN );
+#endif
 	m_flFieldOfView		= 0.5;
 	m_NPCState			= NPC_STATE_NONE;
 	m_nGibCount			= HEADCRAB_ALL_GIB_COUNT;
@@ -319,6 +334,11 @@ void CBaseHeadcrab::Precache( void )
 #ifdef EZ
 	// Use a particle effect when crabs are gibbed
 	PrecacheParticleSystem( "headcrab_gib" );
+
+	if ( m_tEzVariant == EZ_VARIANT_RAD || m_tEzVariant == EZ_VARIANT_TEMPORAL )
+	{
+		PrecacheParticleSystem( "blood_impact_blue_01" );
+	}
 #endif
 
 	BaseClass::Precache();
@@ -3183,12 +3203,34 @@ void CBlackHeadcrab::TelegraphSound( void )
 void CBlackHeadcrab::Spawn( void )
 {
 	Precache();
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		SetModel( "models/headcrabtemporal.mdl" );
+	}
+	else
+	{
+		SetModel( "models/headcrabblack.mdl" );
+	}
+#else
 	SetModel( "models/headcrabblack.mdl" );
+#endif
 
 	BaseClass::Spawn();
 
 	m_bPanicState = false;
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		m_iHealth = sk_headcrab_temporal_health.GetFloat();
+	}
+	else
+	{
+		m_iHealth = sk_headcrab_poison_health.GetFloat();
+	}
+#else
 	m_iHealth = sk_headcrab_poison_health.GetFloat();
+#endif
 
 	NPCInit();
 	HeadcrabInit();
@@ -3200,6 +3242,34 @@ void CBlackHeadcrab::Spawn( void )
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::Precache( void )
 {
+#ifdef EZ
+	switch ( m_tEzVariant )
+	{
+	case EZ_VARIANT_TEMPORAL:
+		PrecacheModel( "models/headcrabtemporal.mdl" );
+
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Telegraph" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Attack" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Bite" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Threat" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Alert" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Idle" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Talk" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.AlertVoice" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Pain" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Die" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Impact" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.ImpactAngry" );
+
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.FootstepWalk" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Footstep" );
+
+		BaseClass::Precache();
+		return; // Don't do the regular precaching
+	default:
+		break;
+	}
+#endif
 	PrecacheModel( "models/headcrabblack.mdl" );
 
 	PrecacheScriptSound( "NPC_BlackHeadcrab.Telegraph" );
@@ -3549,10 +3619,25 @@ void CBlackHeadcrab::HandleAnimEvent( animevent_t *pEvent )
 
 		if ( walk )
 		{
+#ifdef EZ
+			if ( m_tEzVariant == EZ_VARIANT_TEMPORAL )
+			{
+				EmitSound( "NPC_TemporalHeadcrab.FootstepWalk" );
+				return;
+			}
+#endif
 			EmitSound( "NPC_BlackHeadcrab.FootstepWalk" );
 		}
 		else
 		{
+#ifdef EZ
+			if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+			{
+				EmitSound( "NPC_TemporalHeadcrab.Footstep" );
+				return;
+			}
+#endif
+
 			EmitSound( "NPC_BlackHeadcrab.Footstep" );
 		}
 
@@ -3561,7 +3646,18 @@ void CBlackHeadcrab::HandleAnimEvent( animevent_t *pEvent )
 
 	if ( pEvent->event == AE_HEADCRAB_JUMP_TELEGRAPH )
 	{
+#ifdef EZ
+		if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+		{
+			EmitSound( "NPC_TemporalHeadcrab.Telegraph" );
+		}
+		else
+		{
+			EmitSound( "NPC_BlackHeadcrab.Telegraph" );
+		}
+#else
 		EmitSound( "NPC_BlackHeadcrab.Telegraph" );
+#endif
 
 		CBaseEntity *pEnemy = GetEnemy();
 
@@ -3578,9 +3674,21 @@ void CBlackHeadcrab::HandleAnimEvent( animevent_t *pEvent )
 
 	if ( pEvent->event == AE_POISONHEADCRAB_THREAT_SOUND )
 	{
+#ifdef EZ
+		if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+		{
+			EmitSound( "NPC_TemporalHeadcrab.Threat" );
+			EmitSound( "NPC_TemporalHeadcrab.Alert" );
+		}
+		else
+		{
+			EmitSound( "NPC_BlackHeadcrab.Threat" );
+			EmitSound( "NPC_BlackHeadcrab.Alert" );
+		}
+#else
 		EmitSound( "NPC_BlackHeadcrab.Threat" );
 		EmitSound( "NPC_BlackHeadcrab.Alert" );
-
+#endif
 		return;
 	}
 
@@ -3630,11 +3738,33 @@ void CBlackHeadcrab::IdleSound( void )
 	// TODO: hook up "Marco" / "Polo" talking with nearby buddies
 	if ( m_NPCState == NPC_STATE_IDLE )
 	{
+#ifdef EZ
+		if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+		{
+			EmitSound( "NPC_TemporalHeadcrab.Idle" );
+		}
+		else
+		{
+			EmitSound( "NPC_BlackHeadcrab.Idle" );
+		}
+#else
 		EmitSound( "NPC_BlackHeadcrab.Idle" );
+#endif
 	}
 	else if ( m_NPCState == NPC_STATE_ALERT )
 	{
+#ifdef EZ
+		if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+		{
+			EmitSound( "NPC_TemporalHeadcrab.Talk" );
+		}
+		else
+		{
+			EmitSound( "NPC_BlackHeadcrab.Talk" );
+		}
+#else
 		EmitSound( "NPC_BlackHeadcrab.Talk" );
+#endif
 	}
 }
 
@@ -3644,6 +3774,13 @@ void CBlackHeadcrab::IdleSound( void )
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::AlertSound( void )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		EmitSound( "NPC_TemporalHeadcrab.AlertVoice" );
+		return;
+	}
+#endif
 	EmitSound( "NPC_BlackHeadcrab.AlertVoice" );
 }
 
@@ -3659,6 +3796,13 @@ void CBlackHeadcrab::PainSound( const CTakeDamageInfo &info )
 		return;
 	}
 
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		EmitSound( "NPC_TemporalHeadcrab.Pain" );
+		return;
+	}
+#endif
 	EmitSound( "NPC_BlackHeadcrab.Pain" );
 }
 
@@ -3668,6 +3812,13 @@ void CBlackHeadcrab::PainSound( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::DeathSound( const CTakeDamageInfo &info )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		EmitSound( "NPC_TemporalHeadcrab.Die" );
+		return;
+	}
+#endif
 	EmitSound( "NPC_BlackHeadcrab.Die" );
 }
 
@@ -3677,11 +3828,29 @@ void CBlackHeadcrab::DeathSound( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::ImpactSound( void )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		EmitSound( "NPC_TemporalHeadcrab.Impact" );
+	}
+	else
+	{
+		EmitSound( "NPC_BlackHeadcrab.Impact" );
+	}
+#else
 	EmitSound( "NPC_BlackHeadcrab.Impact" );
+#endif
 
 	if ( !( GetFlags() & FL_ONGROUND ) )
 	{
 		// Hit a wall - make a pissed off sound.
+#ifdef EZ
+		if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+		{
+			EmitSound( "NPC_TemporalHeadcrab.ImpactAngry" );
+			return;
+		}
+#endif
 		EmitSound( "NPC_BlackHeadcrab.ImpactAngry" );
 	}
 }
