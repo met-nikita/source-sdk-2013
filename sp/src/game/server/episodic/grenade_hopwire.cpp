@@ -496,7 +496,11 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 #endif
 
 	// Destroy the entity
+#ifdef EZ
+	pEnt->RemoveDeferred();
+#else
 	UTIL_Remove( pEnt );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -582,6 +586,14 @@ bool CGravityVortexController::KillNPCInRange( CBaseEntity *pVictim, IPhysicsObj
 
 		// Become ragdoll
 		CTakeDamageInfo info( this, this, 1.0f, DMG_GENERIC );
+#ifdef EZ2
+		// Don't infinitely generate ragdolls of entities we can't kill
+		if ( !pVictim->PassesDamageFilter( info ) )
+		{
+			*pPhysObj = NULL;
+			return false;
+		}
+#endif
 		CBaseEntity *pRagdoll = CreateServerRagdoll( pBCC, 0, info, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
 		pRagdoll->SetCollisionBounds( pVictim->CollisionProp()->OBBMins(), pVictim->CollisionProp()->OBBMaxs() );
 
@@ -734,6 +746,10 @@ void CGravityVortexController::CreateXenLife()
 
 		// Only use ground nodes
 		if (pNode->GetType() != NODE_GROUND)
+			continue;
+
+		// Only use nodes which we can trace from the vortex
+		if (!FVisible( pNode->GetOrigin(), MASK_SOLID ))
 			continue;
 
 		// Iterate through these hulls to find each space we should care about.

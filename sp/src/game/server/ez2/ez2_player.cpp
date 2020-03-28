@@ -141,7 +141,7 @@ void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 	BaseClass::Weapon_Equip( pWeapon );
 
 	// Only comment on weapons we didn't spawn with
-	if (gpGlobals->curtime > 1.0f)
+	if (gpGlobals->curtime > 2.0f)
 	{
 		AI_CriteriaSet modifiers;
 		ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
@@ -463,7 +463,7 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 	}
 	else
 	{
-		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<32>( "%f", FLT_MAX ));
+		criteriaSet.AppendCriteria("wilson_distance", "99999999999");
 	}
 
 	// Do we have a speech filter? If so, append its criteria too

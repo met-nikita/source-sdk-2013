@@ -2738,10 +2738,22 @@ void CNPC_Citizen::Event_Killed( const CTakeDamageInfo &info )
 				if (pGib->VPhysicsGetObject())
 				{
 					Vector velocity = info.GetDamageForce() * VPhysicsGetObject()->GetInvMass();
+
+					// Give the mask some extra velocity so it's easier to see
+					//velocity.z += 90.0f;
+					velocity *= 10.0f;
+
 					pGib->VPhysicsGetObject()->AddVelocity(&velocity, NULL);
 				}
 
-				pGib->SUB_StartFadeOut(10.0f, false);
+				if (info.GetDamageType() & DMG_DISSOLVE)
+				{
+					pGib->GetBaseAnimating()->Dissolve( NULL, gpGlobals->curtime, false, ENTITY_DISSOLVE_NORMAL );
+				}
+				else
+				{
+					pGib->SUB_StartFadeOut( 10.0f, false );
+				}
 			}
 
 			SetBodygroup( BRUTE_MASK_BODYGROUP, 1 );
