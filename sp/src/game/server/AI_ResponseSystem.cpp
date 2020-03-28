@@ -3930,7 +3930,14 @@ void GetXenGrenadeResponseFromSystem( char *szResponse, size_t szResponseSize, I
 	CXenGrenadeRecipeResponseSystem *xsys = (CXenGrenadeRecipeResponseSystem*)sys;
 	if ( xsys && index >= 0 )
 	{
-		Q_strncpy( szResponse, xsys->m_ResponseStrings[index], szResponseSize );
+		if ( xsys->m_ResponseStrings.Count() > index )
+		{
+			Q_strncpy( szResponse, xsys->m_ResponseStrings[index], szResponseSize );
+		}
+		else
+		{
+			Msg( "ERROR: Tried to insert response string at greater index than count!\n" );
+		}
 	}
 }
 #endif
