@@ -15,6 +15,7 @@ $Configuration
 	{
 		$AdditionalIncludeDirectories	"$BASE;$SRCDIR\game\shared\hl2;$SRCDIR\game\shared\episodic;.\hl2;.\episodic; .\ez1 .\ez2"
 		$PreprocessorDefinitions		"$BASE;HL2_DLL;HL2_EPISODIC;EZ;EZ2;COMPANION_MELEE_ATTACK;HE_APC;GLOWS_ENABLE;USES_SAVERESTORE"
+		$PreprocessorDefinitions        "$BASE;EZ2_DEMO" [$EZ2_DEMO]
 	}
 }
 
@@ -37,8 +38,8 @@ $Project "Server (Entropy Zero 2)"
 			$File	"ez2\ai_sensorydummy.h"
 			$File	"ez2\ez2_player.h"
 			$File	"ez2\ez2_player.cpp"
-			$File	"ez2\npc_clonecop.h"
-			$File	"ez2\npc_clonecop.cpp"
+			$File	"ez2\npc_clonecop.h" [!$EZ2_DEMO]
+			$File	"ez2\npc_clonecop.cpp" [!$EZ2_DEMO]
 			$File	"ez2\npc_baseflora.h"
 			$File	"ez2\npc_baseflora.cpp"
 			$File	"ez2\npc_basepredator.h"
@@ -59,8 +60,8 @@ $Project "Server (Entropy Zero 2)"
 			$File	"ez2\npc_xenhair.cpp"
 			$File	"ez2\npc_xentree.h"
 			$File	"ez2\npc_xentree.cpp"
-			$File	"ez2\npc_zassassin.h"
-			$File	"ez2\npc_zassassin.cpp"
+			$File	"ez2\npc_zassassin.h" [!$EZ2_DEMO]
+			$File	"ez2\npc_zassassin.cpp" [!$EZ2_DEMO]
 			$File	"ez2\npc_zombigaunt.h"
 			$File	"ez2\npc_zombigaunt.cpp"
 			$File	"ez2\prop_command_point.cpp"

@@ -56,7 +56,11 @@ extern CServerGameDLL	g_ServerGameDLL;
 extern bool				g_fGameOver;
 ConVar showtriggers( "showtriggers", "0", FCVAR_CHEAT, "Shows trigger brushes" );
 #ifdef EZ2
+#ifdef EZ2_DEMO
+ConVar ez2_demo( "ez2_demo", "1", FCVAR_NONE, "EZ2 Demo Map Transitions" );
+#else
 ConVar ez2_demo( "ez2_demo", "0", FCVAR_NONE, "EZ2 Demo Map Transitions" );
+#endif
 #endif
 bool IsTriggerClass( CBaseEntity *pEntity );
 
