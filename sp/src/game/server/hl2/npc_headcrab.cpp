@@ -3177,6 +3177,13 @@ LINK_ENTITY_TO_CLASS( npc_headcrab_poison, CBlackHeadcrab );
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::BiteSound( void )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		EmitSound( "NPC_TemporalHeadcrab.Bite" );
+		return;
+	}
+#endif
 	EmitSound( "NPC_BlackHeadcrab.Bite" );
 }
 
@@ -3186,6 +3193,13 @@ void CBlackHeadcrab::BiteSound( void )
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::AttackSound( void )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		EmitSound( "NPC_TemporalHeadcrab.Attack" );
+		return;
+	}
+#endif
 	EmitSound( "NPC_BlackHeadcrab.Attack" );
 }
 
@@ -3194,6 +3208,13 @@ void CBlackHeadcrab::AttackSound( void )
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::TelegraphSound( void )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		EmitSound( "NPC_TemporalHeadcrab.Telegraph" );
+		return;
+	}
+#endif
 	EmitSound( "NPC_BlackHeadcrab.Telegraph" );
 }
 
