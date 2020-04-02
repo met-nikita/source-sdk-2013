@@ -33,8 +33,6 @@ public:
 		else
 		{
 			fade = RemapValClamped( distToViewer, m_nMinDist, m_nMaxDist, 0.0f, 1.0f );
-
-			DevMsg( "fade: %f\n", fade );
 		}
 		
 		*vColor = pSprite->m_vColor * fade * m_flGlowObstructionScale;

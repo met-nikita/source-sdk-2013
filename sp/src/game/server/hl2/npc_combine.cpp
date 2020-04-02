@@ -2234,12 +2234,15 @@ void CNPC_Combine::OnSeeEntity( CBaseEntity *pEntity )
 
 	if ( pEntity->IsPlayer() )
 	{
-		if ( static_cast<CBasePlayer*>(pEntity)->GetUseEntity() && !HasMemory(bits_MEMORY_SAW_PLAYER_WEIRDNESS) && m_NPCState != NPC_STATE_COMBAT && !IsRunningScriptedSceneAndNotPaused(this, false) )
+		CBasePlayer *pPlayer = static_cast<CBasePlayer*>(pEntity);
+		if ( pPlayer->GetUseEntity() && !HasMemory(bits_MEMORY_SAW_PLAYER_WEIRDNESS) && m_NPCState != NPC_STATE_COMBAT && !IsRunningScriptedSceneAndNotPaused(this, false) )
 		{
-			CBaseEntity *pUseEntity = static_cast<CBasePlayer*>(pEntity)->GetUseEntity();
-			if ( FVisible(pUseEntity) )
+			CBaseEntity *pUseEntity = GetPlayerHeldEntity( pPlayer );
+			if (!pUseEntity)
+				PhysCannonGetHeldEntity( pPlayer->GetActiveWeapon() );
+
+			if ( pUseEntity && FVisible(pUseEntity) )
 			{
-				DevMsg("Looking at player object\n");
 				AddLookTarget( pUseEntity, 1.25f, 5.0f, 1.0f );
 				Remember( bits_MEMORY_SAW_PLAYER_WEIRDNESS );
 			}

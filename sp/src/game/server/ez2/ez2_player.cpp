@@ -1362,8 +1362,6 @@ void CEZ2_Player::DoSpeechAI( void )
 		// 2% chance by default
 		if (iChance > RandomInt(0, 500))
 		{
-			DevMsg("flRandomSpeechModifier: %f; iChance = %i\n", flRandomSpeechModifier, iChance);
-
 			// Find us a random speech target
 			SetSpeechTarget( FindSpeechTarget() );
 

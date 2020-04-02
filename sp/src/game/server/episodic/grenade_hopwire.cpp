@@ -997,7 +997,7 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 		if (m_HullMap.Element(i) & hull && (m_HullMap.Key(i).LengthSqr() < flBestDistSqr))
 		{
 			// See if we could actually fit at this space
-			Vector vecSpace = GetAbsOrigin() + m_HullMap.Key(i);
+			Vector vecSpace = GetAbsOrigin() - m_HullMap.Key(i);
 			Vector vUpBit = vecSpace;
 			vUpBit.z += 1;
 			AI_TraceHull( vecSpace, vUpBit, vecHullMins, vecHullMaxs,
