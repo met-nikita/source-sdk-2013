@@ -4916,14 +4916,16 @@ void CHL2_Player::ApplyFlashlightColorCorrection( bool bColorCorrectionEnabled )
 
 		m_hFlashlightColorCorrection = CreateNoSpawn( "color_correction", GetAbsOrigin(), GetAbsAngles(), this );
 		m_hFlashlightColorCorrection->KeyValue( "targetname", "cc_nvg" );
-		m_hFlashlightColorCorrection->KeyValue( "fadeInDuration", 0.0f );
-		m_hFlashlightColorCorrection->KeyValue( "fadeOutDuration", 0.0f );
+		m_hFlashlightColorCorrection->KeyValue( "fadeInDuration", 0.1f );
+		m_hFlashlightColorCorrection->KeyValue( "fadeOutDuration", 0.1f );
 		m_hFlashlightColorCorrection->KeyValue( "filename", "ez2_nvg.raw" );
 		m_hFlashlightColorCorrection->KeyValue( "maxfalloff", -1.0f );
 		m_hFlashlightColorCorrection->KeyValue( "minfalloff", 0.0f );
 		m_hFlashlightColorCorrection->KeyValue( "maxweight", sv_flashlight_cc_maxweight.GetFloat() );
+		m_hFlashlightColorCorrection->KeyValue( "StartDisabled", "1" );
 
 		DispatchSpawn( m_hFlashlightColorCorrection );
+		m_hFlashlightColorCorrection->Activate();
 
 		variant_t emptyVariant;
 		m_hFlashlightColorCorrection->AcceptInput( "Enable", this, this, emptyVariant, 0 );
