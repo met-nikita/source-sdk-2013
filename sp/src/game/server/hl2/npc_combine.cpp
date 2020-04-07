@@ -2564,7 +2564,7 @@ bool CNPC_Combine::QueryHearSound( CSound *pSound )
 	if (pSound->m_hOwner)
 	{
 		// Blixibon - Don't be afraid of allies
-		if (IRelationType( pSound->m_hOwner ) > D_FR)
+		if (IRelationType( pSound->m_hOwner ) == D_LI)
 			return false;
 
 		// Blixibon - Manhack danger causes soldiers to look stupid
