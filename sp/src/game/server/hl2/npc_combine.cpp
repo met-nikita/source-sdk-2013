@@ -4878,7 +4878,7 @@ void CNPC_Combine::OnAnimEventDeployManhack( animevent_t *pEvent )
 	}
 
 	// Stop dealing with this manhack
-	m_hManhack = NULL;
+	//m_hManhack = NULL;
 }
 
 //-----------------------------------------------------------------------------
