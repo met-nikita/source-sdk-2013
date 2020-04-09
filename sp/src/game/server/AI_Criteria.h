@@ -204,6 +204,9 @@ public:
 
 	void			GetName( char *buf, size_t buflen ) const;
 	void			GetResponse( char *buf, size_t buflen ) const;
+#ifdef EZ2
+	void			GetRule( char *buf, size_t buflen ) const;
+#endif
 	const AI_ResponseParams *GetParams() const { return &m_Params; }
 	ResponseType_t	GetType() const { return (ResponseType_t)m_Type; }
 	soundlevel_t	GetSoundLevel() const;

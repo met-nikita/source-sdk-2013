@@ -31,6 +31,7 @@ class CEZ2_Player;
 #define TLK_KILLED_ALLY "TLK_KILLED_ALLY" // Bad Cop killed an ally (intention ambiguous)
 #define TLK_DISPLACER_RELEASE "TLK_DISPLACER_RELEASE" // Bad Cop released an entity via the displacer pistol
 #define TLK_SCANNER_FLASH "TLK_SCANNER_FLASH" // Bad Cop was flashed by a scanner
+#define TLK_VEHICLE_OVERTURNED "TLK_VEHICLE_OVERTURNED" // Bad Cop's vehicle was overturned
 
 //=============================================================================
 // >> EZ2_PLAYERMEMORY
@@ -163,6 +164,8 @@ public:
 
 	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
 	void			Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity );
+
+	void			Event_VehicleOverturned( CBaseEntity *pVehicle );
 
 	// Blixibon - StartScripting for gag replacement
 	inline bool			IsInAScript( void ) { return m_bInAScript; }

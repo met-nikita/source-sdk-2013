@@ -829,6 +829,11 @@ bool CAI_Expresser::Speak( AIConcept_t concept, const char *modifiers /*= NULL*/
 	{
 		result->GetResponse( pszOutResponseChosen, bufsize );
 	}
+
+#ifdef EZ2
+	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
+	GetSink()->PostSpeakDispatchResponse( concept, result );
+#endif
 	
 	return spoke;
 }
@@ -854,6 +859,11 @@ bool CAI_Expresser::Speak( AIConcept_t concept, AI_CriteriaSet& modifiers, char 
 	{
 		result->GetResponse( pszOutResponseChosen, bufsize );
 	}
+
+#ifdef EZ2
+	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
+	GetSink()->PostSpeakDispatchResponse( concept, result );
+#endif
 	
 	return spoke;
 }

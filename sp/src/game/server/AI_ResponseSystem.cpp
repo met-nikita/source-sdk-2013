@@ -36,6 +36,10 @@ ConVar rr_debugresponses( "rr_debugresponses", "0", FCVAR_NONE, "Show verbose ma
 ConVar rr_debugrule( "rr_debugrule", "", FCVAR_NONE, "If set to the name of the rule, that rule's score will be shown whenever a concept is passed into the response rules system.");
 ConVar rr_dumpresponses( "rr_dumpresponses", "0", FCVAR_NONE, "Dump all response_rules.txt and rules (requires restart)" );
 
+#ifdef EZ2
+ConVar rr_disableemptyrules( "rr_disableemptyrules", "1", FCVAR_NONE, "Disables rules with no remaining responses, e.g. rules which use norepeat responses." );
+#endif
+
 static CUtlSymbolTable g_RS;
 
 inline static char *CopyString( const char *in )
@@ -731,6 +735,10 @@ public:
 
 	int			FindBestMatchingRule( const AI_CriteriaSet& set, bool verbose );
 
+#ifdef EZ2
+	void		DisableEmptyRules();
+#endif
+
 	float		ScoreCriteriaAgainstRule( const AI_CriteriaSet& set, int irule, bool verbose = false );
 	float		RecursiveScoreSubcriteriaAgainstRule( const AI_CriteriaSet& set, Criteria *parent, bool& exclude, bool verbose /*=false*/ );
 	float		ScoreCriteriaAgainstRuleCriteria( const AI_CriteriaSet& set, int icriterion, bool& exclude, bool verbose = false );
@@ -1400,6 +1408,36 @@ void CResponseSystem::ResetResponseGroups()
 	}
 }
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CResponseSystem::DisableEmptyRules()
+{
+	if (rr_disableemptyrules.GetBool() == false)
+		return;
+
+	int i;
+	int c = m_Rules.Count();
+	for ( i = 0; i < c; i++ )
+	{
+		// Set it as disabled in advance
+		m_Rules[i].m_bEnabled = false;
+
+		int c2 = m_Rules[i].m_Responses.Count();
+		for (int s = 0; s < c2; s++)
+		{
+			if (m_Responses[m_Rules[i].m_Responses[s]].IsEnabled())
+			{
+				// Re-enable it if there's any valid responses
+				m_Rules[i].m_bEnabled = true;
+				break;
+			}
+		}
+	}
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : *g - 
@@ -1456,6 +1494,9 @@ int CResponseSystem::SelectWeightedResponseFromResponseGroup( ResponseGroup *g, 
 		if ( g->IsNoRepeat() )
 		{
 			g->SetEnabled( false );
+#ifdef EZ2
+			DisableEmptyRules();
+#endif
 			return -1;
 		}
 	}
@@ -1597,6 +1638,9 @@ bool CResponseSystem::ResolveResponse( ResponseSearchResult& searchResult, int d
 				if ( g->IsNoRepeat() )
 				{
 					g->SetEnabled( false );
+#ifdef EZ2
+					DisableEmptyRules();
+#endif
 					return false;
 				}
 				idx = 0;
