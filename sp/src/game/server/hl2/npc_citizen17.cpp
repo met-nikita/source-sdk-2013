@@ -2740,8 +2740,8 @@ void CNPC_Citizen::Event_Killed( const CTakeDamageInfo &info )
 					Vector velocity = info.GetDamageForce() * VPhysicsGetObject()->GetInvMass();
 
 					// Give the mask some extra velocity so it's easier to see
-					//velocity.z += 90.0f;
-					velocity *= 10.0f;
+					velocity.z += 20.0f;
+					velocity *= 3.0f;
 
 					pGib->VPhysicsGetObject()->AddVelocity(&velocity, NULL);
 				}

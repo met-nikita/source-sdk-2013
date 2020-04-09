@@ -361,6 +361,18 @@ void AI_Response::GetResponse( char *buf, size_t buflen ) const
 {
 	GetName( buf, buflen );
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Output : char const
+//-----------------------------------------------------------------------------
+void AI_Response::GetRule( char *buf, size_t buflen ) const
+{
+	Q_strncpy( buf, m_szMatchingRule, buflen );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : type - 
