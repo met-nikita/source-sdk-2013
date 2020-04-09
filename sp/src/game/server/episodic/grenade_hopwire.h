@@ -33,6 +33,9 @@ public:
 	bool	TryCreateRecipeNPC( const char *szClass, const char *szKV );
 	void	ParseKeyValues( CBaseEntity *pEntity, const char *szKV );
 
+	// For both real and fake spawns
+	void	XenSpawnEffects( CBaseEntity *pEntity );
+
 	void	SetThrower( CBaseCombatCharacter *pBCC ) { m_hThrower.Set( pBCC ); }
 	CBaseCombatCharacter *GetThrower() { return m_hThrower.Get(); }
 #else
