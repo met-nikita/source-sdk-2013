@@ -15,6 +15,9 @@
 #include "npc_basepredator.h"
 #include "ai_localnavigator.h"
 #include "fire.h"
+#ifdef EZ2
+#include "npc_wilson.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -580,6 +583,18 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 	}
 	case TASK_PREDATOR_PLAY_EAT_ACT:
 		EatSound();
+#ifdef EZ2
+		if (CNPC_Wilson::GetWilson())
+		{
+			CNPC_Wilson *pWilson = CNPC_Wilson::GetWilson();
+			CSound *pScent = GetBestScent();
+			if (pScent && pWilson->FInViewCone(this) && pWilson->FVisible(this))
+			{
+				pWilson->SetSpeechTarget( pScent->m_hOwner );
+				pWilson->SpeakIfAllowed( TLK_WITNESS_EAT );
+			}
+		}
+#endif
 		SetIdealActivity( (Activity) ACT_EAT );
 		break;
 	case TASK_PREDATOR_PLAY_SNIFF_ACT:

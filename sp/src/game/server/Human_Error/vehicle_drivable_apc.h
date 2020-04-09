@@ -84,6 +84,15 @@ public:
 	void			InputDisableMove( inputdata_t &inputdata );
 	void			InputEnableMove( inputdata_t &inputdata ); 
 
+#ifdef EZ
+	void			InputHeadlightOn( inputdata_t &inputdata );
+	void			InputHeadlightOff( inputdata_t &inputdata );
+	void			InputConstraintBroken( inputdata_t &inputdata );
+	void			InputBreakConstraint( inputdata_t &inputdata );
+	void			ConstrainEntity( CBaseEntity *pEntity, CBasePlayer *pPlayer = NULL );
+	void			UnconstrainEntity( bool bBroken = false, CBasePlayer *pPlayer = NULL );
+#endif
+
 	// Muzzle flashes
 	const char		*GetTracerType( void ) ;
 	void			DoImpactEffect( trace_t &tr, int nDamageType );
@@ -151,9 +160,16 @@ private:
 
 	CNetworkVar( bool, m_bHeadlightIsOn );
 
-#ifdef EZ // Blixibon - APC spotlight
+#ifdef EZ
+	// Blixibon - APC spotlight
 	EHANDLE			m_Spotlight;
 	int				m_nSpotlightAttachment;
+
+	// Blixibon - Top attach
+	int				m_nTopAttachAttachment;
+	IPhysicsConstraint		*m_pConstraint;
+	EHANDLE			m_hConstrainedEntity;
+	float			m_flConstrainCooldown;
 #endif
 
 

@@ -20,6 +20,7 @@
 #include "iservervehicle.h"
 #include "basegrenade_shared.h"
 #include "ai_interactions.h"
+#include "grenade_hopwire.h"
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -34,6 +35,10 @@ extern ConVar	g_debug_turret;
 // Interactions
 int g_interactionArbeitScannerStart		= 0;
 int g_interactionArbeitScannerEnd		= 0;
+
+extern int	g_interactionAPCConstrain;
+extern int	g_interactionAPCUnconstrain;
+extern int	g_interactionAPCBreak;
 
 // Global pointer to Will-E for fast lookups
 CEntityClassList<CNPC_Wilson> g_WillieList;
@@ -77,6 +82,8 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_FIELD( m_hPhysicsAttacker, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_flLastPhysicsInfluenceTime, FIELD_TIME ),
 
+	DEFINE_FIELD( m_hAttachedVehicle, FIELD_EHANDLE ),
+
 	DEFINE_FIELD( m_fNextFidgetSpeechTime, FIELD_TIME ),
 	DEFINE_FIELD( m_bPlayerLeftPVS, FIELD_BOOLEAN ),
 
@@ -87,7 +94,7 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_KEYFIELD( m_bEyeLightEnabled, FIELD_BOOLEAN, "EyeLightEnabled" ),
 	//DEFINE_FIELD( m_iEyeLightBrightness, FIELD_INTEGER ), // SetEyeGlow()'s call in Activate() means we don't need to save this
 
-	DEFINE_USEFUNC( SimpleUse ),
+	DEFINE_USEFUNC( Use ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
 
@@ -231,7 +238,7 @@ void CNPC_Wilson::Spawn()
 
 	SetEyeState( TURRET_EYE_DORMANT );
 
-	SetUse( &CNPC_Wilson::SimpleUse );
+	SetUse( &CNPC_Wilson::Use );
 
 	// Don't allow us to skip animation setup because our attachments are critical to us!
 	SetBoneCacheFlags( BCF_NO_ANIMATION_SKIP );
@@ -315,9 +322,15 @@ void CNPC_Wilson::Touch( CBaseEntity *pOther )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CNPC_Wilson::SimpleUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
+void CNPC_Wilson::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
-	m_OnPlayerUse.FireOutput(pActivator, this);
+	m_OnPlayerUse.FireOutput( pActivator, this );
+
+	CBasePlayer *pPlayer = ToBasePlayer( pActivator );
+	if ( pPlayer && !m_bStatic )
+	{
+		pPlayer->PickupObject( this, false );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -376,7 +389,7 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 		}
 	}
 
-	if (info.GetDamageType() & (DMG_SHOCK | DMG_ENERGYBEAM | DMG_CRUSH) && info.GetDamage() >= WILSON_TESLA_DAMAGE_THRESHOLD)
+	if (info.GetDamageType() & (DMG_SHOCK | DMG_ENERGYBEAM) && info.GetDamage() >= WILSON_TESLA_DAMAGE_THRESHOLD)
 	{
 		// Get a tesla effect on our hitboxes for a little while.
 		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime, g_DamageZapContext );
@@ -465,6 +478,9 @@ void CNPC_Wilson::Event_Killed( const CTakeDamageInfo &info )
 		// Shut down
 		SetEyeState( TURRET_EYE_DEAD );
 		DeathSound( info );
+
+		m_lifeState = LIFE_DEAD;
+		SetThink( NULL );
 	}
 }
 
@@ -640,6 +656,27 @@ void CNPC_Wilson::PrescheduleThink( void )
 		if (m_iHealth > m_iMaxHealth)
 			m_iHealth = m_iMaxHealth;
 	}
+
+	if (m_hAttachedVehicle && m_flNextClearanceCheck < gpGlobals->curtime)
+	{
+		Vector velocity = m_hAttachedVehicle->GetSmoothedVelocity();
+		if (velocity.LengthSqr() >= Square(50))
+		{
+			// For approximating the front of the APC
+			Vector vecOrigin = GetAbsOrigin() + (velocity);
+
+			CTraceFilterSkipTwoEntities pFilter(this, m_hAttachedVehicle, COLLISION_GROUP_NONE);
+			trace_t tr;
+			UTIL_TraceHull( vecOrigin, vecOrigin + velocity, GetHullMins(), GetHullMaxs(), MASK_SOLID, &pFilter, &tr );
+			if (tr.fraction != 1.0f)
+			{
+				// We're gonna get knocked off!
+				SpeakIfAllowed( TLK_APC_LOW_CLEARANCE );
+			}
+		}
+
+		m_flNextClearanceCheck = gpGlobals->curtime + 1.0f;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -658,39 +695,11 @@ void CNPC_Wilson::GatherConditions( void )
 
 	BaseClass::GatherConditions();
 
-	if (HasCondition( COND_HEAR_DANGER ))
+	// Handle speech AI. Don't do AI speech if we're in scripts unless permitted by the EnableSpeakWhileScripting input.
+	if ( m_NPCState == NPC_STATE_IDLE || m_NPCState == NPC_STATE_ALERT || m_NPCState == NPC_STATE_COMBAT ||
+		( ( m_NPCState == NPC_STATE_SCRIPT ) && CanSpeakWhileScripting() ) )
 	{
-		CSound *pSound;
-		pSound = GetBestSound( SOUND_DANGER );
-
-		ASSERT( pSound != NULL );
-
-		if ( pSound && (pSound->m_iType & SOUND_DANGER) && !pSound->m_hOwner || IRelationType(pSound->m_hOwner) != D_LI )
-		{
-			CBaseEntity *pOwner = pSound->m_hOwner;
-			AI_CriteriaSet modifiers;
-			if (pOwner)
-			{
-				if (pSound->SoundChannel() == SOUNDENT_CHANNEL_ZOMBINE_GRENADE)
-				{
-					// Pretend the owner is a grenade (the zombine will be the enemy)
-					modifiers.AppendCriteria( "sound_owner", "npc_grenade_frag" );
-				}
-				else
-				{
-					modifiers.AppendCriteria( "sound_owner", UTIL_VarArgs( "%s", pSound->m_hOwner->GetClassname() ) );
-				}
-
-				CBaseGrenade *pGrenade = dynamic_cast<CBaseGrenade*>(pOwner);
-				if (pGrenade)
-					pOwner = pGrenade->GetThrower();
-
-				ModifyOrAppendEnemyCriteria( modifiers, pOwner );
-			}
-
-			if ( !(pSound->SoundContext() & (SOUND_CONTEXT_MORTAR|SOUND_CONTEXT_FROM_SNIPER)) || IsOkToCombatSpeak() )
-				SpeakIfAllowed( TLK_DANGER, modifiers );
-		}
+		DoCustomSpeechAI();
 	}
 }
 
@@ -713,7 +722,7 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 				bool bEnemyInPlayerCone = static_cast<CEZ2_Player*>(pPlayer)->FInTrueViewCone( pEnemy->WorldSpaceCenter() );
 				bool bEnemyVisibleToPlayer = pPlayer->FVisible( pEnemy );
 				bool bInPlayerCone = static_cast<CEZ2_Player*>(pPlayer)->FInTrueViewCone( WorldSpaceCenter() );
-				bool bSeePlayer = FVisible( pPlayer );
+				bool bSeePlayer = pPlayer->IsInAVehicle() ? FVisible( pPlayer->GetVehicleEntity() ) : FVisible( pPlayer );
 
 				// If I can see the player, and the player would see this enemy if they turned around,
 				// call it out.
@@ -900,19 +909,16 @@ void CNPC_Wilson::AimGun()
 //-----------------------------------------------------------------------------
 bool CNPC_Wilson::QueryHearSound( CSound *pSound )
 {
-	if ( pSound->m_hOwner != NULL )
+	CBaseEntity *pOwner = pSound->m_hOwner;
+	if ( pOwner )
 	{
-		// We shouldn't hear sounds emitted directly by the player.
-		if ( pSound->m_hOwner.Get()->IsPlayer() )
-			return false;
-
-		// We shouldn't hear sounds emitted by entities we like.
-		if ( IRelationType(pSound->m_hOwner.Get()) == D_LI )
-			return false;
-
-		// We can't hear sounds emitted directly by a vehicle driven by the player.
+		// If this is a vehicle, use the vehicle's driver instead of the vehicle itself.
 		IServerVehicle *pVehicle = pSound->m_hOwner->GetServerVehicle();
-		if ( pVehicle && pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER) && pVehicle->GetPassenger(VEHICLE_ROLE_DRIVER)->IsPlayer() )
+		if ( pVehicle )
+			pOwner = pVehicle->GetPassenger();
+
+		// We shouldn't hear sounds emitted by entities/players we like.
+		if ( IRelationType(pOwner) == D_LI )
 			return false;
 	}
 
@@ -925,7 +931,7 @@ bool CNPC_Wilson::QueryHearSound( CSound *pSound )
 void CNPC_Wilson::HandlePrescheduleIdleSpeech( void )
 {
 	AISpeechSelection_t selection;
-	if ( DoCustomSpeechAI( &selection, GetState() ) )
+	if ( DoIdleSpeechAI( &selection, GetState() ) )
 	{
 		SetSpeechTarget( selection.hSpeechTarget );
 		SpeakDispatchResponse( selection.concept.c_str(), selection.pResponse );
@@ -940,14 +946,61 @@ void CNPC_Wilson::HandlePrescheduleIdleSpeech( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState )
+bool CNPC_Wilson::DoCustomSpeechAI()
 {
-	if ( HasCondition(COND_TALKER_PLAYER_DEAD) && HasCondition(COND_SEE_PLAYER) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
+	if (HasCondition( COND_HEAR_DANGER ))
 	{
-		if ( SelectSpeechResponse( TLK_PLDEAD, NULL, AI_GetSinglePlayer(), pSelection ) )
-			return true;
+		CSound *pSound;
+		pSound = GetBestSound( SOUND_DANGER );
+
+		ASSERT( pSound != NULL );
+
+		if ( pSound && (pSound->m_iType & SOUND_DANGER) && !pSound->m_hOwner || IRelationType(pSound->m_hOwner) != D_LI )
+		{
+			CBaseEntity *pOwner = pSound->m_hOwner;
+			AI_CriteriaSet modifiers;
+			if (pOwner)
+			{
+				if (pSound->SoundChannel() == SOUNDENT_CHANNEL_ZOMBINE_GRENADE)
+				{
+					// Pretend the owner is a grenade (the zombine will be the enemy)
+					modifiers.AppendCriteria( "sound_owner", "npc_grenade_frag" );
+				}
+				else
+				{
+					modifiers.AppendCriteria( "sound_owner", pSound->m_hOwner->GetClassname() );
+				}
+
+				CBaseGrenade *pGrenade = dynamic_cast<CBaseGrenade*>(pOwner);
+				if (pGrenade)
+					pOwner = pGrenade->GetThrower();
+
+				ModifyOrAppendEnemyCriteria( modifiers, pOwner );
+			}
+
+			if ( !(pSound->SoundContext() & (SOUND_CONTEXT_MORTAR|SOUND_CONTEXT_FROM_SNIPER)) || IsOkToCombatSpeak() )
+				SpeakIfAllowed( TLK_DANGER, modifiers );
+		}
 	}
 
+	if ( HasCondition(COND_IN_PVS) )
+	{
+		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+		if ( HasCondition( COND_TALKER_PLAYER_DEAD ) && pPlayer && FInViewCone(pPlayer) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
+		{
+			if ( SpeakIfAllowed( TLK_PLDEAD ) )
+				return true;
+		}
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::DoIdleSpeechAI( AISpeechSelection_t *pSelection, int iState )
+{
 	// From SelectAlertSpeech()
 	CBasePlayer *pTarget = assert_cast<CBasePlayer *>(FindSpeechTarget( AIST_PLAYERS | AIST_FACING_TARGET | AIST_ANY_QUALIFIED ));
 	if ( pTarget )
@@ -968,7 +1021,7 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 			{
 				// Check for Xen grenade usage
 				// "xen_grenade_thrown" is a context set in CEZ2_Player.
-				if (pTarget->GetAmmoCount("XenGrenade") > 0 && pTarget->HasContext("xen_grenade_thrown"))
+				if (pTarget->GetAmmoCount("XenGrenade") > 0 && pTarget->HasContext("xen_grenade_thrown", "1"))
 				{
 					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, NULL, pTarget, pSelection ) )
 						return true;
@@ -1008,7 +1061,7 @@ bool CNPC_Wilson::DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState 
 		m_fNextFidgetSpeechTime = gpGlobals->curtime + random->RandomFloat(MIN_IDLE_SPEECH, MAX_IDLE_SPEECH);
 
 		//SpeakIfAllowed(TLK_WILLE_FIDGET);
-		if ( SelectSpeechResponse( TLK_FIDGET, NULL, NULL, pSelection ) )
+		if ( HasCondition(COND_IN_PVS) && SelectSpeechResponse( TLK_FIDGET, NULL, NULL, pSelection ) )
 			return true;
 	}
 
@@ -1147,12 +1200,11 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 
 	if ( interactionType == g_interactionXenGrenadeRelease )
 	{
-		// TODO: Put CGravityVortexController in grenade_hopwire.h?
-		CBaseEntity *pGrenade = assert_cast<CBaseEntity*>(data);
-		if (!pGrenade)
+		CGravityVortexController *pVortex = assert_cast<CGravityVortexController*>(data);
+		if (!pVortex)
 			return false;
 
-		Teleport( &pGrenade->GetAbsOrigin(), &pGrenade->GetAbsAngles(), NULL );
+		Teleport( &pVortex->GetAbsOrigin(), &pVortex->GetAbsAngles(), NULL );
 
 		RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
 		RemoveSolidFlags( FSOLID_NOT_SOLID );
@@ -1170,12 +1222,8 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 			pPhys->Wake();
 		}
 
-		// TODO: We should put this in a function we can call to grenade_hopwire
-		if ( sourceEnt == NULL )
-		{
-			pGrenade->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
-			DispatchParticleEffect( "xenpc_spawn", WorldSpaceCenter(), GetAbsAngles(), this );
-		}
+		// Pretend we spawned from a recipe
+		pVortex->XenSpawnEffects( this );
 
 		SpeakIfAllowed( TLK_XEN_GRENADE_RELEASE );
 
@@ -1184,6 +1232,28 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 
 		return true;
 	}
+
+
+	if ( interactionType == g_interactionAPCConstrain )
+	{
+		m_hAttachedVehicle = (CBaseEntity*)data;
+		return false;
+	}
+
+	if ( interactionType == g_interactionAPCUnconstrain )
+	{
+		m_hAttachedVehicle = NULL;
+		return false;
+	}
+
+	if ( interactionType == g_interactionAPCBreak )
+	{
+		SpeakIfAllowed( TLK_TIPPED );
+
+		m_hAttachedVehicle = NULL;
+		return false;
+	}
+
 
 	if ( interactionType == g_interactionCombineBash )
 	{
@@ -1407,15 +1477,28 @@ bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPla
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response )
 {
-	// Only respond to speech that targets the player
-	if (GetSpeechTarget() && GetSpeechTarget()->IsPlayer() && GetSpeechTarget()->IsAlive()) // IsValidSpeechTarget(0, pPlayer)
+	// Only respond to speech that targets the playe
+	CBaseEntity *pTarget = GetSpeechTarget();
+	if (pTarget && pTarget->IsPlayer() && pTarget->IsAlive()) // IsValidSpeechTarget(0, pPlayer)
 	{
 		// Notify the player so they could respond
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
 
+		char szResponse[64] = { "<null>" };
+		char szRule[64] = { "<null>" };
+		if (response)
+		{
+			response->GetName( szResponse, sizeof( szResponse ) );
+			response->GetRule( szRule, sizeof( szRule ) );
+		}
+
+		float flDuration = (GetExpresser()->GetTimeSpeechComplete() - gpGlobals->curtime);
+		pTarget->AddContext("speechtarget_response", szResponse, (gpGlobals->curtime + flDuration + 1.0f));
+		pTarget->AddContext("speechtarget_rule", szRule, (gpGlobals->curtime + flDuration + 1.0f));
+
 		// Delay is now based off of predelay
-		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
+		g_EventQueue.AddEvent(pTarget, "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
 	}
 }
 
