@@ -749,6 +749,7 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 		info.m_iTracerFreq = 2;
 
 		info.m_flDamage = sk_plr_dmg_ar2_proto.GetFloat();
+		info.m_iPlayerDamage = (int)info.m_flDamage;
 
 		pPlayer->FireBullets(info);
 		pPlayer->DoMuzzleFlash();
@@ -928,8 +929,9 @@ void CWeaponAR2Proto::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, boo
 	info.m_iTracerFreq = 2;
 
 	info.m_flDamage = sk_npc_dmg_ar2_proto.GetFloat();
+	info.m_iPlayerDamage = (int)info.m_flDamage;
 
-	pOperator->FireBullets( 2, vecShootOrigin, vecShootDir, VECTOR_CONE_10DEGREES, MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 2 );
+	pOperator->FireBullets( info );
 
 	// NOTENOTE: This is overriden on the client-side
 	// pOperator->DoMuzzleFlash();
