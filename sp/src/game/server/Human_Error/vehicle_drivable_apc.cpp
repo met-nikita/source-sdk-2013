@@ -181,8 +181,9 @@ BEGIN_DATADESC( CPropDrivableAPC )
 	DEFINE_INPUTFUNC( FIELD_VOID, "HeadlightOn", InputHeadlightOn ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "HeadlightOff", InputHeadlightOff ),
 
+	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ConstrainEntity", InputConstrainEntity ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "UnconstrainEntity", InputUnconstrainEntity ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "ConstraintBroken", InputConstraintBroken ),
-	DEFINE_INPUTFUNC( FIELD_VOID, "BreakConstraint", InputBreakConstraint ),
 
 	DEFINE_OUTPUT( m_onOverturned, "OnOverturned" ),
 #endif
@@ -249,14 +250,22 @@ void CPropDrivableAPC::InputHeadlightOff( inputdata_t &inputdata )
 	HeadlightTurnOff();
 }
 
+void CPropDrivableAPC::InputConstrainEntity( inputdata_t &inputdata )
+{
+	if (inputdata.value.Entity())
+	{
+		ConstrainEntity( inputdata.value.Entity(), NULL );
+	}
+}
+
+void CPropDrivableAPC::InputUnconstrainEntity( inputdata_t &inputdata )
+{
+	UnconstrainEntity( false, ToBasePlayer(inputdata.pActivator) );
+}
+
 void CPropDrivableAPC::InputConstraintBroken( inputdata_t &inputdata )
 {
 	UnconstrainEntity( true );
-}
-
-void CPropDrivableAPC::InputBreakConstraint( inputdata_t &inputdata )
-{
-	UnconstrainEntity( false, ToBasePlayer(inputdata.pActivator) );
 }
 
 //-----------------------------------------------------------------------------
@@ -350,7 +359,7 @@ void CPropDrivableAPC::ConstrainEntity( CBaseEntity *pEntity, CBasePlayer *pPlay
 		SetName( AllocPooledString(UTIL_VarArgs("apc%i", entindex())) );
 
 	// Not all entities have OnPlayerUse, but there's not much else we can do
-	pEntity->KeyValue( "OnPhysGunPickup", UTIL_VarArgs("%s,BreakConstraint,,0,1", STRING(GetEntityName())) );
+	pEntity->KeyValue( "OnPhysGunPickup", UTIL_VarArgs("%s,UnconstrainEntity,,0,1", STRING(GetEntityName())) );
 
 	pEntity->EmitSound( "PropAPC.AttachEntity" );
 }

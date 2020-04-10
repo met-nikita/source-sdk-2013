@@ -87,8 +87,9 @@ public:
 #ifdef EZ
 	void			InputHeadlightOn( inputdata_t &inputdata );
 	void			InputHeadlightOff( inputdata_t &inputdata );
+	void			InputConstrainEntity( inputdata_t &inputdata );
+	void			InputUnconstrainEntity( inputdata_t &inputdata );
 	void			InputConstraintBroken( inputdata_t &inputdata );
-	void			InputBreakConstraint( inputdata_t &inputdata );
 	void			ConstrainEntity( CBaseEntity *pEntity, CBasePlayer *pPlayer = NULL );
 	void			UnconstrainEntity( bool bBroken = false, CBasePlayer *pPlayer = NULL );
 #endif
