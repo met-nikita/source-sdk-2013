@@ -41,6 +41,9 @@ BEGIN_DATADESC(CEZ2_Player)
 	DEFINE_FIELD(m_hStaringEntity, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flCurrentStaringTime, FIELD_TIME),
 
+	DEFINE_FIELD( m_flNextCommandHintTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flLastCommandHintTime, FIELD_TIME ),
+
 	DEFINE_FIELD(m_hNPCComponent, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flNextSpeechTime, FIELD_TIME),
 	DEFINE_FIELD(m_hSpeechFilter, FIELD_EHANDLE),
@@ -106,6 +109,40 @@ void CEZ2_Player::PostThink(void)
 		m_flNextSpeechTime = gpGlobals->curtime + flCooldown;
 
 		DoSpeechAI();
+	}
+
+	// Show a HUD hint for any nearby commandable soldiers
+	if (m_flNextCommandHintTime < gpGlobals->curtime)
+	{
+		// Set it ahead of time in case we don't find a NPC
+		m_flNextCommandHintTime = gpGlobals->curtime + 2.0f;
+
+		if (GetNPCComponent())
+		{
+			AISightIter_t iter;
+			CBaseEntity *pSightEnt = GetNPCComponent()->GetSenses()->GetFirstSeenEntity( &iter );
+			while( pSightEnt )
+			{
+				// Look for a commandable soldier
+				// (must be a soldier and not, say, a commandable rollermine)
+				if ( pSightEnt->IsNPC() )
+				{
+					CAI_BaseNPC *pNPC = pSightEnt->MyNPCPointer();
+					if ( FClassnameIs( pNPC, "npc_combine_s" ) && pNPC->IsCommandable() && !pNPC->IsInPlayerSquad() )
+					{
+						if (GetAbsOrigin().DistToSqr(pNPC->GetAbsOrigin()) <= Square(192.0f) && IRelationType(pNPC) == D_LI)
+						{
+							ShowCommandHint( pNPC );
+							m_flNextCommandHintTime = gpGlobals->curtime + 50.0f;
+							m_flLastCommandHintTime = gpGlobals->curtime;
+							break;
+						}
+					}
+				}
+
+				pSightEnt = GetNPCComponent()->GetSenses()->GetNextSeenEntity( &iter );
+			}
+		}
 	}
 
 	BaseClass::PostThink();
@@ -773,7 +810,7 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 		return false;
 
 	// Don't say anything if we're running a scene
-	if ( IsRunningScriptedSceneAndNotPaused( this, false ) )
+	if ( IsTalkingInAScriptedScene( this, false ) )
 	{
 		return false;
 	}
@@ -1222,6 +1259,10 @@ void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )
 //-----------------------------------------------------------------------------
 bool CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
 {
+	// See MIN_HUDHINT_DISPLAY_TIME in basecombatweapon_shared.cpp
+	if (m_flLastCommandHintTime != 0 && gpGlobals->curtime - m_flLastCommandHintTime < 7.0f)
+		HideCommandHint();
+
 	SetSpeechTarget(pNPC);
 
 	return SpeakIfAllowed(TLK_COMMAND_ADD);
@@ -1677,6 +1718,19 @@ bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::ShowCommandHint( CAI_BaseNPC *pNPC )
+{
+	UTIL_HudHintText( this, "#EZ2_HudHint_Soldiers" );
+}
+
+void CEZ2_Player::HideCommandHint()
+{
+	UTIL_HudHintText( this, "" );
+}
+
+//-----------------------------------------------------------------------------
 
 CBaseEntity *CEZ2_Player::GetEnemy()
 {
@@ -1963,6 +2017,25 @@ bool CAI_PlayerNPCDummy::QueryHearSound( CSound *pSound )
 	}
 
 	return BaseClass::QueryHearSound( pSound );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return true if this NPC can see the specified entity
+//-----------------------------------------------------------------------------
+bool CAI_PlayerNPCDummy::QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNPC )
+{
+	if ( pEntity->IsNPC() )
+	{
+		// Under regular circumstances, the player should pick up on all NPCs, regardless of relationship.
+		// This is so the player dummy can see commandable soldiers for things like automated HUD hints.
+		if ( bOnlyHateOrFearIfNPC && (pEntity->Classify() == CLASS_BULLSEYE) )
+		{
+			Disposition_t disposition = IRelationType( pEntity );
+			return ( disposition == D_HT || disposition == D_FR );
+		}
+	}
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------

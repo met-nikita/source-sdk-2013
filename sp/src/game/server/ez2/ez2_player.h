@@ -182,6 +182,9 @@ public:
 
 	bool				ReactToSound( CSound *pSound, float flDist );
 
+	void				ShowCommandHint( CAI_BaseNPC *pNPC );
+	void				HideCommandHint();
+
 	CBaseEntity*		GetStaringEntity() { return m_hStaringEntity.Get(); }
 	void				SetStaringEntity(CBaseEntity *pEntity) { return m_hStaringEntity.Set(pEntity); }
 
@@ -238,6 +241,9 @@ private:
 	float			m_flCurrentStaringTime;
 	QAngle			m_angLastStaringEyeAngles;
 
+	float			m_flNextCommandHintTime;
+	float			m_flLastCommandHintTime;
+
 	CHandle<CAI_PlayerNPCDummy> m_hNPCComponent;
 	float			m_flNextSpeechTime;
 	CHandle<CAI_SpeechFilter>	m_hSpeechFilter;
@@ -280,6 +286,7 @@ public:
 	// Base class's sound interests include combat and danger, add relevant scents onto it
 	int		GetSoundInterests( void ) { return BaseClass::GetSoundInterests() | SOUND_PHYSICS_DANGER | SOUND_CARCASS | SOUND_MEAT; }
 	bool	QueryHearSound( CSound *pSound );
+	bool	QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNPC = false );
 
 	bool	UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
 
