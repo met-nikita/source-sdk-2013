@@ -137,6 +137,9 @@ public:
 	void			InputAnswerConcept( inputdata_t &inputdata );
 	bool			IsOmniscient() { return m_bOmniscient; }
 
+	void			InputEnableMotion( inputdata_t &inputdata );
+	void			InputDisableMotion( inputdata_t &inputdata );
+
 	int		BloodColor( void ) { return DONT_BLEED; }
 
 	// Will-E doesn't attack anyone and nobody attacks him. (although he does see enemies for BC, see IRelationType)

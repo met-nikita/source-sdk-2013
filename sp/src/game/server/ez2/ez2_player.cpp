@@ -29,6 +29,7 @@
 
 ConVar player_mute_responses( "player_mute_responses", "0", FCVAR_ARCHIVE, "Mutes the responsive Bad Cop." );
 ConVar player_dummy_in_squad( "player_dummy_in_squad", "0", FCVAR_ARCHIVE, "Puts the player dummy in the player's squad, which means squadmates will see enemies the player sees." );
+ConVar player_dummy( "player_dummy", "1", FCVAR_NONE, "Enables the player NPC dummy." );
 
 #if EZ2
 LINK_ENTITY_TO_CLASS(player, CEZ2_Player);
@@ -153,9 +154,12 @@ void CEZ2_Player::PostThink(void)
 //-----------------------------------------------------------------------------
 void CEZ2_Player::Spawn( void )
 {
-	// Must do this here because PostConstructor() is called before save/restore,
-	// which causes duplicates to be created.
-	CreateNPCComponent();
+	if (player_dummy.GetBool())
+	{
+		// Must do this here because PostConstructor() is called before save/restore,
+		// which causes duplicates to be created.
+		CreateNPCComponent();
+	}
 
 	BaseClass::Spawn();
 }

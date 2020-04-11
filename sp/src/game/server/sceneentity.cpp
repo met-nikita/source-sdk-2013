@@ -1143,7 +1143,7 @@ bool CSceneEntity::IsPlayingSpeech( void )
 			CChoreoEvent *e = m_pScene->GetEvent( i );
 			if ( e->GetType() == CChoreoEvent::SPEAK )
 			{
-				if ( flTime >= e->GetStartTime() && flTime <= e->GetEndTime() )
+				if ( /*flTime >= e->GetStartTime() &&*/ flTime <= e->GetEndTime() )
 					return true;
 			}
 		}

@@ -103,6 +103,9 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnEyeLight", InputTurnOnEyeLight ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffEyeLight", InputTurnOffEyeLight ),
 
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableMotion", InputEnableMotion ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableMotion", InputDisableMotion ),
+
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
 	DEFINE_OUTPUT( m_OnPhysGunPickup, "OnPhysGunPickup" ),
@@ -1531,6 +1534,30 @@ void CNPC_Wilson::PostConstructor(const char *szClassname)
 {
     BaseClass::PostConstructor(szClassname);
     CreateExpresser();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Enable physics motion and collision response (on by default)
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::InputEnableMotion( inputdata_t &inputdata )
+{
+	IPhysicsObject *pPhysicsObject = VPhysicsGetObject();
+	if ( pPhysicsObject != NULL )
+	{
+		pPhysicsObject->EnableMotion( true );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Disable any physics motion or collision response
+//-----------------------------------------------------------------------------
+void CNPC_Wilson::InputDisableMotion( inputdata_t &inputdata )
+{
+	IPhysicsObject *pPhysicsObject = VPhysicsGetObject();
+	if ( pPhysicsObject != NULL )
+	{
+		pPhysicsObject->EnableMotion( false );
+	}
 }
 
 //-----------------------------------------------------------------------------
