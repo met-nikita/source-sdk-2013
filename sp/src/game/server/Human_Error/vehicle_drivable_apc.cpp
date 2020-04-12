@@ -1692,6 +1692,13 @@ void CPropDrivableAPC::OnRestore( void )
 		// Restore the passenger information we're holding on to
 		pServerVehicle->RestorePassengerInfo();
 	}
+
+#ifdef EZ2
+	if ( m_hConstrainedEntity )
+	{
+		PhysDisableEntityCollisions( this, m_hConstrainedEntity );
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
