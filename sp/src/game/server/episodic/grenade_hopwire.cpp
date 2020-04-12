@@ -483,6 +483,10 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	// Blixibon - Things like turrets use looping sounds that need to be interrupted
 	// before being removed, otherwise they play forever
 	pEnt->EmitSound( "AI_BaseNPC.SentenceStop" );
+
+	// Some NPCs are sucked up before they ragdoll, which stops them from dying. Stop them from breaking stuff.
+	if (pEnt->MyNPCPointer())
+		pEnt->FireNamedOutput( "OnDeath", variant_t(), this, pEnt );
 #else
 	// Ragdolls need to report the sum of all their parts
 	CRagdollProp *pRagdoll = dynamic_cast< CRagdollProp* >( pEnt );
@@ -1389,6 +1393,10 @@ void CGravityVortexController::PullThink( void )
 		// Hackhack - don't suck voltigores
 		// TODO Improve this
 		if ( FClassnameIs( pEnts[i], "npc_voltigore_projectile" ) || FClassnameIs( pEnts[i], "npc_voltigore" ))
+			continue;
+
+		// Don't pull objects that are protected
+		if ( pEnts[i]->IsDisplacementImpossible() )
 			continue;
 
 		Vector	vecForce = GetAbsOrigin() - pEnts[i]->WorldSpaceCenter();
