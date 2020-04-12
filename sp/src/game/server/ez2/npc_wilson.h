@@ -56,16 +56,8 @@ public:
 	float	MaxYawSpeed( void ){ return 0; }
 
 	void	Touch(	CBaseEntity *pOther );
-	void	SimpleUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 
-	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
-	{
-		CBasePlayer *pPlayer = ToBasePlayer( pActivator );
-		if ( pPlayer && !m_bStatic )
-		{
-			pPlayer->PickupObject( this, false );
-		}
-	}
+	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 
 	void	PlayerPenetratingVPhysics( void ) {}
 	bool	CanBecomeServerRagdoll( void ) { return false; }
@@ -101,9 +93,10 @@ public:
 	// Wilson hardly cares about his NPC state because he's just a vessel for choreography and player attachment, not a useful combat ally.
 	// This means we redirect SelectIdleSpeech() and SelectAlertSpeech() to the same function. Sure, we could've marked SelectNonCombatSpeech() virtual
 	// and overrode that instead, but this makes things simpler to understand and avoids changing all allies just for Will-E to say this nonsense.
-	bool			DoCustomSpeechAI( AISpeechSelection_t *pSelection, int iState );
-	bool			SelectIdleSpeech( AISpeechSelection_t *pSelection ) { return DoCustomSpeechAI(pSelection, NPC_STATE_IDLE); }
-	bool			SelectAlertSpeech( AISpeechSelection_t *pSelection ) { return DoCustomSpeechAI(pSelection, NPC_STATE_ALERT); }
+	bool			DoCustomSpeechAI();
+	bool			DoIdleSpeechAI( AISpeechSelection_t *pSelection, int iState );
+	bool			SelectIdleSpeech( AISpeechSelection_t *pSelection ) { return DoIdleSpeechAI(pSelection, NPC_STATE_IDLE); }
+	bool			SelectAlertSpeech( AISpeechSelection_t *pSelection ) { return DoIdleSpeechAI(pSelection, NPC_STATE_ALERT); }
 
 	void			HandlePrescheduleIdleSpeech();
 
@@ -143,6 +136,9 @@ public:
 
 	void			InputAnswerConcept( inputdata_t &inputdata );
 	bool			IsOmniscient() { return m_bOmniscient; }
+
+	void			InputEnableMotion( inputdata_t &inputdata );
+	void			InputDisableMotion( inputdata_t &inputdata );
 
 	int		BloodColor( void ) { return DONT_BLEED; }
 
@@ -196,6 +192,9 @@ protected:
 
 	CHandle<CBasePlayer>	m_hPhysicsAttacker;
 	float					m_flLastPhysicsInfluenceTime;
+
+	EHANDLE		m_hAttachedVehicle;
+	float		m_flNextClearanceCheck;
 
 	float		m_fNextFidgetSpeechTime;
 

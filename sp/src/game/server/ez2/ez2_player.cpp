@@ -29,6 +29,7 @@
 
 ConVar player_mute_responses( "player_mute_responses", "0", FCVAR_ARCHIVE, "Mutes the responsive Bad Cop." );
 ConVar player_dummy_in_squad( "player_dummy_in_squad", "0", FCVAR_ARCHIVE, "Puts the player dummy in the player's squad, which means squadmates will see enemies the player sees." );
+ConVar player_dummy( "player_dummy", "1", FCVAR_NONE, "Enables the player NPC dummy." );
 
 #if EZ2
 LINK_ENTITY_TO_CLASS(player, CEZ2_Player);
@@ -40,6 +41,9 @@ BEGIN_DATADESC(CEZ2_Player)
 
 	DEFINE_FIELD(m_hStaringEntity, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flCurrentStaringTime, FIELD_TIME),
+
+	DEFINE_FIELD( m_flNextCommandHintTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flLastCommandHintTime, FIELD_TIME ),
 
 	DEFINE_FIELD(m_hNPCComponent, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flNextSpeechTime, FIELD_TIME),
@@ -108,6 +112,40 @@ void CEZ2_Player::PostThink(void)
 		DoSpeechAI();
 	}
 
+	// Show a HUD hint for any nearby commandable soldiers
+	if (m_flNextCommandHintTime < gpGlobals->curtime)
+	{
+		// Set it ahead of time in case we don't find a NPC
+		m_flNextCommandHintTime = gpGlobals->curtime + 2.0f;
+
+		if (GetNPCComponent())
+		{
+			AISightIter_t iter;
+			CBaseEntity *pSightEnt = GetNPCComponent()->GetSenses()->GetFirstSeenEntity( &iter );
+			while( pSightEnt )
+			{
+				// Look for a commandable soldier
+				// (must be a soldier and not, say, a commandable rollermine)
+				if ( pSightEnt->IsNPC() )
+				{
+					CAI_BaseNPC *pNPC = pSightEnt->MyNPCPointer();
+					if ( FClassnameIs( pNPC, "npc_combine_s" ) && pNPC->IsCommandable() && !pNPC->IsInPlayerSquad() )
+					{
+						if (GetAbsOrigin().DistToSqr(pNPC->GetAbsOrigin()) <= Square(192.0f) && IRelationType(pNPC) == D_LI)
+						{
+							ShowCommandHint( pNPC );
+							m_flNextCommandHintTime = gpGlobals->curtime + 50.0f;
+							m_flLastCommandHintTime = gpGlobals->curtime;
+							break;
+						}
+					}
+				}
+
+				pSightEnt = GetNPCComponent()->GetSenses()->GetNextSeenEntity( &iter );
+			}
+		}
+	}
+
 	BaseClass::PostThink();
 }
 
@@ -123,9 +161,12 @@ void CEZ2_Player::Precache( void )
 //-----------------------------------------------------------------------------
 void CEZ2_Player::Spawn( void )
 {
-	// Must do this here because PostConstructor() is called before save/restore,
-	// which causes duplicates to be created.
-	CreateNPCComponent();
+	if (player_dummy.GetBool())
+	{
+		// Must do this here because PostConstructor() is called before save/restore,
+		// which causes duplicates to be created.
+		CreateNPCComponent();
+	}
 
 	BaseClass::Spawn();
 
@@ -286,6 +327,8 @@ int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 
 	if (IsAllowedToSpeak(TLK_WOUND))
 	{
+		SetSpeechTarget( info.GetAttacker() );
+
 		// Complain about taking damage from an enemy.
 		// If that doesn't work, just do a regular wound. (we know we're allowed to speak it)
 		if (!SpeakIfAllowed(TLK_WOUND_REMARK, modifiers))
@@ -615,13 +658,13 @@ void CEZ2_Player::ModifyOrAppendSquadCriteria(AI_CriteriaSet& set)
 
 		// Get criteria related to individual squad members
 		int iNumSquadCommandables = 0;
-		//bool bSquadInPVS = false;
+		bool bSquadInPVS = false;
 		AISquadIter_t iter;
 		for (CAI_BaseNPC *pAllyNpc = GetPlayerSquad()->GetFirstMember( &iter ); pAllyNpc; pAllyNpc = GetPlayerSquad()->GetNextMember( &iter ))
 		{
 			// Non-commandable player squad members count here
-			//if (pAllyNpc->HasCondition( COND_IN_PVS ))
-			//	bSquadInPVS = true;
+			if (pAllyNpc->HasCondition( COND_IN_PVS ))
+				bSquadInPVS = true;
 
 			if (pAllyNpc->IsCommandable() && !pAllyNpc->IsSilentCommandable())
 				iNumSquadCommandables++;
@@ -629,8 +672,8 @@ void CEZ2_Player::ModifyOrAppendSquadCriteria(AI_CriteriaSet& set)
 
 		set.AppendCriteria("squadmembers", UTIL_VarArgs("%i", iNumSquadCommandables));
 
-		//if (bSquadInPVS)
-		//	set.AppendCriteria("squad_in_pvs", "1");
+		if (bSquadInPVS)
+			set.AppendCriteria("squad_in_pvs", "1");
 	}
 	else
 	{
@@ -779,8 +822,8 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 	if (player_mute_responses.GetBool())
 		return false;
 
-	// Don't say anything if we're running a scene with speech
-	if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this, true ) )
+	// Don't say anything if we're running a scene
+	if ( IsTalkingInAScriptedScene( this, false ) )
 	{
 		return false;
 	}
@@ -832,12 +875,16 @@ bool CEZ2_Player::SelectSpeechResponse( AIConcept_t concept, AI_CriteriaSet *mod
 //-----------------------------------------------------------------------------
 void CEZ2_Player::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response )
 {
-	if (GetSpeechTarget() && GetSpeechTarget()->IsAlive())
+	CBaseEntity *pTarget = GetSpeechTarget();
+	if (!pTarget || !pTarget->IsAlive())
+		pTarget = CNPC_Wilson::GetWilson();
+
+	if (pTarget)
 	{
 		// Get them to look at us (at least if it's a soldier)
-		if (GetSpeechTarget()->MyNPCPointer() && GetSpeechTarget()->MyNPCPointer()->CapabilitiesGet() & bits_CAP_TURN_HEAD)
+		if (pTarget->MyNPCPointer() && pTarget->MyNPCPointer()->CapabilitiesGet() & bits_CAP_TURN_HEAD)
 		{
-			CAI_BaseActor *pActor = dynamic_cast<CAI_BaseActor*>(GetSpeechTarget());
+			CAI_BaseActor *pActor = dynamic_cast<CAI_BaseActor*>(pTarget);
 			if (pActor)
 				pActor->AddLookTarget( this, 0.75, GetExpresser()->GetTimeSpeechComplete() + 3.0f );
 		}
@@ -846,8 +893,20 @@ void CEZ2_Player::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
 
+		char szResponse[64] = { "<null>" };
+		char szRule[64] = { "<null>" };
+		if (response)
+		{
+			response->GetName( szResponse, sizeof( szResponse ) );
+			response->GetRule( szRule, sizeof( szRule ) );
+		}
+
+		float flDuration = (GetExpresser()->GetTimeSpeechComplete() - gpGlobals->curtime);
+		pTarget->AddContext("speechtarget_response", szResponse, (gpGlobals->curtime + flDuration + 1.0f));
+		pTarget->AddContext("speechtarget_rule", szRule, (gpGlobals->curtime + flDuration + 1.0f));
+
 		// Delay is now based off of predelay
-		g_EventQueue.AddEvent(GetSpeechTarget(), "AnswerConcept", variant, (GetExpresser()->GetTimeSpeechComplete() - gpGlobals->curtime) /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
+		g_EventQueue.AddEvent(pTarget, "AnswerConcept", variant, flDuration /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
 	}
 
 	// Clear our speech target for the next concept
@@ -1213,6 +1272,10 @@ void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )
 //-----------------------------------------------------------------------------
 bool CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
 {
+	// See MIN_HUDHINT_DISPLAY_TIME in basecombatweapon_shared.cpp
+	if (m_flLastCommandHintTime != 0 && gpGlobals->curtime - m_flLastCommandHintTime < 7.0f)
+		HideCommandHint();
+
 	SetSpeechTarget(pNPC);
 
 	return SpeakIfAllowed(TLK_COMMAND_ADD);
@@ -1265,6 +1328,14 @@ void CEZ2_Player::Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBas
 			pSquadRep->SpeakIfAllowed( TLK_DISPLACER_RELEASE, modifiers, true );
 		}
 	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Event_VehicleOverturned( CBaseEntity *pVehicle )
+{
+	SpeakIfAllowed( TLK_VEHICLE_OVERTURNED );
 }
 
 //-----------------------------------------------------------------------------
@@ -1371,8 +1442,6 @@ void CEZ2_Player::DoSpeechAI( void )
 		// 2% chance by default
 		if (iChance > RandomInt(0, 500))
 		{
-			DevMsg("flRandomSpeechModifier: %f; iChance = %i\n", flRandomSpeechModifier, iChance);
-
 			// Find us a random speech target
 			SetSpeechTarget( FindSpeechTarget() );
 
@@ -1662,6 +1731,19 @@ bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::ShowCommandHint( CAI_BaseNPC *pNPC )
+{
+	UTIL_HudHintText( this, "#EZ2_HudHint_Soldiers" );
+}
+
+void CEZ2_Player::HideCommandHint()
+{
+	UTIL_HudHintText( this, "" );
+}
+
+//-----------------------------------------------------------------------------
 
 CBaseEntity *CEZ2_Player::GetEnemy()
 {
@@ -1948,6 +2030,25 @@ bool CAI_PlayerNPCDummy::QueryHearSound( CSound *pSound )
 	}
 
 	return BaseClass::QueryHearSound( pSound );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return true if this NPC can see the specified entity
+//-----------------------------------------------------------------------------
+bool CAI_PlayerNPCDummy::QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNPC )
+{
+	if ( pEntity->IsNPC() )
+	{
+		// Under regular circumstances, the player should pick up on all NPCs, regardless of relationship.
+		// This is so the player dummy can see commandable soldiers for things like automated HUD hints.
+		if ( bOnlyHateOrFearIfNPC && (pEntity->Classify() == CLASS_BULLSEYE) )
+		{
+			Disposition_t disposition = IRelationType( pEntity );
+			return ( disposition == D_HT || disposition == D_FR );
+		}
+	}
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------

@@ -33,6 +33,17 @@
 #include "weapon_rpg.h"
 #include "rumble_shared.h"
 
+#ifdef EZ
+#include "vphysics/constraints.h"
+#include "physics_saverestore.h"
+#include "weapon_physcannon.h"
+#endif
+
+#ifdef EZ2
+#include "ez2/ez2_player.h"
+#include "ez2/npc_wilson.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -92,6 +103,11 @@ ConVar apc_target_glow( "apc_target_glow", "0", FCVAR_CHEAT );
 ConVar	sk_apc_damage_normal( "sk_apc_damage_normal", "0.15" );
 ConVar	sk_apc_damage_blast( "sk_apc_damage_blast", "0.1" );
 ConVar	sk_apc_damage_vort( "sk_apc_damage_vort", "0.75" );
+
+// APC Interactions
+int	g_interactionAPCConstrain = 0;
+int	g_interactionAPCUnconstrain = 0;
+int	g_interactionAPCBreak = 0;
 #endif
 
 static void SolveBlockingProps( bool bBreakProps, CPropDrivableAPC *pVehicleEntity, IPhysicsObject *pVehiclePhysics );
@@ -116,6 +132,10 @@ BEGIN_DATADESC( CPropDrivableAPC )
 	DEFINE_FIELD( m_bHeadlightIsOn, FIELD_BOOLEAN ),
 #ifdef EZ
 	DEFINE_FIELD( m_Spotlight, FIELD_EHANDLE ),
+
+	DEFINE_PHYSPTR( m_pConstraint ),
+	DEFINE_FIELD( m_hConstrainedEntity, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flConstrainCooldown, FIELD_TIME ),
 #endif
 
 	DEFINE_FIELD( m_iNumberOfEntries, FIELD_INTEGER ),
@@ -158,7 +178,14 @@ BEGIN_DATADESC( CPropDrivableAPC )
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableMove", InputDisableMove ),
 
 #ifdef EZ
-	DEFINE_OUTPUT( m_onOverturned, "OnOverturned" )
+	DEFINE_INPUTFUNC( FIELD_VOID, "HeadlightOn", InputHeadlightOn ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "HeadlightOff", InputHeadlightOff ),
+
+	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ConstrainEntity", InputConstrainEntity ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "UnconstrainEntity", InputUnconstrainEntity ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ConstraintBroken", InputConstraintBroken ),
+
+	DEFINE_OUTPUT( m_onOverturned, "OnOverturned" ),
 #endif
 
 END_DATADESC()
@@ -193,6 +220,11 @@ CPropDrivableAPC::CPropDrivableAPC( void )
 	m_iMachineGunBurstLeft = MACHINE_GUN_BURST_SIZE;
 	m_iRocketSalvoLeft = ROCKET_SALVO_SIZE;
 
+#ifdef EZ
+	m_pConstraint = NULL;
+	m_hConstrainedEntity = NULL;
+#endif
+
 	m_flNextPropAttackTime = 0 ;
 	m_flStopBreakTime = 0;
 	m_bShouldAttackProps = false;
@@ -206,6 +238,158 @@ void CPropDrivableAPC::InputEnableMove( inputdata_t &inputdata )
 {
 	m_bCannotMove = false;
 }
+
+#ifdef EZ
+void CPropDrivableAPC::InputHeadlightOn( inputdata_t &inputdata )
+{
+	HeadlightTurnOn();
+}
+
+void CPropDrivableAPC::InputHeadlightOff( inputdata_t &inputdata )
+{
+	HeadlightTurnOff();
+}
+
+void CPropDrivableAPC::InputConstrainEntity( inputdata_t &inputdata )
+{
+	if (inputdata.value.Entity())
+	{
+		ConstrainEntity( inputdata.value.Entity(), NULL );
+	}
+}
+
+void CPropDrivableAPC::InputUnconstrainEntity( inputdata_t &inputdata )
+{
+	UnconstrainEntity( false, ToBasePlayer(inputdata.pActivator) );
+}
+
+void CPropDrivableAPC::InputConstraintBroken( inputdata_t &inputdata )
+{
+	UnconstrainEntity( true );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CPropDrivableAPC::ConstrainEntity( CBaseEntity *pEntity, CBasePlayer *pPlayer )
+{
+	IPhysicsObject *pOtherPhysics = pEntity->VPhysicsGetObject();
+	if ( !pOtherPhysics )
+		return;
+
+	// Dispatch NPC-specific interaction, returning true means it overrides this behavior
+	if (pEntity->DispatchInteraction( g_interactionAPCConstrain, this, pPlayer ))
+		return;
+
+	if (pPlayer)
+		pPlayer->ForceDropOfCarriedPhysObjects( pEntity );
+
+	PhysDisableEntityCollisions( this, pEntity );
+
+	IPhysicsObject *pPhysics = VPhysicsGetObject();
+
+	Vector vecTopOrigin;
+	QAngle vecTopAngles;
+	matrix3x4_t matTopAttach;
+	GetAttachment( m_nTopAttachAttachment, matTopAttach );
+	MatrixAngles( matTopAttach, vecTopAngles, vecTopOrigin );
+
+	// Teleport the entity to the point
+	pEntity->Teleport( &vecTopOrigin, &vecTopAngles, NULL );
+
+	matrix3x4_t matMinusOne;
+	AngleMatrix( vec3_angle, Vector(0,0,-1), matMinusOne );
+
+	Vector vecNewOrigin;
+	trace_t tr;
+	int i = 0;
+	while (i < 32)
+	{
+		MatrixAngles( matTopAttach, vecTopAngles, vecNewOrigin );
+		UTIL_TraceLine( vecNewOrigin, vecNewOrigin, MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
+		if (!tr.startsolid)
+			break;
+		else
+		{
+			ConcatTransforms( matTopAttach, matMinusOne, matTopAttach );
+		}
+		i++;
+	}
+
+	// Teleport the entity to the corrected point
+	vecTopOrigin += (vecTopOrigin - vecNewOrigin);
+	pEntity->Teleport( &vecTopOrigin, &vecTopAngles, NULL );
+
+	// Test collision. Allow entity to move up to 32 units
+	//matrix3x4_t matTopAttach;
+	//GetAttachment( m_nTopAttachAttachment, matTopAttach );
+	//
+	//matrix3x4_t matPlusOne;
+	//AngleMatrix( vec3_angle, Vector(0,0,1), matPlusOne );
+	//
+	//race_t tr;
+	//nt i = 0;
+	//hile (i < 32)
+	//
+	//	MatrixAngles( matTopAttach, vecTopAngles, vecTopOrigin );
+	//	physcollision->TraceCollide( vecTopOrigin, vecTopOrigin, pOtherPhysics->GetCollide(), vecTopAngles, pPhysics->GetCollide(), GetAbsOrigin(), GetAbsAngles(), &tr );
+	//	if (!tr.startsolid)
+	//		break;
+	//	else
+	//	{
+	//		ConcatTransforms( matTopAttach, matPlusOne, matTopAttach );
+	//	}
+	//	i++;
+	//
+
+	// Constrain it to the vehicle
+	constraint_fixedparams_t fixed;
+	fixed.Defaults();
+	fixed.InitWithCurrentObjectState( pPhysics, pOtherPhysics );
+	fixed.constraint.Defaults();
+	fixed.constraint.forceLimit	= ImpulseScale( pOtherPhysics->GetMass(), 600 );
+	fixed.constraint.torqueLimit = ImpulseScale( pOtherPhysics->GetMass(), 1000 );
+	m_pConstraint = physenv->CreateFixedConstraint( pPhysics, pOtherPhysics, NULL, fixed );
+	m_pConstraint->SetGameData( (void *)this );
+
+	m_hConstrainedEntity = pEntity;
+
+	// Need to compromise for lack of entity name
+	if (GetEntityName() == NULL_STRING)
+		SetName( AllocPooledString(UTIL_VarArgs("apc%i", entindex())) );
+
+	// Not all entities have OnPlayerUse, but there's not much else we can do
+	pEntity->KeyValue( "OnPhysGunPickup", UTIL_VarArgs("%s,UnconstrainEntity,,0,1", STRING(GetEntityName())) );
+
+	pEntity->EmitSound( "PropAPC.AttachEntity" );
+}
+
+void CPropDrivableAPC::UnconstrainEntity( bool bBroken, CBasePlayer *pPlayer )
+{
+	if (m_hConstrainedEntity)
+	{
+		PhysEnableEntityCollisions( this, m_hConstrainedEntity );
+
+		// Dispatch NPC-specific interaction, returning true means it overrides this behavior
+		if (m_hConstrainedEntity->DispatchInteraction( bBroken ? g_interactionAPCBreak : g_interactionAPCUnconstrain, this, pPlayer ))
+			return;
+
+		if (bBroken)
+			m_hConstrainedEntity->EmitSound( "PropAPC.RipEntityOff" );
+		else
+			m_hConstrainedEntity->EmitSound( "PropAPC.DetachEntity" );
+
+		m_hConstrainedEntity = NULL;
+		m_flConstrainCooldown = gpGlobals->curtime;
+	}
+
+	if ( m_pConstraint )
+	{
+		physenv->DestroyConstraint( m_pConstraint );
+		m_pConstraint = NULL;
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -233,6 +417,18 @@ void CPropDrivableAPC::Precache( void )
 
 #ifdef EZ // Blixibon - APC spotlight
 	UTIL_PrecacheOther( "point_spotlight" );
+
+	PrecacheScriptSound( "PropAPC.AttachEntity" );
+	PrecacheScriptSound( "PropAPC.DetachEntity" );
+	PrecacheScriptSound( "PropAPC.RipEntityOff" );
+
+	// Interactions
+	if (g_interactionAPCConstrain == 0)
+	{
+		g_interactionAPCConstrain = CBaseCombatCharacter::GetInteractionID();
+		g_interactionAPCUnconstrain = CBaseCombatCharacter::GetInteractionID();
+		g_interactionAPCBreak = CBaseCombatCharacter::GetInteractionID();
+	}
 #endif
 
 	BaseClass::Precache();
@@ -341,6 +537,7 @@ void CPropDrivableAPC::Activate()
 	m_nMachineGunBaseAttachment = LookupAttachment( "gun_base" );
 #ifdef EZ
 	m_nSpotlightAttachment = LookupAttachment( "headlight" );
+	m_nTopAttachAttachment = LookupAttachment( "top_attach" );
 #endif
 }
 
@@ -429,6 +626,12 @@ int CPropDrivableAPC::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 		//Take no damage from physics damages
 		if ( info.GetDamageType() & DMG_CRUSH )
 			return 0;
+
+#ifdef EZ
+		// Take no damage from goo puddles
+		if ( info.GetInflictor() && FClassnameIs(info.GetInflictor(), "zombie_goo_puddle") )
+			return 0;
+#endif
 
 		//We want to get more damage from vortigaunts
 		if ( info.GetDamageType() == DMG_SHOCK )
@@ -692,6 +895,30 @@ void CPropDrivableAPC::Think(void)
 	if ( !IsOverturned() )
 	{
 		m_flOverturnedTime = 0.0f;
+
+#ifdef EZ
+		if (!m_pConstraint && gpGlobals->curtime - m_flConstrainCooldown > 2.0f && m_nTopAttachAttachment != 0)
+		{
+			// Check if the player is holding something
+			CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+			if (pPlayer && pPlayer->GetUseEntity())
+			{
+				CBaseEntity *pEntity = GetPlayerHeldEntity( pPlayer );
+				if (!pEntity)
+					PhysCannonGetHeldEntity( pPlayer->GetActiveWeapon() );
+
+				if (pEntity)
+				{
+					Vector vecTop;
+					GetAttachment( m_nTopAttachAttachment, vecTop );
+					if (vecTop.DistToSqr(pEntity->GetAbsOrigin()) <= Square(32.0f))
+					{
+						ConstrainEntity( pEntity, pPlayer );
+					}
+				}
+			}
+		}
+#endif
 	}
 	else
 	{
@@ -700,6 +927,11 @@ void CPropDrivableAPC::Think(void)
 		{
 			// Fire an output
 			m_onOverturned.FireOutput( this, this, 0 );
+
+#ifdef EZ2
+			if (m_hPlayer)
+				static_cast<CEZ2_Player*>(m_hPlayer.Get())->Event_VehicleOverturned( this );
+#endif
 		}
 #endif
 
@@ -1264,8 +1496,14 @@ void CPropDrivableAPC::CreateDangerSounds( void )
 		const float radius = speed * 1.1;
 		// 0.3 seconds ahead of the jeep
 		vecSpot = vecStart + vecDir * (speed * 0.3f);
+#ifdef EZ
+		// Blixibon - Corrected APC danger sounds
+		CSoundEnt::InsertSound( SOUND_DANGER, vecSpot, radius, soundDuration, this, 0 );
+		CSoundEnt::InsertSound( SOUND_PHYSICS_DANGER, vecSpot, radius, soundDuration, this, 1 );
+#else
 		CSoundEnt::InsertSound( SOUND_DANGER, vecSpot, radius, soundDuration, NULL, 0 );
 		CSoundEnt::InsertSound( SOUND_PHYSICS_DANGER, vecSpot, radius, soundDuration, NULL, 1 );
+#endif
 		//NDebugOverlay::Box(vecSpot, Vector(-radius,-radius,-radius),Vector(radius,radius,radius), 255, 0, 255, 0, soundDuration);
 
 #if 0
@@ -1454,6 +1692,13 @@ void CPropDrivableAPC::OnRestore( void )
 		// Restore the passenger information we're holding on to
 		pServerVehicle->RestorePassengerInfo();
 	}
+
+#ifdef EZ2
+	if ( m_hConstrainedEntity )
+	{
+		PhysDisableEntityCollisions( this, m_hConstrainedEntity );
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------

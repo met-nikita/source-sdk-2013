@@ -408,13 +408,20 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	// Add this to our lists
 	if (hopwire_spawn_life.GetInt() == 1)
 	{
+		bool bCountAsNPC = pEnt->IsNPC();
 		string_t iszClassName = pEnt->m_iClassname;
 		if (iszClassName != NULL_STRING)
 		{
-			if (FClassnameIs(pEnt, "prop_ragdoll"))
+			if (pRagdoll && pRagdoll->GetSourceClassName() != NULL_STRING)
 			{
 				// Use the ragdoll's source classname
-				iszClassName = static_cast<CRagdollProp*>(pEnt)->GetSourceClassName();
+				iszClassName = pRagdoll->GetSourceClassName();
+				bCountAsNPC = true;
+			}
+			else if (FClassnameIs( pEnt, "combine_mine" ))
+			{
+				// Mines are to be considered NPCs so they can spawn monsters
+				bCountAsNPC = true;
 			}
 
 			short iC = m_ClassMass.Find( iszClassName );
@@ -457,7 +464,7 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 			}
 		}
 
-		if ((pRagdoll && pRagdoll->GetSourceClassName() != NULL_STRING) || pEnt->IsNPC())
+		if (bCountAsNPC)
 			m_iSuckedNPCs++;
 		else
 			m_iSuckedProps++;
@@ -476,6 +483,10 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	// Blixibon - Things like turrets use looping sounds that need to be interrupted
 	// before being removed, otherwise they play forever
 	pEnt->EmitSound( "AI_BaseNPC.SentenceStop" );
+
+	// Some NPCs are sucked up before they ragdoll, which stops them from dying. Stop them from breaking stuff.
+	if (pEnt->MyNPCPointer())
+		pEnt->FireNamedOutput( "OnDeath", variant_t(), this, pEnt );
 #else
 	// Ragdolls need to report the sum of all their parts
 	CRagdollProp *pRagdoll = dynamic_cast< CRagdollProp* >( pEnt );
@@ -727,7 +738,7 @@ void CGravityVortexController::CreateXenLife()
 		if (m_iSuckedProps <= 0)
 			flNPCToPropRatio = 1.0f;
 		else
-			flNPCToPropRatio = (float)m_iSuckedNPCs / (float)m_iSuckedProps;
+			flNPCToPropRatio = (float)m_iSuckedNPCs / (float)(m_iSuckedNPCs + m_iSuckedProps);
 	}
 
 	set.AppendCriteria( "npc_to_prop_ratio", CNumStr( flNPCToPropRatio ) );
@@ -925,8 +936,8 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 	{
 		if (FStrEq(szClass, "npc_zassassin"))
 		{
-			Warning("Stopping spoiler NPC from loading due to ez2_spoilers_enabled; replacing with npc_zombie\n");
-			szClass = "npc_zombie";
+			Warning("Stopping spoiler NPC from loading due to ez2_spoilers_enabled; replacing with npc_zombigaunt\n");
+			szClass = "npc_zombigaunt";
 		}
 	}
 
@@ -997,7 +1008,7 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 		if (m_HullMap.Element(i) & hull && (m_HullMap.Key(i).LengthSqr() < flBestDistSqr))
 		{
 			// See if we could actually fit at this space
-			Vector vecSpace = GetAbsOrigin() + m_HullMap.Key(i);
+			Vector vecSpace = GetAbsOrigin() - m_HullMap.Key(i);
 			Vector vUpBit = vecSpace;
 			vUpBit.z += 1;
 			AI_TraceHull( vecSpace, vUpBit, vecHullMins, vecHullMaxs,
@@ -1053,23 +1064,7 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 	pEntity->CBaseEntity::Teleport( &vecBestSpace, NULL, NULL );
 
 	// Now that the XenPC was created successfully, play a sound and display a particle effect
-	pEntity->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
-	DispatchParticleEffect( "xenpc_spawn", pEntity->WorldSpaceCenter(), pEntity->GetAbsAngles(), pEntity );
-
-	CBeam *pBeam = CBeam::BeamCreate( "sprites/rollermine_shock.vmt", 4 );
-	if ( pBeam != NULL )
-	{
-		pBeam->EntsInit( pEntity, this );
-
-		pBeam->SetEndWidth( 8 );
-		pBeam->SetNoise( 4 );
-		pBeam->LiveForTime( 0.3f );
-		
-		pBeam->SetWidth( 1 );
-		pBeam->SetBrightness( 255 );
-		pBeam->SetColor( 0, 255, 0 );
-		pBeam->RelinkBeam();
-	}
+	XenSpawnEffects( pEntity );
 
 	// XenPC - ACTIVATE! Especially important for antlion glows
 	pEntity->Activate();
@@ -1168,6 +1163,27 @@ void CGravityVortexController::ParseKeyValues( CBaseEntity *pEntity, const char 
 				pEntity->KeyValue( vecParams[i], vecParams[i+1] );
 			}
 		}
+	}
+}
+
+void CGravityVortexController::XenSpawnEffects( CBaseEntity *pEntity )
+{
+	pEntity->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
+	DispatchParticleEffect( "xenpc_spawn", pEntity->WorldSpaceCenter(), pEntity->GetAbsAngles(), pEntity );
+
+	CBeam *pBeam = CBeam::BeamCreate( "sprites/rollermine_shock.vmt", 4 );
+	if ( pBeam != NULL )
+	{
+		pBeam->EntsInit( pEntity, this );
+
+		pBeam->SetEndWidth( 8 );
+		pBeam->SetNoise( 4 );
+		pBeam->LiveForTime( 0.3f );
+		
+		pBeam->SetWidth( 1 );
+		pBeam->SetBrightness( 255 );
+		pBeam->SetColor( 0, 255, 0 );
+		pBeam->RelinkBeam();
 	}
 }
 
@@ -1377,6 +1393,10 @@ void CGravityVortexController::PullThink( void )
 		// Hackhack - don't suck voltigores
 		// TODO Improve this
 		if ( FClassnameIs( pEnts[i], "npc_voltigore_projectile" ) || FClassnameIs( pEnts[i], "npc_voltigore" ))
+			continue;
+
+		// Don't pull objects that are protected
+		if ( pEnts[i]->IsDisplacementImpossible() )
 			continue;
 
 		Vector	vecForce = GetAbsOrigin() - pEnts[i]->WorldSpaceCenter();

@@ -120,6 +120,9 @@ public:
 	virtual void OnSpokeConcept( AIConcept_t concept, AI_Response *response )	{};
 	virtual void OnStartSpeaking()						{}
 	virtual bool UseSemaphore()							{ return true; }
+#ifdef EZ2
+	virtual void PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response ) { return; }
+#endif
 };
 
 struct ConceptHistory_t
@@ -355,18 +358,7 @@ template <class BASE_NPC>
 inline bool CAI_ExpresserHost<BASE_NPC>::Speak( AIConcept_t concept, const char *modifiers /*= NULL*/, char *pszOutResponseChosen /*=NULL*/, size_t bufsize /* = 0 */, IRecipientFilter *filter /* = NULL */ ) 
 {
 	AssertOnce( this->GetExpresser()->GetOuter() == this );
-#ifdef EZ2
-	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
-	if ( this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ) )
-	{
-		PostSpeakDispatchResponse( concept, NULL );
-		return true;
-	}
-
-	return false;
-#else
 	return this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ); 
-#endif
 }
 
 #ifdef MAPBASE
@@ -377,18 +369,7 @@ template <class BASE_NPC>
 inline bool CAI_ExpresserHost<BASE_NPC>::Speak( AIConcept_t concept, AI_CriteriaSet& modifiers, char *pszOutResponseChosen /*=NULL*/, size_t bufsize /* = 0 */, IRecipientFilter *filter /* = NULL */ ) 
 {
 	AssertOnce( this->GetExpresser()->GetOuter() == this );
-#ifdef EZ2
-	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
-	if ( this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ) )
-	{
-		PostSpeakDispatchResponse( concept, NULL );
-		return true;
-	}
-
-	return false;
-#else
 	return this->GetExpresser()->Speak( concept, modifiers, pszOutResponseChosen, bufsize, filter ); 
-#endif
 }
 #endif
 

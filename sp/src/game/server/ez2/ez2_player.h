@@ -31,6 +31,7 @@ class CEZ2_Player;
 #define TLK_KILLED_ALLY "TLK_KILLED_ALLY" // Bad Cop killed an ally (intention ambiguous)
 #define TLK_DISPLACER_RELEASE "TLK_DISPLACER_RELEASE" // Bad Cop released an entity via the displacer pistol
 #define TLK_SCANNER_FLASH "TLK_SCANNER_FLASH" // Bad Cop was flashed by a scanner
+#define TLK_VEHICLE_OVERTURNED "TLK_VEHICLE_OVERTURNED" // Bad Cop's vehicle was overturned
 
 //=============================================================================
 // >> EZ2_PLAYERMEMORY
@@ -165,6 +166,8 @@ public:
 	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
 	void			Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity );
 
+	void			Event_VehicleOverturned( CBaseEntity *pVehicle );
+
 	// Blixibon - StartScripting for gag replacement
 	inline bool			IsInAScript( void ) { return m_bInAScript; }
 	inline void			SetInAScript( bool bScript ) { m_bInAScript = bScript; }
@@ -179,6 +182,9 @@ public:
 	void				MeasureEnemies(int &iVisibleEnemies, int &iCloseEnemies);
 
 	bool				ReactToSound( CSound *pSound, float flDist );
+
+	void				ShowCommandHint( CAI_BaseNPC *pNPC );
+	void				HideCommandHint();
 
 	CBaseEntity*		GetStaringEntity() { return m_hStaringEntity.Get(); }
 	void				SetStaringEntity(CBaseEntity *pEntity) { return m_hStaringEntity.Set(pEntity); }
@@ -236,6 +242,9 @@ private:
 	float			m_flCurrentStaringTime;
 	QAngle			m_angLastStaringEyeAngles;
 
+	float			m_flNextCommandHintTime;
+	float			m_flLastCommandHintTime;
+
 	CHandle<CAI_PlayerNPCDummy> m_hNPCComponent;
 	float			m_flNextSpeechTime;
 	CHandle<CAI_SpeechFilter>	m_hSpeechFilter;
@@ -278,6 +287,7 @@ public:
 	// Base class's sound interests include combat and danger, add relevant scents onto it
 	int		GetSoundInterests( void ) { return BaseClass::GetSoundInterests() | SOUND_PHYSICS_DANGER | SOUND_CARCASS | SOUND_MEAT; }
 	bool	QueryHearSound( CSound *pSound );
+	bool	QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNPC = false );
 
 	bool	UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
 
