@@ -336,6 +336,9 @@ void CWeaponSMG2::BurstAttack( int burstSize, float cycleRate )
 
 	m_nShotsFired++;
 
+	// Send the animation early to properly handle recoil animation
+	SendWeaponAnim( GetPrimaryAttackActivity() );
+
 	pPlayer->DoMuzzleFlash();
 
 	// To make the firing framerate independent, we may have to fire more than one bullet here on low-framerate systems, 
@@ -362,6 +365,7 @@ void CWeaponSMG2::BurstAttack( int burstSize, float cycleRate )
 		// If the burst count is greater than the burst size, wait for the cycle rate and adjust
 		if (m_iBurstSize >= burstSize) {
 			m_iBurstSize = 0;
+			m_nShotsFired = 0; // Reset the shots fired counter so the correct activity plays
 			m_flNextPrimaryAttack = m_flNextPrimaryAttack + cycleRate;
 			m_flNextSecondaryAttack = m_flNextPrimaryAttack + cycleRate; // SMG2 shares primary attack between primary and secondary
 		}
@@ -409,7 +413,6 @@ void CWeaponSMG2::BurstAttack( int burstSize, float cycleRate )
 		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 	}
 
-	SendWeaponAnim(GetPrimaryAttackActivity());
 	pPlayer->SetAnimation(PLAYER_ATTACK1);
 
 	// Register a muzzleflash for the AI
@@ -500,5 +503,11 @@ void CWeaponSMG2::ItemPostFrame(void)
 		{
 			WeaponIdle();
 		}
+	}
+
+	// Debounce the recoiling counter
+	if ((pOwner->m_nButtons & IN_ATTACK) == false)
+	{
+		m_nShotsFired = 0;
 	}
 }
