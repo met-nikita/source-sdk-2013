@@ -347,7 +347,7 @@ void CPropDrivableAPC::ConstrainEntity( CBaseEntity *pEntity, CBasePlayer *pPlay
 	fixed.Defaults();
 	fixed.InitWithCurrentObjectState( pPhysics, pOtherPhysics );
 	fixed.constraint.Defaults();
-	fixed.constraint.forceLimit	= ImpulseScale( pOtherPhysics->GetMass(), 400 );
+	fixed.constraint.forceLimit	= ImpulseScale( pOtherPhysics->GetMass(), 600 );
 	fixed.constraint.torqueLimit = ImpulseScale( pOtherPhysics->GetMass(), 1000 );
 	m_pConstraint = physenv->CreateFixedConstraint( pPhysics, pOtherPhysics, NULL, fixed );
 	m_pConstraint->SetGameData( (void *)this );
