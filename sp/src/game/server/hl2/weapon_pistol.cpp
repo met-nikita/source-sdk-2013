@@ -20,6 +20,10 @@
 #include "vstdlib/random.h"
 #include "gamestats.h"
 
+#ifdef EZ
+#include "beam_shared.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -421,6 +425,17 @@ void CWeaponPistol::AddViewKick( void )
 #define	PULSE_PISTOL_FASTEST_DRY_REFIRE_TIME	1.5f
 #define	PULSE_PISTOL_ACCURACY_MAXIMUM_PENALTY_TIME	3.5f
 
+enum PulsePistolStyle
+{
+	DEFAULT = 0,
+	PRIMARY_CHARGE,
+	LANCE_NO_CHARGE,
+	SELECT_FIRE
+};
+
+ConVar sk_plr_dmg_pulse_lance( "sk_plr_dmg_pulse_lance", "15" );
+ConVar sv_pulse_pistol_style( "sv_pulse_pistol_style", "2", FCVAR_NONE, "Style of pulse pistol altfire: 0) Default 1) Charge 2) Lance" );
+ConVar sv_pulse_lance_style( "sv_pulse_lance_style", "0", FCVAR_NONE, "Style of pulse lance: 0) Vortigaunt 1) Stalker" );
 
 //-----------------------------------------------------------------------------
 // CWeaponPulsePistol, the famous melee replacement taken to a separate class.
@@ -436,9 +451,12 @@ public:
 	void	Precache();
 	void	ItemPostFrame( void );
 	void	PrimaryAttack( void );
-	void	SecondaryAttack( void );
+	void	SecondaryAttack();
+	void	ChargeAttack( void );
 	void	AddViewKick( void );
 	void	DryFire( void );
+
+	void	Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
 
 	virtual bool Reload( void ) { return false; } // The pulse pistol does not reload
 
@@ -488,6 +506,8 @@ public:
 	void	SetChargeEffectBrightness( float alpha );
 	void	KillChargeEffects();
 
+	void	CreateBeamBlast( const Vector &vecOrigin );
+
 protected:
 	CHandle<CSprite>	m_hChargeSprite;
 
@@ -520,6 +540,12 @@ void CWeaponPulsePistol::Precache( void )
 {
 	PrecacheModel( "effects/fluttercore.vmt" );
 
+	// TEMP assets
+	// Until we know what the alt-fire is going to look like, let's just
+	// steal all the assets from these two NPCs.
+	UTIL_PrecacheOther( "npc_vortigaunt" );
+	UTIL_PrecacheOther( "npc_stalker" );
+
 	BaseClass::Precache();
 }
 
@@ -542,8 +568,26 @@ void CWeaponPulsePistol::ItemPostFrame( void )
 {
 	// Charge up and fire attack
 	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+
+	bool chargePressed = false;
+	switch ( sv_pulse_pistol_style.GetInt() )
+	{
+	case PRIMARY_CHARGE:
+		chargePressed = (pOwner->m_nButtons & IN_ATTACK) > 0;
+		break;
+	case LANCE_NO_CHARGE:
+		break;
+	case SELECT_FIRE:
+		// UNIMPLEMENTED
+		DevMsg( "Select fire mode not implemented yet!\n" );
+		break;
+	default:
+		chargePressed = (pOwner->m_nButtons & IN_ATTACK2) > 0;
+		break;
+	}
+
 	// Player has released attack 2 and there is more than 1 ammo charged to fire
-	if (!(pOwner->m_nButtons & IN_ATTACK2) && ( m_nChargeAttackAmmo > 0 ) && (m_flNextPrimaryAttack <= gpGlobals->curtime) )
+	if (!chargePressed && ( m_nChargeAttackAmmo > 0 ) && (m_flNextPrimaryAttack <= gpGlobals->curtime) )
 	{
 		// Reset the next attack to the current time to avoid multiple shots queuing up
 		m_flNextPrimaryAttack = gpGlobals->curtime;
@@ -556,16 +600,22 @@ void CWeaponPulsePistol::ItemPostFrame( void )
 
 		return;
 	}
-	else if ((pOwner->m_nButtons & IN_ATTACK2) )
+	else if (chargePressed || ( m_nChargeAttackAmmo > 0 ) )
 	{
 		// Charge the next shot
-		SecondaryAttack();
+		ChargeAttack();
 		return;
 	}
 	// If the charge up and fire wasn't either charged or shot this frame, reset so the gun doesn't go off unexpectedly
 	m_nChargeAttackAmmo = 0;
 
 	RechargeAmmo();
+
+	// Debounce the recoiling counter
+	if ((pOwner->m_nButtons & IN_ATTACK) == false)
+	{
+		m_nShotsFired = 0;
+	}
 
 	BaseClass::ItemPostFrame();
 }
@@ -580,6 +630,26 @@ void CWeaponPulsePistol::DryFire( void )
 
 	m_flSoonestPrimaryAttack	= gpGlobals->curtime + PULSE_PISTOL_FASTEST_DRY_REFIRE_TIME;
 	m_flNextPrimaryAttack		= gpGlobals->curtime + SequenceDuration();
+}
+
+// Hackhack - For some reason this animation event resolves to 124 when Cyonsia uses it in the viewmodel. Why?
+#define	AE_WPN_INCREMENTAMMO 124
+
+//-----------------------------------------------------------------------------
+// Purpose: Override AE_WPN_INCREMENTAMMO to make sure one pulse round is
+//		'chambered' and play the reload sound
+//-----------------------------------------------------------------------------
+void CWeaponPulsePistol::Operator_HandleAnimEvent( animevent_t * pEvent, CBaseCombatCharacter * pOperator )
+{
+	switch (pEvent->event)
+	{
+	case AE_WPN_INCREMENTAMMO:
+		m_iClip1 = MAX( m_iClip1, 10 );
+		WeaponSound( RELOAD, m_flNextPrimaryAttack );
+		break;
+	}
+
+	BaseClass::Operator_HandleAnimEvent( pEvent, pOperator );
 }
 
 
@@ -778,7 +848,7 @@ void CWeaponPulsePistol::PrimaryAttack( void )
 //-----------------------------------------------------------------------------
 // Purpose: Charge shot with ammo
 //-----------------------------------------------------------------------------
-void CWeaponPulsePistol::SecondaryAttack( void )
+void CWeaponPulsePistol::ChargeAttack( void )
 {
 	int nMaxCharge = 40;
 	// If there is only one shot left or the charge has reached maximum, do not charge!
@@ -933,6 +1003,114 @@ void CWeaponPulsePistol::KillChargeEffects()
 		m_hChargeSprite = NULL;
 	}
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: Heavy damage directly forward
+// Input  : nHand - Handedness of the beam
+//-----------------------------------------------------------------------------
+void CWeaponPulsePistol::SecondaryAttack()
+{
+	CBasePlayer *pPlayer  = ToBasePlayer( GetOwner() );
+
+	float refireModifier = sv_pulse_lance_style.GetInt() == 1 ? 0.25 : 1;
+
+	if (pPlayer == NULL)
+		return;
+
+	//DoMuzzleFlash();
+
+	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
+
+	if (!m_iClip1 && pPlayer->GetAmmoCount( m_iPrimaryAmmoType ) <= 0)
+	{
+		// HEV suit - indicate out of ammo condition
+		pPlayer->SetSuitUpdate( "!HEV_AMO0", FALSE, 0 );
+	}
+
+	SendWeaponAnim( GetPrimaryAttackActivity() );
+	pPlayer->SetAnimation( PLAYER_ATTACK1 );
+
+	// Register a muzzleflash for the AI
+	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+
+	m_iSecondaryAttacks++;
+	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+
+	m_flNextSecondaryAttack = gpGlobals->curtime + ( PULSE_PISTOL_FASTEST_REFIRE_TIME * refireModifier );
+
+	// Slow down ammo recharge
+	m_flLastChargeTime = gpGlobals->curtime;
+
+	// Fire the beam
+	Vector forward;
+	GetVectors( &forward, NULL, NULL );
+	float maxRange = 100.0f;
+
+	Vector vecSrc = pPlayer->Weapon_ShootPosition();
+	Vector vecAim = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+
+	trace_t tr;
+
+	AI_TraceLine( vecSrc, vecSrc + (vecAim * maxRange), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
+
+	// Check to store off our view model index
+	CBeam *pBeam = CBeam::BeamCreate( "sprites/laser.vmt", 2.0 );
+
+	if (pBeam != NULL)
+	{
+		pBeam->PointEntInit( tr.endpos, this );
+		pBeam->SetEndAttachment( 1 );
+		pBeam->SetWidth( 3.0 );
+		pBeam->SetEndWidth( 12.8 );
+		pBeam->SetBrightness( 255 );
+		pBeam->SetColor( 255, 0, 0 );
+		pBeam->LiveForTime( 0.1f );
+		pBeam->RelinkBeam();
+	}
+
+	UTIL_DecalTrace( &tr, "RedGlowFade" );
+	UTIL_DecalTrace( &tr, "FadingScorch" );
+
+	CBaseEntity *pEntity = tr.m_pEnt;
+	if (pEntity != NULL && m_takedamage)
+	{
+		int dmgType = sv_pulse_lance_style.GetInt() == 1 ? DMG_BURN :  DMG_SHOCK | DMG_DISSOLVE;
+
+		CTakeDamageInfo dmgInfo( this, this, sk_plr_dmg_pulse_lance.GetFloat() * refireModifier, dmgType );
+		dmgInfo.SetDamagePosition( tr.endpos );
+		VectorNormalize( vecAim );// not a unit vec yet
+								  // hit like a 5kg object flying 100 ft/s
+		dmgInfo.SetDamageForce( 5 * 100 * 12 * vecAim );
+
+		// Send the damage to the recipient
+		pEntity->DispatchTraceAttack( dmgInfo, vecAim, &tr );
+	}
+
+	// Create a cover for the end of the beam
+	CreateBeamBlast( tr.endpos );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Creates a blast where the beam has struck a target
+// Input  : &vecOrigin - position to eminate from
+//-----------------------------------------------------------------------------
+void CWeaponPulsePistol::CreateBeamBlast( const Vector &vecOrigin )
+{
+	CSprite *pBlastSprite = CSprite::SpriteCreate( "sprites/redglow1.vmt", GetAbsOrigin(), FALSE );
+	if (pBlastSprite != NULL)
+	{
+		pBlastSprite->SetTransparency( kRenderTransAddFrameBlend, 255, 255, 255, 255, kRenderFxNone );
+		pBlastSprite->SetBrightness( 255 );
+		pBlastSprite->SetScale( random->RandomFloat( 0.5f, 0.75f ) );
+		pBlastSprite->AnimateAndDie( 45.0f );
+		
+		pBlastSprite->EmitSound( "NPC_Vortigaunt.Explode" );
+	}
+
+	CPVSFilter filter( vecOrigin );
+	te->GaussExplosion( filter, 0.0f, vecOrigin, Vector( 0, 0, 1 ), 0 );
+}
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
