@@ -1857,6 +1857,16 @@ void UTIL_PrecacheOther( const char *szClassname, const char *modelName )
 //-----------------------------------------------------------------------------
 void UTIL_PrecacheXenVariant( const char *szClassname )
 {
+	UTIL_PrecacheEZVariant( szClassname, CAI_BaseNPC::EZ_VARIANT_XEN );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *szClassname - 
+//			*modelName - 
+//-----------------------------------------------------------------------------
+void UTIL_PrecacheEZVariant( const char *szClassname, int ezvariant )
+{
 #if defined( PRECACHE_OTHER_ONCE )
 	// already done this one?, if not, mark as done
 	if (!g_PrecacheOtherList.AddOrMarkPrecached( szClassname ))
@@ -1873,7 +1883,7 @@ void UTIL_PrecacheXenVariant( const char *szClassname )
 	// If this entity is an NPC, apply the EZ variant to the NPC before precaching
 	if (pEntity->MyNPCPointer() != NULL)
 	{
-		pEntity->MyNPCPointer()->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
+		pEntity->MyNPCPointer()->m_tEzVariant = (CAI_BaseNPC::EZ_VARIANT) ezvariant;
 	}
 
 	if (pEntity)

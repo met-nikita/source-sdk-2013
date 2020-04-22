@@ -421,6 +421,7 @@ bool UTIL_TestPrecacheOther( const char *szClassname, const char *modelName = NU
 #ifdef EZ
 // allows precacheing of other entities with a specific Entropy : Zero variant
 void UTIL_PrecacheXenVariant( const char *szClassname );
+void UTIL_PrecacheEZVariant( const char *szClassname, int ezvariant );
 #endif
 
 // prints a message to each client

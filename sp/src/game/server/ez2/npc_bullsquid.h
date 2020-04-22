@@ -75,7 +75,9 @@ public:
 	bool		CorpseGib( const CTakeDamageInfo &info );
 	void		ExplosionEffect( void );
 
-	bool SpawnNPC( const Vector position );
+	bool SpawnNPC( const Vector position, const QAngle angle );
+	bool SpawnEgg( const Vector position, const QAngle angle );
+	bool SpawnLive( const Vector position );
 
 	DEFINE_CUSTOM_AI;
 
