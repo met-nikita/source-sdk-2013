@@ -2102,7 +2102,7 @@ bool CHL2_Player::CommanderExecuteOne( CAI_BaseNPC *pNpc, const commandgoal_t &g
 #ifdef EZ
 		// 1upD - If this is a recall order, try to play the 'recall squad' viewmodel animation
 		if ( GetActiveWeapon() && goal.m_pGoalEntity == this && sv_command_viewmodel_anims.GetBool()) {
-			GetActiveWeapon()->SendViewModelAnim(ACT_VM_COMMAND_RECALL);
+			GetActiveWeapon()->SendWeaponAnim( ACT_VM_COMMAND_RECALL );
 		}
 		
 		// 1upD - Fire player proxy output
@@ -2116,7 +2116,7 @@ bool CHL2_Player::CommanderExecuteOne( CAI_BaseNPC *pNpc, const commandgoal_t &g
 #ifdef EZ
 		// 1upD - Try to play the 'send squad' viewmodel animation
 		if (GetActiveWeapon() && sv_command_viewmodel_anims.GetBool()) {
-			GetActiveWeapon()->SendViewModelAnim(ACT_VM_COMMAND_SEND);
+			GetActiveWeapon()->SendWeaponAnim( ACT_VM_COMMAND_SEND );
 		}
 
 		// 1upD - Fire player proxy output
