@@ -13304,6 +13304,13 @@ bool CAI_BaseNPC::MovementCost( int moveType, const Vector &vecStart, const Vect
 	return false;
 }
 
+#ifdef EZ2
+float CAI_BaseNPC::HintCost( int iHint, float dist, Vector &vecEnd )
+{
+	return dist;
+}
+#endif
+
 bool CAI_BaseNPC::OverrideMoveFacing( const AILocalMoveGoal_t &move, float flInterval )
 {
 	return false;

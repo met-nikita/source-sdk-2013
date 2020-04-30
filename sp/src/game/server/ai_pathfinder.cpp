@@ -348,6 +348,13 @@ AI_Waypoint_t *CAI_Pathfinder::FindBestPath(int startID, int endID)
 			Vector r2 = pAInode[testID]->GetPosition(GetHullType());
 			float dist   = GetOuter()->GetNavigator()->MovementCost( moveType, r1, r2 ); // MovementCost takes ref parameters!!
 
+#ifdef EZ2
+			if ( pAInode[testID]->GetHint() != NULL )
+			{
+				dist = GetOuter()->GetNavigator()->HintCost( pAInode[testID]->GetHint()->HintType(), dist, r2 );
+			}
+#endif
+
 			if ( dist == FLT_MAX )
 				continue;
 

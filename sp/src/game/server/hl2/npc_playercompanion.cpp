@@ -3655,6 +3655,57 @@ bool CNPC_PlayerCompanion::MovementCost( int moveType, const Vector &vecStart, c
 	return bResult;
 }
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: Modify heuristic cost of a path between two nodes based on hint
+//-----------------------------------------------------------------------------
+float CNPC_PlayerCompanion::HintCost( int iHint, float dist, Vector &vecEnd )
+{
+	// 1024 units seems like a very steep cost! But I've found the effects otherwise are subtle.
+	// A penalty cost of 1024 means companions are willing to choose a route 1024 units longer 
+	// if their path contains a disadvantaged pinch point
+	float penaltyCost = 1024.0f;
+	int penalties = 0;
+
+	if ( iHint == HINT_TACTICAL_ENEMY_DISADVANTAGED )
+	{
+		penalties++;
+	}
+	else if ( iHint == HINT_TACTICAL_PINCH && GetEnemy() )
+	{
+		if ( !BaseClass::IsCoverPosition( GetEnemy()->EyePosition(), vecEnd ) )
+		{
+			penalties++;
+			DevMsg( "PATH PENALTY! Enemy can see pinch point!\n" );
+		}
+
+		if ( GetSquad() )
+		{
+			AISquadIter_t iter;
+			CAI_BaseNPC *pSquadmate = m_pSquad->GetFirstMember( &iter );
+			while (pSquadmate)
+			{
+				if ( pSquadmate != this )
+				{
+					float distCurSq;
+
+					distCurSq = ( vecEnd - pSquadmate->GetAbsOrigin() ).Length();
+
+					if ( distCurSq < 256 )
+					{
+						penalties++;
+					}
+				}
+
+				pSquadmate = m_pSquad->GetNextMember( &iter );
+			}
+		}
+	}
+
+	return BaseClass::HintCost( iHint, dist, vecEnd ) + ( penalties * 1024.0f );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 float CNPC_PlayerCompanion::GetIdealSpeed() const

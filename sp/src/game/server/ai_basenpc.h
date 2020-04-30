@@ -1436,6 +1436,9 @@ public:
 	
 	// NPCs can override this to tweak with how costly particular movements are
 	virtual	bool		MovementCost( int moveType, const Vector &vecStart, const Vector &vecEnd, float *pCost );
+#ifdef EZ2
+	virtual float		HintCost( int iHint, float dist, Vector &vecEnd );
+#endif
 
 	// Turns a directional vector into a yaw value that points down that vector.
 	float				VecToYaw( const Vector &vecDir );

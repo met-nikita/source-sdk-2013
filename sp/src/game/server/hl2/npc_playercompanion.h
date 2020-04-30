@@ -322,6 +322,9 @@ public:
 	bool 			ValidateNavGoal();
 	bool 			OverrideMove( float flInterval );				// Override to take total control of movement (return true if done so)
 	bool			MovementCost( int moveType, const Vector &vecStart, const Vector &vecEnd, float *pCost );
+#ifdef EZ2
+	virtual float	HintCost( int iHint, float dist, Vector &vecEnd );
+#endif
 	float			GetIdealSpeed() const;
 	float			GetIdealAccel() const;
 	bool			OnObstructionPreSteer( AILocalMoveGoal_t *pMoveGoal, float distClear, AIMoveResult_t *pResult );
