@@ -23,6 +23,7 @@
 #include "tier0/memdbgon.h"
 
 ConVar ai_debug_predator( "ai_debug_predator", "0" );
+ConVar sv_predator_heal_render_effects( "sv_predator_heal_render_effects", "1", FCVAR_NONE, "Should predators like bullsquids turn green after healing?" );
 
 LINK_ENTITY_TO_CLASS( npc_basepredator, CNPC_BasePredator );
 
@@ -88,6 +89,21 @@ CNPC_BasePredator::CNPC_BasePredator()
 #endif
 }
 
+//=========================================================
+// Precache - precaches all resources this monster needs
+//=========================================================
+void CNPC_BasePredator::Precache()
+{
+	// Use this gib particle system to any predator healing
+	// TODO - do we need different particles for different species?
+	// TODO - should ALL NPCs use this particle?
+	PrecacheParticleSystem( "bullsquid_heal" );
+	PrecacheScriptSound( "npc_basepredator.heal" );
+	PrecacheModel( "sprites/vortring1.vmt" );
+
+	BaseClass::Precache();
+}
+
 void CNPC_BasePredator::Activate( void )
 {
 	BaseClass::Activate();
@@ -126,6 +142,34 @@ int CNPC_BasePredator::TranslateSchedule( int scheduleType )
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
+}
+
+//=========================================================
+// Show effects when this predator regains health
+// TODO Should this apply to ALL NPCs?
+//=========================================================
+void CNPC_BasePredator::HealEffects( void )
+{
+	DispatchParticleEffect( "bullsquid_heal", WorldSpaceCenter(), GetAbsAngles() );
+	EmitSound( "npc_basepredator.heal" );
+	RemoveAllDecals();
+
+	CSprite *pBlastSprite = CSprite::SpriteCreate( "sprites/vortring1.vmt", WorldSpaceCenter(), true );
+	if (pBlastSprite != NULL)
+	{
+		pBlastSprite->SetTransparency( kRenderWorldGlow, 255, 255, 255, 50, kRenderFxNone );
+		pBlastSprite->SetBrightness( 100 );
+		pBlastSprite->SetScale( 2.5 );
+		pBlastSprite->SetGlowProxySize( 90.0f );
+		pBlastSprite->AnimateAndDie( 45 );
+		pBlastSprite->SetParent( this );
+	}
+
+	if ( sv_predator_heal_render_effects.GetBool() )
+	{
+		color32 color = GetRenderColor();
+		SetRenderColor( color.r / 4, color.g, color.b / 4 );
+	}
 }
 
 //=========================================================
@@ -275,6 +319,12 @@ bool CNPC_BasePredator::FValidateHintType( CAI_Hint *pHint )
 //=========================================================
 void CNPC_BasePredator::Event_Killed( const CTakeDamageInfo & info )
 {
+	// If we're dead, return to normal render color
+	if (sv_predator_heal_render_effects.GetBool())
+	{
+		SetRenderColor( 255, 255, 255 );
+	}
+
 	if ( IsBoss() ) {
 		// Reset to max health
 		this->m_iHealth = this->m_iMaxHealth;
@@ -400,6 +450,7 @@ void CNPC_BasePredator::OnFed()
 	int maxHealth = GetMaxHealth();
 	if (m_iHealth < maxHealth)
 	{
+		HealEffects();
 		m_iHealth = maxHealth;
 	}
 
@@ -461,6 +512,22 @@ bool CNPC_BasePredator::CanMateWithTarget( CNPC_BasePredator * pTarget, bool rec
 bool CNPC_BasePredator::ShouldEatInCombat()
 {
 	return m_iMaxHealth > m_iHealth && HasCondition( COND_PREDATOR_SMELL_FOOD ) && !IsSameSpecies( GetEnemy() ) && ( !IsInSquad() || OccupyStrategySlot( SQUAD_SLOT_FEED ) );
+}
+
+//=========================================================
+// Thinking, including core thinking, movement, animation
+// Overridden to handle healing effects
+//=========================================================
+void CNPC_BasePredator::NPCThink( void )
+{
+	// Return to 255, 255, 255 after healing
+	if ( sv_predator_heal_render_effects.GetBool() )
+	{
+		color32 color = GetRenderColor();
+		SetRenderColor( MIN( color.r + 8, 255 ), color.g, MIN( color.b + 8, 255 ) );
+	}
+
+	BaseClass::NPCThink();
 }
 
 //=========================================================
@@ -1191,8 +1258,8 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 			"		TASK_RUN_PATH						0"
 			"		TASK_WAIT_FOR_MOVEMENT				0"
 			"		TASK_PREDATOR_PLAY_EAT_ACT			0"
-			"		TASK_PREDATOR_PLAY_EAT_ACT			0"
-			"		TASK_PREDATOR_PLAY_EAT_ACT			0"
+//			"		TASK_PREDATOR_PLAY_EAT_ACT			0"
+//			"		TASK_PREDATOR_PLAY_EAT_ACT			0"
 			"		TASK_PREDATOR_EAT					30"
 			"		TASK_PREDATOR_REGEN					0"
 			"	"

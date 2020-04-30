@@ -10,7 +10,6 @@
 #include "npcevent.h"
 #include "npc_bullsquid.h"
 #include "grenade_spit.h"
-#include "particle_parse.h"
 #include "movevars_shared.h"
 #include "npc_egg.h"
 
