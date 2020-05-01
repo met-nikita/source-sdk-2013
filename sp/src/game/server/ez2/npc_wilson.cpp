@@ -1022,11 +1022,15 @@ bool CNPC_Wilson::DoIdleSpeechAI( AISpeechSelection_t *pSelection, int iState )
 		{
 			// Occasionally remind players about things they've neglected.
 			{
-				// Check for Xen grenade usage
-				// "xen_grenade_thrown" is a context set in CEZ2_Player.
-				if (pTarget->GetAmmoCount("XenGrenade") > 0 && pTarget->HasContext("xen_grenade_thrown", "1"))
+				// Check for usage based on ammo counts and contexts set in CEZ2_Player.
+				if (pTarget->GetAmmoCount("XenGrenade") > 0 && !pTarget->HasContext("xen_grenade_thrown", "1"))
 				{
-					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, NULL, pTarget, pSelection ) )
+					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, "subject:weapon_hopwire", pTarget, pSelection ) )
+						return true;
+				}
+				else if (pTarget->GetAmmoCount("AR2AltFire") > 0 && !pTarget->HasContext("displacer_used", "1"))
+				{
+					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, "subject:weapon_displacer_pistol", pTarget, pSelection ) )
 						return true;
 				}
 			}
@@ -1203,11 +1207,11 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 
 	if ( interactionType == g_interactionXenGrenadeRelease )
 	{
-		CGravityVortexController *pVortex = assert_cast<CGravityVortexController*>(data);
-		if (!pVortex)
+		DisplacementInfo_t *info = static_cast<DisplacementInfo_t*>(data);
+		if (!info)
 			return false;
 
-		Teleport( &pVortex->GetAbsOrigin(), &pVortex->GetAbsAngles(), NULL );
+		Teleport( info->vecTargetPos, &info->pDisplacer->GetAbsAngles(), NULL );
 
 		RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
 		RemoveSolidFlags( FSOLID_NOT_SOLID );
@@ -1226,7 +1230,7 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 		}
 
 		// Pretend we spawned from a recipe
-		pVortex->XenSpawnEffects( this );
+		info->pSink->SpawnEffects( this );
 
 		SpeakIfAllowed( TLK_XEN_GRENADE_RELEASE );
 
@@ -1377,6 +1381,16 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 				pPlayer->ModifyOrAppendAICombatCriteria(set);
 			}
 		}
+	}
+
+	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+	if (pPlayer)
+	{
+		set.AppendCriteria( "wilson_distance", CFmtStrN<32>( "%f.3", (GetAbsOrigin() - pPlayer->GetAbsOrigin()).Length() ) );
+	}
+	else
+	{
+		set.AppendCriteria( "wilson_distance", "99999999999" );
 	}
 }
 

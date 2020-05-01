@@ -392,7 +392,8 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	}
 	else
 	{
-		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, this, GetThrower() ))
+		DisplacementInfo_t dinfo( this, this, &GetAbsOrigin(), &GetAbsAngles() );
+		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetThrower() ))
 		{
 			// Do not remove
 			m_hReleaseEntity = pEnt->MyCombatCharacterPointer();
@@ -974,7 +975,8 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 		ParseKeyValues( pEntity, szKV );
 	}
 
-	pEntity->DispatchInteraction( g_interactionXenGrenadeCreate, this, GetThrower() );
+	DisplacementInfo_t dinfo( this, this, &pEntity->GetAbsOrigin(), &pEntity->GetAbsAngles() );
+	pEntity->DispatchInteraction( g_interactionXenGrenadeCreate, &dinfo, GetThrower() );
 
 	DispatchSpawn( pEntity );
 
@@ -1064,7 +1066,7 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 	pEntity->CBaseEntity::Teleport( &vecBestSpace, NULL, NULL );
 
 	// Now that the XenPC was created successfully, play a sound and display a particle effect
-	XenSpawnEffects( pEntity );
+	SpawnEffects( pEntity );
 
 	// XenPC - ACTIVATE! Especially important for antlion glows
 	pEntity->Activate();
@@ -1166,7 +1168,7 @@ void CGravityVortexController::ParseKeyValues( CBaseEntity *pEntity, const char 
 	}
 }
 
-void CGravityVortexController::XenSpawnEffects( CBaseEntity *pEntity )
+void CGravityVortexController::SpawnEffects( CBaseEntity *pEntity )
 {
 	pEntity->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
 	DispatchParticleEffect( "xenpc_spawn", pEntity->WorldSpaceCenter(), pEntity->GetAbsAngles(), pEntity );
@@ -1527,7 +1529,8 @@ void CGravityVortexController::PullThink( void )
 	else
 	{
 #ifdef EZ2
-		if ( m_hReleaseEntity && m_hReleaseEntity->DispatchInteraction( g_interactionXenGrenadeRelease, this, GetThrower() ) )
+		DisplacementInfo_t dinfo( this, this, &GetAbsOrigin(), &GetAbsAngles() );
+		if ( m_hReleaseEntity && m_hReleaseEntity->DispatchInteraction( g_interactionXenGrenadeRelease, &dinfo, GetThrower() ) )
 		{
 			// Act as if it's the Xen life we were supposed to spawn
 			m_hReleaseEntity = NULL;
@@ -1657,6 +1660,9 @@ BEGIN_DATADESC( CGrenadeHopwire )
 	DEFINE_FIELD( m_pMainGlow, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_flNextBlipTime, FIELD_TIME ),
 
+	// Inputs
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTimer", InputSetTimer ),
+
 	DEFINE_THINKFUNC( DelayThink ),
 	DEFINE_THINKFUNC( SpriteOff ),
 #endif
@@ -1762,6 +1768,11 @@ void CGrenadeHopwire::SetTimer( float timer )
 	SetNextThink( gpGlobals->curtime );
 
 	CreateEffects();
+}
+
+void CGrenadeHopwire::InputSetTimer( inputdata_t &inputdata )
+{
+	SetTimer( inputdata.value.Float() );
 }
 
 void CGrenadeHopwire::DelayThink()
@@ -2007,6 +2018,12 @@ void CGrenadeHopwire::SetVelocity( const Vector &velocity, const AngularImpulse 
 void CGrenadeHopwire::Detonate( void )
 {
 #ifdef EZ2
+	if ( VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
+	{
+		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+		pPlayer->ForceDropOfCarriedPhysObjects( this );
+	}
+
 	EmitSound("WeaponXenGrenade.Explode");
 	SetModel( szWorldModelOpen );
 

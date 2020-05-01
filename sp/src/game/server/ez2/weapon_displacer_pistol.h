@@ -16,11 +16,12 @@
 //=============================================================================//
 
 #include "basehlcombatweapon.h"
+#include "grenade_hopwire.h"
 
 //---------------------
 // Aperture pistol
 //---------------------
-class CDisplacerPistol :public CBaseHLCombatWeapon
+class CDisplacerPistol :public CBaseHLCombatWeapon, public CDisplacerSink
 {
 public:
 	DECLARE_CLASS( CDisplacerPistol, CBaseHLCombatWeapon );
@@ -48,6 +49,10 @@ public:
 
 	void BluePortalEffects();
 	void RedPortalEffects();
+
+	CBaseEntity *GetDisplacedEntity() { return m_hDisplacedEntity; }
+	CBaseEntity *GetTargetPosition() { return m_hTargetPosition; }
+	CBaseEntity *GetLastDisplacePosition() { return m_hLastDisplacePosition; }
 
 	bool	ShouldDisplayHUDHint() { return true; } // This weapon will need some explanation
 protected:

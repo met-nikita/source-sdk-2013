@@ -1329,6 +1329,30 @@ void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CEZ2_Player::Event_DisplacerPistolDisplace( CBaseCombatWeapon *pWeapon, CBaseEntity *pVictimEntity )
+{
+	AI_CriteriaSet modifiers;
+
+	ModifyOrAppendWeaponCriteria( modifiers, pWeapon );
+	ModifyOrAppendEnemyCriteria( modifiers, pVictimEntity );
+
+	if (!SpeakIfAllowed( TLK_DISPLACER_DISPLACE, modifiers ))
+	{
+		CAI_PlayerAlly *pSquadRep = dynamic_cast<CAI_PlayerAlly*>(GetSquadCommandRepresentative());
+		if (pSquadRep)
+		{
+			// Have a nearby soldier make a comment instead
+			pSquadRep->SpeakIfAllowed( TLK_DISPLACER_DISPLACE, modifiers, true );
+		}
+	}
+
+	// Take note of displacer usage for 20 minutes
+	AddContext("displacer_used", "1", 1200.0f);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CEZ2_Player::Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity )
 {
 	AI_CriteriaSet modifiers;

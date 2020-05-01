@@ -166,6 +166,7 @@ public:
 	bool			HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC );
 
 	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
+	void			Event_DisplacerPistolDisplace( CBaseCombatWeapon *pWeapon, CBaseEntity *pVictimEntity );
 	void			Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity );
 
 	void			Event_VehicleOverturned( CBaseEntity *pVehicle );

@@ -15,7 +15,35 @@
 
 extern ConVar hopwire_trap;
 
-class CGravityVortexController : public CBaseEntity
+#ifdef EZ2
+// Base class for both the Xen grenade and displacer pistol
+class CDisplacerSink
+{
+public:
+	CDisplacerSink() { }
+
+	virtual void SpawnEffects( CBaseEntity *pEntity )	{};
+};
+
+// Displacement info for interactions
+struct DisplacementInfo_t
+{
+	DisplacementInfo_t( CBaseEntity *displacer, CDisplacerSink *sink, const Vector *targetpos, const QAngle *targetang )
+	{
+		pDisplacer = displacer;
+		pSink = sink;
+		vecTargetPos = targetpos;
+		vecTargetAng = targetang;
+	}
+
+	CBaseEntity *pDisplacer;
+	CDisplacerSink *pSink;
+	const Vector *vecTargetPos;
+	const QAngle *vecTargetAng;
+};
+#endif
+
+class CGravityVortexController : public CBaseEntity, public CDisplacerSink
 {
 	DECLARE_CLASS( CGravityVortexController, CBaseEntity );
 	DECLARE_DATADESC();
@@ -34,7 +62,7 @@ public:
 	void	ParseKeyValues( CBaseEntity *pEntity, const char *szKV );
 
 	// For both real and fake spawns
-	void	XenSpawnEffects( CBaseEntity *pEntity );
+	void	SpawnEffects( CBaseEntity *pEntity );
 
 	void	SetThrower( CBaseCombatCharacter *pBCC ) { m_hThrower.Set( pBCC ); }
 	CBaseCombatCharacter *GetThrower() { return m_hThrower.Get(); }
@@ -107,6 +135,8 @@ public:
 	void	BlipSound() { EmitSound( "WeaponXenGrenade.Blip" ); }
 	void	OnRestore( void );
 	void	CreateEffects( void );
+
+	void	InputSetTimer( inputdata_t &inputdata );
 #endif
 	
 	void	EndThink( void );		// Last think before going away
