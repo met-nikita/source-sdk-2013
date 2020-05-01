@@ -307,6 +307,8 @@ public:
 #else
 	virtual string_t GetLivingTorsoModelName( void ) { return m_iszLivingTorsoModel; };
 	virtual void SetLivingTorsoModelName( string_t modelName ) { m_iszLivingTorsoModel = modelName; };
+
+	bool CanBecomeLiveTorso() { return m_tEzVariant == EZ_VARIANT_RAD; }
 #endif
 //=============================================================================
 #ifdef HL2_EPISODIC
@@ -1941,6 +1943,9 @@ void CFastZombie::BecomeTorso( const Vector &vecTorsoForce, const Vector &vecLeg
 	CapabilitiesRemove( bits_CAP_MOVE_JUMP );
 	CapabilitiesRemove( bits_CAP_MOVE_CLIMB );
 
+#ifdef EZ2
+	if (m_tEzVariant != EZ_VARIANT_RAD)
+#endif
 	ReleaseHeadcrab( EyePosition(), vecLegsForce * 0.5, true, true, true );
 
 	BaseClass::BecomeTorso( vecTorsoForce, vecLegsForce );
