@@ -17,6 +17,7 @@
 #include "grenade_hopwire.h"
 #include "npc_manhack.h"
 #include "particle_parse.h"
+#include "prop_combine_ball.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -43,6 +44,8 @@ BEGIN_DATADESC( CNPC_CloneCop )
 	DEFINE_INPUT( m_ArmorValue, FIELD_INTEGER, "SetArmor" ),
 	DEFINE_FIELD( m_bIsBleeding, FIELD_BOOLEAN ),
 
+	DEFINE_INPUT( m_bThrowXenGrenades, FIELD_BOOLEAN, "SetThrowXenGrenades" ),
+
 	// Function Pointers
 	DEFINE_THINKFUNC( BleedThink ),
 
@@ -58,6 +61,8 @@ CNPC_CloneCop::CNPC_CloneCop()
 	AddSpawnFlags( SF_COMBINE_REGENERATE );
 	m_tEzVariant = EZ_VARIANT_RAD;
 	m_ArmorValue = 200;
+	m_bThrowXenGrenades = true;
+	SetDisplacementImpossible( true );
 }
 
 //-----------------------------------------------------------------------------
@@ -162,6 +167,70 @@ void CNPC_CloneCop::ClearAttackConditions()
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::PrescheduleThink()
+{
+	BaseClass::PrescheduleThink();
+
+	if (!IsInAScript())
+	{
+		int iNumWeapons = 0;
+		int iMyWeapon = WEAPONSWITCH_COUNT;
+		CBaseCombatWeapon *pWeapons[WEAPONSWITCH_COUNT];
+		for (int i=0;i<MAX_WEAPONS;i++)
+		{
+			if ( m_hMyWeapons[i].Get() )
+			{
+				iNumWeapons++;
+
+				if (EntIsClass( m_hMyWeapons[i], gm_isz_class_Shotgun ))
+				{
+					pWeapons[WEAPONSWITCH_SHOTGUN] = m_hMyWeapons[i];
+					if (GetActiveWeapon() == m_hMyWeapons[i])
+						iMyWeapon = WEAPONSWITCH_SHOTGUN;
+				}
+				else if (EntIsClass( m_hMyWeapons[i], gm_isz_class_AR2 ) || FClassnameIs( m_hMyWeapons[i], "weapon_ar2_proto" ))
+				{
+					pWeapons[WEAPONSWITCH_AR2] = m_hMyWeapons[i];
+					if (GetActiveWeapon() == m_hMyWeapons[i])
+						iMyWeapon = WEAPONSWITCH_AR2;
+				}
+				else if (FClassnameIs( m_hMyWeapons[i], "weapon_crossbow" ))
+				{
+					pWeapons[WEAPONSWITCH_CROSSBOW] = m_hMyWeapons[i];
+					if (GetActiveWeapon() == m_hMyWeapons[i])
+						iMyWeapon = WEAPONSWITCH_CROSSBOW;
+				}
+			}
+		}
+
+		// Behavior for when CC has >1 weapons
+		if (iNumWeapons > 1 && iMyWeapon < WEAPONSWITCH_COUNT)
+		{
+			int iSwitchTo = iMyWeapon;
+
+			// Check if enemy is too far
+			if (HasCondition( COND_TOO_FAR_TO_ATTACK ))
+				iSwitchTo++;
+			else if (HasCondition( COND_TOO_CLOSE_TO_ATTACK ))
+				iSwitchTo--;
+
+			// Check if we have no ammo
+			else if (HasCondition(COND_NO_PRIMARY_AMMO))
+				iSwitchTo = RandomInt(0, WEAPONSWITCH_COUNT-1);
+
+			if (iSwitchTo != iMyWeapon && pWeapons[iSwitchTo])
+			{
+				inputdata_t inputdata;
+				inputdata.value.SetString( pWeapons[iSwitchTo]->m_iClassname );
+				InputChangeWeapon( inputdata );
+			}
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose:
 // Input  :
 // Output :
@@ -212,11 +281,21 @@ int CNPC_CloneCop::TranslateSchedule( int scheduleType )
 	return scheduleType;
 }
 
+extern ConVar sk_npc_dmg_combineball;
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 int CNPC_CloneCop::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 {
 	CTakeDamageInfo info = inputInfo;
+
+	// Take less damage from NPC balls
+	if ( info.GetInflictor() && FClassnameIs(info.GetInflictor(), "prop_combine_ball") &&
+			static_cast<CPropCombineBall*>(info.GetInflictor())->WasFiredByNPC() )
+	{
+		if (info.GetDamage() == GetMaxHealth())
+			info.SetDamage( sk_npc_dmg_combineball.GetFloat() );
+	}
 
 	// Clone Cop has his own armor, similar to the player's. 
 	if (info.GetDamage() && m_ArmorValue && !(info.GetDamageType() & (DMG_FALL | DMG_DROWN | DMG_POISON | DMG_RADIATION)) )// armor doesn't protect against fall or drown damage!
@@ -317,6 +396,8 @@ Vector CNPC_CloneCop::GetShootEnemyDir( const Vector &shootOrigin, bool bNoisy )
 	}
 }
 
+extern ConVar ai_lead_time;
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 Vector CNPC_CloneCop::GetActualShootPosition( const Vector &shootOrigin )
@@ -327,7 +408,12 @@ Vector CNPC_CloneCop::GetActualShootPosition( const Vector &shootOrigin )
 		if (flDist < 768.0f && flDist > 32.0f)
 		{
 			// Aim for the head, like players do
-			return GetEnemy()->HeadTarget( shootOrigin );
+			Vector vecEnemyLKP = GetEnemyLKP();
+			Vector vecEnemyOffset = GetEnemy()->HeadTarget( shootOrigin ) - GetEnemy()->GetAbsOrigin();
+			Vector vecTargetPosition = vecEnemyOffset + vecEnemyLKP;
+
+			// lead for some fraction of a second.
+			return (vecTargetPosition + ( GetEnemy()->GetSmoothedVelocity() * ai_lead_time.GetFloat() ));
 		}
 	}
 
@@ -359,6 +445,7 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 				Vector vecStart;
 				GetAttachment( "lefthand", vecStart );
 
+				static const char *szHopwireModel = "models/weapons/w_xengrenade.mdl";
 				if( m_NPCState == NPC_STATE_SCRIPT )
 				{
 					// Use a fixed velocity for grenades thrown in scripted state.
@@ -367,13 +454,32 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 
 					GetVectors( &forward, NULL, &up );
 					vecThrow = forward * 750 + up * 175;
-					CBaseEntity *pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, true );
+
+					CBaseEntity *pGrenade = NULL;
+					if ( m_bThrowXenGrenades )
+					{
+						pGrenade = HopWire_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, szHopwireModel, szHopwireModel );
+					}
+					else
+					{
+						pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, true );
+					}
+
 					m_OnThrowGrenade.Set(pGrenade, pGrenade, this);
 				}
 				else
 				{
 					// Use the Velocity that AI gave us.
-					CBaseEntity *pGrenade = Fraggrenade_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, true );
+					CBaseEntity *pGrenade = NULL;
+					if ( m_bThrowXenGrenades )
+					{
+						pGrenade = HopWire_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, szHopwireModel, szHopwireModel );
+					}
+					else
+					{
+						pGrenade = Fraggrenade_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, true );
+					}
+
 					m_OnThrowGrenade.Set(pGrenade, pGrenade, this);
 					AddGrenades(-1, pGrenade);
 				}
@@ -618,7 +724,7 @@ bool CNPC_CloneCop::IsHeavyDamage( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 Activity CNPC_CloneCop::Weapon_TranslateActivity( Activity eNewActivity )
 {
-	if ( HasCondition(COND_HEAVY_DAMAGE) && IsCurSchedule(SCHED_TAKE_COVER_FROM_ENEMY) )
+	if ( HasCondition(COND_HEAVY_DAMAGE) && IsCurSchedule(SCHED_RUN_FROM_ENEMY) )
 	{
 		// When we have heavy damage and we're taking cover from an enemy,
 		// try using crouch activities
@@ -659,6 +765,70 @@ WeaponProficiency_t CNPC_CloneCop::CalcWeaponProficiency( CBaseCombatWeapon *pWe
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Allows NPC to holster from more than just the animation event
+//-----------------------------------------------------------------------------
+bool CNPC_CloneCop::DoHolster( void )
+{
+	if (BaseClass::DoHolster())
+	{
+		EmitSound( "NPC_Combine.Zipline_MidClothing" );
+		return true;
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Allows NPC to unholster from more than just the animation event
+//-----------------------------------------------------------------------------
+bool CNPC_CloneCop::DoUnholster( void )
+{
+	if (BaseClass::DoUnholster())
+	{
+		PlayDeploySound( GetActiveWeapon() );
+		return true;
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Switches to the given weapon (providing it has ammo)
+// Input  :
+// Output : true is switch succeeded
+//-----------------------------------------------------------------------------
+bool CNPC_CloneCop::Weapon_Switch( CBaseCombatWeapon *pWeapon, int viewmodelindex /*=0*/ )
+{
+	if (BaseClass::Weapon_Switch(pWeapon, viewmodelindex))
+	{
+		EmitSound( "NPC_Combine.Zipline_MidClothing" );
+		PlayDeploySound( pWeapon );
+		return true;
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::PlayDeploySound( CBaseCombatWeapon *pWeapon )
+{
+	if (EntIsClass( pWeapon, gm_isz_class_Shotgun ))
+	{
+		pWeapon->WeaponSound( SPECIAL1 );
+	}
+	else if (EntIsClass( pWeapon, gm_isz_class_SMG1 ))
+	{
+		pWeapon->WeaponSound( SPECIAL2 );
+	}
+	else
+	{
+		pWeapon->WeaponSound( RELOAD_NPC );
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Returns true if a reasonable jumping distance
 // Input  :
 // Output :
@@ -670,6 +840,23 @@ bool CNPC_CloneCop::IsJumpLegal( const Vector &startPos, const Vector &apex, con
 	const float MAX_JUMP_DROP = 384.0f; // How far CC can fall; Default 160
 
 	return BaseClass::IsJumpLegal(startPos, apex, endPos, MAX_JUMP_RISE, MAX_JUMP_DROP, MAX_JUMP_DISTANCE);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_CloneCop::GetGameTextSpeechParams( hudtextparms_t &params )
+{
+	params.channel = 3;
+	params.x = -1;
+	params.y = 0.6;
+	params.effect = 0;
+
+	params.r1 = 253;
+	params.g1 = 162;
+	params.b1 = 2;
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------

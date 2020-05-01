@@ -34,6 +34,7 @@ public:
 	void		DeathSound( const CTakeDamageInfo &info );
 
 	void		ClearAttackConditions( void );
+	void		PrescheduleThink();
 	int			SelectSchedule( void );
 	int			TranslateSchedule( int scheduleType );
 
@@ -59,7 +60,14 @@ public:
 
 	WeaponProficiency_t CalcWeaponProficiency( CBaseCombatWeapon *pWeapon );
 
+	bool		DoHolster( void );
+	bool		DoUnholster( void );
+	bool		Weapon_Switch( CBaseCombatWeapon *pWeapon, int viewmodelindex = 0 );
+	void		PlayDeploySound( CBaseCombatWeapon *pWeapon );
+
 	bool		IsJumpLegal( const Vector & startPos, const Vector & apex, const Vector & endPos ) const;
+
+	bool		GetGameTextSpeechParams( hudtextparms_t &params );
 
 	bool		AllowedToIgnite( void ) { return false; }
 
@@ -67,6 +75,16 @@ public:
 	bool		IsMajorCharacter() { return true; }
 
 	int			GetArmorValue() { return m_ArmorValue; }
+
+	enum
+	{
+		// Sorted by range
+		WEAPONSWITCH_SHOTGUN,
+		WEAPONSWITCH_AR2,
+		WEAPONSWITCH_CROSSBOW,
+
+		WEAPONSWITCH_COUNT,
+	};
 
 protected:
 	//=========================================================
@@ -89,6 +107,8 @@ private:
 
 	int		m_ArmorValue;
 	bool	m_bIsBleeding;
+
+	bool	m_bThrowXenGrenades;
 };
 
 #endif

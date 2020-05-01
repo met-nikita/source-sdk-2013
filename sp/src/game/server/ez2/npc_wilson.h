@@ -134,6 +134,8 @@ public:
 	virtual CAI_Expresser *CreateExpresser(void);
 	virtual CAI_Expresser *GetExpresser() { return m_pExpresser;  }
 
+	bool			GetGameTextSpeechParams( hudtextparms_t &params );
+
 	void			InputAnswerConcept( inputdata_t &inputdata );
 	bool			IsOmniscient() { return m_bOmniscient; }
 

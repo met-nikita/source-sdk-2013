@@ -925,6 +925,23 @@ void CEZ2_Player::InputAnswerConcept( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+bool CEZ2_Player::GetGameTextSpeechParams( hudtextparms_t &params )
+{
+	params.channel = 4;
+	params.x = -1;
+	params.y = 0.7;
+	params.effect = 0;
+
+	params.r1 = 255;
+	params.g1 = 51;
+	params.b1 = 0;
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 CAI_Expresser *CEZ2_Player::CreateExpresser(void)
 {
 	m_pExpresser = new CAI_Expresser(this);

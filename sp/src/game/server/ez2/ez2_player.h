@@ -116,6 +116,8 @@ public:
 	virtual CAI_Expresser * CreateExpresser(void);
 	virtual CAI_Expresser * GetExpresser() { return m_pExpresser;  }
 
+	bool			GetGameTextSpeechParams( hudtextparms_t &params );
+
 	void			ModifyOrAppendDamageCriteria(AI_CriteriaSet & set, const CTakeDamageInfo & info, bool bPlayer = true);
 	void			ModifyOrAppendEnemyCriteria(AI_CriteriaSet & set, CBaseEntity * pEnemy);
 	void			ModifyOrAppendSquadCriteria(AI_CriteriaSet & set);

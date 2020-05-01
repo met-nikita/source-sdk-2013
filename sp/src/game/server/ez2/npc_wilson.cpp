@@ -1517,6 +1517,23 @@ void CNPC_Wilson::InputAnswerConcept( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+bool CNPC_Wilson::GetGameTextSpeechParams( hudtextparms_t &params )
+{
+	params.channel = 3;
+	params.x = -1;
+	params.y = 0.6;
+	params.effect = 0;
+
+	params.r1 = 66;
+	params.g1 = 255;
+	params.b1 = 199;
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 CAI_Expresser *CNPC_Wilson::CreateExpresser(void)
 {
     m_pExpresser = new CAI_Expresser(this);

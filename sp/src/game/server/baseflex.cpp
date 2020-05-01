@@ -777,6 +777,55 @@ bool CBaseFlex::StartSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CCh
 	
 	case CChoreoEvent::EXPRESSION: // These are handled client-side
 		return true;
+
+#ifdef EZ2
+	case CChoreoEvent::GENERIC:
+		{
+			if (stricmp(event->GetParameters(), "AI_GAMETEXT") == 0)
+			{
+				// game_text-based lines, for placeholders (TODO: FINISH THIS BEFORE COMMITTING)
+				if ( event->GetParameters2() )
+				{
+					info->m_nType = 12; // SCENE_AI_GAMETEXT
+
+					hudtextparms_t textParams;
+					textParams.holdTime = event->GetDuration();
+					textParams.fadeinTime = 0.5f;
+					textParams.fadeoutTime = 0.5f;
+
+					if ( GetGameTextSpeechParams( textParams ) )
+					{
+						char message[192];
+						Q_strncpy( message, event->GetParameters2(), sizeof( message ) );
+
+						int len = Q_strlen( message );
+						int cur = 0;
+						for (int i = 0; i < len; i++)
+						{
+							cur++;
+
+							if (cur >= 32)
+							{
+								// Line break at the next space
+								if (message[i] == ' ')
+								{
+									message[i] = '\n';
+									cur = 0;
+								}
+							}
+
+							i++;
+						}
+
+						UTIL_HudMessageAll( textParams, message );
+					}
+					return true;
+				}
+			}
+
+			return false;
+		}
+#endif
 	}
 
 	return false;
