@@ -34,6 +34,9 @@
 #include "decals.h"
 #ifdef EZ
 #include "particle_parse.h"
+#include "ai_network.h"
+#include "ai_link.h"
+#include "SpriteTrail.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -123,6 +126,10 @@ enum
 
 	SCHED_FAST_HEADCRAB_RANGE_ATTACK1,
 
+#ifdef EZ
+	SCHED_TEMPORAL_HEADCRAB_TELEPORT,
+#endif
+
 	SCHED_HEADCRAB_CEILING_WAIT,
 	SCHED_HEADCRAB_CEILING_DROP,
 };
@@ -152,6 +159,10 @@ enum
 	TASK_HEADCRAB_CEILING_DETACH,
 	TASK_HEADCRAB_CEILING_FALL,
 	TASK_HEADCRAB_CEILING_LAND,
+
+#ifdef EZ
+	TASK_TEMPORAL_HEADCRAB_TELEPORT,
+#endif
 };
 
 
@@ -164,6 +175,11 @@ enum
 	COND_HEADCRAB_ILLEGAL_GROUNDENT,
 	COND_HEADCRAB_BARNACLED,
 	COND_HEADCRAB_UNHIDE,
+
+#ifdef EZ
+	// Enemy is actually facing me with a true viewcone, not just tall pie slice
+	COND_HEADCRAB_TEMPORAL_FACING,
+#endif
 };
 
 //=========================================================
@@ -197,6 +213,7 @@ ConVar	sk_headcrab_poison_npc_damage( "sk_headcrab_poison_npc_damage", "0" );
 ConVar  sk_headcrab_carcass_smell ( "sk_headcrab_carcass_smell", "1" );
 ConVar  sk_gib_carcass_smell ( "sk_gib_carcass_smell", "1" );
 ConVar	sk_headcrab_temporal_health( "sk_headcrab_temporal_health", "0" );
+ConVar	sk_headcrab_temporal_damage( "sk_headcrab_temporal_damage", "0" );
 #endif
 
 BEGIN_DATADESC( CBaseHeadcrab )
@@ -1605,6 +1622,15 @@ void CBaseHeadcrab::StartTask( const Task_t *pTask )
 			break;
 		}
 
+#ifdef EZ
+		case TASK_TEMPORAL_HEADCRAB_TELEPORT:
+		{
+			FindTeleport( GetAbsOrigin(), this, GetHullType(), pTask->flTaskData, true );
+			TaskComplete();
+			break;
+		}
+#endif
+
 		default:
 		{
 			BaseClass::StartTask( pTask );
@@ -2465,6 +2491,119 @@ void CBaseHeadcrab::InputDropFromCeiling( inputdata_t &inputdata )
 	SetSchedule( SCHED_HEADCRAB_CEILING_DROP );
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: Finds a point where the headcrab can teleport to.
+// Input  : distance - radius to search for burrow spot in
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CBaseHeadcrab::FindTeleport( const Vector &origin, CBaseEntity *pEntity, int iHull, float distance, bool excludeNear )
+{
+	CAI_Hint *pHint = NULL;
+	if (pEntity == this)
+	{
+		// Attempt to find a teleporting point
+		CHintCriteria	hintCriteria;
+
+		hintCriteria.SetHintType( HINT_HEADCRAB_TELEPORT_POINT );
+		hintCriteria.SetFlag( bits_HINT_NODE_RANDOM | bits_HINT_NOT_CLOSE_TO_ENEMY | bits_HINT_NODE_CLEAR );
+
+		hintCriteria.AddIncludePosition( origin, distance );
+	
+		if ( excludeNear )
+		{
+			hintCriteria.AddExcludePosition( origin, 128 );
+		}
+
+		pHint = CAI_HintManager::FindHint( this, hintCriteria );
+	}
+
+	Vector vHintPos = vec3_invalid;
+	QAngle vHintAngles = pEntity->GetAbsAngles();
+
+	bool bCeiling = false;
+
+	if ( pHint == NULL )
+	{
+		// Find a suitable node instead then.
+		Vector vecHopTo = vec3_invalid;
+		for ( int node = 0; node < g_pBigAINet->NumNodes(); node++)
+		{
+			CAI_Node *pNode = g_pBigAINet->GetNode(node);
+
+			float nodedist = (pEntity->GetAbsOrigin() - pNode->GetOrigin()).LengthSqr();
+			if (nodedist > Square(distance) || nodedist < Square(128))
+				continue;
+
+			// Only hop towards ground nodes
+			if (pNode->GetType() != NODE_GROUND)
+				continue;
+
+			// For regular node teleportation, only use nodes we can trace to
+			if (!FVisible( pNode->GetOrigin(), MASK_SOLID_BRUSHONLY ))
+				continue;
+
+			for (int i = 0; i < pNode->NumLinks(); i++)
+			{
+				CAI_Link *pLink = pNode->GetLinkByIndex( i );
+				if (pLink)
+				{
+					if (pLink->m_iAcceptedMoveTypes[iHull] & bits_CAP_MOVE_GROUND)
+					{
+						// Do one last check
+						trace_t tr;
+						AI_TraceHull( pNode->GetOrigin() + Vector( 0, 0, 4 ), pNode->GetOrigin() + Vector( 0, 0, 8 ), pEntity->WorldAlignMins(), pEntity->WorldAlignMaxs(), MASK_SOLID, pEntity, COLLISION_GROUP_NONE, &tr );
+						if (!tr.startsolid)
+						{
+							// Use this node
+							vHintPos = pNode->GetOrigin() + Vector( 0, 0, 4 );
+							break;
+						}
+					}
+				}
+			}
+
+			// Break if one of the links had a valid location
+			if (vHintPos != vec3_invalid)
+				break;
+		}
+
+		if (vHintPos == vec3_invalid)
+			return false;
+	}
+	else
+	{
+		GrabHintNode( pHint );
+
+		// Setup our path and attempt to teleport there
+		pHint->GetPosition( this, &vHintPos );
+		vHintAngles = pHint->GetAbsAngles();
+
+		if ( AngleNormalizePositive(vHintAngles.z) == 180 && pEntity == this )
+		{
+			vHintAngles.z = 0;
+			bCeiling = true;
+		}
+	}
+
+	DispatchParticleEffect( "ShadowCrab_Vanish", pEntity->WorldSpaceCenter(), pEntity->GetAbsAngles() );
+	EmitSound( "NPC_TemporalHeadcrab.Vanish" );
+
+	pEntity->Teleport( &vHintPos, &vHintAngles, NULL );
+
+	DispatchParticleEffect( "ShadowCrab_Appear", pEntity->WorldSpaceCenter(), pEntity->GetAbsAngles() );
+	pEntity->EmitSound( "NPC_TemporalHeadcrab.Appear" );
+
+	if ( bCeiling )
+	{
+		SetSchedule( SCHED_HEADCRAB_CEILING_WAIT );
+		m_flIlluminatedTime = -1;
+	}
+
+	return true;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -3157,11 +3296,26 @@ bool CFastHeadcrab::QuerySeeEntity(CBaseEntity *pSightEnt, bool bOnlyHateOrFearI
 //-----------------------------------------------------------------------------
 int ACT_BLACKHEADCRAB_RUN_PANIC;
 
+#ifdef EZ
+static const char *g_TemporalRagdollThink = "TemporalRagdoll";
+#endif
+
 BEGIN_DATADESC( CBlackHeadcrab )
 
 	DEFINE_FIELD( m_bPanicState, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flPanicStopTime, FIELD_TIME ),
 	DEFINE_FIELD( m_flNextHopTime, FIELD_TIME ),
+
+#ifdef EZ
+	DEFINE_FIELD( m_hFakeRagdoll, FIELD_EHANDLE ),
+
+	DEFINE_FIELD( m_hSpriteTrail, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hTesla, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hSprite, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hDistortionSprite, FIELD_EHANDLE ),
+
+	DEFINE_THINKFUNC( TemporalRagdollThink ),
+#endif
 
 	DEFINE_ENTITYFUNC( EjectTouch ),
 
@@ -3244,6 +3398,10 @@ void CBlackHeadcrab::Spawn( void )
 	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
 	{
 		m_iHealth = sk_headcrab_temporal_health.GetFloat();
+
+		CapabilitiesAdd( bits_CAP_MOVE_JUMP );
+
+		InitTemporalEffects();
 	}
 	else
 	{
@@ -3284,6 +3442,12 @@ void CBlackHeadcrab::Precache( void )
 
 		PrecacheScriptSound( "NPC_TemporalHeadcrab.FootstepWalk" );
 		PrecacheScriptSound( "NPC_TemporalHeadcrab.Footstep" );
+
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Vanish" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Appear" );
+
+		PrecacheParticleSystem( "ShadowCrab_Vanish" );
+		PrecacheParticleSystem( "ShadowCrab_Appear" );
 
 		BaseClass::Precache();
 		return; // Don't do the regular precaching
@@ -3362,6 +3526,12 @@ Activity CBlackHeadcrab::NPC_TranslateActivity( Activity eNewActivity )
 		{
 			return ( Activity )ACT_BLACKHEADCRAB_RUN_PANIC;
 		}
+#ifdef EZ
+		else if (m_tEzVariant == EZ_VARIANT_TEMPORAL && GetState() == NPC_STATE_COMBAT)
+		{
+			return ( Activity )ACT_BLACKHEADCRAB_RUN_PANIC;
+		}
+#endif
 	}
 
 	return BaseClass::NPC_TranslateActivity( eNewActivity );
@@ -3382,6 +3552,37 @@ void CBlackHeadcrab::PrescheduleThink( void )
 //-----------------------------------------------------------------------------
 int CBlackHeadcrab::TranslateSchedule( int scheduleType )
 {
+#ifdef EZ
+	if ( m_tEzVariant == EZ_VARIANT_TEMPORAL )
+	{
+		switch ( scheduleType )
+		{
+			case SCHED_FAIL_TAKE_COVER:
+			case SCHED_TAKE_COVER_FROM_ENEMY:
+			{
+				if ( ( gpGlobals->curtime >= m_flNextHopTime ) && SelectWeightedSequence( ACT_SMALL_FLINCH ) != -1 )
+				{
+					m_flNextHopTime = gpGlobals->curtime + 0.5f;
+					return SCHED_TEMPORAL_HEADCRAB_TELEPORT;
+				}
+
+				break;
+			}
+
+			case SCHED_TEMPORAL_HEADCRAB_TELEPORT:
+			{
+				// Fall off of any ceilings first
+				if ( IsHangingFromCeiling() )
+				{
+					return SCHED_HEADCRAB_CEILING_DROP;
+				}
+
+				break;
+			}
+		}
+	}
+#endif
+
 	switch ( scheduleType )
 	{
 		// Keep trying to take cover for at least a few seconds.
@@ -3408,6 +3609,24 @@ int CBlackHeadcrab::TranslateSchedule( int scheduleType )
 //-----------------------------------------------------------------------------
 void CBlackHeadcrab::BuildScheduleTestBits( void )
 {
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		// Temporal headcrabs skip regular poison headcrab conditions
+		if ( !IsCurSchedule( SCHED_TEMPORAL_HEADCRAB_TELEPORT ) )
+		{
+			SetCustomInterruptCondition( COND_LIGHT_DAMAGE );
+			SetCustomInterruptCondition( COND_HEAVY_DAMAGE );
+
+			if ( IsCurSchedule( SCHED_ESTABLISH_LINE_OF_FIRE ) || IsCurSchedule( SCHED_MOVE_TO_WEAPON_RANGE ) || IsCurSchedule( SCHED_CHASE_ENEMY ) || IsCurSchedule( SCHED_COMBAT_FACE ) )
+			{
+				SetCustomInterruptCondition( COND_HEADCRAB_TEMPORAL_FACING );
+				SetCustomInterruptCondition( COND_HEAR_DANGER );
+			}
+		}
+	}
+	else
+#endif
 	// Ignore damage if we're attacking or are fleeing and recently flinched.
 	if ( IsCurSchedule( SCHED_HEADCRAB_CRAWL_FROM_CANISTER ) || IsCurSchedule( SCHED_RANGE_ATTACK1 ) || ( IsCurSchedule( SCHED_TAKE_COVER_FROM_ENEMY ) && HasMemory( bits_MEMORY_FLINCHED ) ) )
 	{
@@ -3428,6 +3647,10 @@ void CBlackHeadcrab::BuildScheduleTestBits( void )
 }
 
 
+#ifdef EZ
+extern CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, const CTakeDamageInfo &info, int collisionGroup, bool bUseLRURetirement );
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Output : 
@@ -3446,10 +3669,38 @@ int CBlackHeadcrab::SelectSchedule( void )
 		{
 			if ( ( gpGlobals->curtime >= m_flNextHopTime ) && SelectWeightedSequence( ACT_SMALL_FLINCH ) != -1 )
 			{
+#ifdef EZ
+				if ( m_tEzVariant == EZ_VARIANT_TEMPORAL )
+				{
+					m_flNextHopTime = gpGlobals->curtime + 0.5f;
+					return SCHED_TEMPORAL_HEADCRAB_TELEPORT;
+				}
+				else
+				{
+					m_flNextHopTime = gpGlobals->curtime + random->RandomFloat( 1, 3 );
+					return SCHED_SMALL_FLINCH;
+				}
+#else
 				m_flNextHopTime = gpGlobals->curtime + random->RandomFloat( 1, 3 );
 				return SCHED_SMALL_FLINCH;
+#endif
 			}
 		}
+
+#ifdef EZ
+		if ( m_tEzVariant == EZ_VARIANT_TEMPORAL )
+		{
+			if ( (HasCondition( COND_HEADCRAB_TEMPORAL_FACING ) && RandomInt(1,GetMaxHealth()) < GetHealth()) || HasCondition( COND_HEAR_DANGER ) )
+			{
+				if ( ( gpGlobals->curtime >= m_flNextHopTime ) && SelectWeightedSequence( ACT_SMALL_FLINCH ) != -1 )
+				{
+					// Hop away from danger
+					m_flNextHopTime = gpGlobals->curtime + 0.5f;
+					return SCHED_TEMPORAL_HEADCRAB_TELEPORT;
+				}
+			}
+		}
+#endif
 
 		if ( m_bPanicState )
 		{
@@ -3487,6 +3738,32 @@ void CBlackHeadcrab::TouchDamage( CBaseEntity *pOther )
 			// Episodic change to avoid NPCs dying too quickly from poison bites
 			if ( hl2_episodic.GetBool() )
 			{
+#ifdef EZ
+				if (m_tEzVariant == EZ_VARIANT_TEMPORAL)
+				{
+					MoveType_t movetype = pOther->GetMoveType();
+					if (movetype == MOVETYPE_WALK || movetype == MOVETYPE_STEP)
+					{
+						if ((!pOther->IsPlayer() && pOther->GetBaseAnimating()) && !m_hFakeRagdoll)
+						{
+							//m_hFakeRagdoll = CreateServerRagdoll( this, m_nForceBone, inputInfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, false );
+
+							m_hFakeRagdoll = (CBaseAnimating*)CreateNoSpawn( "prop_dynamic", GetAbsOrigin(), GetAbsAngles(), this );
+							m_hFakeRagdoll->CopyAnimationDataFrom( pOther->GetBaseAnimating() );
+							m_hFakeRagdoll->m_nRenderFX = kRenderFxNone;
+							m_hFakeRagdoll->KeyValue( "solid", "0" );
+							DispatchSpawn( m_hFakeRagdoll );
+
+							SetContextThink( &CBlackHeadcrab::TemporalRagdollThink, gpGlobals->curtime, g_TemporalRagdollThink );
+						}
+
+						FindTeleport( GetAbsOrigin(), pOther, pOther->IsNPC() ? pOther->MyNPCPointer()->GetHullType() : HULL_HUMAN, 512.0f, true );
+						pOther->TakeDamage( CTakeDamageInfo( this, this, sk_headcrab_temporal_damage.GetFloat(), DMG_SONIC ) );
+						return;
+					}
+				}
+#endif
+
 				if ( pOther->IsPlayer() )
 				{
 					// That didn't finish them. Take them down to one point with poison damage. It'll heal.
@@ -3556,6 +3833,191 @@ void CBlackHeadcrab::EjectTouch( CBaseEntity *pOther )
 		Panic( random->RandomFloat( 2, 8 ) );
 	}
 }
+
+
+#ifdef EZ
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CBlackHeadcrab::UpdateOnRemove()
+{
+	CleanupTemporalEffects();
+
+	BaseClass::UpdateOnRemove();
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CBlackHeadcrab::Event_Killed( const CTakeDamageInfo &inputInfo )
+{
+	CleanupTemporalEffects();
+
+	BaseClass::Event_Killed( inputInfo );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : pevInflictor - 
+//			pevAttacker - 
+//			flDamage - 
+//			bitsDamageType - 
+// Output : 
+//-----------------------------------------------------------------------------
+int CBlackHeadcrab::OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo )
+{
+	if (m_tEzVariant == EZ_VARIANT_TEMPORAL && inputInfo.GetDamage() < GetHealth())
+	{
+		// Non-killing blows create fake time ragdolls, almost ilke the dead ringer from TF2
+		if (!m_hFakeRagdoll)
+		{
+			//m_hFakeRagdoll = CreateServerRagdoll( this, m_nForceBone, inputInfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, false );
+
+			m_hFakeRagdoll = (CBaseAnimating*)CreateNoSpawn( "prop_dynamic", GetAbsOrigin(), GetAbsAngles(), this );
+			m_hFakeRagdoll->CopyAnimationDataFrom( this );
+			m_hFakeRagdoll->m_nRenderFX = kRenderFxNone;
+			m_hFakeRagdoll->KeyValue( "solid", "0" );
+			DispatchSpawn( m_hFakeRagdoll );
+
+			SetContextThink( &CBlackHeadcrab::TemporalRagdollThink, gpGlobals->curtime, g_TemporalRagdollThink );
+		}
+	}
+
+	return BaseClass::OnTakeDamage_Alive( inputInfo );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CBlackHeadcrab::GatherEnemyConditions( CBaseEntity *pEnemy )
+{
+	BaseClass::GatherEnemyConditions( pEnemy );
+
+	ClearCondition( COND_HEADCRAB_TEMPORAL_FACING );
+
+	// If we're a temporal headcrab and the base code indicates the enemy is facing us,
+	// do a true viewcone check
+	if ( m_tEzVariant == EZ_VARIANT_TEMPORAL && HasCondition(COND_ENEMY_FACING_ME) && pEnemy->IsCombatCharacter() )
+	{
+		Vector los = ( WorldSpaceCenter() - pEnemy->EyePosition() );
+		VectorNormalize( los );
+
+		Vector facingDir = pEnemy->MyCombatCharacterPointer()->EyeDirection3D( );
+		float flDot = DotProduct( los, facingDir );
+
+		if ( flDot > m_flFieldOfView )
+		{
+			SetCondition( COND_HEADCRAB_TEMPORAL_FACING );
+			DevMsg("COND_HEADCRAB_TEMPORAL_FACING set\n");
+		}
+		else
+		{
+			DevMsg("COND_HEADCRAB_TEMPORAL_FACING not set\n");
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CBlackHeadcrab::InitTemporalEffects()
+{
+	// 
+	// All of this is based off of the original map logic in ez2_c4_3.
+	// It looks messy, but it is literally how these entities would've been created if placed in the map.
+	// 
+
+	Vector vecOrigin = GetAbsOrigin();
+	vecOrigin.z += 6.0f;
+
+	// Sprite trail
+	CSpriteTrail *pSpriteTrail = CSpriteTrail::SpriteTrailCreate( "sprites/bluelaser1.vmt", vecOrigin, true );
+	m_hSpriteTrail = pSpriteTrail;
+
+	pSpriteTrail->SetParent( this );
+	pSpriteTrail->SetOwnerEntity( this );
+	pSpriteTrail->SetLifeTime( 1.0f );
+	pSpriteTrail->SetStartWidth( 8.0f );
+	pSpriteTrail->SetEndWidth( 1.0f );
+	pSpriteTrail->SetRenderMode( kRenderTransAdd );
+
+	// Tesla
+	m_hTesla = CreateNoSpawn( "point_tesla", vecOrigin, GetAbsAngles(), this );
+	m_hTesla->SetParent( this );
+
+	m_hTesla->KeyValue( "beamcount_max", "8" );
+	m_hTesla->KeyValue( "beamcount_min", "6" );
+	m_hTesla->KeyValue( "interval_max", "6" );
+	m_hTesla->KeyValue( "interval_min", "3" );
+	m_hTesla->KeyValue( "lifetime_max", "0.3" );
+	m_hTesla->KeyValue( "lifetime_min", "0.3" );
+	m_hTesla->KeyValue( "thick_max", "5" );
+	m_hTesla->KeyValue( "thick_min", "4" );
+	m_hTesla->KeyValue( "m_Color", "54 54 218" );
+	m_hTesla->KeyValue( "texture", "sprites/hydragutbeam.vmt" );
+	m_hTesla->KeyValue( "m_flRadius", "434" );
+	m_hTesla->KeyValue( "m_SoundName", "DoSpark" );
+
+	DispatchSpawn( m_hTesla );
+	m_hTesla->AcceptInput( "TurnOn", this, this, variant_t(), 0 );
+
+	// Glow sprite
+	CSprite *pSprite = CSprite::SpriteCreate( "sprites/blueflare1.vmt", vecOrigin, true );
+	m_hSprite = pSprite;
+
+	pSprite->SetParent( this );
+	pSprite->SetOwnerEntity( this );
+	pSprite->SetScale( 1.0f );
+	pSprite->m_nRenderFX = kRenderFxHologram;
+	pSprite->SetRenderMode( kRenderWorldGlow );
+	pSprite->SetRenderColor( 79, 66, 198 );
+
+	// Heat wave sprite
+	pSprite = CSprite::SpriteCreate( "sprites/heatwave.vmt", vecOrigin, true );
+	m_hDistortionSprite = pSprite;
+
+	pSprite->SetParent( this );
+	pSprite->SetOwnerEntity( this );
+	pSprite->SetScale( 0.5f );
+	pSprite->SetRenderColor( 79, 66, 198 );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CBlackHeadcrab::CleanupTemporalEffects()
+{
+	UTIL_Remove( m_hFakeRagdoll );
+	UTIL_Remove( m_hSpriteTrail );
+	UTIL_Remove( m_hTesla );
+	UTIL_Remove( m_hSprite );
+	UTIL_Remove( m_hDistortionSprite );
+
+	m_hFakeRagdoll = NULL;
+	m_hSpriteTrail = NULL;
+	m_hTesla = NULL;
+	m_hSprite = NULL;
+	m_hDistortionSprite = NULL;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CBlackHeadcrab::TemporalRagdollThink()
+{
+	if (m_hFakeRagdoll)
+	{
+		m_hFakeRagdoll->SUB_PerformFadeOut();
+
+		if ( m_hFakeRagdoll->m_clrRender->a == 0 )
+		{
+			UTIL_Remove( m_hFakeRagdoll );
+			SetContextThink( NULL, TICK_NEVER_THINK, g_TemporalRagdollThink );
+			return;
+		}
+	}
+
+	SetContextThink( &CBlackHeadcrab::TemporalRagdollThink, gpGlobals->curtime, g_TemporalRagdollThink );
+}
+#endif
 
 
 //-----------------------------------------------------------------------------
@@ -3730,6 +4192,9 @@ void CBlackHeadcrab::HandleAnimEvent( animevent_t *pEvent )
 			JumpFlinch( NULL );
 		}
 
+#ifdef EZ
+		if ( m_tEzVariant != EZ_VARIANT_TEMPORAL )
+#endif
 		Panic( random->RandomFloat( 2, 5 ) );
 
 		return;
@@ -3905,6 +4370,10 @@ AI_BEGIN_CUSTOM_NPC( npc_headcrab, CBaseHeadcrab )
 	DECLARE_TASK( TASK_HEADCRAB_CEILING_FALL )
 	DECLARE_TASK( TASK_HEADCRAB_CEILING_LAND )
 
+#ifdef EZ
+	DECLARE_TASK( TASK_TEMPORAL_HEADCRAB_TELEPORT )
+#endif
+
 	DECLARE_ACTIVITY( ACT_HEADCRAB_THREAT_DISPLAY )
 	DECLARE_ACTIVITY( ACT_HEADCRAB_HOP_LEFT )
 	DECLARE_ACTIVITY( ACT_HEADCRAB_HOP_RIGHT )
@@ -3925,6 +4394,10 @@ AI_BEGIN_CUSTOM_NPC( npc_headcrab, CBaseHeadcrab )
 	DECLARE_CONDITION( COND_HEADCRAB_ILLEGAL_GROUNDENT )
 	DECLARE_CONDITION( COND_HEADCRAB_BARNACLED )
 	DECLARE_CONDITION( COND_HEADCRAB_UNHIDE )
+
+#ifdef EZ
+	DECLARE_CONDITION( COND_HEADCRAB_TEMPORAL_FACING )
+#endif
 
 	//Adrian: events go here
 	DECLARE_ANIMEVENT( AE_HEADCRAB_JUMPATTACK )
@@ -4005,6 +4478,24 @@ AI_BEGIN_CUSTOM_NPC( npc_headcrab, CBaseHeadcrab )
 		""
 		"	Interrupts"
 	)
+
+#ifdef EZ
+	//=========================================================
+	// > SCHED_TEMPORAL_HEADCRAB_TELEPORT
+	//=========================================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_TEMPORAL_HEADCRAB_TELEPORT,
+
+		"	Tasks"
+		"		TASK_REMEMBER				MEMORY:FLINCHED"
+		"		TASK_STOP_MOVING			0"
+		"		TASK_SMALL_FLINCH			0"
+		"		TASK_TEMPORAL_HEADCRAB_TELEPORT			512"
+		""
+		"	Interrupts"
+	)
+#endif
 
 	//=========================================================
 	// The irreversible process of drowning
