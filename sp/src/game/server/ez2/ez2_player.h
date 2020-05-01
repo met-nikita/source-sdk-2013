@@ -29,6 +29,7 @@ class CEZ2_Player;
 #define TLK_THROWGRENADE "TLK_THROWGRENADE" // Grenade was thrown
 #define TLK_ALLY_KILLED_NPC "TLK_ALLY_KILLED_NPC" // Ally killed a NPC
 #define TLK_KILLED_ALLY "TLK_KILLED_ALLY" // Bad Cop killed an ally (intention ambiguous)
+#define TLK_DISPLACER_DISPLACE "TLK_DISPLACER_DISPLACE" // Bad Cop displaced an entity via the displacer pistol
 #define TLK_DISPLACER_RELEASE "TLK_DISPLACER_RELEASE" // Bad Cop released an entity via the displacer pistol
 #define TLK_SCANNER_FLASH "TLK_SCANNER_FLASH" // Bad Cop was flashed by a scanner
 #define TLK_VEHICLE_OVERTURNED "TLK_VEHICLE_OVERTURNED" // Bad Cop's vehicle was overturned
