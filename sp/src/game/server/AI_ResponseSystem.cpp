@@ -3186,6 +3186,26 @@ public:
 		return bBase;
 	}
 
+	void RefreshResponseLookup()
+	{
+		// Convert all new responses into indices
+		int count = m_Responses.Count();
+		for (int i = 0; i < count; i++)
+		{
+			int count2 = m_Responses[i].group.Count();
+			for (int i2 = 0; i2 < count2; i2++)
+			{
+				// This checks if the value is a number first.
+				// If it isn't, that means it hasn't been fixed up yet.
+				if (!AppearsToBeANumber( m_Responses[i].group[i2].value ))
+				{
+					int index = m_ResponseStrings.AddToTail( m_Responses[i].group[i2].value );
+					m_Responses[i].group[i2].value = CopyString( (CNumStr( index ).String()) );
+				}
+			}
+		}
+	}
+
 	virtual void Clear()
 	{
 		BaseClass::Clear();
@@ -3983,6 +4003,34 @@ void GetXenGrenadeResponseFromSystem( char *szResponse, size_t szResponseSize, I
 			Msg( "ERROR: Tried to insert response string at greater index than count!\n" );
 		}
 	}
+}
+
+// Loads a file directly to the Xen recipe response system
+bool LoadCustomXenRecipeFile(const char *scriptfile)
+{
+	CUtlBuffer buf;
+	if ( !filesystem->ReadFile( scriptfile, "GAME", buf ) )
+	{
+		return false;
+	}
+
+	// This is a really messy and specialized system that precaches the responses and only the responses of a talker file.
+	CStringPool includedFiles;
+	CResponseFilePrecacher *rs = new CResponseFilePrecacher();
+	if (!rs || !rs->LoadFromBuffer(scriptfile, (unsigned char *)buf.PeekGet(), includedFiles))
+	{
+		Warning( "Failed to load response system data from %s", scriptfile );
+		delete rs;
+		return false;
+	}
+	delete rs;
+
+	CStringPool includedFiles2;
+	CXenGrenadeRecipeResponseSystem *xsys = (CXenGrenadeRecipeResponseSystem*)PrecacheXenGrenadeResponseSystem( "scripts/talker/xen_grenade_recipes.txt" );
+	xsys->LoadFromBuffer(scriptfile, (const char *)buf.PeekGet(), includedFiles2);
+	xsys->RefreshResponseLookup();
+
+	return true;
 }
 #endif
 
