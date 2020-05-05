@@ -17,14 +17,18 @@
 #include "npc_basepredator.h"
 #include "npc_BaseZombie.h"
 
-class CNPC_Gonome : public CNPC_BasePredator
+typedef CAI_BlendingHost< CNPC_BasePredator > CAI_GonomeBase;
+
+class CNPC_Gonome : public CAI_GonomeBase
 {
-	DECLARE_CLASS( CNPC_Gonome, CNPC_BasePredator );
+	DECLARE_CLASS( CNPC_Gonome, CAI_GonomeBase );
 
 public:
 	void Spawn( void );
 	void Precache( void );
 	Class_T	Classify( void );
+
+	bool	CreateBehaviors();
 	
 	void IdleSound( void );
 	void PainSound( const CTakeDamageInfo &info );
@@ -62,6 +66,7 @@ public:
 	virtual bool	QueryHearSound( CSound *pSound );
 
 	int TranslateSchedule( int scheduleType );
+	int	SelectFailSchedule( int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode );
 	virtual Activity NPC_TranslateActivity( Activity eNewActivity );
 
 	void StartTask ( const Task_t *pTask );
@@ -76,8 +81,13 @@ public:
 	float	m_flBurnDamage;				// Keeps track of how much burn damage we've incurred in the last few seconds.
 	float	m_flBurnDamageResetTime;	// Time at which we reset the burn damage.
 
+	CAI_BeastBehavior	m_BeastBehavior;
+
 private:
 	int	m_nGonomeSpitSprite;
+
+	COutputEvent m_OnBeastHome;
+	COutputEvent m_OnBeastLeaveHome;
 
 protected:
 

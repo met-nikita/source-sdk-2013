@@ -18,6 +18,8 @@
 #ifdef EZ2
 #include "npc_wilson.h"
 #endif
+#include "ai_hint.h" // For beast behavior, move this if it moves to another file
+#include "hl2_gamerules.h" // For beast behavior, move this if it moves to another file
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -120,6 +122,17 @@ int CNPC_BasePredator::TranslateSchedule( int scheduleType )
 	// Replace alert stand with idle wander if applicable
 	case SCHED_ALERT_STAND:
 		if ( m_tWanderState > WANDER_STATE_NEVER && m_tWanderState < WANDER_STATE_IDLE_ONLY ) {
+
+			if ( HL2GameRules()->IsBeastInStealthMode() )
+			{
+				// If we haven't seen an enemy in 20 seconds, go back to idle
+				if (gpGlobals->curtime - GetLastEnemyTime() > 20.0f)
+				{
+					SetIdealState( NPC_STATE_IDLE );
+					SetCondition( COND_IDLE_INTERRUPT );
+				}
+			}
+
 			return SCHED_PREDATOR_WANDER;
 		}
 		break;
@@ -262,6 +275,9 @@ bool CNPC_BasePredator::FValidateHintType( CAI_Hint *pHint )
 {
 	// TODO Does this hint do anything for bullsquids and other predators?
 	if ( pHint->HintType() == HINT_HL1_WORLD_HUMAN_BLOOD )
+		return true;
+
+	if ( pHint->HintType() == HINT_BEAST_HOME || pHint->HintType() == HINT_BEAST_FRUSTRATION )
 		return true;
 
 	DevMsg( "Couldn't validate hint type" );
@@ -833,6 +849,10 @@ int CNPC_BasePredator::SelectSchedule( void )
 	}
 	}
 
+	// We're returning to the base class here anyway, so don't bother with an if statement
+	// unless this is moved farther up so it could override schedules
+	BehaviorSelectSchedule();
+
 	return BaseClass::SelectSchedule();
 }
 
@@ -1317,3 +1337,287 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 	)
 
 AI_END_CUSTOM_NPC()
+
+#ifdef BEAST_BEHAVIOR
+// 
+// Beast Behavior
+// 
+// Move this to another file if necessary.
+// 
+
+//---------------------------------------------------------
+// Save/Restore
+//---------------------------------------------------------
+BEGIN_DATADESC( CAI_BeastBehavior )
+
+	DEFINE_FIELD( m_bAtHome, FIELD_BOOLEAN ),
+
+END_DATADESC()
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CAI_BeastBehavior::CAI_BeastBehavior()
+{
+	m_bAtHome = false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BeastBehavior::HandleLeaveHome( void )
+{
+	m_bAtHome = false;
+
+	if (GetHintNode())
+	{
+		GetHintNode()->NPCStoppedUsing( GetOuter() );
+		float hintDelay = GetOuter()->GetHintDelay( GetHintNode()->HintType() );
+		GetHintNode()->Unlock( hintDelay );
+		ClearHintNode();
+	}
+
+	DevMsg( "BEAST BEHAVIOR: Leaving home!\n" );
+	GetOuter()->FoundEnemySound();
+
+	GetOuter()->FireNamedOutput( "OnBeastLeaveHome", variant_t(), GetOuter(), GetOuter() );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BeastBehavior::EndScheduleSelection( void )
+{
+	if ( m_bAtHome )
+	{
+		// Leaving home. Something happened
+		HandleLeaveHome();
+	}
+
+	BaseClass::EndScheduleSelection();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int CAI_BeastBehavior::SelectSchedule()
+{
+	int base = BaseClass::SelectSchedule();
+
+	if ( !m_bAtHome )
+	{
+		if ( base == SCHED_IDLE_STAND || base == SCHED_NONE )
+		{
+			// Idle, go home
+			GetOuter()->LostEnemySound();
+			DevMsg("BEAST BEHAVIOR: Going home!\n");
+			return SCHED_BEAST_COME_HOME;
+		}
+	}
+	else
+	{
+		// Leaving home. Something happened
+		HandleLeaveHome();
+	}
+
+	return base;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BeastBehavior::GatherConditions( void )
+{
+	BaseClass::GatherConditions();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int CAI_BeastBehavior::TranslateSchedule( int scheduleType )
+{
+	int base = BaseClass::TranslateSchedule( scheduleType );
+
+	//switch (base)
+	//{
+	//	case SCHED_INVESTIGATE_SOUND:
+	//		{
+	//
+	//		} break;
+	//}
+
+	return base;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BeastBehavior::BuildScheduleTestBits( void )
+{
+	BaseClass::BuildScheduleTestBits();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CAI_BeastBehavior::CanSelectSchedule( void )
+{
+	if ( HL2GameRules()->IsBeastInStealthMode() == false )
+		return false;
+
+	return BaseClass::CanSelectSchedule();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BeastBehavior::StartTask( const Task_t *pTask )
+{
+	switch ( pTask->iTask )
+	{
+	case TASK_BEAST_FIND_HOME:
+		{
+			CHintCriteria hintCriteria;
+			hintCriteria.SetHintType( HINT_BEAST_HOME );
+			hintCriteria.SetFlag( bits_HINT_NODE_NEAREST | bits_HINT_NODE_REPORT_FAILURES );
+			hintCriteria.AddIncludePosition( GetAbsOrigin(), pTask->flTaskData );
+			CAI_Hint *pHint = CAI_HintManager::FindHint( GetOuter(), hintCriteria );
+			if (pHint)
+			{
+				DevMsg("Find Home: Found hint %i in radius %f\n", pHint->GetNodeId(), pTask->flTaskData);
+				SetHintNode( pHint );
+			}
+			else
+			{
+				DevMsg("Find Home: Found no hint in radius %f\n", pTask->flTaskData);
+			}
+
+			ChainStartTask( TASK_GET_PATH_TO_HINTNODE );
+
+			if ( !HasCondition(COND_TASK_FAILED) && pHint )
+			{
+				if (GetNavigator()->IsGoalSet())
+				{
+					pHint->Lock( GetOuter() );
+					pHint->NPCHandleStartNav( GetOuter(), true );
+					TaskComplete();
+					break;
+				}
+			}
+
+			TaskFail( FAIL_NO_ROUTE );
+		} break;
+
+	case TASK_BEAST_BE_HOME:
+		{
+			m_bAtHome = true;
+			GetHintNode()->NPCStartedUsing( GetOuter() );
+			GetOuter()->FireNamedOutput( "OnBeastHome", variant_t(), GetOuter(), GetOuter() );
+			TaskComplete();
+		} break;
+
+	default:
+		BaseClass::StartTask( pTask );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BeastBehavior::RunTask( const Task_t *pTask )
+{
+	//switch ( pTask->iTask )
+	//{
+	//default:
+		BaseClass::RunTask( pTask );
+	//}
+}
+
+bool CAI_BeastBehavior::QueryHearSound( CSound *pSound )
+{
+	// Don't hear turrets alerted by us
+	if (pSound->m_hTarget == GetOuter())
+		return false;
+
+	if (!m_bAtHome && GetOuter()->FInViewCone(pSound->GetSoundReactOrigin()) && GetOuter()->FVisible(pSound->GetSoundReactOrigin()))
+	{
+		// Don't hear sounds that we don't need to investigate
+		if (!pSound->m_hTarget || (pSound->m_hTarget->IsNPC() && GetOuter()->IRelationType( pSound->m_hTarget ) >= D_LI))
+			return false;
+	}
+
+	return BaseClass::QueryHearSound( pSound );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CAI_BeastBehavior::IsInterruptable( void )
+{
+	if ( IsCurSchedule( SCHED_BEAST_STAY_HOME ) )
+		return false;
+
+	return BaseClass::IsInterruptable();
+}
+
+//-------------------------------------
+
+AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER( CAI_BeastBehavior )
+
+	//DECLARE_CONDITION( COND_ACTBUSY_LOST_SEE_ENTITY )
+
+	DECLARE_TASK( TASK_BEAST_FIND_HOME )
+	DECLARE_TASK( TASK_BEAST_BE_HOME )
+
+	//---------------------------------
+
+	DEFINE_SCHEDULE
+	( 
+		SCHED_BEAST_STAY_HOME,
+
+		"	Tasks"
+		"		TASK_STOP_MOVING		1"
+		"		TASK_PLAY_HINT_ACTIVITY		0"
+		"		TASK_WAIT_INDEFINITE	5"
+		""
+		"	Interrupts"
+		"		COND_SEE_ENEMY"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+		"		COND_HEAR_COMBAT"		// sound flags
+		"		COND_HEAR_WORLD"
+		"		COND_HEAR_PLAYER"
+		"		COND_HEAR_DANGER"
+		"		COND_HEAR_BULLET_IMPACT"
+		"		COND_PROVOKED"
+	)
+
+	DEFINE_SCHEDULE
+	( 
+		SCHED_BEAST_COME_HOME,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE		SCHEDULE:SCHED_PATROL_WALK"
+		"		TASK_BEAST_FIND_HOME		4096"
+		"		TASK_REMEMBER				MEMORY:LOCKED_HINT"
+		"		TASK_RUN_PATH				0"
+		"		TASK_WAIT_FOR_MOVEMENT		0"
+		"		TASK_STOP_MOVING			0"
+		"		TASK_BEAST_BE_HOME			0"
+		"		TASK_SET_SCHEDULE			SCHEDULE:SCHED_BEAST_STAY_HOME"
+		""
+		"	Interrupts"
+		"		COND_SEE_ENEMY"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+		"		COND_HEAR_COMBAT"		// sound flags
+		"		COND_HEAR_WORLD"
+		"		COND_HEAR_PLAYER"
+		"		COND_HEAR_DANGER"
+		"		COND_HEAR_BULLET_IMPACT"
+		"		COND_PROVOKED"
+	)
+
+AI_END_CUSTOM_SCHEDULE_PROVIDER()
+#endif

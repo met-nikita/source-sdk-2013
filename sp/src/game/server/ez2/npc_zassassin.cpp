@@ -89,6 +89,7 @@ enum
 	SCHED_GONOME_CHASE_ENEMY = LAST_SHARED_SCHEDULE_PREDATOR + 1,
 	SCHED_GONOME_RANGE_ATTACK1, // Like standard range attack, but with no interrupts for damage
 	SCHED_GONOME_SCHED_RUN_FROM_ENEMY, // Like standard run from enemy, but looks for a point to run to 512 units away
+	SCHED_GONOME_FRUSTRATION, // Almost caught enemy, but they escaped, so throw a fit
 };
 
 //=========================================================
@@ -96,6 +97,8 @@ enum
 //=========================================================
 #define		GONOME_AE_TAILWHIP	( 4 )
 #define		GONOME_AE_PLAYSOUND ( 1011 )
+
+int		GONOME_AE_LAND;
 
 LINK_ENTITY_TO_CLASS( monster_gonome, CNPC_Gonome );
 LINK_ENTITY_TO_CLASS( npc_zassassin, CNPC_Gonome ); //For Zombie Assassin version -Stacker
@@ -115,6 +118,8 @@ public:
 	void Animate( void );
 
 	int m_nGonomeSpitSprite;
+
+	bool m_bGoo;
 
 	DECLARE_DATADESC();
 
@@ -138,6 +143,7 @@ LINK_ENTITY_TO_CLASS( squidspit, CGonomeSpit );
 
 BEGIN_DATADESC( CGonomeSpit )
 	DEFINE_FIELD( m_nGonomeSpitSprite, FIELD_INTEGER ),
+	DEFINE_FIELD( m_bGoo, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_hSprite, FIELD_EHANDLE ),
 END_DATADESC()
 
@@ -181,6 +187,8 @@ void CGonomeSpit::Shoot( CBaseEntity *pOwner, int nGonomeSpitSprite, CSprite * p
 	UTIL_SetOrigin( pSpit, vecStart );
 	pSpit->SetAbsVelocity( vecVelocity );
 	pSpit->SetOwnerEntity( pOwner );
+
+	pSpit->m_bGoo = (pSpit->GetOwnerEntity() && pSpit->GetOwnerEntity()->IsNPC()) ? pSpit->GetOwnerEntity()->MyNPCPointer()->m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_RAD : false;
 
 	pSpit->SetSprite( pSprite );
 
@@ -232,7 +240,7 @@ void CGonomeSpit::Touch ( CBaseEntity *pOther )
 	{
 		// make a splat on the wall
 		UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + GetAbsVelocity() * 10, MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
-		UTIL_DecalTrace(&tr, "Blood" ); //BeerSplash
+		UTIL_DecalTrace(&tr, m_bGoo ? "GlowSplat" : "Blood" ); //BeerSplash
 
 		// make some flecks
 		CPVSFilter filter( tr.endpos );
@@ -242,7 +250,7 @@ void CGonomeSpit::Touch ( CBaseEntity *pOther )
 	}
 	else
 	{
-		CTakeDamageInfo info( this, this, sk_zombie_assassin_dmg_spit.GetFloat(), DMG_BULLET );
+		CTakeDamageInfo info( this, GetOwnerEntity(), sk_zombie_assassin_dmg_spit.GetFloat(), m_bGoo ? DMG_RADIATION : DMG_ACID );
 		CalculateBulletDamageForce( &info, GetAmmoDef()->Index("9mmRound"), GetAbsVelocity(), GetAbsOrigin() );
 		pOther->TakeDamage( info );
 	}
@@ -255,7 +263,10 @@ void CGonomeSpit::Touch ( CBaseEntity *pOther )
 BEGIN_DATADESC(CNPC_Gonome)
 	DEFINE_FIELD(m_flBurnDamage, FIELD_FLOAT),
 	DEFINE_FIELD(m_flBurnDamageResetTime, FIELD_TIME),
-	DEFINE_FIELD(m_nGonomeSpitSprite, FIELD_INTEGER)
+	DEFINE_FIELD(m_nGonomeSpitSprite, FIELD_INTEGER),
+
+	DEFINE_OUTPUT( m_OnBeastHome, "OnBeastHome" ),
+	DEFINE_OUTPUT( m_OnBeastLeaveHome, "OnBeastLeaveHome" ),
 END_DATADESC()
 
 //=========================================================
@@ -352,10 +363,22 @@ void CNPC_Gonome::Precache()
 	PrecacheScriptSound( "Gonome.FoundEnemy");
 	PrecacheScriptSound( "Gonome.RetreatMode");
 	PrecacheScriptSound( "Gonome.BerserkMode");
-	PrecacheScriptSound( "Gonome.Footstep" );
+	PrecacheScriptSound( "Gonome.RunFootstepLeft" );
+	PrecacheScriptSound( "Gonome.RunFootstepRight" );
+	PrecacheScriptSound( "Gonome.FootstepLeft" );
+	PrecacheScriptSound( "Gonome.FootstepRight" );
 	PrecacheScriptSound( "Gonome.Eat" );
 	PrecacheScriptSound( "Gonome.BeginSpawnCrab" );
 	PrecacheScriptSound( "Gonome.EndSpawnCrab" );
+}
+
+//---------------------------------------------------------
+//---------------------------------------------------------
+bool CNPC_Gonome::CreateBehaviors()
+{
+	AddBehavior( &m_BeastBehavior );
+
+	return BaseClass::CreateBehaviors();
 }
 
 //-----------------------------------------------------------------------------
@@ -394,6 +417,39 @@ int CNPC_Gonome::TranslateSchedule( int scheduleType )
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int CNPC_Gonome::SelectFailSchedule( int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode )
+{
+	int base = BaseClass::SelectFailSchedule( failedSchedule, failedTask, taskFailCode );
+
+	if ( failedSchedule == SCHED_GONOME_CHASE_ENEMY && GetEnemy() )
+	{
+		Vector2D vecOrigin = GetAbsOrigin().AsVector2D();
+		Vector vecEnemyPos = GetEnemies()->LastSeenPosition( GetEnemy() );
+		float flDistSqr = vecOrigin.DistToSqr( vecEnemyPos.AsVector2D() );
+		if ( flDistSqr <= Square(128.0f) )
+		{
+			CHintCriteria hintCriteria;
+			hintCriteria.SetHintType( HINT_BEAST_FRUSTRATION );
+			hintCriteria.SetFlag( bits_HINT_NODE_NEAREST | bits_HINT_NODE_CLEAR );
+			hintCriteria.AddIncludePosition( vecEnemyPos, 96.0f );
+			CAI_Hint *pHint = CAI_HintManager::FindHint( this, hintCriteria );
+
+			if (pHint)
+			{
+				// Dag nabbit!
+				SetHintNode( pHint );
+				pHint->Lock( this );
+				return SCHED_GONOME_FRUSTRATION;
+			}
+		}
+	}
+
+	return base;
 }
 
 //=========================================================
@@ -616,6 +672,45 @@ void CNPC_Gonome::PrescheduleThink( void )
 //=========================================================
 void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 {
+	if (pEvent->type & AE_TYPE_NEWEVENTSYSTEM)
+	{
+		if ( pEvent->event == GONOME_AE_LAND )
+		{
+			trace_t tr;
+			UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() - Vector(0,0,16), MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &tr );
+			if( tr.fraction < 1.0 && tr.m_pEnt )
+			{
+				surfacedata_t *psurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
+				if ( psurf )
+				{
+					// Shake
+					UTIL_ScreenShake( tr.endpos, 10, 150.0, 0.5f, 512, SHAKE_START );
+
+					// Material Sound
+					EmitSound_t params;
+					params.m_pSoundName = physprops->GetString( psurf->sounds.impactHard );
+
+					CPASAttenuationFilter filter( this, params.m_pSoundName );
+
+					params.m_bWarnOnDirectWaveReference = true;
+					params.m_flVolume = 0.5f;
+					EmitSound( filter, entindex(), params );
+
+					// Land Sound
+					params.m_pSoundName = pEvent->options;
+					filter.Filter( GetSoundEmissionOrigin(), CBaseEntity::LookupSoundLevel( params.m_pSoundName ) );
+					EmitSound( filter, entindex(), params );
+				}
+			}
+		}
+		else
+		{
+			BaseClass::HandleAnimEvent( pEvent );
+		}
+
+		return;
+	}
+
 	switch( pEvent->event )
 	{
 		case PREDATOR_AE_SPIT:
@@ -757,18 +852,6 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 					}
 				}
 			}
-		break;
-
-		case GONOME_AE_PLAYSOUND:
-		{
-			const char * soundname = pEvent->options;
-			// Hackhack - I want to use soundscripts, not wavs
-			// TODO At some point, we need to edit the model to fix this - should just use a footstep event
-			if (V_strcmp(soundname, "gonome/gonome_step1.wav") || V_strcmp(soundname, "gonome/gonome_step2.wav") || V_strcmp(soundname, "gonome/gonome_step3.wav") || V_strcmp(soundname, "common/npc_step3.wav"))
-			{
-				EmitSound("Gonome.Footstep");
-			}
-		}
 		break;
 
 		default:
@@ -1048,6 +1131,8 @@ void CNPC_Gonome::RunTask ( const Task_t *pTask )
 //------------------------------------------------------------------------------
 
 AI_BEGIN_CUSTOM_NPC( monster_gonome, CNPC_Gonome )
+
+	DECLARE_ANIMEVENT( GONOME_AE_LAND )
 		
 	//=========================================================
 	// > SCHED_GONOME_CHASE_ENEMY
@@ -1117,6 +1202,25 @@ AI_BEGIN_CUSTOM_NPC( monster_gonome, CNPC_Gonome )
 		"	Interrupts"
 		"		COND_NEW_ENEMY"
 		"		COND_ENEMY_DEAD"
+	)
+
+	DEFINE_SCHEDULE
+	( 
+		SCHED_GONOME_FRUSTRATION,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE		SCHEDULE:SCHED_RUN_RANDOM"
+		"		TASK_REMEMBER				MEMORY:LOCKED_HINT"
+		"		TASK_GET_PATH_TO_HINTNODE	0"
+		"		TASK_RUN_PATH				0"
+		"		TASK_WAIT_FOR_MOVEMENT		0"
+		"		TASK_STOP_MOVING			0"
+		"		TASK_PLAY_HINT_ACTIVITY		0"
+		"		TASK_SET_SCHEDULE			SCHEDULE:SCHED_RUN_RANDOM"
+		""
+		"	Interrupts"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
 	)
 
 AI_END_CUSTOM_NPC()
