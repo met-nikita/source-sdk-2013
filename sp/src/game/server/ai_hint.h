@@ -115,6 +115,12 @@ enum Hint_e
 
 	// CS port hints
 	HINT_CSTRIKE_HOSTAGE_ESCAPE = 1100,
+
+#ifdef EZ2
+	// EZ2 hints
+	HINT_BEAST_HOME = 2000,
+	HINT_BEAST_FRUSTRATION,
+#endif
 };
 const char *GetHintTypeDescription( Hint_e iHintType );
 const char *GetHintTypeDescription( CAI_Hint *pHint );
