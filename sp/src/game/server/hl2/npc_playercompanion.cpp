@@ -3661,10 +3661,6 @@ bool CNPC_PlayerCompanion::MovementCost( int moveType, const Vector &vecStart, c
 //-----------------------------------------------------------------------------
 float CNPC_PlayerCompanion::HintCost( int iHint, float dist, Vector &vecEnd )
 {
-	// 1024 units seems like a very steep cost! But I've found the effects otherwise are subtle.
-	// A penalty cost of 1024 means companions are willing to choose a route 1024 units longer 
-	// if their path contains a disadvantaged pinch point
-	float penaltyCost = 1024.0f;
 	int penalties = 0;
 
 	if ( iHint == HINT_TACTICAL_ENEMY_DISADVANTAGED )
@@ -3702,6 +3698,9 @@ float CNPC_PlayerCompanion::HintCost( int iHint, float dist, Vector &vecEnd )
 		}
 	}
 
+	// 1024 units seems like a very steep cost! But I've found the effects otherwise are subtle.
+	// A penalty cost of 1024 means companions are willing to choose a route 1024 units longer 
+	// if their path contains a disadvantaged pinch point
 	return BaseClass::HintCost( iHint, dist, vecEnd ) + ( penalties * 1024.0f );
 }
 #endif
