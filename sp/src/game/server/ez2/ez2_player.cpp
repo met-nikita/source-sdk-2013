@@ -45,6 +45,8 @@ BEGIN_DATADESC(CEZ2_Player)
 	DEFINE_FIELD( m_flNextCommandHintTime, FIELD_TIME ),
 	DEFINE_FIELD( m_flLastCommandHintTime, FIELD_TIME ),
 
+	DEFINE_FIELD( m_vecLastCommandGoal, FIELD_VECTOR ),
+
 	DEFINE_FIELD(m_hNPCComponent, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flNextSpeechTime, FIELD_TIME),
 	DEFINE_FIELD(m_hSpeechFilter, FIELD_EHANDLE),
@@ -440,6 +442,7 @@ bool CEZ2_Player::CommanderExecuteOne(CAI_BaseNPC * pNpc, const commandgoal_t & 
 		if (goal.m_pGoalEntity)
 		{
 			SpeakIfAllowed(TLK_COMMAND_RECALL);
+			m_vecLastCommandGoal = vec3_invalid;
 		}
 		else if (pNpc->IsInPlayerSquad())
 		{
@@ -448,6 +451,15 @@ bool CEZ2_Player::CommanderExecuteOne(CAI_BaseNPC * pNpc, const commandgoal_t & 
 			modifiers.AppendCriteria("commandpoint_dist_to_player", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - GetAbsOrigin()).Length()));
 			modifiers.AppendCriteria("commandpoint_dist_to_npc", UTIL_VarArgs("%.0f", (goal.m_vecGoalLocation - pNpc->GetAbsOrigin()).Length()));
 			modifiers.AppendCriteria("distancetoplayer", UTIL_VarArgs("%.0f", (GetAbsOrigin() - pNpc->GetAbsOrigin()).Length()));
+
+			// This is the difference in between the new goal and the last goal, but it's mostly just
+			// so we know whether we already had a goal before this command or not.
+			if (m_vecLastCommandGoal != vec3_invalid)
+				modifiers.AppendCriteria( "commandpoint_prev", UTIL_VarArgs( "%.0f", (goal.m_vecGoalLocation - m_vecLastCommandGoal).Length() ) );
+			else
+				modifiers.AppendCriteria( "commandpoint_prev", "-1" );
+
+			m_vecLastCommandGoal = goal.m_vecGoalLocation;
 
 			SpeakIfAllowed(TLK_COMMAND_SEND, modifiers);
 		}

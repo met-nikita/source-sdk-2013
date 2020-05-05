@@ -249,6 +249,9 @@ private:
 	float			m_flNextCommandHintTime;
 	float			m_flLastCommandHintTime;
 
+	// For speech purposes
+	Vector			m_vecLastCommandGoal;
+
 	CHandle<CAI_PlayerNPCDummy> m_hNPCComponent;
 	float			m_flNextSpeechTime;
 	CHandle<CAI_SpeechFilter>	m_hSpeechFilter;
