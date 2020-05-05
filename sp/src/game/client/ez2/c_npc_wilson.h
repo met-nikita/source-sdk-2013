@@ -9,6 +9,7 @@
 #include "glow_overlay.h"
 #include "view.h"
 #include "c_pixel_visibility.h"
+#include "beam_shared.h"
 
 // Based on env_lightglow code
 class C_TurretGlowOverlay : public CGlowOverlay
@@ -55,10 +56,38 @@ protected:
 	int		m_nOuterMaxDist;
 };
 
-class C_NPC_Wilson : public C_AI_BaseNPC
+// TODO: Move this
+class C_AI_TurretBase : public C_AI_BaseNPC
 {
 public:
-	DECLARE_CLASS( C_NPC_Wilson, C_AI_BaseNPC );
+	DECLARE_CLASS( C_AI_TurretBase, C_AI_BaseNPC );
+
+	C_AI_TurretBase();
+	~C_AI_TurretBase();
+
+	void OnDataChanged( DataUpdateType_t type );
+	void Simulate( void );
+
+	virtual void UpdateGlow( Vector &vVector, Vector &vecForward ) {}
+
+	int m_iLightAttachment = -1;
+
+	bool m_bEyeLightEnabled;
+
+	int m_iLastEyeLightBrightness;
+	int m_iEyeLightBrightness;
+
+	float m_flEyeLightBrightnessScale;
+	CTurretLightEffect *m_EyeLight;
+
+	float m_flRange;
+	float m_flFOV;
+};
+
+class C_NPC_Wilson : public C_AI_TurretBase
+{
+public:
+	DECLARE_CLASS( C_NPC_Wilson, C_AI_TurretBase );
 	DECLARE_CLIENTCLASS();
 	DECLARE_PREDICTABLE();
 
@@ -69,16 +98,28 @@ public:
 	void Simulate( void );
 	void ClientThink( void );
 
-	bool m_bEyeLightEnabled;
-
-	int m_iLastEyeLightBrightness;
-	int m_iEyeLightBrightness;
-
-	float m_flEyeLightBrightnessScale;
-	CTurretLightEffect *m_EyeLight;
+	void UpdateGlow( Vector &vVector, Vector &vecForward );
 
 	C_TurretGlowOverlay m_Glow;
 };
 
+class C_NPC_Arbeit_FloorTurret : public C_AI_TurretBase
+{
+public:
+	DECLARE_CLASS( C_NPC_Arbeit_FloorTurret, C_AI_TurretBase );
+	DECLARE_CLIENTCLASS();
+	DECLARE_PREDICTABLE();
 
-#endif // C_SDK_PLAYER_H
+	C_NPC_Arbeit_FloorTurret();
+	~C_NPC_Arbeit_FloorTurret();
+
+	void OnDataChanged( DataUpdateType_t type );
+	void Simulate( void );
+
+	bool m_bLaser;
+
+	C_Beam *m_pLaser;
+};
+
+
+#endif // C_NPC_Wilson_H

@@ -9,6 +9,84 @@
 #include "cbase.h"
 #include "c_npc_wilson.h"
 
+C_AI_TurretBase::C_AI_TurretBase()
+{
+}
+
+C_AI_TurretBase::~C_AI_TurretBase()
+{
+}
+
+static const float g_flTurretLightMaxFar = 500.0f;
+
+void C_AI_TurretBase::Simulate( void )
+{
+	// The dim light is the flashlight.
+	if ( m_bEyeLightEnabled && (m_EyeLight == NULL || m_EyeLight->m_flBrightnessScale > 0.0f) )
+	{
+		if ( m_EyeLight == NULL )
+		{
+			// Turned on the headlight; create it.
+			m_EyeLight = new CTurretLightEffect;
+
+			if ( m_EyeLight == NULL )
+				return;
+
+			m_EyeLight->m_flBrightnessScale = m_flEyeLightBrightnessScale;
+			m_EyeLight->m_flFarZ = MIN( m_flRange, g_flTurretLightMaxFar );
+			m_EyeLight->m_flFOV = AngleNormalize( m_flFOV + 25 );
+			m_EyeLight->TurnOn();
+		}
+		else if (m_EyeLight->m_flBrightnessScale != m_flEyeLightBrightnessScale)
+		{
+			m_EyeLight->m_flBrightnessScale = FLerp( m_EyeLight->m_flBrightnessScale, m_flEyeLightBrightnessScale, 0.1f );
+		}
+
+		QAngle vAngle;
+		Vector vVector;
+		Vector vecForward, vecRight, vecUp;
+
+		if ( m_iLightAttachment == -1 )
+			m_iLightAttachment = LookupAttachment( "light" );
+
+		if ( m_iLightAttachment != -1 )
+		{
+			GetAttachment( m_iLightAttachment, vVector, vAngle );
+			AngleVectors( vAngle, &vecForward, &vecRight, &vecUp );
+
+			// Update the flashlight
+			m_EyeLight->UpdateLight( vVector, vecForward, vecRight, vecUp, 40 );
+
+			// Update the glow
+			// The glow needs to be a few units in front of the eye
+			UpdateGlow( vVector, vecForward );
+		}
+	}
+	else
+	{
+		if ( m_EyeLight )
+		{
+			// Turned off the flashlight; delete it.
+			delete m_EyeLight;
+			m_EyeLight = NULL;
+		}
+	}
+
+	BaseClass::Simulate();
+}
+
+void C_AI_TurretBase::OnDataChanged( DataUpdateType_t type )
+{
+	if (m_iEyeLightBrightness != m_iLastEyeLightBrightness)
+	{
+		// 255 = Equivalent to sprite color byte
+		m_flEyeLightBrightnessScale = (float)(m_iEyeLightBrightness) / 255.0f;
+		m_iLastEyeLightBrightness = m_iEyeLightBrightness;
+	}
+
+	BaseClass::OnDataChanged( type );
+}
+
 IMPLEMENT_CLIENTCLASS_DT( C_NPC_Wilson, DT_NPC_Wilson, CNPC_Wilson )
 	RecvPropBool( RECVINFO( m_bEyeLightEnabled ) ),
 	RecvPropInt( RECVINFO( m_iEyeLightBrightness ) ),
@@ -29,71 +107,11 @@ C_NPC_Wilson::~C_NPC_Wilson()
 
 void C_NPC_Wilson::Simulate( void )
 {
-	// The dim light is the flashlight.
-	if ( m_bEyeLightEnabled && (m_EyeLight == NULL || m_EyeLight->m_flBrightnessScale > 0.0f) )
-	{
-		if ( m_EyeLight == NULL )
-		{
-			// Turned on the headlight; create it.
-			m_EyeLight = new CTurretLightEffect;
-
-			if ( m_EyeLight == NULL )
-				return;
-
-			m_EyeLight->m_flBrightnessScale = m_flEyeLightBrightnessScale;
-			m_EyeLight->TurnOn();
-		}
-		else if (m_EyeLight->m_flBrightnessScale != m_flEyeLightBrightnessScale)
-		{
-			m_EyeLight->m_flBrightnessScale = FLerp(m_EyeLight->m_flBrightnessScale, m_flEyeLightBrightnessScale, 0.1f);
-		}
-
-		QAngle vAngle;
-		Vector vVector;
-		Vector vecForward, vecRight, vecUp;
-
-		int iAttachment = LookupAttachment( "light" );
-
-		if ( iAttachment != -1 )
-		{
-			GetAttachment( iAttachment, vVector, vAngle );
-			AngleVectors( vAngle, &vecForward, &vecRight, &vecUp );
-
-			// Update the flashlight
-			m_EyeLight->UpdateLight( vVector, vecForward, vecRight, vecUp, 40 );
-
-			// Update the glow
-			// The glow needs to be a few units in front of the eye
-			Vector vGlowPos = vVector + (vecForward.Normalized() * 2.0f);
-			m_Glow.SetOrigin( vGlowPos );
-			m_Glow.m_vPos = vGlowPos;
-			m_Glow.m_flHDRColorScale = m_EyeLight->m_flBrightnessScale;
-		}
-	}
-	else
-	{
-		if ( m_EyeLight )
-		{
-			// Turned off the flashlight; delete it.
-			delete m_EyeLight;
-			m_EyeLight = NULL;
-		}
-
-		m_Glow.Deactivate();
-	}
-
 	BaseClass::Simulate();
 }
 
 void C_NPC_Wilson::OnDataChanged( DataUpdateType_t type )
 {
-	if (m_iEyeLightBrightness != m_iLastEyeLightBrightness)
-	{
-		// 255 = Equivalent to sprite color byte
-		m_flEyeLightBrightnessScale = (float)(m_iEyeLightBrightness) / 255.0f;
-		m_iLastEyeLightBrightness = m_iEyeLightBrightness;
-	}
-
 	if ( type == DATA_UPDATE_CREATED )
 	{
 		// Setup our light glow.
@@ -113,9 +131,6 @@ void C_NPC_Wilson::OnDataChanged( DataUpdateType_t type )
 	BaseClass::OnDataChanged( type );
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void C_NPC_Wilson::ClientThink( void )
 {
 	Vector mins = GetAbsOrigin();
@@ -129,4 +144,104 @@ void C_NPC_Wilson::ClientThink( void )
 	}
 
 	SetNextClientThink( gpGlobals->curtime + RandomFloat(1.0,3.0) );
+}
+
+void C_NPC_Wilson::UpdateGlow( Vector &vVector, Vector &vecForward )
+{
+	Vector vGlowPos = vVector + (vecForward.Normalized() * 2.0f);
+	m_Glow.SetOrigin( vGlowPos );
+	m_Glow.m_vPos = vGlowPos;
+	m_Glow.m_flHDRColorScale = FLerp( m_Glow.m_flHDRColorScale, m_flEyeLightBrightnessScale, 0.1f );
+}
+
+IMPLEMENT_CLIENTCLASS_DT( C_NPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret, CNPC_Arbeit_FloorTurret )
+	RecvPropBool( RECVINFO( m_bEyeLightEnabled ) ),
+	RecvPropInt( RECVINFO( m_iEyeLightBrightness ) ),
+	RecvPropFloat( RECVINFO( m_flRange ) ),
+	RecvPropFloat( RECVINFO( m_flFOV ) ),
+	RecvPropBool( RECVINFO( m_bLaser ) ),
+END_RECV_TABLE()
+
+BEGIN_PREDICTION_DATA( C_NPC_Arbeit_FloorTurret )
+END_PREDICTION_DATA()
+
+C_NPC_Arbeit_FloorTurret::C_NPC_Arbeit_FloorTurret()
+{
+}
+
+C_NPC_Arbeit_FloorTurret::~C_NPC_Arbeit_FloorTurret()
+{
+}
+
+void C_NPC_Arbeit_FloorTurret::Simulate( void )
+{
+	BaseClass::Simulate();
+
+	if (m_pLaser)
+	{
+		Vector vecLight;
+		QAngle angAngles;
+		GetAttachment( m_iLightAttachment, vecLight, angAngles );
+
+		Vector vecDir;
+		AngleVectors( angAngles, &vecDir );
+
+		trace_t tr;
+		UTIL_TraceLine( vecLight, vecLight + (vecDir * (m_flRange + 8.0f)), MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
+
+		m_pLaser->PointsInit( vecLight, tr.endpos );
+		m_pLaser->SetStartEntity( this );
+		m_pLaser->SetStartAttachment( m_iLightAttachment );
+	}
+}
+
+void C_NPC_Arbeit_FloorTurret::OnDataChanged( DataUpdateType_t type )
+{
+	BaseClass::OnDataChanged( type );
+
+	if (m_bLaser)
+	{
+		if (!m_pLaser)
+		{
+			if ( m_iLightAttachment == -1 )
+				m_iLightAttachment = LookupAttachment( "light" );
+
+			if ( m_iLightAttachment == -1 )
+				return;
+
+			m_pLaser = C_Beam::BeamCreate( "effects/laser1.vmt", 3.0f );
+			if ( m_pLaser == NULL )
+				return;
+
+			Vector vecLight;
+			QAngle angAngles;
+			GetAttachment( m_iLightAttachment, vecLight, angAngles );
+
+			Vector vecDir;
+			AngleVectors( angAngles, &vecDir );
+
+			trace_t tr;
+			UTIL_TraceLine( vecLight, vecLight + (vecDir * (m_flRange + 8.0f)), MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
+
+			m_pLaser->PointsInit( vecLight, tr.endpos );
+			m_pLaser->SetStartEntity( this );
+			m_pLaser->SetStartAttachment( m_iLightAttachment );
+
+			//m_pLaser->FollowEntity( this );
+			m_pLaser->SetNoise( 0 );
+			m_pLaser->SetColor( 255, 0, 0 );
+			m_pLaser->SetScrollRate( 0 );
+			m_pLaser->SetWidth( 3.0f );
+			m_pLaser->SetEndWidth( 2.0f );
+			m_pLaser->SetBrightness( 200 );
+			m_pLaser->SetBeamFlags( SF_BEAM_SHADEIN );
+		}
+	}
+	else if (m_pLaser)
+	{
+		DevMsg( "Removing m_pLaser\n" );
+
+		m_pLaser->Remove();
+		m_pLaser = NULL;
+	}
 }

@@ -8,6 +8,9 @@
 #include "ai_basenpc.h"
 #include "player_pickup.h"
 #include "particle_system.h"
+#ifdef EZ2
+#include "ai_speech.h"
+#endif
 
 //Turret states
 enum turretState_e
@@ -228,8 +231,15 @@ protected:
 
 	bool	IsCitizenTurret( void ) { return HasSpawnFlags( SF_FLOOR_TURRET_CITIZEN ); }
 	bool	UpdateFacing( void );
+#ifdef EZ2
+	virtual
+#endif
 	void	DryFire( void );
 	void	UpdateMuzzleMatrix();
+
+#ifdef EZ2
+	virtual float	GetRange();
+#endif
 
 protected:
 	matrix3x4_t m_muzzleToWorld;
@@ -360,5 +370,102 @@ private:
 	CNPC_FloorTurret			*m_pParentTurret;
 #endif
 };
+
+#ifdef EZ2
+// Turret concepts
+#define TLK_SEARCHING "TLK_SEARCHING"
+#define TLK_AUTOSEARCH "TLK_AUTOSEARCH"
+#define TLK_ACTIVE "TLK_ACTIVE"
+#define TLK_SUPPRESS "TLK_SUPPRESS"
+#define TLK_DEPLOY "TLK_DEPLOY"
+#define TLK_RETIRE "TLK_RETIRE"
+#define TLK_TIPPED "TLK_TIPPED"
+#define TLK_DISABLED "TLK_DISABLED"
+#define TLK_PICKUP "TLK_PICKUP"
+
+//-----------------------------------------------------------------------------
+// Purpose: Bootleg version of the Portal floor turret
+//-----------------------------------------------------------------------------
+class CNPC_Arbeit_FloorTurret : public CAI_ExpresserHost<CNPC_FloorTurret>
+{
+	DECLARE_CLASS( CNPC_Arbeit_FloorTurret, CAI_ExpresserHost<CNPC_FloorTurret> );
+	DECLARE_DATADESC();
+	DECLARE_SERVERCLASS();
+public:
+
+	CNPC_Arbeit_FloorTurret( void );
+
+	virtual void	Precache( void );
+	virtual void	Spawn( void );
+	virtual bool	CreateVPhysics( void );
+
+	// Player pickup
+	virtual void	OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason );
+	virtual void	OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reason );
+
+	const char *GetTracerType( void ) { return "Tracer"; }
+
+	// TODO: Unique class?
+	Class_T	Classify( void ) { return BaseClass::Classify(); }
+
+	bool			CanBeAnEnemyOf( CBaseEntity *pEnemy );
+
+	void			InputTurnOnEyeLight( inputdata_t &inputdata ) { m_bEyeLightEnabled = true; }
+	void			InputTurnOffEyeLight( inputdata_t &inputdata ) { m_bEyeLightEnabled = false; }
+
+	void			InputTurnOnLaser( inputdata_t &inputdata ) { m_bLaser = true; }
+	void			InputTurnOffLaser( inputdata_t &inputdata ) { m_bLaser = false; }
+
+	bool SpeakIfAllowed( const char *concept );
+	bool SpeakIfAllowed( const char *concept, AI_CriteriaSet &modifiers );
+	void ModifyOrAppendCriteria( AI_CriteriaSet& set );
+
+	virtual CAI_Expresser *CreateExpresser( void );
+	virtual CAI_Expresser *GetExpresser() { return m_pExpresser; }
+	virtual void		PostConstructor( const char *szClassname );
+
+	bool IsPlayerAlly() { return m_iTurretType == TURRET_TYPE_ALLY; }
+
+protected:
+
+	virtual void	SetEyeState( eyeState_t state );
+	virtual bool	PreThink( turretState_e state );
+
+	virtual void	TippedThink( void );
+	virtual void	InactiveThink( void );
+
+	void	UpdateLaser();
+
+	void	DryFire( void );
+
+	float	GetRange() { return m_flRange; }
+
+private:
+	CAI_Expresser *m_pExpresser;
+
+	turretState_e m_iCurrentState;
+
+	enum TurretType_t
+	{
+		TURRET_TYPE_NORMAL,
+		TURRET_TYPE_BEAST,
+		TURRET_TYPE_ALLY,
+	};
+
+	TurretType_t	m_iTurretType;
+
+	bool	m_bStatic;
+
+	CNetworkVar( float, m_flRange );
+	CNetworkVar( float, m_flFOV );
+
+	// Enables a projected texture spotlight on the client.
+	CNetworkVar( bool, m_bEyeLightEnabled );
+	CNetworkVar( int, m_iEyeLightBrightness );
+
+	bool	m_bUseLaser;
+	CNetworkVar( bool, m_bLaser );
+};
+#endif
 
 #endif //#ifndef NPC_TURRET_FLOOR_H
