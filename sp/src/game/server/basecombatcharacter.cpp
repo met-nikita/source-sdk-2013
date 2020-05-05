@@ -2058,6 +2058,31 @@ void CBaseCombatCharacter::Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector
 	if ( GetFlags() & FL_NPC )
 #endif
 	{
+#ifdef EZ2
+		if ( pWeapon->UsesClipsForAmmo1() )
+		{
+			float flRatio = 0.0f;
+			if (pWeapon->m_iClip1 > 0 && pWeapon->GetDefaultClip1() > 0)
+				flRatio = (float)(pWeapon->m_iClip1) / (float)(pWeapon->GetDefaultClip1());
+
+			flRatio = clamp( flRatio, 0.1f, 0.25f );
+
+			pWeapon->m_iClip1 = pWeapon->GetDefaultClip1() * flRatio;
+		}
+		if ( pWeapon->UsesClipsForAmmo2() )
+		{
+			float flRatio = 0.0f;
+			if (pWeapon->m_iClip1 > 0 && pWeapon->GetDefaultClip1() > 0)
+				flRatio = (float)(pWeapon->m_iClip1) / (float)(pWeapon->GetDefaultClip1());
+
+			flRatio = clamp( flRatio, 0.1f, 0.25f );
+
+			pWeapon->m_iClip1 = pWeapon->GetDefaultClip1() * flRatio;
+		}
+
+		// Make sure the weapon's ammo isn't bumped back up when the player picks it up
+		pWeapon->AddSpawnFlags( SF_WEAPON_PRESERVE_AMMO );
+#else
 		if ( pWeapon->UsesClipsForAmmo1() )
 		{
 			pWeapon->m_iClip1 = pWeapon->GetDefaultClip1();
@@ -2074,6 +2099,7 @@ void CBaseCombatCharacter::Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector
 		{
 			pWeapon->m_iClip2 = pWeapon->GetDefaultClip2();
 		}
+#endif
 
 		if ( IsXbox() )
 		{
