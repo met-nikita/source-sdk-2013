@@ -2072,12 +2072,12 @@ void CBaseCombatCharacter::Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector
 		if ( pWeapon->UsesClipsForAmmo2() )
 		{
 			float flRatio = 0.0f;
-			if (pWeapon->m_iClip1 > 0 && pWeapon->GetDefaultClip1() > 0)
-				flRatio = (float)(pWeapon->m_iClip1) / (float)(pWeapon->GetDefaultClip1());
+			if (pWeapon->m_iClip2 > 0 && pWeapon->GetDefaultClip2() > 0)
+				flRatio = (float)(pWeapon->m_iClip2) / (float)(pWeapon->GetDefaultClip2());
 
 			flRatio = clamp( flRatio, 0.1f, 0.25f );
 
-			pWeapon->m_iClip1 = pWeapon->GetDefaultClip1() * flRatio;
+			pWeapon->m_iClip2 = pWeapon->GetDefaultClip2() * flRatio;
 		}
 
 		// Make sure the weapon's ammo isn't bumped back up when the player picks it up
