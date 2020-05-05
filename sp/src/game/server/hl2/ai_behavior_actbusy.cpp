@@ -708,6 +708,13 @@ bool CAI_ActBusyBehavior::IsCurScheduleOverridable( void )
 		// the only exception is SCRIPT (sjb)
 		return (GetOuter()->GetState() != NPC_STATE_SCRIPT);
 	}
+#ifdef EZ2
+	else if ( IsBeastActBusy() )
+	{
+		// Beast actbusies can run in any idle schedule
+		return (GetOuter()->GetState() == NPC_STATE_IDLE);
+	}
+#endif
 
 	// Act busies are not valid inside of a vehicle
 	if ( GetOuter()->IsInAVehicle() )
@@ -729,7 +736,12 @@ bool CAI_ActBusyBehavior::ShouldIgnoreSound( CSound *pSound )
 	{
 		busyanim_t *pBusyAnim = g_ActBusyAnimDataSystem.GetBusyAnim( m_iCurrentBusyAnim );
 
+#ifdef EZ2
+		// Only ignore if we're not traveling to the actbusy
+		if ( pBusyAnim && pBusyAnim->iBusyInterruptType == BA_INT_ZOMBIESLUMP && !m_bMovingToBusy )
+#else
 		if( pBusyAnim && pBusyAnim->iBusyInterruptType == BA_INT_ZOMBIESLUMP )
+#endif
 		{
 			// Slumped zombies are deaf.
 			return true;
@@ -903,6 +915,12 @@ void CAI_ActBusyBehavior::GatherConditions( void )
 
 			case BA_INT_ZOMBIESLUMP:
 				{
+#ifdef EZ2
+					// Zombies should still be active while moving to slump
+					if (m_bMovingToBusy)
+						break;
+#endif
+
 					ClearCondition( COND_HEAR_PLAYER );
 					ClearCondition( COND_SEE_ENEMY );
 					ClearCondition( COND_NEW_ENEMY );
@@ -1228,7 +1246,11 @@ int CAI_ActBusyBehavior::SelectScheduleWhileNotBusy( int iBase )
 	if ( m_bForceActBusy || m_flNextBusySearchTime < gpGlobals->curtime )
 	{
 		// If we're being forced, think again quickly
+#ifdef EZ2
+		if ( m_bForceActBusy || IsCombatActBusy() || IsBeastActBusy() )
+#else
 		if ( m_bForceActBusy || IsCombatActBusy() )
+#endif
 		{
 			m_flNextBusySearchTime = gpGlobals->curtime + 2.0;
 		}
@@ -1415,7 +1437,11 @@ int CAI_ActBusyBehavior::SelectSchedule()
 	int iBase = BaseClass::SelectSchedule();
 
 	// Only do something if the base ai doesn't want to do anything
+#ifdef EZ2
+	if ( !IsBeastActBusy() && !IsCombatActBusy() && !m_bForceActBusy && iBase != SCHED_IDLE_STAND )
+#else
 	if ( !IsCombatActBusy() && !m_bForceActBusy && iBase != SCHED_IDLE_STAND )
+#endif
 	{
 		// If we're busy, we need to get out of it first
 		if ( m_bBusy )
@@ -1693,6 +1719,18 @@ bool CAI_ActBusyBehavior::IsInSafeZone( CBaseEntity *pEntity )
 
 	return false;
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+bool CAI_ActBusyBehavior::IsBeastActBusy()
+{
+	if( m_hActBusyGoal != NULL )
+		return (m_hActBusyGoal->GetType() == ACTBUSY_TYPE_BEAST);
+
+	return false;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Return true if this NPC has the anims required to use the specified actbusy hint
