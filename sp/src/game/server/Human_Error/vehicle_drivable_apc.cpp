@@ -358,7 +358,7 @@ void CPropDrivableAPC::ConstrainEntity( CBaseEntity *pEntity, CBasePlayer *pPlay
 	if (GetEntityName() == NULL_STRING)
 		SetName( AllocPooledString(UTIL_VarArgs("apc%i", entindex())) );
 
-	// Not all entities have OnPlayerUse, but there's not much else we can do
+	// Not all entities have OnPhysGunPickup, but there's not much else we can do
 	pEntity->KeyValue( "OnPhysGunPickup", UTIL_VarArgs("%s,UnconstrainEntity,,0,1", STRING(GetEntityName())) );
 
 	pEntity->EmitSound( "PropAPC.AttachEntity" );
