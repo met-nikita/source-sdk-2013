@@ -1647,6 +1647,9 @@ BEGIN_DATADESC(CArbeitScanner)
 	DEFINE_FIELD( m_hScanning, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_pSprite, FIELD_CLASSPTR ),
 
+	DEFINE_KEYFIELD( m_iszScanFilter, FIELD_STRING, "ScanFilter" ),
+	DEFINE_FIELD( m_hScanFilter, FIELD_EHANDLE ),
+
 	DEFINE_FIELD( m_iScanAttachment,	FIELD_INTEGER ),
 
 	DEFINE_KEYFIELD( m_bWaitForScene, FIELD_BOOLEAN, "WaitForScene" ),
@@ -1654,6 +1657,11 @@ BEGIN_DATADESC(CArbeitScanner)
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "FinishScan", InputFinishScan ),
+	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ForceScanNPC", InputForceScanNPC ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetOuterRadius", InputSetOuterRadius ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetInnerRadius", InputSetInnerRadius ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetAuthorizationFilter", InputSetDamageFilter ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetScanFilter", InputSetScanFilter ),
 
 	DEFINE_THINKFUNC( IdleThink ),
 	DEFINE_THINKFUNC( AwaitScanThink ),
@@ -1709,6 +1717,13 @@ void CArbeitScanner::Precache( void )
 	PrecacheScriptSound( STRING(m_iszScanDoneSound) );
 	PrecacheScriptSound( STRING(m_iszScanRejectSound) );
 	PrecacheScriptSound( "AI_BaseNPC.SentenceStop" );
+
+	if (m_iszScanFilter != NULL_STRING)
+	{
+		CBaseEntity *pEntity = gEntList.FindEntityByName( NULL, m_iszScanFilter, this );
+		if (pEntity)
+			m_hScanFilter = dynamic_cast<CBaseFilter*>(pEntity);
+	}
 
 	BaseClass::Precache();
 }
@@ -1770,8 +1785,59 @@ void CArbeitScanner::InputDisable( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CArbeitScanner::InputFinishScan( inputdata_t &inputdata )
 {
-	m_flScanEndTime = gpGlobals->curtime;
-	FinishScan();
+	if (m_hScanning)
+	{
+		m_flScanEndTime = gpGlobals->curtime;
+		FinishScan();
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CArbeitScanner::InputForceScanNPC( inputdata_t &inputdata )
+{
+	if (inputdata.value.Entity() && inputdata.value.Entity()->IsNPC())
+	{
+		// Begin scanning this NPC!
+		m_hScanning = inputdata.value.Entity()->MyNPCPointer();
+		SetThink( &CArbeitScanner::ScanThink );
+		SetNextThink( gpGlobals->curtime );
+	}
+	else
+	{
+		Warning("%s ForceScanNPC: Entity not valid or not a NPC\n", GetDebugName());
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CArbeitScanner::InputSetInnerRadius( inputdata_t &inputdata )
+{
+	m_flInnerRadius = inputdata.value.Float();
+}
+
+void CArbeitScanner::InputSetOuterRadius( inputdata_t &inputdata )
+{
+	m_flOuterRadius = inputdata.value.Float();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CArbeitScanner::InputSetScanFilter( inputdata_t &inputdata )
+{
+	if (inputdata.value.StringID() != NULL_STRING)
+	{
+		m_iszScanFilter = inputdata.value.StringID();
+		CBaseEntity *pEntity = gEntList.FindEntityByName( NULL, m_iszScanFilter, this );
+		m_hScanFilter = dynamic_cast<CBaseFilter*>(pEntity);
+	}
+	else
+	{
+		m_hScanFilter = NULL;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1818,7 +1884,7 @@ void CArbeitScanner::IdleThink()
 	if( !UTIL_FindClientInPVS(edict()) || (CAI_BaseNPC::m_nDebugBits & bits_debugDisableAI) )
 	{
 		// If we're not in the PVS or AI is disabled, sleep!
-		SetNextThink( gpGlobals->curtime + 0.5 );
+		SetNextThink( gpGlobals->curtime + 1.0 );
 		return;
 	}
 
@@ -1952,9 +2018,9 @@ void CArbeitScanner::ScanThink()
 		}
 	}
 
-	if ( m_bWaitForScene  && m_flScanEndTime <= gpGlobals->curtime )
+	if ( m_bWaitForScene && m_flScanEndTime <= gpGlobals->curtime )
 	{
-		if ( IsRunningScriptedScene( m_hScanning ) )
+		if ( IsRunningScriptedSceneWithSpeechAndNotPaused( m_hScanning ) )
 		{
 			m_flScanEndTime  += 1.0f;
 		}
