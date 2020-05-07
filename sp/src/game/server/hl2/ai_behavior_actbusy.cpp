@@ -1100,6 +1100,13 @@ void CAI_ActBusyBehavior::BuildScheduleTestBits( void )
 		{
 			GetOuter()->SetCustomInterruptCondition( GetClassScheduleIdSpace()->ConditionLocalToGlobal(COND_ACTBUSY_ENEMY_TOO_CLOSE) );
 		}
+#ifdef EZ2
+		else if ( IsBeastActBusy() )
+		{
+			GetOuter()->SetCustomInterruptCondition( COND_NEW_ENEMY );
+			GetOuter()->SetCustomInterruptCondition( COND_SEE_ENEMY );
+		}
+#endif
 	}
 
 	// If we're in a queue, or leaving, we have no extra conditions
