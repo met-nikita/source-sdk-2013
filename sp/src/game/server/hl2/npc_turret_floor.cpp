@@ -2487,6 +2487,8 @@ BEGIN_DATADESC( CNPC_Arbeit_FloorTurret )
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnLaser", InputTurnOnLaser ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffLaser", InputTurnOffLaser ),
 
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSilently", InputEnableSilently ),
+
 END_DATADESC()
 
 IMPLEMENT_SERVERCLASS_ST( CNPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret )
@@ -2577,7 +2579,10 @@ void CNPC_Arbeit_FloorTurret::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGu
 {
 	BaseClass::OnPhysGunPickup( pPhysGunUser, reason );
 
-	SpeakIfAllowed( TLK_PICKUP );
+	if (pPhysGunUser && IRelationType( pPhysGunUser ) <= D_FR)
+	{
+		SpeakIfAllowed( TLK_PICKUP );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -2595,7 +2600,7 @@ void CNPC_Arbeit_FloorTurret::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunD
 //-----------------------------------------------------------------------------
 bool CNPC_Arbeit_FloorTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 {
-	if (HL2GameRules()->IsBeastInStealthMode())
+	if (m_iTurretType == TURRET_TYPE_BEAST)
 	{
 		// We don't bother zombies
 		Class_T classify = pEnemy->Classify();
@@ -2604,6 +2609,33 @@ bool CNPC_Arbeit_FloorTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 	}
 
 	return BaseClass::CanBeAnEnemyOf( pEnemy );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::InputEnableSilently( inputdata_t &inputdata )
+{
+	// Don't interrupt blowing up!
+	if ( m_bSelfDestructing )
+		return;
+
+	// Always allow us to come back to life, even if not right now
+	m_bEnabled = true;
+
+	//This turret is on its side, it can't function
+	if ( OnSide() || ( IsAlive() == false ) )
+		return;
+
+	// if the turret is flagged as an autoactivate turret, re-enable its ability open self.
+	if ( m_spawnflags & SF_FLOOR_TURRET_AUTOACTIVATE )
+	{
+		m_bAutoStart = true;
+	}
+
+	SetThink( &CNPC_FloorTurret::AutoSearchThink );
+	SetNextThink( gpGlobals->curtime + 0.05f );
+	SetEyeState( TURRET_EYE_DORMANT );
 }
 
 //-----------------------------------------------------------------------------
@@ -2637,10 +2669,14 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 
 				if (HL2GameRules()->IsBeastInStealthMode())
 				{
+					// UNDONE: Couldn't get this working right, also this might actually
+					// help players learn that the turrets alert the beast
+					// 
 					// The beast technically shouldn't have any way of distinguishing this, but 
 					// otherwise it just gets kind of spammy.
-					// Don't emit a sound if our enemy is idle.
-					if (GetEnemy()->IsNPC() && GetEnemy()->MyNPCPointer()->GetState() != NPC_STATE_IDLE)
+					// Don't emit a sound if our enemy is returning to an actbusy.
+					//CAI_BaseNPC *pNPC = GetEnemy()->MyNPCPointer();
+					//if (pNPC && !pNPC->IsCurSchedule( GetClassScheduleIdSpace()->ScheduleLocalToGlobal(CAI_ActBusyBehavior::SCHED_ACTBUSY_START_BUSYING) ))
 						CSoundEnt::InsertSound( SOUND_COMBAT, EyePosition(), 4096, 10.0f, this, SOUNDENT_CHANNEL_WEAPON, GetEnemy() );
 				}
 			} break;

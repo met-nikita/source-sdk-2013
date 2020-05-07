@@ -416,6 +416,8 @@ public:
 	void			InputTurnOnLaser( inputdata_t &inputdata ) { m_bLaser = true; }
 	void			InputTurnOffLaser( inputdata_t &inputdata ) { m_bLaser = false; }
 
+	void			InputEnableSilently( inputdata_t &inputdata );
+
 	bool SpeakIfAllowed( const char *concept );
 	bool SpeakIfAllowed( const char *concept, AI_CriteriaSet &modifiers );
 	void ModifyOrAppendCriteria( AI_CriteriaSet& set );
