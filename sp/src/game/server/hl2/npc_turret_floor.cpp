@@ -1259,7 +1259,12 @@ bool CNPC_FloorTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 	// If we're out of ammo, make friendly companions ignore us
 	if ( m_spawnflags & SF_FLOOR_TURRET_OUT_OF_AMMO )
 	{
+#ifdef EZ2
+		// All allies ignore turrets out of ammo
+		if ( pEnemy->IsNPC() && pEnemy->MyNPCPointer()->IsPlayerAlly() )
+#else
 		if ( pEnemy->Classify() == CLASS_PLAYER_ALLY_VITAL )
+#endif
 			return false;
 	} 
 
@@ -2804,7 +2809,6 @@ void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
 
 void CNPC_Arbeit_FloorTurret::DryFire( void )
 {
-	EmitSound( "NPC_FloorTurret.DryFire" );
 	EmitSound( "NPC_ArbeitTurret.DryFire" );
 
  	if ( RandomFloat( 0, 1 ) > 0.5 )
@@ -2850,7 +2854,7 @@ void CNPC_Arbeit_FloorTurret::TippedThink( void )
 				SetActivity( (Activity) ACT_FLOOR_TURRET_OPEN_IDLE );
 				DryFire();
 			}
-			else if ( IsCitizenTurret() == false )	// Citizen turrets don't wildly fire
+			else //if ( IsCitizenTurret() == false )	// Citizen turrets don't wildly fire
 			{
 				Vector vecMuzzle, vecMuzzleDir;
 				UpdateMuzzleMatrix();
