@@ -99,6 +99,7 @@ enum
 #define		GONOME_AE_PLAYSOUND ( 1011 )
 
 int		GONOME_AE_LAND;
+int		GONOME_AE_WALL_POUND;
 
 LINK_ENTITY_TO_CLASS( monster_gonome, CNPC_Gonome );
 LINK_ENTITY_TO_CLASS( npc_zassassin, CNPC_Gonome ); //For Zombie Assassin version -Stacker
@@ -703,6 +704,35 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 				}
 			}
 		}
+		else if ( pEvent->event == GONOME_AE_WALL_POUND )
+		{
+			trace_t		tr;
+			Vector		forward;
+
+			GetVectors( &forward, NULL, NULL );
+
+			AI_TraceLine( EyePosition(), EyePosition() + forward * 128, MASK_SOLID, this, COLLISION_GROUP_NONE, &tr );
+
+			if( tr.fraction == 1.0 )
+			{
+				// Didn't hit anything!
+				return;
+			}
+
+			if( tr.m_pEnt )
+			{
+				const surfacedata_t *psurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
+				if( psurf )
+				{
+					EmitSound( physprops->GetString(psurf->sounds.impactHard) );
+				}
+
+				// Shake
+				UTIL_ScreenShake( tr.endpos, 2, 35.0, 0.75f, 384, SHAKE_START );
+
+				EmitSound( pEvent->options );
+			}
+		}
 		else
 		{
 			BaseClass::HandleAnimEvent( pEvent );
@@ -1133,6 +1163,7 @@ void CNPC_Gonome::RunTask ( const Task_t *pTask )
 AI_BEGIN_CUSTOM_NPC( monster_gonome, CNPC_Gonome )
 
 	DECLARE_ANIMEVENT( GONOME_AE_LAND )
+	DECLARE_ANIMEVENT( GONOME_AE_WALL_POUND )
 		
 	//=========================================================
 	// > SCHED_GONOME_CHASE_ENEMY
