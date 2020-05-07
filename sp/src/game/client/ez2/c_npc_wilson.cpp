@@ -33,8 +33,10 @@ void C_AI_TurretBase::Simulate( void )
 				return;
 
 			m_EyeLight->m_flBrightnessScale = m_flEyeLightBrightnessScale;
-			m_EyeLight->m_flFarZ = MIN( m_flRange, g_flTurretLightMaxFar );
-			m_EyeLight->m_flFOV = AngleNormalize( m_flFOV + 25 );
+			if (m_flRange > 0)
+				m_EyeLight->m_flFarZ = MIN( m_flRange, g_flTurretLightMaxFar );
+			if (m_flFOV > 0)
+				m_EyeLight->m_flFOV = AngleNormalize( m_flFOV + 25 );
 			m_EyeLight->TurnOn();
 		}
 		else if (m_EyeLight->m_flBrightnessScale != m_flEyeLightBrightnessScale)
