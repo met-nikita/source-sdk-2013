@@ -371,6 +371,10 @@ void CNPC_Gonome::Precache()
 	PrecacheScriptSound( "Gonome.Eat" );
 	PrecacheScriptSound( "Gonome.BeginSpawnCrab" );
 	PrecacheScriptSound( "Gonome.EndSpawnCrab" );
+
+	// Placeholder gib and soundscript
+	PrecacheParticleSystem( "glownome_explode" );
+	PrecacheScriptSound( "npc_zassassin.kickburst" );
 }
 
 //---------------------------------------------------------
@@ -493,6 +497,36 @@ Class_T	CNPC_Gonome::Classify( void )
 	return CLASS_ZOMBIE; 
 }
 
+extern int g_interactionBadCopKick;
+
+//-----------------------------------------------------------------------------
+// Purpose: Override to handle player kicks - zassassins are immune
+//-----------------------------------------------------------------------------
+bool CNPC_Gonome::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sourceEnt )
+{
+	if ( interactionType == g_interactionBadCopKick )
+	{
+		// If this is a glownome, explode blue goo
+		if ( m_tEzVariant == EZ_VARIANT_RAD )
+		{
+			CTakeDamageInfo info( this, this, 30, DMG_BLAST_SURFACE | DMG_RADIATION );
+			RadiusDamage( info, GetAbsOrigin(), 128.0f, CLASS_NONE, this );
+			DispatchParticleEffect( "glownome_explode", WorldSpaceCenter(), GetAbsAngles() );
+			EmitSound( "npc_zassassin.kickburst" );
+			DropGooPuddle( CTakeDamageInfo() );
+		}
+
+		// What did you expect was going to happen?
+		UpdateEnemyMemory( sourceEnt, sourceEnt->GetAbsOrigin(), sourceEnt );
+		return true;
+	}
+
+	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Override to like Wilson 
+//-----------------------------------------------------------------------------
 Disposition_t CNPC_Gonome::IRelationType( CBaseEntity *pTarget )
 {
 	// hackhack - Wilson keeps telling the beast on Bad Cop.
@@ -979,6 +1013,11 @@ int CNPC_Gonome::OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo )
 		// float flForce = DamageForce( WorldAlignSize(), info.GetDamage() );
 		// SetAbsVelocity( GetAbsVelocity() + vecDir * flForce );
 		info.ScaleDamage( 0.25f );
+	}
+
+	// If this is a slimy zombie, it does not take damage from radiation
+	if ( m_tEzVariant == EZ_VARIANT_RAD && ( info.GetDamageType() & DMG_RADIATION ) ) {
+		return 0;
 	}
 
 	return BaseClass::OnTakeDamage_Alive ( inputInfo );

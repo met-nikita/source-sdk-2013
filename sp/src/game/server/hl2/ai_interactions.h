@@ -85,6 +85,9 @@ extern int	g_interactionZombieMeleeWarning;
 extern int	g_interactionXenGrenadePull;
 extern int	g_interactionXenGrenadeConsume;
 extern int	g_interactionXenGrenadeRelease;
+
+// Bad Cop kick
+extern int	g_interactionBadCopKick;
 #endif
 
 #endif	//AI_INTERACTIONS_H

@@ -603,34 +603,7 @@ void CAI_BaseNPC::Event_Killed( const CTakeDamageInfo &info )
 
 	if (m_tEzVariant == EZ_VARIANT_RAD)
 	{
-		// Blixibon - Don't do goo puddle under these damage types or while on fire and scorched
-		if (!(info.GetDamageType() & (DMG_DISSOLVE | DMG_DROWN | DMG_RADIATION | DMG_POISON | DMG_NERVEGAS)) && (!IsOnFire() || m_clrRender.GetR() > 128) && ShouldDropGooPuddle())
-		{
-			// BREADMAN below
-			// Yeah so this splats a decal beneath the NPC when it dies. It's actually pretty effective. This is used on rebels now too.
-			trace_t tr;
-			AI_TraceLine(GetAbsOrigin() + Vector(0, 0, 1), GetAbsOrigin() - Vector(0, 0, 64), MASK_SOLID_BRUSHONLY | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, this, COLLISION_GROUP_NONE, &tr);
-			UTIL_DecalTrace(&tr, "Glowbie.Puddle");
-			// end BREADMAN
-			// 1upD- zombie goo puddle should emit radiation damage
-			CBaseEntity * pHurtEntity = CreateEntityByName("zombie_goo_puddle");
-			CPointHurt * pPointHurt = static_cast<CPointHurt *>(pHurtEntity);
-			if (pPointHurt)
-			{
-				pPointHurt->m_nDamage = 1;
-				pPointHurt->m_flRadius = 48;
-				pPointHurt->m_flDelay = 0.2f;
-				pPointHurt->m_flLifetime = 10.0f; // This radiation puddle should only last for 10 seconds
-				pPointHurt->m_bitsDamageType = DMG_RADIATION;
-				pPointHurt->SetAbsOrigin(tr.endpos);
-				DispatchSpawn(pPointHurt);
-				pPointHurt->Activate();
-				pPointHurt->TurnOn(this);
-			}
-
-			// Blxibon - Brief danger sound, companion code stops NPCs from really running into it
-			CSoundEnt::InsertSound( SOUND_DANGER, pPointHurt->GetAbsOrigin(), 64, 1.5f, this );
-		}
+		DropGooPuddle( info );
 	}
 #endif
 	
@@ -700,6 +673,40 @@ void CAI_BaseNPC::Event_Killed( const CTakeDamageInfo &info )
 		}
 	}
 }
+
+#ifdef EZ
+void CAI_BaseNPC::DropGooPuddle( const CTakeDamageInfo & info )
+{
+	// Blixibon - Don't do goo puddle under these damage types or while on fire and scorched
+	if (!(info.GetDamageType() & (DMG_DISSOLVE | DMG_DROWN | DMG_RADIATION | DMG_POISON | DMG_NERVEGAS)) && (!IsOnFire() || m_clrRender.GetR() > 128) && ShouldDropGooPuddle())
+	{
+		// BREADMAN below
+		// Yeah so this splats a decal beneath the NPC when it dies. It's actually pretty effective. This is used on rebels now too.
+		trace_t tr;
+		AI_TraceLine( GetAbsOrigin() + Vector( 0, 0, 1 ), GetAbsOrigin() - Vector( 0, 0, 64 ), MASK_SOLID_BRUSHONLY | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, this, COLLISION_GROUP_NONE, &tr );
+		UTIL_DecalTrace( &tr, "Glowbie.Puddle" );
+		// end BREADMAN
+		// 1upD- zombie goo puddle should emit radiation damage
+		CBaseEntity * pHurtEntity = CreateEntityByName( "zombie_goo_puddle" );
+		CPointHurt * pPointHurt = static_cast<CPointHurt *>(pHurtEntity);
+		if (pPointHurt)
+		{
+			pPointHurt->m_nDamage = 1;
+			pPointHurt->m_flRadius = 48;
+			pPointHurt->m_flDelay = 0.2f;
+			pPointHurt->m_flLifetime = 10.0f; // This radiation puddle should only last for 10 seconds
+			pPointHurt->m_bitsDamageType = DMG_RADIATION;
+			pPointHurt->SetAbsOrigin( tr.endpos );
+			DispatchSpawn( pPointHurt );
+			pPointHurt->Activate();
+			pPointHurt->TurnOn( this );
+		}
+
+		// Blxibon - Brief danger sound, companion code stops NPCs from really running into it
+		CSoundEnt::InsertSound( SOUND_DANGER, pPointHurt->GetAbsOrigin(), 64, 1.5f, this );
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 

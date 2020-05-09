@@ -187,7 +187,7 @@ public:
 	virtual bool	ShouldAvoidGoo( void ) { return m_tEzVariant != EZ_VARIANT_RAD; } // Don't avoid goo if the slime variant
 
 #ifdef EZ2
-	bool			HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+	virtual bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
 #endif
 
 	DEFINE_CUSTOM_AI;

@@ -113,6 +113,9 @@ int g_interactionAntlionFiredAtTarget = 0;
 #ifdef EZ
 extern int g_interactionCombineBash;
 #endif
+#ifdef EZ2
+extern int g_interactionBadCopKick;
+#endif
 
 #define	ANTLION_MODEL			"models/antlion.mdl"
 #define	ANTLION_XEN_MODEL		"models/antlion_xen.mdl"
@@ -3139,7 +3142,13 @@ bool CNPC_Antlion::HandleInteraction( int interactionType, void *data, CBaseComb
 	// This code was originally created by 1upD as an extension of the original melee attack code,
 	// but it was moved to here by Blixibon since this is what the interaction was designed for.
 	// It also allows the code to operate from the antlion itself and doesn't need to use any casts.
-	if ( interactionType == g_interactionCombineBash )
+	bool interactionIsCombineBash = interactionType == g_interactionCombineBash;
+#ifdef EZ2
+	// In EZ2, Bad Cop's kick counts as a Combine bash
+	interactionIsCombineBash = interactionIsCombineBash || interactionType == g_interactionBadCopKick;
+#endif
+
+	if ( interactionIsCombineBash )
 	{
 		Vector vecDir = ( GetAbsOrigin() - sender->GetAbsOrigin() );
 		VectorNormalize(vecDir);
@@ -3151,6 +3160,12 @@ bool CNPC_Antlion::HandleInteraction( int interactionType, void *data, CBaseComb
 		// Antlions should flip and be pushed back after being hit by a Combine melee.
 		ApplyAbsVelocityImpulse( vecDir );
 		Flip();
+
+		// If the Combine soldier is a player, don't deal damage on top of flipping
+		if ( sender->IsPlayer() )
+		{
+			return true; 
+		}
 
 		// Return false so the original melee damage code still runs.
 		return false;

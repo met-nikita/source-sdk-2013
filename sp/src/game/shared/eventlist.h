@@ -90,6 +90,10 @@ typedef enum
 	AE_NPC_RESPONSE_FORCED,		// Always play a response system concept
 #endif
 
+#ifdef EZ2
+	AE_KICKATTACK, // For Bad Cop kicks
+#endif
+
 	LAST_SHARED_ANIMEVENT,
 } Animevent;
 

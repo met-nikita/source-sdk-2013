@@ -348,6 +348,16 @@ protected:
 	virtual void		ItemPostFrame();
 	virtual void		PlayUseDenySound();
 
+#ifdef EZ2
+	virtual void		HandleKickAttack();
+	virtual void		TraceKickAttack();
+
+	void  HandleKickAnimation( void );
+	void  StartKickAnimation( void );
+
+	virtual void HandleAnimEvent( animevent_t *pEvent );
+#endif
+
 #ifndef EZ
 private:
 	void				OnSquadMemberKilled( inputdata_t &data );
@@ -405,6 +415,9 @@ private:
 #ifdef EZ2
 	EHANDLE				m_hFlashlightColorCorrection;
 	bool				m_bHandledColorCorrection; // NOT saved - this tells us that within this session, CC hasn't been cleaned up yet
+
+	float				m_flNextKickAttack;
+	bool				m_bKickWeaponLowered;
 #endif
 
 	// Aiming heuristics code

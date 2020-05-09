@@ -72,6 +72,9 @@ public:
 	void StartTask ( const Task_t *pTask );
 	void RunTask( const Task_t * pTask );
 
+	// Override to handle player kicks - zassassins are immune
+	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sourceEnt );
+
 	Disposition_t		IRelationType( CBaseEntity *pTarget );
 
 	virtual bool CanFlinch(void) { return false; } // Gonomes cannot flinch. 

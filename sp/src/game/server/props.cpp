@@ -755,6 +755,10 @@ void CBreakableProp::HandleInteractionStick( int index, gamevcollisionevent_t *p
 	}
 }
 
+#ifdef EZ2
+extern int g_interactionBadCopKick;
+#endif
+
 #ifdef MAPBASE
 extern int g_interactionBarnacleVictimBite;
 extern ConVar npc_barnacle_ignite;
@@ -783,6 +787,38 @@ bool CBreakableProp::HandleInteraction( int interactionType, void *data, CBaseCo
 		}
 
 		return true;
+	}
+#endif
+
+#ifdef EZ2
+	if ( interactionType == g_interactionBadCopKick )
+	{
+		// If we're an item crate, explode violently!
+		if (FClassnameIs( this, "item_item_crate" ))
+		{
+			int dmgType = DMG_CLUB;
+			CTakeDamageInfo dmgInfo( this, this, 500, dmgType );
+			TakeDamage( dmgInfo );
+			return true;
+		}
+
+		// If we're an explosive barrel, DON'T explode violently!
+		if (
+				HasInteraction( PROPINTER_PHYSGUN_BREAK_EXPLODE ) ||
+				HasInteraction( PROPINTER_PHYSGUN_FIRST_BREAK ) ||
+				HasInteraction( PROPINTER_FIRE_FLAMMABLE ) ||
+				HasInteraction( PROPINTER_FIRE_IGNITE_HALFHEALTH ) ||
+				HasInteraction( PROPINTER_FIRE_EXPLOSIVE_RESIST ) )
+		{
+			// If we have directional information, PUNT!
+			trace_t * pTr = static_cast< trace_t *>( data );
+			if (pTr)
+			{
+				ApplyAbsVelocityImpulse ( ( pTr->endpos - pTr->startpos ) * 1024.0f );
+			}
+
+			return true;
+		}
 	}
 #endif
 

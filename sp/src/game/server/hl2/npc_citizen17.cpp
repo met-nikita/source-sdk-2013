@@ -4732,6 +4732,30 @@ bool CNPC_Citizen::HandleInteraction(int interactionType, void *data, CBaseComba
 		// Give the predator health if gibs do not count as food sources, otherwise don't
 		return !sk_gib_carcass_smell.GetBool();
 	}
+#ifdef EZ2
+	else if ( interactionType == g_interactionBadCopKick )
+	{
+		// If we have directional information, see if this kick knocked a weapon free
+		trace_t * pTr = static_cast< trace_t *>(data);
+		if ( pTr && GetActiveWeapon() )
+		{
+			Vector pWeaponPos = Weapon_ShootPosition();
+			if ( ( pWeaponPos - pTr->endpos).Length() < 16.0f )
+			{
+				const Vector weaponTarget = pWeaponPos + (pTr->endpos - pTr->startpos);
+				const Vector weaponVelocity = ( (pTr->endpos - pTr->startpos) * 1024.0f );
+
+				Weapon_Drop( GetActiveWeapon(), &weaponTarget, &weaponVelocity );
+			}
+		}
+
+		// Oof
+		SetCondition( COND_HEAVY_DAMAGE );
+
+		// Do normal kick handling
+		return false;
+	}
+#endif
 #endif
 
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );

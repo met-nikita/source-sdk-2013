@@ -1978,6 +1978,10 @@ public:
 	virtual bool		Event_Gibbed( const CTakeDamageInfo &info );
 	virtual void		Event_Killed( const CTakeDamageInfo &info );
 
+#ifdef EZ
+	void DropGooPuddle( const CTakeDamageInfo & info );
+#endif
+
 	virtual Vector		GetShootEnemyDir( const Vector &shootOrigin, bool bNoisy = true );
 #ifdef HL2_DLL
 	virtual Vector		GetActualShootPosition( const Vector &shootOrigin );

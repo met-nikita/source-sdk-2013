@@ -5245,6 +5245,10 @@ DECLARE_CONDITION( COND_COMBINE_ON_FIRE )
 DECLARE_CONDITION( COND_COMBINE_ATTACK_SLOT_AVAILABLE )
 
 DECLARE_INTERACTION( g_interactionCombineBash );
+#ifdef EZ2
+DECLARE_INTERACTION( g_interactionBadCopKick );
+#endif
+
 
 //=========================================================
 // SCHED_COMBINE_TAKE_COVER_FROM_BEST_SOUND

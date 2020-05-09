@@ -281,7 +281,11 @@ enum CastVote
 
 // Humans only have left and right hands, though we might have aliens with more
 //  than two, sigh
+#ifndef EZ
 #define MAX_VIEWMODELS			2
+#else
+#define MAX_VIEWMODELS			3
+#endif
 
 #define MAX_BEAM_ENTS			10
 

@@ -434,7 +434,7 @@ enum PulsePistolStyle
 };
 
 ConVar sk_plr_dmg_pulse_lance( "sk_plr_dmg_pulse_lance", "15" );
-ConVar sv_pulse_pistol_style( "sv_pulse_pistol_style", "2", FCVAR_NONE, "Style of pulse pistol altfire: 0) Default 1) Charge 2) Lance" );
+ConVar sv_pulse_pistol_style( "sv_pulse_pistol_style", "0", FCVAR_NONE, "Style of pulse pistol altfire: 0) Default 1) Charge 2) Lance" );
 ConVar sv_pulse_lance_style( "sv_pulse_lance_style", "0", FCVAR_NONE, "Style of pulse lance: 0) Vortigaunt 1) Stalker" );
 
 //-----------------------------------------------------------------------------

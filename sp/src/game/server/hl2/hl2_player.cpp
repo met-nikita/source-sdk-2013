@@ -132,6 +132,7 @@ ConVar autoaim_unlock_target( "autoaim_unlock_target", "0.8666" );
 ConVar sv_stickysprint("sv_stickysprint", "0", FCVAR_ARCHIVE | FCVAR_ARCHIVE_XBOX);
 #ifdef EZ2
 ConVar sv_player_death_smell( "sv_player_death_smell", "1", FCVAR_REPLICATED );
+ConVar sv_player_kick_attack_enabled( "sv_player_kick_attack_enabled", "1", FCVAR_REPLICATED );
 ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "1", FCVAR_REPLICATED);
 ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "0", FCVAR_REPLICATED);
 ConVar sv_flashlight_cc_enabled( "sv_flashlight_cc_enabled", "1", FCVAR_REPLICATED );
@@ -144,6 +145,7 @@ ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "1", FCVAR_REPLICATED);
 // Maximum suit value
 #ifdef EZ2
 ConVar sk_suit_maxarmor("sk_suit_maxarmor", "200", FCVAR_REPLICATED);
+ConVar sk_plr_dmg_kick( "sk_plr_dmg_kick", "5", FCVAR_REPLICATED );
 #else
 ConVar sk_suit_maxarmor("sk_suit_maxarmor", "100", FCVAR_REPLICATED);
 #endif
@@ -564,6 +566,10 @@ BEGIN_DATADESC( CHL2_Player )
 	DEFINE_FIELD( m_hCommandPointProp, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_hFlashlightColorCorrection, FIELD_EHANDLE ),
 #endif
+#ifdef EZ2
+	DEFINE_FIELD( m_flNextKickAttack , FIELD_TIME ),
+	DEFINE_FIELD( m_bKickWeaponLowered, FIELD_BOOLEAN ),
+#endif
 
 	DEFINE_FIELD( m_flTimeIgnoreFallDamage, FIELD_TIME ),
 	DEFINE_FIELD( m_bIgnoreFallDamageResetAfterImpact, FIELD_BOOLEAN ),
@@ -635,6 +641,13 @@ BEGIN_DATADESC( CHL2_Player )
 
 END_DATADESC()
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Interactions
+//-----------------------------------------------------------------------------
+	int g_interactionBadCopKick = 0;
+#endif
+
 CHL2_Player::CHL2_Player()
 {
 	m_nNumMissPositions	= 0;
@@ -687,6 +700,20 @@ void CHL2_Player::Precache( void )
 #ifdef EZ
 	// Visible command point
 	UTIL_PrecacheOther( "prop_command_point" );
+#endif
+#ifdef EZ2
+	PrecacheScriptSound( "EZ2Player.KickSwing" );
+	PrecacheScriptSound( "EZ2Player.KickHit" );
+	PrecacheScriptSound( "EZ2Player.KickMiss" );
+
+	PrecacheModel( "models/weapons/v_kick.mdl" );
+
+	// Interactions
+	if ( g_interactionBadCopKick == 0 )
+	{
+		g_interactionBadCopKick = CBaseCombatCharacter::GetInteractionID();
+	}
+
 #endif
 }
 
@@ -1158,6 +1185,8 @@ void CHL2_Player::PostThink( void )
 	{
 		 HandleAdmireGlovesAnimation();
 	}
+
+	HandleKickAnimation();
 }
 
 void CHL2_Player::StartAdmireGlovesAnimation( void )
@@ -4423,9 +4452,157 @@ void CHL2_Player::PlayUseDenySound()
 	m_bPlayUseDenySound = true;
 }
 
+#ifdef EZ2
+void CHL2_Player::HandleKickAttack()
+{
+	if ( !sv_player_kick_attack_enabled.GetBool() && !IsInAVehicle() )
+		return;
+
+	// Door kick!
+	if ( gpGlobals->curtime >= m_flNextAttack && gpGlobals->curtime >= m_flNextKickAttack && !IsInAVehicle() && m_nButtons & IN_ATTACK3 )
+	{
+		// Viewpunch
+		QAngle punchAng;
+		punchAng.x = random->RandomFloat( 4.0f, 5.0f );
+		punchAng.y = random->RandomFloat( -5.0f, -4.0f );
+		punchAng.z = 0.0f;
+		ViewPunch( punchAng );
+
+		// Prevent all attacks for 1 second
+		m_flNextKickAttack = gpGlobals->curtime + 1.0f;
+		CBaseCombatWeapon * pWeapon = GetActiveWeapon();
+		if ( pWeapon )
+		{
+			pWeapon->m_flNextPrimaryAttack = MAX( GetActiveWeapon()->m_flNextPrimaryAttack.Get(), m_flNextKickAttack );
+			pWeapon->m_flNextSecondaryAttack = MAX( GetActiveWeapon()->m_flNextSecondaryAttack.Get(), m_flNextKickAttack );
+
+			CBaseHLCombatWeapon * pHLWeapon = dynamic_cast<CBaseHLCombatWeapon *>(pWeapon);
+
+			// Lower the weapon if possible
+			if (pHLWeapon)
+			{
+				if ( pHLWeapon->CanLower() && !pHLWeapon->WeaponShouldBeLowered() )
+				{
+					pHLWeapon->Lower();
+					m_bKickWeaponLowered = true;
+				}
+			}
+		}
+
+		EmitSound( "EZ2Player.KickSwing" );
+
+		StartKickAnimation();
+	}
+	else if ( m_bKickWeaponLowered && gpGlobals->curtime <= m_flNextKickAttack)
+	{
+		CBaseHLCombatWeapon * pHLWeapon = dynamic_cast<CBaseHLCombatWeapon *>(GetActiveWeapon());
+
+		// Lower the weapon if possible
+		if (pHLWeapon && pHLWeapon->m_flNextPrimaryAttack <= gpGlobals->curtime )
+		{
+			pHLWeapon->Ready();
+			m_bKickWeaponLowered = false;
+		}
+	}
+}
+
+void CHL2_Player::TraceKickAttack()
+{
+	Vector vecSrc = GetFlags() & FL_DUCKING ? EyePosition() : EyePosition() - Vector(0, 0, 32);
+	Vector vecAim = BaseClass::GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+
+	trace_t tr;
+
+	AI_TraceLine( vecSrc, EyePosition() + (vecAim * 80), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
+
+	CBaseEntity *pEntity = tr.m_pEnt;
+	if ( pEntity != NULL )
+	{
+		// Try to dispatch an interaction
+		if ( !pEntity->DispatchInteraction( g_interactionBadCopKick, &tr, this ) )
+		{
+			float dmg = sk_plr_dmg_kick.GetFloat();;
+			int dmgType = DMG_CLUB;
+
+			CTakeDamageInfo dmgInfo( this, this, dmg, dmgType );
+			dmgInfo.SetDamagePosition( tr.endpos );
+			VectorNormalize( vecAim );// not a unit vec yet
+									  // hit like a 5kg object flying 100 ft/s
+			dmgInfo.SetDamageForce( dmg * 256 * 12 * vecAim );
+
+			// Send the damage to the recipient
+			pEntity->DispatchTraceAttack( dmgInfo, vecAim, &tr );
+		}
+
+		// Insert an AI sound so nearby enemies can hear the impact
+		int soundVolume = HL2GameRules()->IsBeastInStealthMode() ? 4096 : 384;
+		CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, soundVolume, 0.2f, this );
+
+		EmitSound( "EZ2Player.KickHit" );
+	}
+	else
+	{
+		EmitSound( "EZ2Player.KickMiss" );
+	}
+}
+
+void CHL2_Player::StartKickAnimation( void )
+{
+	MDLCACHE_CRITICAL_SECTION();
+	CBaseViewModel *vm = GetViewModel( 2 );
+	if ( vm == NULL )
+	{
+		CreateViewModel( 2 );
+		vm = GetViewModel( 2 );
+	}
+
+	if ( vm )
+	{
+		vm->SetWeaponModel( "models/weapons/v_kick.mdl", NULL );
+
+		int	idealSequence = vm->SelectWeightedSequence( ACT_VM_PRIMARYATTACK );
+
+		if ( idealSequence >= 0 )
+		{
+			vm->SendViewModelMatchingSequence( idealSequence );
+			vm->SetPlaybackRate( 1.0f );
+		}
+	}
+}
+
+void CHL2_Player::HandleKickAnimation( void )
+{
+	CBaseViewModel *pVM = GetViewModel( 2 );
+
+	if ( pVM )
+	{
+		pVM->m_flPlaybackRate = 1.0f;
+		pVM->StudioFrameAdvance();
+		pVM->DispatchAnimEvents( this );
+		if ( pVM->IsSequenceFinished() )
+		{
+			pVM->SetPlaybackRate( 0.0f );
+		}
+	}
+}
+
+void CHL2_Player::HandleAnimEvent( animevent_t *pEvent )
+{
+	if ( pEvent->event == AE_KICKATTACK )
+	{
+		TraceKickAttack();
+	}
+
+	BaseClass::HandleAnimEvent( pEvent );
+}
+#endif
 
 void CHL2_Player::ItemPostFrame()
 {
+#ifdef EZ2
+	HandleKickAttack();
+#endif
+
 	BaseClass::ItemPostFrame();
 
 	if ( m_bPlayUseDenySound )
