@@ -3442,7 +3442,6 @@ void CNPC_Manhack::SetEyeState( int state )
 			{
 				//Toggle our state
 #ifdef MAPBASE
-				// Something from Half-Laugh.
 				// Makes it easier to distinguish between hostile and friendly manhacks.
 				if( m_bHackedByAlyx )
 				{

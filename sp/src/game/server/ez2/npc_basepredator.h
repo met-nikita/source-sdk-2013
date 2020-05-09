@@ -12,6 +12,7 @@
 
 #include "ai_basenpc.h"
 #include "ai_squadslot.h"
+#include "particle_parse.h"
 #include "ai_behavior.h"
 
 enum BossState
@@ -101,6 +102,7 @@ class CNPC_BasePredator : public CAI_BehaviorHost<CAI_BaseNPC>
 
 public:
 	CNPC_BasePredator();
+	void Precache( void );
 	void Activate( void );
 
 	Class_T	Classify( void );
@@ -113,6 +115,8 @@ public:
 	virtual void BerserkModeSound( void ) {};
 	virtual void BeginSpawnSound( void ) {};
 	virtual void EndSpawnSound( void ) {};
+
+	virtual void HealEffects( void );
 
 	float MaxYawSpeed ( void );
 
@@ -157,6 +161,9 @@ public:
 	virtual void SetNextSpawnTime ( float flNextSpawnTime ) { m_flNextSpawnTime  = flNextSpawnTime; };
 	virtual void SetHungryTime ( float flHungryTime ) { m_flHungryTime = flHungryTime; };
 	virtual void SetTimesFed ( int iTimesFed ) { m_iTimesFed = iTimesFed; };
+
+	// Thinking, including core thinking, movement, animation
+	virtual void NPCThink( void );
 
 	int GetSoundInterests ( void );
 	void RunAI ( void );

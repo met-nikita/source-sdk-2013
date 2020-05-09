@@ -3227,6 +3227,13 @@ float CAI_Navigator::MovementCost( int moveType, Vector &vecStart, Vector &vecEn
 	return cost;
 }
 
+#ifdef EZ2
+float CAI_Navigator::HintCost( int iHint, float dist, Vector &vecEnd )
+{
+	return GetOuter()->HintCost( iHint, dist, vecEnd );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: Will the entities hull fit at the given node
 // Input  :

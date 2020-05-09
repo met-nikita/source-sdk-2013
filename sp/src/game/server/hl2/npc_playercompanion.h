@@ -322,6 +322,9 @@ public:
 	bool 			ValidateNavGoal();
 	bool 			OverrideMove( float flInterval );				// Override to take total control of movement (return true if done so)
 	bool			MovementCost( int moveType, const Vector &vecStart, const Vector &vecEnd, float *pCost );
+#ifdef EZ2
+	virtual float	HintCost( int iHint, float dist, Vector &vecEnd );
+#endif
 	float			GetIdealSpeed() const;
 	float			GetIdealAccel() const;
 	bool			OnObstructionPreSteer( AILocalMoveGoal_t *pMoveGoal, float distClear, AIMoveResult_t *pResult );
@@ -351,12 +354,6 @@ public:
 	virtual bool IsGrenadeCapable() { return (m_iGrenadeCapabilities & GRENCAP_GRENADE) != 0; }
 
 private:
-
-	enum eGrenadeCapabilities
-	{
-		GRENCAP_GRENADE = (1 << 0),
-		GRENCAP_ALTFIRE = (1 << 1),
-	};
 
 	// Determines whether this NPC is allowed to use grenades or alt-fire stuff.
 	eGrenadeCapabilities m_iGrenadeCapabilities;

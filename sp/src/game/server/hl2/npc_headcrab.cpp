@@ -2352,6 +2352,9 @@ void CBaseHeadcrab::GrabHintNode( CAI_Hint *pHint )
 	{
 		SetHintNode( pHint );
 		pHint->Lock( this );
+#ifdef MAPBASE
+		pHint->NPCStartedUsing( this );
+#endif
 	}
 }
 

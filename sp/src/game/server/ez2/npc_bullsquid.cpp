@@ -10,8 +10,8 @@
 #include "npcevent.h"
 #include "npc_bullsquid.h"
 #include "grenade_spit.h"
-#include "particle_parse.h"
 #include "movevars_shared.h"
+#include "npc_egg.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -27,6 +27,7 @@ ConVar sk_bullsquid_gestation( "sk_bullsquid_gestation", "15.0" );
 ConVar sk_bullsquid_spawn_time( "sk_bullsquid_spawn_time", "5.0" );
 ConVar sk_bullsquid_monster_infighting( "sk_bullsquid_monster_infighting", "1" );
 ConVar sk_bullsquid_antlion_style_spit( "sk_bullsquid_antlion_style_spit", "1" );
+ConVar sk_bullsquid_lay_eggs( "sk_bullsquid_lay_eggs", "1" );
 ConVar sk_max_squad_squids( "sk_max_squad_squids", "4" ); // How many squids in a pack before offspring start branching off into their own pack?
 
 //=========================================================
@@ -361,7 +362,17 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 	{
 		case PREDATOR_AE_SPIT:
 		{
-			if ( GetEnemy() )
+			// Reusing this activity / animation event for babysquid spawning
+			if ( m_bReadyToSpawn )
+			{
+				Vector vSpitPos;
+				GetAttachment( "Mouth", vSpitPos );
+				if ( SpawnNPC( vSpitPos, GetAbsAngles() ) )
+				{
+					ExplosionEffect();
+				}
+			}
+			else if ( GetEnemy() )
 			{
 				if ( sk_bullsquid_antlion_style_spit.GetBool() ) {
 					Vector vSpitPos;
@@ -484,18 +495,7 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 
 		case PREDATOR_AE_BITE:
 		{
-			CBaseEntity *pHurt = BiteAttack( 70, Vector( -16, -16, -16), Vector( 16, 16, 16 ));
-			// Reusing this activity / animation event for babysquid spawning
-			if ( !pHurt && m_bReadyToSpawn )
-			{
-				Vector forward, up, spawnPos;
-				AngleVectors( GetAbsAngles(), &forward, NULL, &up );
-				spawnPos = ( forward * 128 ) + GetAbsOrigin();
-				if ( SpawnNPC( spawnPos ) )
-				{
-					ExplosionEffect();
-				}
-			}
+			BiteAttack( 70, Vector( -16, -16, -16), Vector( 16, 16, 16 ));
 		}
 		break;
 
@@ -908,7 +908,7 @@ void CNPC_Bullsquid::StartTask( const Task_t *pTask )
 		break;
 	case TASK_PREDATOR_SPAWN:
 		m_flNextSpawnTime = gpGlobals->curtime + sk_bullsquid_spawn_time.GetFloat();
-		SetIdealActivity( (Activity) ACT_MELEE_ATTACK2 );
+		SetIdealActivity( (Activity) ACT_RANGE_ATTACK1 );
 		break;
 	default:
 	{
@@ -1037,7 +1037,79 @@ void CNPC_Bullsquid::ExplosionEffect( void )
 // Purpose: Create a new baby bullsquid
 // Output : True if the new bullsquid is created
 //-----------------------------------------------------------------------------
-bool CNPC_Bullsquid::SpawnNPC( const Vector position )
+bool CNPC_Bullsquid::SpawnNPC( const Vector position, const QAngle angle )
+{
+	if (sk_bullsquid_lay_eggs.GetBool())
+	{
+		return SpawnEgg( position, angle );
+	}
+	else
+	{
+		return SpawnLive( position );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Create a new bullsquid egg
+// Output : True if the new egg is created
+//-----------------------------------------------------------------------------
+bool CNPC_Bullsquid::SpawnEgg( const Vector position, const QAngle angle )
+{
+	EndSpawnSound();
+
+	// Try to create entity
+	CNPC_Egg *pEgg = static_cast< CNPC_Egg * >(CreateEntityByName( "npc_egg" ));
+	if (pEgg)
+	{
+		pEgg->m_tEzVariant = this->m_tEzVariant;
+		pEgg->KeyValue( "AlertSound", "npc_bullsquid.egg_alert" );
+		pEgg->KeyValue( "ChildClassname", "npc_bullsquid" );
+		pEgg->KeyValue( "HatchParticle", "bullsquid_egg_hatch" );
+		pEgg->KeyValue( "IncubationTime", "10" );
+		pEgg->KeyValue( "health", "200" );
+		pEgg->KeyValue( "HatchSound", "npc_bullsquid.egg_hatch" );
+		pEgg->SetModel( "models/eggs/bullsquid_egg.mdl" );
+		pEgg->Precache();
+
+		DispatchSpawn( pEgg );
+
+		// Now attempt to drop into the world
+		pEgg->Teleport( &position, NULL, NULL );
+		pEgg->SetAbsAngles( angle );
+
+		Vector forward, up;
+		AngleVectors( GetLocalAngles(), &forward, NULL, &up );
+		pEgg->ApplyAbsVelocityImpulse( forward * 300 + up * 300 );
+
+		// TODO Validate that this location is not inside a solid object or through a wall!
+
+		pEgg->SetSquad( this->GetSquad() );
+		pEgg->Activate();
+
+		// Decrement feeding counter
+		m_iTimesFed--;
+		if (m_iTimesFed <= 0)
+		{
+			m_bReadyToSpawn = false;
+		}
+
+		// Fire output
+		variant_t value;
+		value.SetEntity( pEgg );
+		m_OnSpawnNPC.CBaseEntityOutput::FireOutput( value, this, this );
+
+		return true;
+	}
+
+	// Couldn't instantiate NPC
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Create a new baby bullsquid
+// Output : True if the new bullsquid is created
+//-----------------------------------------------------------------------------
+bool CNPC_Bullsquid::SpawnLive( const Vector position )
 {
 	EndSpawnSound();
 
