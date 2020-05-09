@@ -1331,6 +1331,11 @@ void CNPC_CeilingTurret::DeathThink( void )
 #endif
 
 		SetActivity( (Activity) ACT_CEILING_TURRET_CLOSE );
+
+#ifdef EZ2
+		// This should really be in Mapbase
+		m_OnDeath.FireOutput( this, this );
+#endif
 	}
 
 	// lots of smoke
