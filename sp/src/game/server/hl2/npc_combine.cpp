@@ -4863,6 +4863,9 @@ void CNPC_Combine::OnAnimEventStartDeployManhack( void )
 //-----------------------------------------------------------------------------
 void CNPC_Combine::OnAnimEventDeployManhack( animevent_t *pEvent )
 {
+	if (!m_hManhack)
+		return;
+
 	// Let it go
 	ReleaseManhack();
 

@@ -72,6 +72,10 @@ ConVar mapbase_flush_talker("mapbase_flush_talker", "1", FCVAR_NONE, "Normally, 
 
 ConVar mapbase_load_actbusy("mapbase_load_actbusy", "1", FCVAR_ARCHIVE, "Should we load map-specific actbusy files? e.g. \"maps/mapname_actbusy.txt\"");
 
+#ifdef EZ2
+ConVar ez2_load_custom_xen_recipes( "ez2_load_custom_xen_recipes", "1", FCVAR_ARCHIVE, "Should we load map-specific Xen recipes? e.g. \"maps/mapname_xen_recipes.txt\"" );
+#endif
+
 #endif
 
 #ifdef GAME_DLL
@@ -84,6 +88,11 @@ extern void ReloadResponseSystem();
 
 // Reloads the response system when the map changes to avoid custom talker leaking
 static bool g_bMapContainsCustomTalker;
+
+#ifdef EZ2
+extern bool LoadCustomXenRecipeFile(const char *scriptfile);
+#endif
+
 #endif
 
 // Indicates this is a core Mapbase mod and not a mod using its code.
@@ -107,6 +116,9 @@ enum
 	MANIFEST_TALKER,
 	MANIFEST_SENTENCES,
 	MANIFEST_ACTBUSY,
+#ifdef EZ2
+	MANIFEST_XENRECIPES,
+#endif
 #endif
 
 	// Must always be kept below
@@ -135,6 +147,9 @@ static const ManifestType_t gm_szManifestFileStrings[MANIFEST_NUM_TYPES] = {
 	{ "talker",				&mapbase_load_talker },
 	{ "sentences",			&mapbase_load_sentences },
 	{ "actbusy",			&mapbase_load_actbusy },
+#ifdef EZ2
+	{ "xen_recipes",		&ez2_load_custom_xen_recipes },
+#endif
 #endif
 };
 
@@ -295,6 +310,9 @@ public:
 #endif
 			case MANIFEST_SENTENCES: { engine->PrecacheSentenceFile(value); } break;
 			case MANIFEST_ACTBUSY: { ParseCustomActbusyFile(value); } break;
+#ifdef EZ2
+			case MANIFEST_XENRECIPES: { g_bMapContainsCustomTalker = true; LoadCustomXenRecipeFile(value); } break;
+#endif
 #endif
 		}
 	}

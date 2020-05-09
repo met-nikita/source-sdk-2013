@@ -39,9 +39,24 @@ BEGIN_DATADESC( CGrenadeSpit )
 
 END_DATADESC()
 
+#ifdef EZ2
+// Blixibon - Makes antlion/bullsquid spit dodgable by hunters
+extern CUtlVector<CBaseEntity*> g_pDodgeableProjectiles;
+
+CGrenadeSpit::CGrenadeSpit( void ) : m_bPlaySound( true ), m_pHissSound( NULL )
+{
+	g_pDodgeableProjectiles.AddToTail( this );
+}
+
+CGrenadeSpit::~CGrenadeSpit()
+{
+	g_pDodgeableProjectiles.FindAndRemove( this );
+}
+#else
 CGrenadeSpit::CGrenadeSpit( void ) : m_bPlaySound( true ), m_pHissSound( NULL )
 {
 }
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 

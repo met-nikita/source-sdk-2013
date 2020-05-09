@@ -261,8 +261,10 @@ void CBounceBomb::Spawn()
 			nextSkin = (nextSkin >= MINE_CITIZEN_SKIN_MAX) ? MINE_CITIZEN_SKIN_MIN : nextSkin + 1;
 		}	
 
+#ifndef EZ2
 		// pretend like the player set me down.
 		m_bPlacedByPlayer = true;
+#endif
 	}
 }
 
@@ -947,6 +949,12 @@ float CBounceBomb::FindNearestNPC()
 			// Disregard bullseyes
 			if( pNPC->Classify() == CLASS_BULLSEYE )
 				continue;
+
+#ifdef EZ2
+			// Disregard flora
+			if( pNPC->Classify() == CLASS_ALIEN_FLORA )
+				continue;
+#endif
 
 			// Disregard turrets
 			if( pNPC->m_iClassname == gm_iszFloorTurretClassname || pNPC->m_iClassname == gm_iszGroundTurretClassname )

@@ -4478,6 +4478,70 @@ void CNPC_PlayerCompanion::Event_KilledOther( CBaseEntity *pVictim, const CTakeD
 //-----------------------------------------------------------------------------
 void CNPC_PlayerCompanion::DoCustomCombatAI( void )
 {
+#ifdef EZ2 // Blixibon - This code is now being used for potential citizen or CC responses.
+	#define COMPANION_MIN_MOB_DIST_SQR Square(120)		// Any enemy closer than this adds to the 'mob'
+	#define COMPANION_MIN_CONSIDER_DIST	Square(1200)	// Only enemies within this range are counted and considered to generate AI speech
+
+	AIEnemiesIter_t iter;
+
+	float visibleEnemiesScore = 0.0f;
+	float closeEnemiesScore = 0.0f;
+
+	for ( AI_EnemyInfo_t *pEMemory = GetEnemies()->GetFirst(&iter); pEMemory != NULL; pEMemory = GetEnemies()->GetNext(&iter) )
+	{
+		if ( IRelationType( pEMemory->hEnemy ) != D_NU && IRelationType( pEMemory->hEnemy ) != D_LI && pEMemory->hEnemy->GetAbsOrigin().DistToSqr(GetAbsOrigin()) <= COMPANION_MIN_CONSIDER_DIST )
+		{
+			if( pEMemory->hEnemy && pEMemory->hEnemy->IsAlive() && gpGlobals->curtime - pEMemory->timeLastSeen <= 0.5f && pEMemory->hEnemy->Classify() != CLASS_BULLSEYE )
+			{
+				if( pEMemory->hEnemy->GetAbsOrigin().DistToSqr(GetAbsOrigin()) <= COMPANION_MIN_MOB_DIST_SQR )
+				{
+					closeEnemiesScore += 1.0f;
+				}
+				else
+				{
+					visibleEnemiesScore += 1.0f;
+				}
+			}
+		}
+	}
+
+	if( closeEnemiesScore > 2 )
+	{
+		SetCondition( COND_MOBBED_BY_ENEMIES );
+
+		// mark anyone in the mob as having mobbed me
+		for ( AI_EnemyInfo_t *pEMemory = GetEnemies()->GetFirst(&iter); pEMemory != NULL; pEMemory = GetEnemies()->GetNext(&iter) )
+		{
+			if ( pEMemory->bMobbedMe )
+				continue;
+
+			if ( IRelationType( pEMemory->hEnemy ) != D_NU && IRelationType( pEMemory->hEnemy ) != D_LI && pEMemory->hEnemy->GetAbsOrigin().DistToSqr(GetAbsOrigin()) <= COMPANION_MIN_CONSIDER_DIST )
+			{
+				if( pEMemory->hEnemy && pEMemory->hEnemy->IsAlive() && gpGlobals->curtime - pEMemory->timeLastSeen <= 0.5f && pEMemory->hEnemy->Classify() != CLASS_BULLSEYE )
+				{
+					if( pEMemory->hEnemy->GetAbsOrigin().DistToSqr(GetAbsOrigin()) <= COMPANION_MIN_MOB_DIST_SQR )
+					{
+						pEMemory->bMobbedMe = true;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		ClearCondition( COND_MOBBED_BY_ENEMIES );
+	}
+
+	// Say a combat thing
+	if( HasCondition( COND_MOBBED_BY_ENEMIES ) )
+	{
+		SpeakIfAllowed( TLK_MOBBED );
+	}
+	else if( visibleEnemiesScore > 4 )
+	{
+		SpeakIfAllowed( TLK_MANY_ENEMIES );
+	}
+#else
 	/*
 	#define COMPANION_MIN_MOB_DIST_SQR Square(120)		// Any enemy closer than this adds to the 'mob'
 	#define COMPANION_MIN_CONSIDER_DIST	Square(1200)	// Only enemies within this range are counted and considered to generate AI speech
@@ -4542,6 +4606,7 @@ void CNPC_PlayerCompanion::DoCustomCombatAI( void )
 		SpeakIfAllowed( TLK_MANY_ENEMIES );
 	}
 	*/
+#endif
 }
 #endif
 

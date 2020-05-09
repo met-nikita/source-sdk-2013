@@ -509,6 +509,12 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 
 	// Destroy the entity
 #ifdef EZ
+	if ( pPhysObject->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
+	{
+		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+		pPlayer->ForceDropOfCarriedPhysObjects( pEnt );
+	}
+
 	pEnt->RemoveDeferred();
 #else
 	UTIL_Remove( pEnt );
@@ -2018,7 +2024,7 @@ void CGrenadeHopwire::SetVelocity( const Vector &velocity, const AngularImpulse 
 void CGrenadeHopwire::Detonate( void )
 {
 #ifdef EZ2
-	if ( VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
+	if ( VPhysicsGetObject() && VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
 	{
 		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 		pPlayer->ForceDropOfCarriedPhysObjects( this );
