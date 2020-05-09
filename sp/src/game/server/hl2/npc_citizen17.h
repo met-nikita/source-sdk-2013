@@ -228,6 +228,8 @@ public:
 #ifdef EZ2
 	// Blixibon - Gets criteria the player should use in speech
 	virtual void		ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_CriteriaSet& set );
+
+	bool			GetGameTextSpeechParams( hudtextparms_t &params );
 #endif
 	
 	//---------------------------------

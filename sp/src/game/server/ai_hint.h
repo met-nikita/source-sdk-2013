@@ -83,6 +83,9 @@ enum Hint_e
 
 	HINT_HEADCRAB_BURROW_POINT = 450,
 	HINT_HEADCRAB_EXIT_POD_POINT,
+#ifdef EZ2
+	HINT_HEADCRAB_TELEPORT_POINT,
+#endif
 
 	HINT_NOT_USED_ROLLER_PATROL_POINT = 500,
 	HINT_NOT_USED_ROLLER_CLEANUP_POINT,
@@ -112,6 +115,12 @@ enum Hint_e
 
 	// CS port hints
 	HINT_CSTRIKE_HOSTAGE_ESCAPE = 1100,
+
+#ifdef EZ2
+	// EZ2 hints
+	HINT_BEAST_HOME = 2000,
+	HINT_BEAST_FRUSTRATION,
+#endif
 };
 const char *GetHintTypeDescription( Hint_e iHintType );
 const char *GetHintTypeDescription( CAI_Hint *pHint );

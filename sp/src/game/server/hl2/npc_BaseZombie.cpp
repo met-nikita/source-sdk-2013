@@ -2144,7 +2144,20 @@ int CNPC_BaseZombie::SelectSchedule ( void )
 		}
 		break;
 
+#ifdef EZ2
+	case NPC_STATE_IDLE:
+		if (!HL2GameRules()->IsBeastInStealthMode())
+			break;
+#endif
 	case NPC_STATE_ALERT:
+#ifdef EZ2
+		if (HL2GameRules()->IsBeastInStealthMode())
+		{
+			if (GetLastEnemyTime() != 0.0f)
+				return SCHED_ZOMBIE_WANDER_MEDIUM;
+		}
+		else
+#endif
 		if ( HasCondition( COND_LOST_ENEMY ) || HasCondition( COND_ENEMY_DEAD ) || ( HasCondition( COND_ENEMY_UNREACHABLE ) && MustCloseToAttack() ) )
 		{
 			ClearCondition( COND_LOST_ENEMY );
@@ -2281,6 +2294,18 @@ void CNPC_BaseZombie::GatherConditions( void )
 	{
 		ClearCondition( COND_ZOMBIE_CAN_SWAT_ATTACK );
 	}
+
+#ifdef EZ2
+	if ( m_NPCState != NPC_STATE_IDLE && HL2GameRules()->IsBeastInStealthMode() && IsCurSchedule(SCHED_ZOMBIE_WANDER_MEDIUM) && !m_fIsTorso )
+	{
+		// If we haven't seen an enemy in 15 seconds, go back to slumping
+		if (gpGlobals->curtime - GetEnemyLastTimeSeen() > 15.0f)
+		{
+			//SetEnemy( NULL );
+			SetIdealState( NPC_STATE_IDLE );
+		}
+	}
+#endif
 }
 
 //---------------------------------------------------------

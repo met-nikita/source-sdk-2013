@@ -13,6 +13,7 @@
 #include "ai_basenpc.h"
 #include "ai_squadslot.h"
 #include "particle_parse.h"
+#include "ai_behavior.h"
 
 enum BossState
 {
@@ -94,9 +95,9 @@ enum SquadSlot_T
 #define		PREDATOR_AE_WHIP_SND	( 7 )
 #define		PREDATOR_AE_TAILWHIP	( 8 )
 
-class CNPC_BasePredator : public CAI_BaseNPC
+class CNPC_BasePredator : public CAI_BehaviorHost<CAI_BaseNPC>
 {
-	DECLARE_CLASS( CNPC_BasePredator, CAI_BaseNPC );
+	DECLARE_CLASS( CNPC_BasePredator, CAI_BehaviorHost<CAI_BaseNPC> );
 	DECLARE_DATADESC();
 
 public:
@@ -238,4 +239,63 @@ protected:
 
 	WanderState m_tWanderState; // How should this NPC wander?
 };
+
+#define BEAST_BEHAVIOR 1
+#ifdef BEAST_BEHAVIOR
+// 
+// Beast Behavior
+// 
+// Move this to another file if necessary.
+// 
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+class CAI_BeastBehavior : public CAI_SimpleBehavior
+{
+	DECLARE_CLASS( CAI_BeastBehavior, CAI_SimpleBehavior );
+public:
+	DECLARE_DATADESC();
+	CAI_BeastBehavior();
+
+	enum
+	{
+		// Schedules
+		SCHED_BEAST_STAY_HOME = BaseClass::NEXT_SCHEDULE,
+		SCHED_BEAST_COME_HOME,
+		NEXT_SCHEDULE,
+		
+		// Tasks
+		TASK_BEAST_FIND_HOME = BaseClass::NEXT_TASK,
+		TASK_BEAST_BE_HOME,
+		NEXT_TASK,
+		
+		// Conditions
+		//COND_ACTBUSY_LOST_SEE_ENTITY = BaseClass::NEXT_CONDITION,
+		//NEXT_CONDITION,
+	};
+
+	virtual const char *GetName() { return "Beast"; }
+
+	void	HandleLeaveHome();
+
+	void	EndScheduleSelection( void );
+	int		SelectSchedule( void );
+	void	GatherConditions( void );
+	int		TranslateSchedule( int scheduleType );
+	void	BuildScheduleTestBits( void );
+	bool	CanSelectSchedule( void );
+
+	virtual void	StartTask( const Task_t *pTask );
+	virtual void	RunTask( const Task_t *pTask );
+
+	bool	QueryHearSound( CSound *pSound );
+	bool	IsInterruptable( void );
+
+	bool	m_bAtHome;
+
+	DEFINE_CUSTOM_SCHEDULE_PROVIDER;
+};
+#endif
+
 #endif // NPC_BASEPREDATOR_H

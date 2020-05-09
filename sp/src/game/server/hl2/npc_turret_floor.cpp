@@ -28,6 +28,10 @@
 	#include "portal_util_shared.h"
 #endif
 
+#ifdef EZ2
+	#include "hl2_gamerules.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -326,6 +330,11 @@ void CNPC_FloorTurret::Spawn( void )
 	m_iHealth		= 100;
 	m_iMaxHealth	= 100;
 
+#ifdef EZ2
+	m_flDistTooFar = GetRange();
+	SetDistLook( GetRange() );
+#endif
+
 	AddEFlags( EFL_NO_DISSOLVE );
 
 	SetPoseParameter( m_poseAim_Yaw, 0 );
@@ -397,6 +406,15 @@ void CNPC_FloorTurret::Activate( void )
 		}
 	}
 }
+
+//-----------------------------------------------------------------------------
+
+#ifdef EZ2
+float CNPC_FloorTurret::GetRange()
+{
+	return FLOOR_TURRET_RANGE;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 
@@ -1241,7 +1259,12 @@ bool CNPC_FloorTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 	// If we're out of ammo, make friendly companions ignore us
 	if ( m_spawnflags & SF_FLOOR_TURRET_OUT_OF_AMMO )
 	{
+#ifdef EZ2
+		// All allies ignore turrets out of ammo
+		if ( pEnemy->IsNPC() && pEnemy->MyNPCPointer()->IsPlayerAlly() )
+#else
 		if ( pEnemy->Classify() == CLASS_PLAYER_ALLY_VITAL )
+#endif
 			return false;
 	} 
 
@@ -1453,7 +1476,11 @@ void CNPC_FloorTurret::HackFindEnemy( void )
 	// dead enemies are cleared out before new ones are added.
 	GetEnemies()->RefreshMemories();
 
+#ifdef EZ2
+	GetSenses()->Look( GetSenses()->GetDistLook() );
+#else
 	GetSenses()->Look( FLOOR_TURRET_RANGE );
+#endif
 	SetEnemy( BestEnemy() );
 }
 
@@ -1517,7 +1544,9 @@ bool CNPC_FloorTurret::PreThink( turretState_e state )
 		}
 		else
 		{
+#ifndef EZ2
 			if ( HasSpawnFlags( SF_FLOOR_TURRET_OUT_OF_AMMO ) == false )
+#endif
 			{
 				//Thrash around for a bit
 				m_flThrashTime = gpGlobals->curtime + random->RandomFloat( 2.0f, 2.5f );
@@ -1532,6 +1561,7 @@ bool CNPC_FloorTurret::PreThink( turretState_e state )
 					EmitSound( "NPC_FloorTurret.Alarm" );
 				}
 			}
+#ifndef EZ2
 			else
 			{
 				// Take away the laser
@@ -1542,6 +1572,7 @@ bool CNPC_FloorTurret::PreThink( turretState_e state )
 				SetThink( &CNPC_FloorTurret::InactiveThink );
 				SetEyeState( TURRET_EYE_DEAD );
 			}
+#endif
 
 			//Stop being targetted
 			SetState( NPC_STATE_DEAD );
@@ -2437,3 +2468,593 @@ AI_BEGIN_CUSTOM_NPC( npc_turret_floor, CNPC_FloorTurret )
 	DECLARE_INTERACTION( g_interactionTurretStillStanding );	
 
 AI_END_CUSTOM_NPC()
+
+#ifdef EZ2
+BEGIN_DATADESC( CNPC_Arbeit_FloorTurret )
+
+	DEFINE_FIELD( m_iCurrentState, FIELD_INTEGER ),
+
+	DEFINE_KEYFIELD( m_iTurretType, FIELD_INTEGER, "TurretType" ),
+
+	DEFINE_KEYFIELD( m_flRange, FIELD_FLOAT, "Range" ),
+	DEFINE_KEYFIELD( m_flFOV, FIELD_FLOAT, "FOV" ),
+
+	DEFINE_KEYFIELD( m_bStatic, FIELD_BOOLEAN, "static" ),
+
+	DEFINE_KEYFIELD( m_bEyeLightEnabled, FIELD_BOOLEAN, "EyeLightEnabled" ),
+	//DEFINE_FIELD( m_iEyeLightBrightness, FIELD_INTEGER ), // SetEyeGlow()'s call in Activate() means we don't need to save this
+
+	DEFINE_KEYFIELD( m_bUseLaser, FIELD_BOOLEAN, "Laser" ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnEyeLight", InputTurnOnEyeLight ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffEyeLight", InputTurnOffEyeLight ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnLaser", InputTurnOnLaser ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffLaser", InputTurnOffLaser ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSilently", InputEnableSilently ),
+
+END_DATADESC()
+
+IMPLEMENT_SERVERCLASS_ST( CNPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret )
+	SendPropBool( SENDINFO( m_bEyeLightEnabled ) ),
+	SendPropInt( SENDINFO( m_iEyeLightBrightness ) ),
+	SendPropFloat( SENDINFO( m_flRange ) ),
+	SendPropFloat( SENDINFO( m_flFOV ) ),
+	SendPropBool( SENDINFO( m_bLaser ) ),
+END_SEND_TABLE()
+
+LINK_ENTITY_TO_CLASS( npc_arbeit_turret_floor, CNPC_Arbeit_FloorTurret );
+
+static const char *g_pLaserUpdateContext = "LaserUpdateContext";
+
+//-----------------------------------------------------------------------------
+// Constructor
+//-----------------------------------------------------------------------------
+CNPC_Arbeit_FloorTurret::CNPC_Arbeit_FloorTurret( void )
+{
+	m_iCurrentState = TURRET_STATE_TOTAL;
+	m_flRange = FLOOR_TURRET_RANGE;
+	m_flFOV = 60.0f;
+	//m_bEyeLightEnabled = true;
+	m_bUseLaser = true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Precache
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::Precache( void )
+{
+	switch (m_tEzVariant)
+	{
+		case EZ_VARIANT_RAD:
+			SetModelName( AllocPooledString( "models/props/glowturret_01.mdl" ) );
+			break;
+
+		default:
+			SetModelName( AllocPooledString( "models/props/turret_01.mdl" ) );
+	}
+
+	PrecacheScriptSound( "NPC_ArbeitTurret.DryFire" );
+	
+	BaseClass::Precache();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Spawn the entity
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::Spawn( void )
+{
+	m_bNoAlarmSounds = true;
+
+	BaseClass::Spawn();
+
+	m_flFieldOfView = cos( DEG2RAD( m_flFOV / 2 ) );
+
+	if (m_bUseLaser && m_bEnabled && !OnSide())
+		m_bLaser = true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_Arbeit_FloorTurret::CreateVPhysics( void )
+{
+	//Spawn our physics hull
+	IPhysicsObject *pPhys = VPhysicsInitNormal( SOLID_VPHYSICS, 0, false );
+	if ( pPhys == NULL )
+	{
+		DevMsg( "npc_arbeit_turret_floor unable to spawn physics object!\n" );
+		return false;
+	}
+
+	if ( m_bStatic )
+	{
+		pPhys->EnableMotion( false );
+		PhysSetGameFlags(pPhys, FVPHYSICS_NO_PLAYER_PICKUP);
+	}
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason )
+{
+	BaseClass::OnPhysGunPickup( pPhysGunUser, reason );
+
+	if (pPhysGunUser && IRelationType( pPhysGunUser ) <= D_FR)
+	{
+		SpeakIfAllowed( TLK_PICKUP );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reason )
+{
+	BaseClass::OnPhysGunDrop( pPhysGunUser, Reason );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *pEnemy - 
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CNPC_Arbeit_FloorTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
+{
+	if (m_iTurretType == TURRET_TYPE_BEAST)
+	{
+		// We don't bother zombies
+		Class_T classify = pEnemy->Classify();
+		if (classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB)
+			return false;
+	}
+
+	return BaseClass::CanBeAnEnemyOf( pEnemy );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::InputEnableSilently( inputdata_t &inputdata )
+{
+	// Don't interrupt blowing up!
+	if ( m_bSelfDestructing )
+		return;
+
+	// Always allow us to come back to life, even if not right now
+	m_bEnabled = true;
+
+	//This turret is on its side, it can't function
+	if ( OnSide() || ( IsAlive() == false ) )
+		return;
+
+	// if the turret is flagged as an autoactivate turret, re-enable its ability open self.
+	if ( m_spawnflags & SF_FLOOR_TURRET_AUTOACTIVATE )
+	{
+		m_bAutoStart = true;
+	}
+
+	SetThink( &CNPC_FloorTurret::AutoSearchThink );
+	SetNextThink( gpGlobals->curtime + 0.05f );
+	SetEyeState( TURRET_EYE_DORMANT );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Allows a generic think function before the others are called
+// Input  : state - which state the turret is currently in
+//-----------------------------------------------------------------------------
+bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
+{
+	if ( state != m_iCurrentState )
+	{
+		m_iCurrentState = state;
+
+		switch ( state )
+		{
+			case TURRET_SEARCHING:
+				SpeakIfAllowed( TLK_SEARCHING );
+				break;
+
+			case TURRET_AUTO_SEARCHING:
+				SpeakIfAllowed( TLK_AUTOSEARCH );
+				break;
+
+			case TURRET_ACTIVE:
+				SpeakIfAllowed( TLK_ACTIVE );
+				break;
+
+			case TURRET_DEPLOYING:
+			{
+				if (!IsBeingCarriedByPlayer())
+					SpeakIfAllowed( TLK_DEPLOY );
+
+				if (HL2GameRules()->IsBeastInStealthMode())
+				{
+					// UNDONE: Couldn't get this working right, also this might actually
+					// help players learn that the turrets alert the beast
+					// 
+					// The beast technically shouldn't have any way of distinguishing this, but 
+					// otherwise it just gets kind of spammy.
+					// Don't emit a sound if our enemy is returning to an actbusy.
+					//CAI_BaseNPC *pNPC = GetEnemy()->MyNPCPointer();
+					//if (pNPC && !pNPC->IsCurSchedule( GetClassScheduleIdSpace()->ScheduleLocalToGlobal(CAI_ActBusyBehavior::SCHED_ACTBUSY_START_BUSYING) ))
+						CSoundEnt::InsertSound( SOUND_COMBAT, EyePosition(), 4096, 10.0f, this, SOUNDENT_CHANNEL_WEAPON, GetEnemy() );
+				}
+			} break;
+
+			case TURRET_RETIRING:
+				SpeakIfAllowed( TLK_RETIRE );
+				break;
+
+			case TURRET_TIPPED:
+			{
+				Speak( TLK_TIPPED );
+
+				if (HL2GameRules()->IsBeastInStealthMode())
+				{
+					CSoundEnt::InsertSound( SOUND_COMBAT, EyePosition(), 4096, 10.0f, this, SOUNDENT_CHANNEL_WEAPON );
+				}
+			} break;
+		}
+	}
+
+	if (state != TURRET_TIPPED)
+		return BaseClass::PreThink( state );
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Sets the state of the glowing eye attached to the turret
+// Input  : state - state the eye should be in
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
+{
+	// Must have a valid eye to affect
+	if ( !m_hEyeGlow && !HasSpawnFlags(SF_FLOOR_TURRET_NO_SPRITE) )
+	{
+		// Create our eye sprite
+		m_hEyeGlow = CSprite::SpriteCreate( FLOOR_TURRET_GLOW_SPRITE, GetLocalOrigin(), false );
+		if ( !m_hEyeGlow )
+			return;
+
+		m_hEyeGlow->SetTransparency( kRenderWorldGlow, 255, 0, 0, 128, kRenderFxNoDissipation );
+		m_hEyeGlow->SetAttachment( this, m_iEyeAttachment );
+	}
+
+	// Add the laser if it doesn't already exist
+	//if ( m_hLaser == NULL )
+	//{
+	//	m_hLaser = CBeam::BeamCreate( LASER_BEAM_SPRITE, 3.0f );
+	//	if ( m_hLaser == NULL )
+	//		return;
+	//
+	//	CheckPVSCondition();
+	//	UpdateLaser();
+	//
+	//	//m_hLaser->FollowEntity( this );
+	//	m_hLaser->SetNoise( 0 );
+	//	m_hLaser->SetColor( 255, 0, 0 );
+	//	m_hLaser->SetScrollRate( 0 );
+	//	m_hLaser->SetWidth( 3.0f );
+	//	m_hLaser->SetEndWidth( 2.0f );
+	//	m_hLaser->SetBrightness( 200 );
+	//	m_hLaser->SetBeamFlags( SF_BEAM_SHADEIN );
+	//}
+
+	m_iEyeState = state;
+	m_nSkin = 0;
+
+	//Set the state
+	switch( state )
+	{
+	case TURRET_EYE_SEE_TARGET: //Fade in and scale up
+	default:
+		m_hEyeGlow->SetColor( 255, 0, 0 );
+		m_hEyeGlow->SetBrightness( 255, 0.1f );
+		m_hEyeGlow->SetScale( 0.5f, 0.1f );
+		break;
+
+	case TURRET_EYE_SEEKING_TARGET: //Ping-pongs
+		
+		//Toggle our state
+		m_bBlinkState = !m_bBlinkState;
+		m_hEyeGlow->SetColor( 255, 0, 0 );
+
+		if ( m_bBlinkState )
+		{
+			//Fade up and scale up
+			m_hEyeGlow->SetScale( 0.3f, 0.1f );
+			m_hEyeGlow->SetBrightness( 224, 0.1f );
+		}
+		else
+		{
+			//Fade down and scale down
+			m_hEyeGlow->SetScale( 0.2f, 0.1f );
+			m_hEyeGlow->SetBrightness( 192, 0.1f );
+		}
+
+		break;
+
+	case TURRET_EYE_DORMANT: //Fade out and scale down
+		m_hEyeGlow->SetColor( 255, 0, 0 );
+		m_hEyeGlow->SetScale( 0.3f, 0.5f );
+		m_hEyeGlow->SetBrightness( 192, 0.5f );
+		break;
+
+	case TURRET_EYE_DEAD: //Fade out slowly
+		m_hEyeGlow->SetColor( 255, 0, 0 );
+		m_hEyeGlow->SetScale( 0.1f, 3.0f );
+		m_hEyeGlow->SetBrightness( 0, 3.0f );
+		m_nSkin = 1;
+		break;
+
+	case TURRET_EYE_DISABLED:
+		m_hEyeGlow->SetColor( 0, 255, 0 );
+		m_hEyeGlow->SetScale( 0.1f, 1.0f );
+		m_hEyeGlow->SetBrightness( 0, 1.0f );
+		break;
+	}
+
+	// For the projected light on the client
+	m_iEyeLightBrightness = m_hEyeGlow->GetBrightness() * 100;
+
+	if (HL2GameRules()->IsBeastInStealthMode() && state == TURRET_EYE_SEE_TARGET)
+		m_iEyeLightBrightness *= 3;
+}
+
+void CNPC_Arbeit_FloorTurret::DryFire( void )
+{
+	EmitSound( "NPC_ArbeitTurret.DryFire" );
+
+ 	if ( RandomFloat( 0, 1 ) > 0.5 )
+	{
+		m_flShotTime = gpGlobals->curtime + random->RandomFloat( 1, 2.5 );
+	}
+	else
+	{
+		m_flShotTime = gpGlobals->curtime;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: The turret has been tipped over and will thrash for awhile
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::TippedThink( void )
+{
+	PreThink( TURRET_TIPPED );
+
+	// Update our PVS state
+	CheckPVSCondition();
+
+	//Animate
+	StudioFrameAdvance();
+
+	SetNextThink( gpGlobals->curtime + 0.05f );
+	SetEnemy( NULL );
+
+	// If we're not on side anymore, stop thrashing
+	if ( !OnSide() )
+	{
+		ReturnToLife();
+		return;
+	}
+
+	//See if we should continue to thrash
+	if ( gpGlobals->curtime < m_flThrashTime )
+	{
+		if ( m_flShotTime < gpGlobals->curtime )
+		{
+			if( m_spawnflags & SF_FLOOR_TURRET_OUT_OF_AMMO )
+			{
+				SetActivity( (Activity) ACT_FLOOR_TURRET_OPEN_IDLE );
+				DryFire();
+			}
+			else //if ( IsCitizenTurret() == false )	// Citizen turrets don't wildly fire
+			{
+				Vector vecMuzzle, vecMuzzleDir;
+				UpdateMuzzleMatrix();
+				MatrixGetColumn( m_muzzleToWorld, 0, vecMuzzleDir );
+				MatrixGetColumn( m_muzzleToWorld, 3, vecMuzzle );
+
+				ResetActivity();
+				SetActivity( (Activity) ACT_FLOOR_TURRET_FIRE );
+
+#if !DISABLE_SHOT
+				Shoot( vecMuzzle, vecMuzzleDir );
+#endif
+			}
+
+			m_flShotTime = gpGlobals->curtime + 0.05f;
+		}
+
+		m_vecGoalAngles.x = GetAbsAngles().x + random->RandomFloat( -60, 60 );
+		m_vecGoalAngles.y = GetAbsAngles().y + random->RandomFloat( -60, 60 );
+
+		UpdateFacing();
+	}
+	else
+	{
+		//Face forward
+		m_vecGoalAngles = GetAbsAngles();
+
+		//Set ourselves to close
+		if ( GetActivity() != ACT_FLOOR_TURRET_CLOSE )
+		{
+			SetActivity( (Activity) ACT_FLOOR_TURRET_OPEN_IDLE );
+			
+			//If we're done moving to our desired facing, close up
+			if ( UpdateFacing() == false )
+			{
+				//Make any last death noises and anims
+				SpeakIfAllowed( TLK_DISABLED );
+				//EmitSound( "NPC_FloorTurret.Die" );
+				SpinDown();
+
+				if (m_bLaser)
+					m_bLaser = false;
+
+				SetActivity( (Activity) ACT_FLOOR_TURRET_CLOSE );
+				EmitSound( "NPC_FloorTurret.Retract" );
+
+				CTakeDamageInfo	info;
+				info.SetDamage( 1 );
+				info.SetDamageType( DMG_CRUSH );
+				Event_Killed( info );
+			}
+		}
+		else if ( IsActivityFinished() )
+		{	
+			m_bActive		= false;
+			m_flLastSight	= 0;
+
+			SetActivity( (Activity) ACT_FLOOR_TURRET_CLOSED_IDLE );
+
+			// Don't need to store last NPC anymore, because I've been knocked over
+			if ( m_hLastNPCToKickMe )
+			{
+				m_hLastNPCToKickMe = NULL;
+				m_flKnockOverFailedTime = 0;
+			}
+
+			//Try to look straight
+			if ( UpdateFacing() == false )
+			{
+				m_OnTipped.FireOutput( this, this );
+				SetEyeState( TURRET_EYE_DEAD );
+				SetCollisionGroup( COLLISION_GROUP_DEBRIS_TRIGGER );
+
+				// Start thinking slowly to see if we're ever set upright somehow
+				SetThink( &CNPC_FloorTurret::InactiveThink );
+				SetNextThink( gpGlobals->curtime + 1.0f );
+			}
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: This turret is dead. See if it ever becomes upright again, and if 
+//			so, become active again.
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::InactiveThink( void )
+{
+	// Update our PVS state
+	CheckPVSCondition();
+
+	// Wake up if we're not on our side
+	if ( !OnSide() && m_bEnabled )
+	{
+		m_bLaser = m_bUseLaser;
+		ReturnToLife();
+		return;
+	}
+
+	if ( IsPlayerAlly() && HasSpawnFlags( SF_FLOOR_TURRET_OUT_OF_AMMO ) == false )
+	{
+		// Blink if we have ammo or our current blink is "on" and we need to turn it off again
+		if ( HasSpawnFlags( SF_FLOOR_TURRET_OUT_OF_AMMO ) == false || m_bBlinkState )
+		{
+			// If we're on our side, ping and complain to the player
+			if ( m_bBlinkState == false )
+			{
+				// Ping when the light is going to come back on
+				EmitSound( "NPC_FloorTurret.AlarmPing" );
+			}
+
+			SetEyeState( TURRET_EYE_ALARM );
+			SetNextThink( gpGlobals->curtime + 0.25f );
+		}
+	}
+	else
+	{
+		SetNextThink( gpGlobals->curtime + 1.0f );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: The turret has been tipped over and will thrash for awhile
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::UpdateLaser( void )
+{
+	if (m_hLaser)
+	{
+		if (HasCondition(COND_IN_PVS))
+		{
+			Vector vecLight;
+			QAngle angAngles;
+			GetAttachment( m_iEyeAttachment, vecLight, angAngles );
+
+			Vector vecDir;
+			AngleVectors( angAngles, &vecDir );
+
+			trace_t tr;
+			UTIL_TraceLine( vecLight, vecLight + (vecDir * (GetSenses()->GetDistLook() + 8.0f)), MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
+
+			m_hLaser->PointsInit( vecLight, tr.endpos );
+			m_hLaser->SetStartEntity( this );
+			m_hLaser->SetStartAttachment( m_iEyeAttachment );
+		}
+
+		SetContextThink( &CNPC_Arbeit_FloorTurret::UpdateLaser, gpGlobals->curtime + TICK_INTERVAL, g_pLaserUpdateContext );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Speak concept
+//-----------------------------------------------------------------------------
+bool CNPC_Arbeit_FloorTurret::SpeakIfAllowed( const char *concept )
+{
+	AI_CriteriaSet modifiers;
+	return SpeakIfAllowed( concept, modifiers );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Speak concept
+//-----------------------------------------------------------------------------
+bool CNPC_Arbeit_FloorTurret::SpeakIfAllowed( const char *concept, AI_CriteriaSet &modifiers )
+{
+	if ( !GetExpresser()->CanSpeak() )
+		return false;
+
+	if ( !GetExpresser()->CanSpeakConcept(concept) )
+		return false;
+
+	return Speak( concept, modifiers );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::ModifyOrAppendCriteria( AI_CriteriaSet& set )
+{
+	BaseClass::ModifyOrAppendCriteria( set );
+
+	if ( m_iTurretType == TURRET_TYPE_BEAST )
+		set.AppendCriteria( "classname", "npc_beast_turret_floor" );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CAI_Expresser *CNPC_Arbeit_FloorTurret::CreateExpresser( void )
+{
+	m_pExpresser = new CAI_Expresser(this);
+	if (!m_pExpresser)
+		return NULL;
+
+	m_pExpresser->Connect(this);
+	return m_pExpresser;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::PostConstructor( const char *szClassname )
+{
+	BaseClass::PostConstructor(szClassname);
+	CreateExpresser();
+}
+#endif

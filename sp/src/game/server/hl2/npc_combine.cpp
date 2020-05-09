@@ -315,6 +315,11 @@ END_DATADESC()
 CNPC_Combine::CNPC_Combine()
 {
 	m_vecTossVelocity = vec3_origin;
+#ifdef EZ
+	// For players who use npc_create
+	AddSpawnFlags( SF_COMBINE_COMMANDABLE | SF_COMBINE_REGENERATE );
+	m_iNumGrenades = 5;
+#endif
 }
 
 #ifdef EZ

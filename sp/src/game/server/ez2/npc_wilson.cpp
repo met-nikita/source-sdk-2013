@@ -1022,11 +1022,15 @@ bool CNPC_Wilson::DoIdleSpeechAI( AISpeechSelection_t *pSelection, int iState )
 		{
 			// Occasionally remind players about things they've neglected.
 			{
-				// Check for Xen grenade usage
-				// "xen_grenade_thrown" is a context set in CEZ2_Player.
-				if (pTarget->GetAmmoCount("XenGrenade") > 0 && pTarget->HasContext("xen_grenade_thrown", "1"))
+				// Check for usage based on ammo counts and contexts set in CEZ2_Player.
+				if (pTarget->GetAmmoCount("XenGrenade") > 0 && !pTarget->HasContext("xen_grenade_thrown", "1"))
 				{
-					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, NULL, pTarget, pSelection ) )
+					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, "subject:weapon_hopwire", pTarget, pSelection ) )
+						return true;
+				}
+				else if (pTarget->GetAmmoCount("AR2AltFire") > 0 && !pTarget->HasContext("displacer_used", "1"))
+				{
+					if ( SelectSpeechResponse( TLK_REMIND_PLAYER, "subject:weapon_displacer_pistol", pTarget, pSelection ) )
 						return true;
 				}
 			}
@@ -1203,11 +1207,11 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 
 	if ( interactionType == g_interactionXenGrenadeRelease )
 	{
-		CGravityVortexController *pVortex = assert_cast<CGravityVortexController*>(data);
-		if (!pVortex)
+		DisplacementInfo_t *info = static_cast<DisplacementInfo_t*>(data);
+		if (!info)
 			return false;
 
-		Teleport( &pVortex->GetAbsOrigin(), &pVortex->GetAbsAngles(), NULL );
+		Teleport( info->vecTargetPos, &info->pDisplacer->GetAbsAngles(), NULL );
 
 		RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
 		RemoveSolidFlags( FSOLID_NOT_SOLID );
@@ -1226,7 +1230,7 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 		}
 
 		// Pretend we spawned from a recipe
-		pVortex->XenSpawnEffects( this );
+		info->pSink->SpawnEffects( this );
 
 		SpeakIfAllowed( TLK_XEN_GRENADE_RELEASE );
 
@@ -1378,6 +1382,16 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 			}
 		}
 	}
+
+	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+	if (pPlayer)
+	{
+		set.AppendCriteria( "wilson_distance", CFmtStrN<32>( "%f.3", (GetAbsOrigin() - pPlayer->GetAbsOrigin()).Length() ) );
+	}
+	else
+	{
+		set.AppendCriteria( "wilson_distance", "99999999999" );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1517,6 +1531,23 @@ void CNPC_Wilson::InputAnswerConcept( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+bool CNPC_Wilson::GetGameTextSpeechParams( hudtextparms_t &params )
+{
+	params.channel = 3;
+	params.x = -1;
+	params.y = 0.6;
+	params.effect = 0;
+
+	params.r1 = 66;
+	params.g1 = 255;
+	params.b1 = 199;
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 CAI_Expresser *CNPC_Wilson::CreateExpresser(void)
 {
     m_pExpresser = new CAI_Expresser(this);
@@ -1616,6 +1647,9 @@ BEGIN_DATADESC(CArbeitScanner)
 	DEFINE_FIELD( m_hScanning, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_pSprite, FIELD_CLASSPTR ),
 
+	DEFINE_KEYFIELD( m_iszScanFilter, FIELD_STRING, "ScanFilter" ),
+	DEFINE_FIELD( m_hScanFilter, FIELD_EHANDLE ),
+
 	DEFINE_FIELD( m_iScanAttachment,	FIELD_INTEGER ),
 
 	DEFINE_KEYFIELD( m_bWaitForScene, FIELD_BOOLEAN, "WaitForScene" ),
@@ -1623,6 +1657,11 @@ BEGIN_DATADESC(CArbeitScanner)
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "FinishScan", InputFinishScan ),
+	DEFINE_INPUTFUNC( FIELD_EHANDLE, "ForceScanNPC", InputForceScanNPC ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetOuterRadius", InputSetOuterRadius ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetInnerRadius", InputSetInnerRadius ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetAuthorizationFilter", InputSetDamageFilter ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetScanFilter", InputSetScanFilter ),
 
 	DEFINE_THINKFUNC( IdleThink ),
 	DEFINE_THINKFUNC( AwaitScanThink ),
@@ -1678,6 +1717,13 @@ void CArbeitScanner::Precache( void )
 	PrecacheScriptSound( STRING(m_iszScanDoneSound) );
 	PrecacheScriptSound( STRING(m_iszScanRejectSound) );
 	PrecacheScriptSound( "AI_BaseNPC.SentenceStop" );
+
+	if (m_iszScanFilter != NULL_STRING)
+	{
+		CBaseEntity *pEntity = gEntList.FindEntityByName( NULL, m_iszScanFilter, this );
+		if (pEntity)
+			m_hScanFilter = dynamic_cast<CBaseFilter*>(pEntity);
+	}
 
 	BaseClass::Precache();
 }
@@ -1739,8 +1785,59 @@ void CArbeitScanner::InputDisable( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CArbeitScanner::InputFinishScan( inputdata_t &inputdata )
 {
-	m_flScanEndTime = gpGlobals->curtime;
-	FinishScan();
+	if (m_hScanning)
+	{
+		m_flScanEndTime = gpGlobals->curtime;
+		FinishScan();
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CArbeitScanner::InputForceScanNPC( inputdata_t &inputdata )
+{
+	if (inputdata.value.Entity() && inputdata.value.Entity()->IsNPC())
+	{
+		// Begin scanning this NPC!
+		m_hScanning = inputdata.value.Entity()->MyNPCPointer();
+		SetThink( &CArbeitScanner::ScanThink );
+		SetNextThink( gpGlobals->curtime );
+	}
+	else
+	{
+		Warning("%s ForceScanNPC: Entity not valid or not a NPC\n", GetDebugName());
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CArbeitScanner::InputSetInnerRadius( inputdata_t &inputdata )
+{
+	m_flInnerRadius = inputdata.value.Float();
+}
+
+void CArbeitScanner::InputSetOuterRadius( inputdata_t &inputdata )
+{
+	m_flOuterRadius = inputdata.value.Float();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CArbeitScanner::InputSetScanFilter( inputdata_t &inputdata )
+{
+	if (inputdata.value.StringID() != NULL_STRING)
+	{
+		m_iszScanFilter = inputdata.value.StringID();
+		CBaseEntity *pEntity = gEntList.FindEntityByName( NULL, m_iszScanFilter, this );
+		m_hScanFilter = dynamic_cast<CBaseFilter*>(pEntity);
+	}
+	else
+	{
+		m_hScanFilter = NULL;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1787,7 +1884,7 @@ void CArbeitScanner::IdleThink()
 	if( !UTIL_FindClientInPVS(edict()) || (CAI_BaseNPC::m_nDebugBits & bits_debugDisableAI) )
 	{
 		// If we're not in the PVS or AI is disabled, sleep!
-		SetNextThink( gpGlobals->curtime + 0.5 );
+		SetNextThink( gpGlobals->curtime + 1.0 );
 		return;
 	}
 
@@ -1921,9 +2018,9 @@ void CArbeitScanner::ScanThink()
 		}
 	}
 
-	if ( m_bWaitForScene  && m_flScanEndTime <= gpGlobals->curtime )
+	if ( m_bWaitForScene && m_flScanEndTime <= gpGlobals->curtime )
 	{
-		if ( IsRunningScriptedScene( m_hScanning ) )
+		if ( IsRunningScriptedSceneWithSpeechAndNotPaused( m_hScanning ) )
 		{
 			m_flScanEndTime  += 1.0f;
 		}

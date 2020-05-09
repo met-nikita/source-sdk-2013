@@ -129,7 +129,7 @@ void CEZ2_Player::PostThink(void)
 				if ( pSightEnt->IsNPC() )
 				{
 					CAI_BaseNPC *pNPC = pSightEnt->MyNPCPointer();
-					if ( FClassnameIs( pNPC, "npc_combine_s" ) && pNPC->IsCommandable() && !pNPC->IsInPlayerSquad() )
+					if ( pNPC->IsCommandable() && !pNPC->IsInPlayerSquad() && FClassnameIs( pNPC, "npc_combine_s" ) )
 					{
 						if (GetAbsOrigin().DistToSqr(pNPC->GetAbsOrigin()) <= Square(192.0f) && IRelationType(pNPC) == D_LI)
 						{
@@ -662,12 +662,13 @@ void CEZ2_Player::ModifyOrAppendSquadCriteria(AI_CriteriaSet& set)
 		AISquadIter_t iter;
 		for (CAI_BaseNPC *pAllyNpc = GetPlayerSquad()->GetFirstMember( &iter ); pAllyNpc; pAllyNpc = GetPlayerSquad()->GetNextMember( &iter ))
 		{
-			// Non-commandable player squad members count here
-			if (pAllyNpc->HasCondition( COND_IN_PVS ))
-				bSquadInPVS = true;
-
 			if (pAllyNpc->IsCommandable() && !pAllyNpc->IsSilentCommandable())
+			{
+				if (pAllyNpc->HasCondition( COND_IN_PVS ))
+					bSquadInPVS = true;
+
 				iNumSquadCommandables++;
+			}
 		}
 
 		set.AppendCriteria("squadmembers", UTIL_VarArgs("%i", iNumSquadCommandables));
@@ -920,6 +921,23 @@ void CEZ2_Player::InputAnswerConcept( inputdata_t &inputdata )
 {
 	// Complex Q&A
 	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::GetGameTextSpeechParams( hudtextparms_t &params )
+{
+	params.channel = 4;
+	params.x = -1;
+	params.y = 0.7;
+	params.effect = 0;
+
+	params.r1 = 255;
+	params.g1 = 51;
+	params.b1 = 0;
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -1307,6 +1325,30 @@ void CEZ2_Player::Event_ThrewGrenade( CBaseCombatWeapon *pWeapon )
 	ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
 
 	SpeakIfAllowed(TLK_THROWGRENADE, modifiers);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Event_DisplacerPistolDisplace( CBaseCombatWeapon *pWeapon, CBaseEntity *pVictimEntity )
+{
+	AI_CriteriaSet modifiers;
+
+	ModifyOrAppendWeaponCriteria( modifiers, pWeapon );
+	ModifyOrAppendEnemyCriteria( modifiers, pVictimEntity );
+
+	if (!SpeakIfAllowed( TLK_DISPLACER_DISPLACE, modifiers ))
+	{
+		CAI_PlayerAlly *pSquadRep = dynamic_cast<CAI_PlayerAlly*>(GetSquadCommandRepresentative());
+		if (pSquadRep)
+		{
+			// Have a nearby soldier make a comment instead
+			pSquadRep->SpeakIfAllowed( TLK_DISPLACER_DISPLACE, modifiers, true );
+		}
+	}
+
+	// Take note of displacer usage for 20 minutes
+	AddContext("displacer_used", "1", 1200.0f);
 }
 
 //-----------------------------------------------------------------------------

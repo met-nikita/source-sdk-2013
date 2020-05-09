@@ -134,6 +134,8 @@ public:
 	virtual CAI_Expresser *CreateExpresser(void);
 	virtual CAI_Expresser *GetExpresser() { return m_pExpresser;  }
 
+	bool			GetGameTextSpeechParams( hudtextparms_t &params );
+
 	void			InputAnswerConcept( inputdata_t &inputdata );
 	bool			IsOmniscient() { return m_bOmniscient; }
 
@@ -234,8 +236,13 @@ public:
 	void	Precache();
 	void	Spawn();
 
-	// I doubt we'll need anything more robust in the future
-	inline bool	IsScannable( CAI_BaseNPC *pNPC ) { return pNPC->ClassMatches(m_target); }
+	inline bool	IsScannable( CAI_BaseNPC *pNPC )
+	{
+		if (m_hScanFilter)
+			return pNPC->ClassMatches( m_target ) && m_hScanFilter->PassesFilter( this, pNPC );
+
+		return pNPC->ClassMatches( m_target );
+	}
 
 	// Checks if they're in front and then tests visibility
 	inline bool	IsInScannablePosition( CAI_BaseNPC *pNPC, Vector &vecToNPC, Vector &vecForward ) { return DotProduct( vecToNPC, vecForward ) < -0.10f && FVisible( pNPC, MASK_SOLID_BRUSHONLY ); }
@@ -260,6 +267,10 @@ public:
 	void	InputEnable( inputdata_t &inputdata );
 	void	InputDisable( inputdata_t &inputdata );
 	void	InputFinishScan( inputdata_t &inputdata );
+	void	InputForceScanNPC( inputdata_t &inputdata );
+	void	InputSetInnerRadius( inputdata_t &inputdata );
+	void	InputSetOuterRadius( inputdata_t &inputdata );
+	void	InputSetScanFilter( inputdata_t &inputdata );
 
 	enum
 	{
@@ -302,6 +313,9 @@ private:
 
 	AIHANDLE	m_hScanning;
 	CSprite		*m_pSprite;
+
+	string_t m_iszScanFilter;
+	CHandle<CBaseFilter> m_hScanFilter;
 
 	int m_iScanAttachment;
 

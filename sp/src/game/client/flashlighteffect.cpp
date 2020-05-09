@@ -661,6 +661,8 @@ CTurretLightEffect::CTurretLightEffect()
 {
 	m_FlashlightTexture.Init( r_turretlighttexture.GetString(), TEXTURE_GROUP_OTHER, true );
 	m_flBrightnessScale = 1.0f;
+	m_flFarZ = r_turretlightfar.GetFloat();
+	m_flFOV = r_turretlightfov.GetFloat();
 }
 
 CTurretLightEffect::~CTurretLightEffect()
@@ -685,8 +687,8 @@ void CTurretLightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir
 		
 	state.m_vecLightOrigin = vecPos;
 
-	state.m_fHorizontalFOVDegrees = r_turretlightfov.GetFloat();
-	state.m_fVerticalFOVDegrees = r_turretlightfov.GetFloat();
+	state.m_fHorizontalFOVDegrees = m_flFOV;
+	state.m_fVerticalFOVDegrees = m_flFOV;
 	state.m_fQuadraticAtten = r_turretlightquadratic.GetFloat();
 	state.m_fLinearAtten = r_turretlightlinear.GetFloat();
 	state.m_fConstantAtten = r_turretlightconstant.GetFloat();
@@ -696,7 +698,7 @@ void CTurretLightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir
 	state.m_Color[3] = r_flashlightambient.GetFloat();
 
 	state.m_NearZ = r_turretlightnear.GetFloat();
-	state.m_FarZ = r_turretlightfar.GetFloat();
+	state.m_FarZ = m_flFarZ;
 
 	state.m_bEnableShadows = r_turretlightshadowsenabled.GetBool();
 	state.m_pSpotlightTexture = m_FlashlightTexture;

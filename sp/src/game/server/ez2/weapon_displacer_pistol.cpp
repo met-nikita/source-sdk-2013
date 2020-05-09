@@ -90,13 +90,14 @@ void CDisplacerPistol::PrimaryAttack( void )
 	Vector vecStart, vecDir;
 	vecStart = pPlayer->EyePosition();
 	vecDir = pPlayer->EyeDirection3D();
-	UTIL_TraceLine( vecStart + vecDir, vecStart + vecDir * 8192, MASK_BLOCKLOS_AND_NPCS, this, COLLISION_GROUP_NONE, pTrace );
 
 	QAngle targetAngle = QAngle( 0, GetAbsAngles().y, 0 );
 
 	// No entity has been displaced - fire a blue portal
 	if ( m_hDisplacedEntity == NULL )
 	{
+		UTIL_TraceLine( vecStart + vecDir, vecStart + vecDir * 8192, MASK_SHOT_PORTAL, this, COLLISION_GROUP_NONE, pTrace );
+
 		// Move the target position DIRECTLY to the end of the trace
 		MoveTargetPosition( pTrace->endpos, targetAngle );
 
@@ -127,6 +128,8 @@ void CDisplacerPistol::PrimaryAttack( void )
 	// An entity has been displaced - fire a red portal
 	else
 	{
+		UTIL_TraceLine( vecStart + vecDir, vecStart + vecDir * 8192, MASK_SOLID, this, COLLISION_GROUP_NONE, pTrace );
+
 		// Move the target position OFFSET from the end of the trace, normal to the surface
 		if ( pTrace->DidHitWorld() )
 		{
@@ -214,9 +217,20 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 			return false;
 		}
 
+		if (GetOwner())
+		{
+			// Notify the E:Z2 player
+			CEZ2_Player *pEZ2Player = assert_cast<CEZ2_Player*>(GetOwner());
+			if (pEZ2Player)
+			{
+				pEZ2Player->Event_DisplacerPistolDisplace( this, pEnt );
+			}
+		}
+
 		// TODO - Make sure that children of displaced entities are also displaced
 
-		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, this, GetOwner() ))
+		DisplacementInfo_t dinfo( this, this, &m_hTargetPosition->GetAbsOrigin(), &m_hTargetPosition->GetAbsAngles() );
+		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetOwner() ))
 		{
 			// Do not remove
 			m_hDisplacedEntity = pEnt->MyCombatCharacterPointer();
@@ -234,12 +248,14 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 			pNPC->KillSprites( 0.0f );
 			pNPC->SetSleepState( AISS_IGNORE_INPUT );
 			pNPC->Sleep();
-			
-			CBaseEntity * pWeapon = pNPC->GetActiveWeapon();
-			if ( pWeapon )
-			{
-				pWeapon->AddEffects( EF_NODRAW );
-			}
+		}
+
+		// Make all children nodraw
+		CBaseEntity *pChild = pEnt->FirstMoveChild();
+		while ( pChild )
+		{
+			pChild->AddEffects( EF_NODRAW );
+			pChild = pChild->NextMovePeer();
 		}
 
 		IPhysicsObject *pPhysicsObject = pEnt->VPhysicsGetObject();
@@ -299,7 +315,8 @@ bool CDisplacerPistol::ReleaseEntity( CBaseEntity * pCollidedEntity )
 	if ( m_hDisplacedEntity )
 	{
 		// First try the interaction
-		if ( m_hDisplacedEntity->DispatchInteraction( g_interactionXenGrenadeRelease, m_hTargetPosition, NULL ) )
+		DisplacementInfo_t dinfo( this, this, &m_hTargetPosition->GetAbsOrigin(), &m_hTargetPosition->GetAbsAngles() );
+		if (m_hDisplacedEntity->DispatchInteraction( g_interactionXenGrenadeRelease, &dinfo, GetOwner() ))
 		{
 			m_hDisplacedEntity->EmitSound( "Weapon_DisplacerPistol.DisplaceRelease" );
 			m_hDisplacedEntity = NULL;
@@ -346,14 +363,16 @@ bool CDisplacerPistol::ReleaseEntity( CBaseEntity * pCollidedEntity )
 
 			pNPC->Wake();
 			pNPC->MyNPCPointer()->StartEye();
-
-			CBaseEntity * pWeapon = pNPC->GetActiveWeapon();
-			if ( pWeapon )
-			{
-				pWeapon->RemoveEffects( EF_NODRAW );
-			}
 		
 			m_hDisplacedEntity->RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
+		}
+
+		// Make all children nodraw
+		CBaseEntity *pChild = m_hDisplacedEntity->FirstMoveChild();
+		while ( pChild )
+		{
+			pChild->AddEffects( EF_NODRAW );
+			pChild = pChild->NextMovePeer();
 		}
 
 		m_hDisplacedEntity->RemoveSolidFlags( FSOLID_NOT_SOLID );

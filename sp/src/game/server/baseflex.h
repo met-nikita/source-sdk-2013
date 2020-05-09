@@ -132,6 +132,10 @@ public:
 
 	virtual int			GetSpecialDSP( void ) { return 0; }
 
+#ifdef EZ2
+	virtual bool		GetGameTextSpeechParams( hudtextparms_t &params ) { return false; }
+#endif
+
 protected:
 	// For handling .vfe files
 	// Search list, or add if not in list

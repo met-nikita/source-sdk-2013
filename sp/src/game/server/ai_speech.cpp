@@ -649,6 +649,19 @@ bool CAI_Expresser::SpeakDispatchResponse( AIConcept_t concept, AI_Response *res
 		break;
 	case RESPONSE_PRINT:
 		{
+#ifdef EZ2
+			// game_text print responses
+			hudtextparms_t textParams;
+			textParams.holdTime = 5.0f;
+			textParams.fadeinTime = 0.5f;
+			textParams.fadeoutTime = 0.5f;
+
+			if (GetOuter()->GetGameTextSpeechParams( textParams ))
+			{
+				UTIL_HudMessageAll( textParams, response );
+			}
+			else
+#endif
 			if ( g_pDeveloper->GetInt() > 0 )
 			{
 				Vector vPrintPos;
