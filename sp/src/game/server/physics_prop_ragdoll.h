@@ -61,6 +61,8 @@ public:
 	void SetSourceClassName( const char *pClassname );
 #ifdef EZ2
 	string_t GetSourceClassName() { return m_strSourceClassName; }
+	Class_T GetSourceClassification() { return m_iSourceClassification; }
+	void SetSourceClassification( Class_T classification );
 
 	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
 #endif
@@ -166,6 +168,8 @@ private:
 #ifdef EZ2
 	float				m_flNextScentTime;
 	bool				m_bEmitScent;
+
+	Class_T					m_iSourceClassification;
 #endif
 
 	string_t			m_strSourceClassName;

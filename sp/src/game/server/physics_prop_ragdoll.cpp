@@ -137,6 +137,9 @@ BEGIN_DATADESC(CRagdollProp)
 	DEFINE_FIELD( m_flFadeOutStartTime, FIELD_TIME ),
 	DEFINE_FIELD( m_flFadeTime,	FIELD_FLOAT),
 	DEFINE_FIELD( m_strSourceClassName, FIELD_STRING ),
+#ifdef EZ2
+	DEFINE_FIELD( m_iSourceClassification, FIELD_INTEGER ),
+#endif
 	DEFINE_FIELD( m_bHasBeenPhysgunned, FIELD_BOOLEAN ),
 
 	// think functions
@@ -248,6 +251,13 @@ void CRagdollProp::SetSourceClassName( const char *pClassname )
 	m_strSourceClassName = MAKE_STRING( pClassname );
 }
 
+#ifdef EZ2
+void CRagdollProp::SetSourceClassification( Class_T classification)
+{
+	m_iSourceClassification = classification;
+}
+#endif
+
 
 void CRagdollProp::OnSave( IEntitySaveUtils *pUtils )
 {
@@ -296,7 +306,7 @@ void CRagdollProp::EmitScent()
 			int flags = SOUND_MEAT;
 			// The 'exlude zombies' thing is a little bit weird. Gonomes spawn these when they create headcrabs, plus headcrabs spawn them.
 			// For that reason, it would be awkward if gonomes could eat these. Maybe that can be improved.
-			if ( bloodColor == BLOOD_COLOR_GREEN )
+			if ( GetSourceClassification() == CLASS_ZOMBIE || GetSourceClassification() == CLASS_HEADCRAB )
 			{
 				flags |= SOUND_CONTEXT_EXCLUDE_ZOMBIE;
 			}
@@ -367,6 +377,7 @@ void CRagdollProp::UpdateOnRemove( void )
 CRagdollProp::CRagdollProp( void )
 {
 	m_strSourceClassName = NULL_STRING;
+	m_iSourceClassification = CLASS_NONE;
 	m_anglesOverrideString = NULL_STRING;
 	m_ragdoll.listCount = 0;
 	Assert( (1<<RAGDOLL_INDEX_BITS) >=RAGDOLL_MAX_ELEMENTS );
@@ -1549,6 +1560,9 @@ CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, con
 	// colliding with server ragdolls they kill
 	pRagdoll->SetKiller( info.GetInflictor() );
 	pRagdoll->SetSourceClassName( pAnimating->GetClassname() );
+#ifdef EZ2
+	pRagdoll->SetSourceClassification( pAnimating->Classify() );
+#endif
 
 	// NPC_STATE_DEAD npc's will have their COND_IN_PVS cleared, so this needs to force SetupBones to happen
 	unsigned short fPrevFlags = pAnimating->GetBoneCacheFlags();
