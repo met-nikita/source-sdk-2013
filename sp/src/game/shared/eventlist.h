@@ -92,6 +92,7 @@ typedef enum
 
 #ifdef EZ2
 	AE_KICKATTACK, // For Bad Cop kicks
+	AE_SLIDERETURN, // For the pulse pistol chambering one charge during 'dry fire'
 #endif
 
 	LAST_SHARED_ANIMEVENT,

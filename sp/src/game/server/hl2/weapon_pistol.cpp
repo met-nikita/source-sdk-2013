@@ -633,7 +633,9 @@ void CWeaponPulsePistol::DryFire( void )
 }
 
 // Hackhack - For some reason this animation event resolves to 124 when Cyonsia uses it in the viewmodel. Why?
-#define	AE_WPN_INCREMENTAMMO 124
+// After adding another shared animation event, it bumped to 125. Why?
+// TODO Replace AE_WPN_INCREMENTAMMO with AE_SLIDERETURN in the model and remove this section.
+#define	AE_WPN_INCREMENTAMMO LAST_SHARED_ANIMEVENT + 79
 
 //-----------------------------------------------------------------------------
 // Purpose: Override AE_WPN_INCREMENTAMMO to make sure one pulse round is
@@ -644,6 +646,7 @@ void CWeaponPulsePistol::Operator_HandleAnimEvent( animevent_t * pEvent, CBaseCo
 	switch (pEvent->event)
 	{
 	case AE_WPN_INCREMENTAMMO:
+	case AE_SLIDERETURN:
 		m_iClip1 = MAX( m_iClip1, 10 );
 		WeaponSound( RELOAD, m_flNextPrimaryAttack );
 		break;
