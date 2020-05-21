@@ -9,6 +9,7 @@
 #include "npcevent.h"
 #include "npc_zombigaunt.h"
 #include "sceneentity.h"
+#include "particle_parse.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -19,6 +20,9 @@ ConVar sk_zombigaunt_dispel_time( "sk_zombigaunt_dispel_time", "5" );
 ConVar sk_zombigaunt_dispel_radius( "sk_zombigaunt_dispel_radius", "300" );
 // The range of a zombigaunt's attack is notably less than a vortigaunt's
 ConVar sk_zombigaunt_zap_range( "sk_zombigaunt_zap_range", "30", FCVAR_NONE, "Range of zombie vortigaunt's ranged attack (feet)" );
+
+// Think contexts
+static const char *ZOMBIGAUNT_BLEED_THINK = "ZombigauntBleed";
 
 extern int AE_VORTIGAUNT_CLAW_LEFT;
 extern int AE_VORTIGAUNT_CLAW_RIGHT;
@@ -105,6 +109,8 @@ void CNPC_Zombigaunt::Precache()
 		szModel = "models/zombie/zombigaunt.mdl";
 		SetModelName( AllocPooledString( szModel ) );
 	}
+
+	PrecacheParticleSystem( "blood_drip_zombigaunt_01" );
 
 	BaseClass::Precache();
 }
@@ -307,4 +313,57 @@ void CNPC_Zombigaunt::OnStartSchedule( int scheduleType )
 float CNPC_Zombigaunt::GetNextDispelTime( void )
 {
 	return sk_zombigaunt_dispel_time.GetFloat();
+}
+
+//-----------------------------------------------------------------------------
+//  Purpose: Overridden to handle blood particle
+//-----------------------------------------------------------------------------
+void CNPC_Zombigaunt::StartEye( void )
+{
+	// Start blood drip particle
+	if ( GetSleepState() == AISS_AWAKE )
+	{
+		DispatchParticleEffect( "blood_drip_zombigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true);
+		SetContextThink( &CNPC_Zombigaunt::BleedThink, gpGlobals->curtime + 0.1, ZOMBIGAUNT_BLEED_THINK );
+	}
+}
+
+//-----------------------------------------------------------------------------
+//  Purpose: Overridden to handle blood particle
+//-----------------------------------------------------------------------------
+void CNPC_Zombigaunt::Wake( bool bFireOutput )
+{
+	BaseClass::Wake( bFireOutput );
+	StartEye();
+}
+
+//-----------------------------------------------------------------------------
+//  Purpose: Overridden to handle blood particle
+//-----------------------------------------------------------------------------
+void CNPC_Zombigaunt::Wake( CBaseEntity * pActivator )
+{
+	BaseClass::Wake( pActivator );
+	StartEye();
+}
+
+//-----------------------------------------------------------------------------
+// Think function to reset particle
+//-----------------------------------------------------------------------------
+void CNPC_Zombigaunt::BleedThink()
+{
+	DispatchParticleEffect( "blood_drip_zombigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true );
+	SetNextThink( gpGlobals->curtime + random->RandomFloat( 1.0, 1.5 ), ZOMBIGAUNT_BLEED_THINK );
+}
+
+//-----------------------------------------------------------------------------
+//  Purpose: Overridden to kill all particles
+//-----------------------------------------------------------------------------
+void CNPC_Zombigaunt::Event_Killed( const CTakeDamageInfo &info )
+{
+	// Stop all our thinks
+	SetContextThink( NULL, 0, ZOMBIGAUNT_BLEED_THINK );
+
+	StopParticleEffects( this );
+
+	BaseClass::Event_Killed( info );
 }
