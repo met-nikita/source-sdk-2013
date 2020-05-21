@@ -17,6 +17,8 @@ public:
 	string_t GetContextSubject() { return m_bDisabled ? AllocPooledString( "disabled" ) : m_iszContextSubject; }
 	void SetContextSubject( string_t contextSubject ) { m_iszContextSubject = contextSubject; }
 
+	void OnRemarked() { m_iTimesRemarked++; }
+
 	bool IsRemarkable() { return true; }
 
 	Class_T Classify( void ) { return CLASS_BULLSEYE; } // Get around visibility checks
@@ -30,4 +32,5 @@ public:
 protected:
 	string_t m_iszContextSubject;
 	bool m_bDisabled;
+	int m_iTimesRemarked;
 };

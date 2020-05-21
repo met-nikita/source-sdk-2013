@@ -5,6 +5,8 @@ BEGIN_DATADESC( CInfoRemarkable )
     DEFINE_KEYFIELD( m_iszContextSubject, FIELD_STRING, "contextsubject" ),
 	DEFINE_KEYFIELD( m_bDisabled, FIELD_BOOLEAN, "StartDisabled" ),
 
+	DEFINE_FIELD( m_iTimesRemarked, FIELD_INTEGER ),
+
 	// Inputs	
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
@@ -30,6 +32,7 @@ AI_CriteriaSet& CInfoRemarkable::GetModifiers( CBaseEntity * pEntity )
 
 	modifiers->AppendCriteria( "subject", STRING( this->GetContextSubject() ) );
 	modifiers->AppendCriteria( "distance", UTIL_VarArgs( "%f", flDist ) );
+	modifiers->AppendCriteria( "timesremarked", UTIL_VarArgs( "%i", m_iTimesRemarked ) );
 	return *modifiers;
 }
 

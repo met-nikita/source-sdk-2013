@@ -2155,7 +2155,10 @@ void CAI_PlayerNPCDummy::OnSeeEntity( CBaseEntity * pEntity )
 		{
 			DevMsg( "Player dummy noticed remarkable %s!\n", GetDebugName() );
 			AI_CriteriaSet modifiers = pRemarkable->GetModifiers( GetOuter() );
-			GetOuter()->SpeakIfAllowed( TLK_REMARK, modifiers );
+			if ( GetOuter()->SpeakIfAllowed( TLK_REMARK, modifiers ) )
+			{
+				pRemarkable->OnRemarked();
+			}
 		}
 	}
 
