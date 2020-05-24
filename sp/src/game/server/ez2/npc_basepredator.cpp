@@ -511,7 +511,7 @@ bool CNPC_BasePredator::ShouldAlwaysThink()
 //=========================================================
 bool CNPC_BasePredator::ShouldFindMate()
 {
-	return !m_bIsBaby && m_iTimesFed > 0 && m_iHealth == m_iMaxHealth && !HasCondition( COND_PREDATOR_SMELL_FOOD );
+	return !m_bIsBaby && m_iTimesFed > 0 && m_iHealth == m_iMaxHealth;
 }
 
 //=========================================================

@@ -68,6 +68,9 @@ protected:
 	string_t m_isChildClassname;
 	string_t m_isHatchParticle;
 
+	string_t m_BabyModelName;
+	string_t m_AdultModelName;
+
 	int m_iChildSkin;
 
 	COutputEvent m_OnSpawnNPC; // Output when a predator completes spawning offspring

@@ -11,7 +11,6 @@
 #include "npc_bullsquid.h"
 #include "grenade_spit.h"
 #include "movevars_shared.h"
-#include "npc_egg.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -59,12 +58,26 @@ enum
 	TASK_SQUID_GROW = LAST_SHARED_PREDATOR_TASK + 1,
 };
 
+//-----------------------------------------------------------------------------
+// monster-specific conditions
+//-----------------------------------------------------------------------------
+enum
+{
+	COND_BABYSQUID_CAN_GROW	= NEXT_CONDITION + 1,
+	COND_BABYSQUID_GROWTH_INVALID,
+	LAST_BULLSQUID_CONDITION
+};
+
 //---------------------------------------------------------
 // Save/Restore
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_Bullsquid )
 
 	DEFINE_FIELD( m_nextSquidSoundTime,	FIELD_TIME ),
+
+	DEFINE_KEYFIELD( m_AdultModelName, FIELD_MODELNAME, "adultmodel" ),
+	DEFINE_KEYFIELD( m_BabyModelName, FIELD_MODELNAME, "babymodel" ),
+	DEFINE_KEYFIELD( m_EggModelName, FIELD_MODELNAME, "eggmodel" ),
 
 END_DATADESC()
 
@@ -75,9 +88,18 @@ void CNPC_Bullsquid::Spawn()
 {
 	Precache( );
 
-	SetModel( STRING( GetModelName() ) );
+	// Baby squid do do do-do do-do
+	if ( m_bIsBaby )
+	{
+		SetModel( STRING( m_BabyModelName ) );
+		SetHullType( HULL_TINY );
+	} 
+	else
+	{
+		SetModel( STRING( m_AdultModelName ) );
+		SetHullType( HULL_WIDE_SHORT );
+	}
 
-	SetHullType( HULL_WIDE_SHORT );
 	SetHullSizeNormal();
 
 	SetSolid( SOLID_BBOX );
@@ -109,13 +131,10 @@ void CNPC_Bullsquid::Spawn()
 		// The king bullsquid is huge
 		SetModelScale( 2.5 );
 	}
-	else if (m_bIsBaby)
+	else if ( m_bIsBaby )
 	{
-		// Baby squid do do do-do do-do
-		SetModelScale( 0.5 );
-
-		// Baby squids have half health
-		m_iMaxHealth *= 0.5;
+		// Baby squids have 3/4 health
+		m_iMaxHealth = 3 * m_iMaxHealth / 4;
 		m_iHealth = m_iMaxHealth;
 
 		// Baby squids can't spit yet!
@@ -156,6 +175,44 @@ void CNPC_Bullsquid::Precache()
 		}
 	}
 
+	if ( m_AdultModelName == NULL_STRING )
+	{
+		m_AdultModelName = GetModelName();
+	}
+	// If there is no baby model name, use the same model as regular
+	if ( m_BabyModelName == NULL_STRING )
+	{
+		switch (m_tEzVariant)
+		{
+		case EZ_VARIANT_XEN:
+			m_BabyModelName = AllocPooledString( "models/babysquid_xen.mdl" );
+			break;
+		case EZ_VARIANT_RAD:
+			m_BabyModelName = AllocPooledString( "models/babysquid_rad.mdl" );
+			break;
+		default:
+			m_BabyModelName = AllocPooledString( "models/babysquid.mdl" );
+			break;
+		}
+	}
+
+	// If there is no baby model name, use the same model as regular
+	if ( m_EggModelName == NULL_STRING )
+	{
+		switch (m_tEzVariant)
+		{
+		case EZ_VARIANT_XEN:
+			m_EggModelName = AllocPooledString( "models/eggs/bullsquid_egg_xen.mdl" );
+			break;
+		case EZ_VARIANT_RAD:
+			m_EggModelName = AllocPooledString( "models/eggs/bullsquid_egg_slime.mdl" );
+			break;
+		default:
+			m_EggModelName = AllocPooledString( "models/eggs/bullsquid_egg.mdl" );
+			break;
+		}
+	}
+
 	PrecacheModel( STRING( GetModelName() ) );
 
 	m_nSquidSpitSprite = PrecacheModel("sprites/greenspit1.vmt");// client side spittle.
@@ -185,6 +242,17 @@ void CNPC_Bullsquid::Precache()
 	PrecacheScriptSound( "NPC_Bullsquid.Bite" );
 	PrecacheScriptSound( "NPC_Bullsquid.Eat" );
 
+	PrecacheScriptSound( "NPC_Babysquid.Idle" );
+	PrecacheScriptSound( "NPC_Babysquid.Pain" );
+	PrecacheScriptSound( "NPC_Babysquid.Alert" );
+	PrecacheScriptSound( "NPC_Babysquid.Death" );
+	PrecacheScriptSound( "NPC_Babysquid.Attack1" );
+	PrecacheScriptSound( "NPC_Babysquid.FoundEnemy" );
+	PrecacheScriptSound( "NPC_Babysquid.Growl" );
+	PrecacheScriptSound( "NPC_Babysquid.TailWhip" );
+	PrecacheScriptSound( "NPC_Babysquid.Bite" );
+	PrecacheScriptSound( "NPC_Babysquid.Eat" );
+
 	PrecacheScriptSound( "NPC_Antlion.PoisonShoot" );
 	PrecacheScriptSound( "NPC_Antlion.PoisonBall" );
 	PrecacheScriptSound( "NPC_Bullsquid.Explode" );
@@ -206,7 +274,7 @@ Class_T	CNPC_Bullsquid::Classify( void )
 #define SQUID_ATTN_IDLE	(float)1.5
 void CNPC_Bullsquid::IdleSound( void )
 {
-	EmitSound( "NPC_Bullsquid.Idle" );
+	EmitSound( m_bIsBaby ? "NPC_Babysquid.Idle" : "NPC_Bullsquid.Idle" );
 }
 
 //=========================================================
@@ -214,7 +282,7 @@ void CNPC_Bullsquid::IdleSound( void )
 //=========================================================
 void CNPC_Bullsquid::PainSound( const CTakeDamageInfo &info )
 {
-	EmitSound( "NPC_Bullsquid.Pain" );
+	EmitSound( m_bIsBaby ? "NPC_Babysquid.Pain" : "NPC_Bullsquid.Pain" );
 }
 
 //=========================================================
@@ -222,7 +290,7 @@ void CNPC_Bullsquid::PainSound( const CTakeDamageInfo &info )
 //=========================================================
 void CNPC_Bullsquid::AlertSound( void )
 {
-	EmitSound( "NPC_Bullsquid.Alert" );
+	EmitSound( m_bIsBaby ? "NPC_Babysquid.Alert" : "NPC_Bullsquid.Alert" );
 }
 
 //=========================================================
@@ -230,7 +298,7 @@ void CNPC_Bullsquid::AlertSound( void )
 //=========================================================
 void CNPC_Bullsquid::DeathSound( const CTakeDamageInfo &info )
 {
-	EmitSound( "NPC_Bullsquid.Death" );
+	EmitSound( m_bIsBaby ? "NPC_Babysquid.Death" : "NPC_Bullsquid.Death" );
 }
 
 //=========================================================
@@ -238,7 +306,7 @@ void CNPC_Bullsquid::DeathSound( const CTakeDamageInfo &info )
 //=========================================================
 void CNPC_Bullsquid::AttackSound( void )
 {
-	EmitSound( "NPC_Bullsquid.Attack1" );
+	EmitSound( m_bIsBaby ? "NPC_Babysquid.Attack1" : "NPC_Bullsquid.Attack1" );
 }
 
 //=========================================================
@@ -248,7 +316,7 @@ void CNPC_Bullsquid::FoundEnemySound( void )
 {
 	if (gpGlobals->curtime >= m_nextSquidSoundTime)
 	{
-		EmitSound( "NPC_Bullsquid.FoundEnemy" );
+		EmitSound( m_bIsBaby ? "NPC_Babysquid.FoundEnemy" : "NPC_Bullsquid.FoundEnemy" );
 		m_nextSquidSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
 	}
 }
@@ -260,7 +328,7 @@ void CNPC_Bullsquid::GrowlSound( void )
 {
 	if (gpGlobals->curtime >= m_nextSquidSoundTime)
 	{
-		EmitSound( "NPC_Bullsquid.Growl" );
+		EmitSound( m_bIsBaby ? "NPC_Babysquid.Growl" : "NPC_Bullsquid.Growl" );
 		m_nextSquidSoundTime	= gpGlobals->curtime + random->RandomInt(1.5,3.0);
 	}
 }
@@ -270,7 +338,7 @@ void CNPC_Bullsquid::GrowlSound( void )
 //=========================================================
 void CNPC_Bullsquid::BiteSound( void )
 {
-	EmitSound( "NPC_Bullsquid.Bite" );
+	EmitSound( m_bIsBaby ? "NPC_Babysquid.Bite" : "NPC_Bullsquid.Bite" );
 }
 
 //=========================================================
@@ -278,7 +346,7 @@ void CNPC_Bullsquid::BiteSound( void )
 //=========================================================
 void CNPC_Bullsquid::EatSound( void )
 {
-	EmitSound( "NPC_Bullsquid.Eat" );
+	EmitSound( m_bIsBaby ? "NPC_Babysquid.Eat" : "NPC_Bullsquid.Eat" );
 }
 
 //=========================================================
@@ -363,7 +431,7 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 		case PREDATOR_AE_SPIT:
 		{
 			// Reusing this activity / animation event for babysquid spawning
-			if ( m_bReadyToSpawn )
+			if ( m_bReadyToSpawn && gpGlobals->curtime > m_flNextSpawnTime )
 			{
 				Vector vSpitPos;
 				GetAttachment( "Mouth", vSpitPos );
@@ -517,7 +585,7 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 				if ( pHurt->GetFlags() & ( FL_NPC | FL_CLIENT ) )
 					 pHurt->ViewPunch( QAngle( 20, 0, -20 ) );
 			
-				pHurt->ApplyAbsVelocityImpulse( 100 * (up+2*right) * GetModelScale() );
+				pHurt->ApplyAbsVelocityImpulse( 100 * (up+2*right) * GetModelScale() * ( m_bIsBaby ? 0.5f : 1.0f ) );
 			}
 		}
 		break;
@@ -611,7 +679,7 @@ CBaseEntity * CNPC_Bullsquid::BiteAttack( float flDist, const Vector & mins, con
 		{
 			Vector forward, up;
 			AngleVectors( GetAbsAngles(), &forward, NULL, &up );
-			pHurt->ApplyAbsVelocityImpulse( 100 * (up-forward) * GetModelScale() );
+			pHurt->ApplyAbsVelocityImpulse( 100 * (up-forward) * GetModelScale() * ( m_bIsBaby ? 0.5f : 1.0f ) );
 			pHurt->SetGroundEntity( NULL );
 		}
 	}
@@ -638,7 +706,7 @@ float CNPC_Bullsquid::GetMinSpitWaitTime( void )
 float CNPC_Bullsquid::GetWhipDamage( void )
 {
 	// Multiply the damage value by the scale of the model so that baby squids do less damage
-	return sk_bullsquid_dmg_whip.GetFloat() * GetModelScale();
+	return sk_bullsquid_dmg_whip.GetFloat() * GetModelScale() * ( m_bIsBaby ? 0.5f : 1.0f );
 }
 
 //=========================================================
@@ -647,7 +715,7 @@ float CNPC_Bullsquid::GetWhipDamage( void )
 float CNPC_Bullsquid::GetBiteDamage( void )
 {
 	// Multiply the damage value by the scale of the model so that baby squids do less damage
-	return sk_bullsquid_dmg_bite.GetFloat() * GetModelScale();
+	return sk_bullsquid_dmg_bite.GetFloat() * GetModelScale() * ( m_bIsBaby ? 0.5f : 1.0f );
 }
 
 // Helper function from Antlion
@@ -741,6 +809,12 @@ bool CNPC_Bullsquid::ShouldInfight( CBaseEntity * pTarget )
 				if (pOther == m_hMate)
 				{
 					PredMsg( "Bullsquid '%s' wants to infight but can't fight mate. \n" );
+					return false;
+				}
+
+				if ( pOther->IsCurSchedule( SCHED_CHASE_ENEMY_FAILED, true ) )
+				{
+					PredMsg( "Bullsquid '%s' wants to infight but other is scared. \n" );
 					return false;
 				}
 
@@ -865,6 +939,9 @@ void CNPC_Bullsquid::RunAI( void )
 //=========================================================
 void CNPC_Bullsquid::StartTask( const Task_t *pTask )
 {
+	CNPC_Bullsquid * newSquid = NULL;
+	int maxSquidsPerSquad = sk_max_squad_squids.GetInt() + 1; // Add 1 to account for the duplicate baby and adult squids
+
 	switch (pTask->iTask)
 	{
 	case TASK_PREDATOR_PLAY_EXCITE_ACT:
@@ -883,31 +960,35 @@ void CNPC_Bullsquid::StartTask( const Task_t *pTask )
 		SetIdealActivity( (Activity)ACT_SQUID_INSPECT_FLOOR );
 		break;
 	case TASK_SQUID_GROW:
-		SetModelScale( 0.5 + ( m_iTimesFed * 0.25f ) );
+		// Temporarily become non-solid so the new NPC can spawn
+		SetSolid( SOLID_NONE );
 
-		// TODO Remember to apply Xensquid health modifier!
-		m_iMaxHealth = GetModelScale() * sk_bullsquid_health.GetFloat();
-		m_iHealth = m_iMaxHealth;
+		// Spawn an adult squid
+	    newSquid = SpawnLive( GetAbsOrigin() + Vector( 0, 0, 32 ), false );
 
-		ExplosionEffect();
+		SetSolid( SOLID_BBOX );
 
-		if ( GetModelScale() >= 1.0f )
+		if ( newSquid == NULL )
 		{
-			m_bIsBaby = false;
-			CapabilitiesAdd( bits_CAP_INNATE_RANGE_ATTACK1 );
-			m_iTimesFed = 0;
-
-			// Split off into a new squad if there are already max squids
-			if ( this->GetSquad() != NULL && this->GetSquad()->NumMembers() > sk_max_squad_squids.GetInt() )
-			{
-				g_AI_SquadManager.CreateSquad( NULL_STRING )->AddToSquad( this );
-			}
+			TaskFail( FAIL_BAD_POSITION );
+			break;
 		}
+
+		newSquid->ExplosionEffect();
+
+		// Split off into a new squad if there are already max squids
+		if ( this->GetSquad() != NULL && this->GetSquad()->NumMembers() > maxSquidsPerSquad)
+		{
+			g_AI_SquadManager.CreateSquad( NULL_STRING )->AddToSquad( newSquid );
+		}
+
+		// Delete baby squid
+		SUB_Remove();
+
 		// Task should end after scale is applied
 		TaskComplete();
 		break;
 	case TASK_PREDATOR_SPAWN:
-		m_flNextSpawnTime = gpGlobals->curtime + sk_bullsquid_spawn_time.GetFloat();
 		SetIdealActivity( (Activity) ACT_RANGE_ATTACK1 );
 		break;
 	default:
@@ -948,13 +1029,17 @@ void CNPC_Bullsquid::RunTask ( const Task_t *pTask )
 //=========================================================
 int CNPC_Bullsquid::SelectSchedule( void )
 {
-	if ( m_bIsBaby )
-	{
-		if ( 0.5f + ( m_iTimesFed * 0.25f ) > GetModelScale() )
+	if( HasCondition( COND_BABYSQUID_CAN_GROW ) && !HasCondition( COND_BABYSQUID_GROWTH_INVALID ) )
+	{	
+		if ( GetState() == NPC_STATE_COMBAT && GetEnemy() && !HasMemory( bits_MEMORY_INCOVER ) )
 		{
-			return SCHED_BULLSQUID_GROW;
+			PredMsg( "Babysquid '%s' wants to grow, but is in combat. Take cover! \n" );
+			return SCHED_TAKE_COVER_FROM_ENEMY;
 		}
+
+		return SCHED_BULLSQUID_GROW;
 	}
+
 	return BaseClass::SelectSchedule();
 }
 
@@ -967,6 +1052,38 @@ int CNPC_Bullsquid::TranslateSchedule( int scheduleType )
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
+}
+
+void CNPC_Bullsquid::GatherConditions( void )
+{
+	// Baby squid growth conditions
+	// COND_BABYSQUID_CAN_GROW and COND_BABYSQUID_GROWTH_INVALID are separate conditions so that
+	// COND_BABYSQUID_GROWTH_INVALID can interrupt the schedule for growth if the babysquid is not
+	// in a physical space that would support it.
+	if ( m_bIsBaby && m_iTimesFed >= 2 )
+	{
+		SetCondition( COND_BABYSQUID_CAN_GROW );
+
+		Vector	vUpBit = GetAbsOrigin();
+		vUpBit.z += 1;
+
+		trace_t tr;
+		AI_TraceHull( GetAbsOrigin(), vUpBit, Vector( -16, -16, 0 ), Vector( 16, 16, 32 ), MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &tr );
+		if ( tr.startsolid || ( tr.fraction < 1.0 ) )
+		{
+			SetCondition( COND_BABYSQUID_GROWTH_INVALID );
+		}
+		else
+		{
+			ClearCondition( COND_BABYSQUID_GROWTH_INVALID );
+		}
+	}
+	else
+	{
+		ClearCondition( COND_BABYSQUID_CAN_GROW );
+	}
+
+	BaseClass::GatherConditions();
 }
 
 // Shared activities from base predator
@@ -1012,7 +1129,13 @@ bool CNPC_Bullsquid::ShouldGib( const CTakeDamageInfo &info )
 	if ( info.GetDamageType() & DMG_ALWAYSGIB )
 		return true;
 
-	return m_bIsBaby || IsBoss() || BaseClass::ShouldGib( info );
+	// Babysquids gib if crushed, exploded, or overkilled
+	if ( m_bIsBaby && ( info.GetDamage() >= GetMaxHealth() || info.GetDamageType() & DMG_CRUSH || info.GetDamageType() & DMG_BLAST ) )
+	{
+		return true;
+	}
+
+	return IsBoss() || BaseClass::ShouldGib( info );
 }
 
 //-----------------------------------------------------------------------------
@@ -1039,27 +1162,36 @@ void CNPC_Bullsquid::ExplosionEffect( void )
 //-----------------------------------------------------------------------------
 bool CNPC_Bullsquid::SpawnNPC( const Vector position, const QAngle angle )
 {
+	CAI_BaseNPC * spawned;
+
 	if (sk_bullsquid_lay_eggs.GetBool())
 	{
-		return SpawnEgg( position, angle );
+		spawned = SpawnEgg( position, angle );
 	}
 	else
 	{
-		return SpawnLive( position );
+		spawned = SpawnLive( position, true );
 	}
+
+	if ( spawned != NULL )
+	{
+		EndSpawnSound();
+		m_flNextSpawnTime = gpGlobals->curtime + sk_bullsquid_spawn_time.GetFloat();
+		return true;
+    }
+
+	return false;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Create a new bullsquid egg
 // Output : True if the new egg is created
 //-----------------------------------------------------------------------------
-bool CNPC_Bullsquid::SpawnEgg( const Vector position, const QAngle angle )
+CNPC_Egg * CNPC_Bullsquid::SpawnEgg( const Vector position, const QAngle angle )
 {
-	EndSpawnSound();
-
 	// Try to create entity
 	CNPC_Egg *pEgg = static_cast< CNPC_Egg * >(CreateEntityByName( "npc_egg" ));
-	if (pEgg)
+	if ( pEgg )
 	{
 		pEgg->m_tEzVariant = this->m_tEzVariant;
 		pEgg->KeyValue( "AlertSound", "npc_bullsquid.egg_alert" );
@@ -1068,7 +1200,8 @@ bool CNPC_Bullsquid::SpawnEgg( const Vector position, const QAngle angle )
 		pEgg->KeyValue( "IncubationTime", "10" );
 		pEgg->KeyValue( "health", "200" );
 		pEgg->KeyValue( "HatchSound", "npc_bullsquid.egg_hatch" );
-		pEgg->SetModel( "models/eggs/bullsquid_egg.mdl" );
+		pEgg->KeyValue( "babymodel", STRING( m_BabyModelName ) );
+		pEgg->SetModel( STRING( m_EggModelName ) );
 		pEgg->Precache();
 
 		DispatchSpawn( pEgg );
@@ -1097,32 +1230,31 @@ bool CNPC_Bullsquid::SpawnEgg( const Vector position, const QAngle angle )
 		variant_t value;
 		value.SetEntity( pEgg );
 		m_OnSpawnNPC.CBaseEntityOutput::FireOutput( value, this, this );
-
-		return true;
 	}
 
-	// Couldn't instantiate NPC
-	return false;
+	// Returns NULL if the egg could not be instantiated
+	return pEgg;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Create a new baby bullsquid
 // Output : True if the new bullsquid is created
 //-----------------------------------------------------------------------------
-bool CNPC_Bullsquid::SpawnLive( const Vector position )
+CNPC_Bullsquid * CNPC_Bullsquid::SpawnLive( const Vector position, bool isBaby )
 {
-	EndSpawnSound();
 
 	// Try to create entity
 	CNPC_Bullsquid *pChild = dynamic_cast< CNPC_Bullsquid * >(CreateEntityByName( "npc_bullsquid" ));
 	if ( pChild )
 	{
-		pChild->m_bIsBaby = true;
+		pChild->m_bIsBaby = isBaby;
 		pChild->m_tEzVariant = this->m_tEzVariant;
 		pChild->m_tWanderState = this->m_tWanderState;
 		pChild->m_bSpawningEnabled = true;
-		pChild->SetModelName( this->GetModelName() );
 		pChild->m_nSkin = this->m_nSkin;
+		pChild->KeyValue( "eggmodel", STRING( m_EggModelName ) );
+		pChild->KeyValue( "babymodel", STRING( m_BabyModelName ) );
+		pChild->KeyValue( "adultmodel", STRING( m_AdultModelName ) );
 		pChild->Precache();
 
 		DispatchSpawn( pChild );
@@ -1141,8 +1273,8 @@ bool CNPC_Bullsquid::SpawnLive( const Vector position )
 		if (tr.startsolid || (tr.fraction < 1.0))
 		{
 			pChild->SUB_Remove();
-			DevMsg( "Can't create baby squid. Bad Position!\n" );
-			return false;
+			DevMsg( "Can't create squid. Bad Position!\n" );
+			return NULL;
 		}
 
 		pChild->SetSquad( this->GetSquad() );
@@ -1159,12 +1291,10 @@ bool CNPC_Bullsquid::SpawnLive( const Vector position )
 		variant_t value;
 		value.SetEntity( pChild );
 		m_OnSpawnNPC.CBaseEntityOutput::FireOutput( value, this, this );
-
-		return true;
 	}
 
-	// Couldn't instantiate NPC
-	return false;
+	// Returns NULL if the child could not be instantiated
+	return pChild;
 }
 
 //------------------------------------------------------------------------------
@@ -1181,6 +1311,9 @@ AI_BEGIN_CUSTOM_NPC( npc_bullsquid, CNPC_Bullsquid )
 	DECLARE_ACTIVITY( ACT_SQUID_EXCITED )
 	DECLARE_ACTIVITY( ACT_SQUID_DETECT_SCENT )
 	DECLARE_ACTIVITY( ACT_SQUID_INSPECT_FLOOR )
+
+	DECLARE_CONDITION( COND_BABYSQUID_CAN_GROW )
+	DECLARE_CONDITION( COND_BABYSQUID_GROWTH_INVALID )
 
 	DECLARE_INTERACTION( g_interactionBullsquidThrow )
 	DECLARE_INTERACTION( g_interactionBullsquidMonch )
@@ -1205,6 +1338,7 @@ AI_BEGIN_CUSTOM_NPC( npc_bullsquid, CNPC_Bullsquid )
 		"		COND_HEAVY_DAMAGE"
 		"		COND_CAN_MELEE_ATTACK1"
 		"		COND_CAN_MELEE_ATTACK2"
+		"       COND_BABYSQUID_GROWTH_INVALID"
 	)
 
 AI_END_CUSTOM_NPC()

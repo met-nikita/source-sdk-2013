@@ -16,6 +16,7 @@
 
 #include "ai_basenpc.h"
 #include "npc_basepredator.h"
+#include "npc_egg.h"
 
 class CNPC_Bullsquid : public CNPC_BasePredator
 {
@@ -69,6 +70,8 @@ public:
 	int				SelectSchedule( void );
 	int 			TranslateSchedule( int scheduleType );
 
+	virtual void	GatherConditions( void );
+
 	virtual Activity NPC_TranslateActivity( Activity eNewActivity );
 
 	bool		ShouldGib( const CTakeDamageInfo &info );
@@ -76,14 +79,20 @@ public:
 	void		ExplosionEffect( void );
 
 	bool SpawnNPC( const Vector position, const QAngle angle );
-	bool SpawnEgg( const Vector position, const QAngle angle );
-	bool SpawnLive( const Vector position );
+	CNPC_Egg * SpawnEgg( const Vector position, const QAngle angle );
+	CNPC_Bullsquid * SpawnLive( const Vector position, bool isBaby );
 
 	DEFINE_CUSTOM_AI;
 
 private:	
 	int   m_nSquidSpitSprite;
 	float m_nextSquidSoundTime;
+
+	// Consider moving these to BasePredator if other predators need them
+	string_t		m_EggModelName;
+	string_t		m_BabyModelName;
+	string_t		m_AdultModelName;
+
 
 	// Antlion worker styled spit attack
 	Vector	m_vecSaveSpitVelocity;	// Saved when we start to attack and used if we failed to get a clear shot once we release

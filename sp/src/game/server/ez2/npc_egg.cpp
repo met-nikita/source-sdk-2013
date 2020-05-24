@@ -26,6 +26,8 @@ DEFINE_KEYFIELD( m_iszHatchSound, FIELD_SOUNDNAME, "HatchSound" ),
 DEFINE_KEYFIELD( m_isChildClassname, FIELD_STRING, "ChildClassname" ),
 DEFINE_KEYFIELD( m_isHatchParticle, FIELD_STRING, "HatchParticle" ),
 DEFINE_KEYFIELD( m_flIncubation, FIELD_FLOAT, "IncubationTime" ),
+DEFINE_KEYFIELD( m_BabyModelName, FIELD_MODELNAME, "babymodel" ),
+DEFINE_KEYFIELD( m_AdultModelName, FIELD_MODELNAME, "adultmodel" ),
 
 DEFINE_FIELD( m_flNextHatchTime, FIELD_TIME ),
 
@@ -129,6 +131,14 @@ void CNPC_Egg::Precache( void )
 
 	PrecacheScriptSound( STRING( m_iszHatchSound ) );
 
+	// If there's no specified model for babies from this egg, use the adult model
+	// The adult model might still be NULL_STRING, so that must be handled upon spawning
+	// If in doubt, use the class's default
+	if (m_BabyModelName == NULL_STRING)
+	{
+		m_BabyModelName = m_AdultModelName;
+	}
+
 	BaseClass::Precache();
 }
 
@@ -187,6 +197,16 @@ bool CNPC_Egg::SpawnNPC()
 			pPredator->m_tEzVariant = this->m_tEzVariant;
 			pPredator->InputSetWanderAlways( inputdata_t() );
 			pPredator->InputEnableSpawning( inputdata_t() );
+
+			if ( m_AdultModelName != NULL_STRING )
+			{
+				pPredator->SetModelName( m_AdultModelName );
+			}
+			
+			if ( m_BabyModelName != NULL_STRING )
+			{
+				pPredator->KeyValue( "babymodel", STRING( m_BabyModelName ) );
+			}
 		}
 
 		pChild->m_nSkin = m_iChildSkin;
