@@ -41,8 +41,8 @@ public:
 	void Precache( void );
 	bool CreateVPhysics( void );
 
-	virtual int SelectExtendSchedule() { /* return SCHED_EGG_HATCH; */  return SCHED_IDLE_STAND;} // TODO Needs custom schedule implemented
-	virtual int SelectRetractSchedule() { return SCHED_IDLE_STAND; }
+	virtual int SelectExtendSchedule() { return SCHED_IDLE_STAND; }
+	virtual int SelectRetractSchedule() { return SCHED_EGG_HATCH; }
 
 	virtual void StartTask ( const Task_t *pTask );
 	virtual void RunTask ( const Task_t *pTask );
@@ -75,5 +75,5 @@ protected:
 
 	COutputEvent m_OnSpawnNPC; // Output when a predator completes spawning offspring
 
-	//DEFINE_CUSTOM_AI;
+	DEFINE_CUSTOM_AI;
 };

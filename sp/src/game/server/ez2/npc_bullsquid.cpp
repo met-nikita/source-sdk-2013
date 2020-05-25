@@ -1197,7 +1197,7 @@ CNPC_Egg * CNPC_Bullsquid::SpawnEgg( const Vector position, const QAngle angle )
 		pEgg->KeyValue( "AlertSound", "npc_bullsquid.egg_alert" );
 		pEgg->KeyValue( "ChildClassname", "npc_bullsquid" );
 		pEgg->KeyValue( "HatchParticle", "bullsquid_egg_hatch" );
-		pEgg->KeyValue( "IncubationTime", "10" );
+		pEgg->KeyValue( "IncubationTime", "30" );
 		pEgg->KeyValue( "health", "200" );
 		pEgg->KeyValue( "HatchSound", "npc_bullsquid.egg_hatch" );
 		pEgg->KeyValue( "babymodel", STRING( m_BabyModelName ) );

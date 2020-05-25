@@ -161,6 +161,13 @@ bool CNPC_Egg::CreateVPhysics( void )
 
 void CNPC_Egg::StartTask( const Task_t * pTask )
 {
+	// Destroy the egg
+	if ( pTask->iTask == TASK_EGG_HATCH )
+	{
+		HatchThink();
+		TaskComplete();
+	}
+
 	BaseClass::StartTask( pTask );
 }
 
@@ -184,8 +191,6 @@ void CNPC_Egg::AlertSound( void )
 //-----------------------------------------------------------------------------
 bool CNPC_Egg::SpawnNPC()
 {
-	// Play a sound
-
 	// Try to create entity
 	CAI_BaseNPC *pChild = static_cast< CAI_BaseNPC * >(CreateEntityByName( STRING( m_isChildClassname ) ));
 	if (pChild)
@@ -194,13 +199,12 @@ bool CNPC_Egg::SpawnNPC()
 		if ( pPredator != NULL )
 		{
 			pPredator->SetIsBaby( true );
-			pPredator->m_tEzVariant = this->m_tEzVariant;
 			pPredator->InputSetWanderAlways( inputdata_t() );
 			pPredator->InputEnableSpawning( inputdata_t() );
 
 			if ( m_AdultModelName != NULL_STRING )
 			{
-				pPredator->SetModelName( m_AdultModelName );
+				pPredator->KeyValue( "adultmodel", STRING( m_AdultModelName ) );
 			}
 			
 			if ( m_BabyModelName != NULL_STRING )
@@ -209,6 +213,12 @@ bool CNPC_Egg::SpawnNPC()
 			}
 		}
 
+		if ( m_AdultModelName != NULL_STRING )
+		{
+			pChild->SetModelName( m_AdultModelName );
+		}
+
+		pChild->m_tEzVariant = this->m_tEzVariant;
 		pChild->m_nSkin = m_iChildSkin;
 		pChild->Precache();
 
@@ -216,11 +226,8 @@ bool CNPC_Egg::SpawnNPC()
 
 		// Now attempt to drop into the world
 		Vector spawnPos = GetAbsOrigin() + Vector( 0, 0, 16 );
-		pChild->Teleport( &spawnPos, NULL, NULL );
-
-		// Now check that this is a valid location for the new npc to be
-		Vector	vUpBit = pChild->GetAbsOrigin();
-		vUpBit.z += 1;
+		QAngle spawnAngle = QAngle( vec_t(), GetAbsAngles().y, vec_t() );
+		pChild->Teleport( &spawnPos, &spawnAngle, NULL );
 
 		pChild->SetSquad( this->GetSquad() );
 		pChild->Activate();
@@ -260,3 +267,29 @@ void CNPC_Egg::HatchThink()
 {
 	CorpseGib( CTakeDamageInfo() );
 }
+
+AI_BEGIN_CUSTOM_NPC( npc_egg, CNPC_Egg )
+
+DECLARE_TASK( TASK_EGG_HATCH )
+
+//=========================================================
+// > SCHED_EGG_HATCH
+//=========================================================
+// TODO - Add some fancy effects to SCHED_EGG_HATCH to show the egg starting to rupture when the player nears. For now, the sound will do.
+DEFINE_SCHEDULE
+(
+	SCHED_EGG_HATCH,
+
+	"	Tasks"
+	"		TASK_SOUND_WAKE				0"
+	"		TASK_WAIT					2"
+	"       TASK_EGG_HATCH              0"
+	"	"
+	"	Interrupts"
+	"       COND_LOST_ENEMY"
+	"       COND_ENEMY_WENT_NULL"
+	"       COND_ENEMY_TOO_FAR"
+	"       COND_FLORA_EXTEND"
+)
+
+AI_END_CUSTOM_NPC()
