@@ -58,10 +58,13 @@ public:
 	bool	Reload( void );
 
 	bool	ShouldDisplayHUDHint() { return true; }
+
+protected:
+	virtual void	ThrowGrenade( CBasePlayer *pPlayer );
+	virtual void	RollGrenade( CBasePlayer *pPlayer );
+	virtual void	LobGrenade( CBasePlayer *pPlayer );
+
 private:
-	void	ThrowGrenade( CBasePlayer *pPlayer );
-	void	RollGrenade( CBasePlayer *pPlayer );
-	void	LobGrenade( CBasePlayer *pPlayer );
 	// check a throw from vecSrc.  If not valid, move the position back along the line to vecEye
 	void	CheckThrowPosition( CBasePlayer *pPlayer, const Vector &vecEye, Vector &vecSrc );
 
@@ -542,3 +545,55 @@ void CWeaponHopwire::RollGrenade( CBasePlayer *pPlayer )
 	m_iPrimaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
 }
+
+#ifdef EZ
+class CWeaponEndGame : public CWeaponHopwire
+{
+	DECLARE_DATADESC();
+public:
+	DECLARE_CLASS( CWeaponEndGame, CWeaponHopwire );
+	DECLARE_SERVERCLASS();
+
+	bool	ShouldDisplayHUDHint() { return true; }
+protected:
+	void	ThrowGrenade( CBasePlayer *pPlayer );
+	void	RollGrenade( CBasePlayer *pPlayer );
+	void	LobGrenade( CBasePlayer *pPlayer );
+private:
+	void EndGame();
+	COutputEvent m_OnEndGame;
+
+
+};
+
+void CWeaponEndGame::ThrowGrenade( CBasePlayer * pPlayer )
+{
+	EndGame();
+}
+
+void CWeaponEndGame::RollGrenade( CBasePlayer * pPlayer )
+{
+	EndGame();
+}
+
+void CWeaponEndGame::LobGrenade( CBasePlayer * pPlayer )
+{
+	EndGame();
+}
+
+void CWeaponEndGame::EndGame()
+{
+	m_OnEndGame.FireOutput( this, GetOwnerEntity(), 0.0f );
+}
+
+
+IMPLEMENT_SERVERCLASS_ST( CWeaponEndGame, DT_WeaponEndGame )
+END_SEND_TABLE()
+
+LINK_ENTITY_TO_CLASS( weapon_endgame, CWeaponEndGame );
+PRECACHE_WEAPON_REGISTER( weapon_endgame );
+
+BEGIN_DATADESC( CWeaponEndGame )
+DEFINE_OUTPUT( m_OnEndGame, "OnEndGame" ),
+END_DATADESC()
+#endif
