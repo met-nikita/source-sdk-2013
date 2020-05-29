@@ -75,6 +75,7 @@ void CNPC_PitDrone::Spawn()
 	// For the purposes of melee attack conditions triggering attacks, we are treating the flying predator as though it has two melee attacks like the bullsquid.
 	// In reality, the melee attack schedules will be translated to SCHED_RANGE_ATTACK_1.
 	CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK2 | bits_CAP_SQUAD );
+	CapabilitiesAdd( bits_CAP_MOVE_JUMP ); // THEY FLY NOW
 
 	m_fCanThreatDisplay	= TRUE;
 	m_flNextSpitTime = gpGlobals->curtime;
@@ -91,10 +92,19 @@ void CNPC_PitDrone::Spawn()
 //=========================================================
 void CNPC_PitDrone::Precache()
 {
-
 	if ( GetModelName() == NULL_STRING )
 	{
 		SetModelName( AllocPooledString( "models/pit_drone.mdl" ) );
+
+		// Pit drones use skins instead of of models
+		if (m_tEzVariant == EZ_VARIANT_XEN)
+		{
+			m_nSkin = 0;
+		}
+		else
+		{
+			m_nSkin = 1;
+		}
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
@@ -121,6 +131,7 @@ void CNPC_PitDrone::Precache()
 	PrecacheScriptSound( "NPC_PitDrone.Explode" );
 
 	UTIL_PrecacheOther( "crossbow_bolt" );
+	PrecacheModel( "models/pitdrone_projectile.mdl" );
 
 	BaseClass::Precache();
 }
@@ -279,7 +290,7 @@ void CNPC_PitDrone::HandleAnimEvent( animevent_t *pEvent )
 			if ( GetEnemy() )
 			{
 				Vector vSpitPos;
-				GetAttachment( "Mouth", vSpitPos );
+				GetAttachment( "head", vSpitPos );
 				
 				Vector vecShootDir = GetShootEnemyDir( vSpitPos, false );
 				
@@ -289,10 +300,11 @@ void CNPC_PitDrone::HandleAnimEvent( animevent_t *pEvent )
 				CBaseCombatCharacter *pBolt = (CBaseCombatCharacter *)CreateEntityByName( "crossbow_bolt" );
 				UTIL_SetOrigin( pBolt, vSpitPos );
 				pBolt->SetAbsAngles( angAiming );
+				pBolt->KeyValue( "ImpactEffect", "DroneBoltImpact" );
 				pBolt->Spawn();
 				pBolt->SetOwnerEntity( this );
 				pBolt->SetDamage( GetProjectileDamge() );
-
+				pBolt->SetModel( "models/pitdrone_projectile.mdl" );
 
 				if ( this->GetWaterLevel() == 3 )
 				{
@@ -412,7 +424,7 @@ int CNPC_PitDrone::TranslateSchedule( int scheduleType )
 	// If standing in place or running from the enemy, check if we should reload instead
 	case SCHED_IDLE_STAND:
 	case SCHED_ALERT_STAND:
-		if ( m_iClip <= MAX_PITDRONE_CLIP && m_iAmmo > 0 )
+		if ( m_iClip < MAX_PITDRONE_CLIP && m_iAmmo > 0 )
 		{
 			return SCHED_HIDE_AND_RELOAD;
 		}

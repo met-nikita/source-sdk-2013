@@ -91,6 +91,9 @@ protected:
 
 	CHandle<CSprite>		m_pGlowSprite;
 	//CHandle<CSpriteTrail>	m_pGlowTrail;
+#ifdef EZ2
+	string_t m_iszEffect;
+#endif
 
 	DECLARE_DATADESC();
 	DECLARE_SERVERCLASS();
@@ -105,6 +108,9 @@ BEGIN_DATADESC( CCrossbowBolt )
 	// These are recreated on reload, they don't need storage
 	DEFINE_FIELD( m_pGlowSprite, FIELD_EHANDLE ),
 	//DEFINE_FIELD( m_pGlowTrail, FIELD_EHANDLE ),
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_iszEffect, FIELD_STRING, "ImpactEffect" ),
+#endif
 
 #ifdef MAPBASE
 	DEFINE_KEYFIELD( m_flDamage, FIELD_FLOAT, "Damage" ),
@@ -148,6 +154,9 @@ CCrossbowBolt::CCrossbowBolt( void )
 {
 	// Independent bolts without m_flDamage set need damage
 	m_flDamage = sk_plr_dmg_crossbow.GetFloat();
+#ifdef EZ2
+	m_iszEffect = AllocPooledString( "BoltImpact" );
+#endif
 }
 #endif
 
@@ -396,8 +405,11 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 				data.m_vOrigin = tr2.endpos;
 				data.m_vNormal = vForward;
 				data.m_nEntIndex = tr2.fraction != 1.0f;
-			
+#ifdef EZ2
+				DispatchEffect( STRING( m_iszEffect ), data );
+#else
 				DispatchEffect( "BoltImpact", data );
+#endif
 			}
 		}
 		
@@ -460,7 +472,11 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 				data.m_vNormal = vForward;
 				data.m_nEntIndex = 0;
 			
+#ifdef EZ2
+				DispatchEffect( STRING( m_iszEffect ), data );
+#else
 				DispatchEffect( "BoltImpact", data );
+#endif
 				
 				UTIL_ImpactTrace( &tr, DMG_BULLET );
 
