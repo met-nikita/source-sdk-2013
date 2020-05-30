@@ -1744,20 +1744,16 @@ void CNPC_Combine::StartTask( const Task_t *pTask )
 					right.z = 0;
 
 #ifdef EZ
-					// HACKHACK: Using sequence names until Mapbase activities are in order
-					int iSeq = -1;
 					if ( DotProduct( right, tosound ) > 0 )
 					{
 						// Right
-						iSeq = LookupSequence( "gesture_signal_right" );
+						AddGesture( ACT_GESTURE_SIGNAL_RIGHT );
 					}
 					else
 					{
 						// Left
-						iSeq = LookupSequence( "gesture_signal_left" );
+						AddGesture( ACT_GESTURE_SIGNAL_LEFT );
 					}
-
-					AddGestureSequence( iSeq );
 #else
 					if( DotProduct( right, tosound ) > 0 )
 					{
@@ -2616,6 +2612,9 @@ void CNPC_Combine::AnnounceAssault(void)
 	// Make sure player can see me
 	if ( FVisible( pBCC ) )
 	{
+#ifdef EZ2
+		AddGesture( ACT_GESTURE_SIGNAL_ADVANCE );
+#endif
 #ifdef COMBINE_SOLDIER_USES_RESPONSE_SYSTEM
 		SpeakIfAllowed( TLK_CMB_ASSAULT );
 #else
