@@ -440,6 +440,7 @@ private:
 		DECLARE_CLASS(CCombineFollowBehavior, CAI_FollowBehavior);
 
 		virtual int SelectSchedule();
+		virtual int	TranslateSchedule( int scheduleType );
 
 		inline CNPC_Combine *GetOuterS() { return static_cast<CNPC_Combine*>(GetOuter()); }
 	};
