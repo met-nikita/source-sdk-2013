@@ -217,6 +217,29 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 			return false;
 		}
 
+		DisplacementInfo_t dinfo( this, this, &m_hTargetPosition->GetAbsOrigin(), &m_hTargetPosition->GetAbsAngles() );
+		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetOwner() ))
+		{
+			// Do not remove
+			m_hDisplacedEntity = pEnt->MyCombatCharacterPointer();
+			return true;
+		}
+
+		IPhysicsObject *pPhysicsObject = pEnt->VPhysicsGetObject();
+		if (pPhysicsObject != NULL)
+		{
+			// "Wake" the physics object
+			// Both motion disabled and sleeping objects have motion disabled
+			// We need to make sure this is actually force-disabled and not just sleeping
+			pPhysicsObject->Wake();
+
+			if ( pPhysicsObject->IsMotionEnabled() == false || pPhysicsObject->IsStatic() )
+			{
+				DevMsg( "Displacer pistol can't displace physics object %s because it has motion disabled!\n", pEnt->GetDebugName() );
+				return false;
+			}
+		}
+
 		if (GetOwner())
 		{
 			// Notify the E:Z2 player
@@ -225,16 +248,6 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 			{
 				pEZ2Player->Event_DisplacerPistolDisplace( this, pEnt );
 			}
-		}
-
-		// TODO - Make sure that children of displaced entities are also displaced
-
-		DisplacementInfo_t dinfo( this, this, &m_hTargetPosition->GetAbsOrigin(), &m_hTargetPosition->GetAbsAngles() );
-		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetOwner() ))
-		{
-			// Do not remove
-			m_hDisplacedEntity = pEnt->MyCombatCharacterPointer();
-			return true;
 		}
 
 		if ( pEnt->IsNPC() )
@@ -256,21 +269,6 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 		{
 			pChild->AddEffects( EF_NODRAW );
 			pChild = pChild->NextMovePeer();
-		}
-
-		IPhysicsObject *pPhysicsObject = pEnt->VPhysicsGetObject();
-		if (pPhysicsObject != NULL)
-		{
-			// "Wake" the physics object
-			// Both motion disabled and sleeping objects have motion disabled
-			// We need to make sure this is actually force-disabled and not just sleeping
-			pPhysicsObject->Wake();
-
-			if ( pPhysicsObject->IsMotionEnabled() == false || pPhysicsObject->IsStatic() )
-			{
-				DevMsg( "Displacer pistol can't displace physics object %s because it has motion disabled!\n", pEnt->GetDebugName() );
-				return false;
-			}
 		}
 
 		pEnt->AddSolidFlags( FSOLID_NOT_SOLID );
@@ -367,11 +365,11 @@ bool CDisplacerPistol::ReleaseEntity( CBaseEntity * pCollidedEntity )
 			m_hDisplacedEntity->RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
 		}
 
-		// Make all children nodraw
+		// Make all children draw
 		CBaseEntity *pChild = m_hDisplacedEntity->FirstMoveChild();
 		while ( pChild )
 		{
-			pChild->AddEffects( EF_NODRAW );
+			pChild->RemoveEffects( EF_NODRAW );
 			pChild = pChild->NextMovePeer();
 		}
 
