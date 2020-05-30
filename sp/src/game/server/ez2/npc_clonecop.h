@@ -51,6 +51,8 @@ public:
 
 	void		HandleManhackSpawn( CAI_BaseNPC *pNPC );
 
+	void		ModifyOrAppendCriteria( AI_CriteriaSet& set );
+
 	void		Event_Killed( const CTakeDamageInfo &info );
 	void		Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
 
@@ -73,6 +75,8 @@ public:
 
 	// For special base Combine behaviors
 	bool		IsMajorCharacter() { return true; }
+
+	virtual bool	IsBadCop() { return false; }
 
 	int			GetArmorValue() { return m_ArmorValue; }
 
@@ -109,6 +113,24 @@ private:
 	bool	m_bIsBleeding;
 
 	bool	m_bThrowXenGrenades;
+};
+
+class CNPC_BadCop : public CNPC_CloneCop
+{
+	DECLARE_CLASS( CNPC_BadCop, CNPC_CloneCop );
+public:
+	CNPC_BadCop();
+
+	void		Spawn( void );
+	void		Precache( void );
+	void		Activate( void );
+
+	// CLASS_PLAYER could have consequences
+	Class_T		Classify( void ) { return CLASS_COMBINE; }
+
+	bool		IsBadCop() { return true; }
+
+	void		HandleManhackSpawn( CAI_BaseNPC *pNPC ) {}
 };
 
 #endif
