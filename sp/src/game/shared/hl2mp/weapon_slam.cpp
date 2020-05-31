@@ -403,7 +403,11 @@ void CWeapon_SLAM::TripmineAttach( void )
 
 			angles.x += 90;
 
+#ifndef EZ2
 			CBaseEntity *pEnt = CBaseEntity::Create( "npc_tripmine", tr.endpos + tr.plane.normal * 3, angles, NULL );
+#else
+			CBaseEntity *pEnt = CBaseEntity::CreateNoSpawn( "npc_tripmine", tr.endpos + tr.plane.normal * 3, angles, NULL );
+#endif
 
 			CTripmineGrenade *pMine = (CTripmineGrenade *)pEnt;
 			pMine->m_hOwner = GetOwner();
@@ -414,6 +418,12 @@ void CWeapon_SLAM::TripmineAttach( void )
 			{
 				pMine->SetParent( pEntity );
 			}
+#endif
+
+#ifdef EZ2
+			pMine->SetOwnerEntity( GetOwnerEntity() );
+			DispatchSpawn( pMine );
+			pMine->Activate();
 #endif
 #endif
 

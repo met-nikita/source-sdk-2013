@@ -40,6 +40,10 @@ public:
 	void MakeBeam( void );
 	void KillBeam( void );
 
+#ifdef EZ2
+	virtual bool KeyValue( const char *szKeyName, const char *szValue );
+#endif
+
 #ifdef MAPBASE
 	void PowerUp();
 
@@ -67,6 +71,12 @@ private:
 	CBeam		*m_pBeam;
 	Vector		m_posOwner;
 	Vector		m_angleOwner;
+
+#ifdef EZ2
+	Class_T     m_nTripmineClass;
+	string_t	m_nTripmineClassString;
+	color32     m_TripmineColor;
+#endif
 
 	DECLARE_DATADESC();
 };

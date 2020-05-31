@@ -12,6 +12,9 @@
 #include "vstdlib/random.h"
 #include "engine/IEngineSound.h"
 #include "explode.h"
+#ifdef EZ2
+#include "mapbase/matchers.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -47,6 +50,12 @@ BEGIN_DATADESC( CTripmineGrenade )
 	DEFINE_OUTPUT( m_OnExplode, "OnExplode" ),
 #endif
 
+#ifdef EZ2
+	DEFINE_FIELD( m_nTripmineClass, FIELD_INTEGER ),
+	DEFINE_KEYFIELD( m_nTripmineClassString, FIELD_STRING, "TripmineClass" ),
+	DEFINE_KEYFIELD( m_TripmineColor, FIELD_COLOR32, "TripmineColor" ),
+#endif
+
 	// Function Pointers
 	DEFINE_THINKFUNC( WarningThink ),
 	DEFINE_THINKFUNC( PowerupThink ),
@@ -65,6 +74,14 @@ CTripmineGrenade::CTripmineGrenade()
 #ifdef MAPBASE
 	m_flPowerUpTime = 2.0;
 #endif
+
+#ifdef EZ2
+	m_nTripmineClass = CLASS_NONE;
+	m_TripmineColor.r = 255;
+	m_TripmineColor.g = 55;
+	m_TripmineColor.b = 52;
+	m_TripmineColor.a = 64;
+#endif
 }
 
 void CTripmineGrenade::Spawn( void )
@@ -74,6 +91,14 @@ void CTripmineGrenade::Spawn( void )
 	SetMoveType( MOVETYPE_FLY );
 	SetSolid( SOLID_BBOX );
 	SetModel( "models/Weapons/w_slam.mdl" );
+
+#ifdef EZ2
+	CBaseEntity * pOwner = GetOwnerEntity();
+	if ( pOwner != NULL )
+	{
+		m_nTripmineClass = pOwner->Classify();
+	}
+#endif
 
     IPhysicsObject *pObject = VPhysicsInitNormal( SOLID_BBOX, GetSolidFlags() | FSOLID_TRIGGER, true );
 	pObject->EnableMotion( false );
@@ -181,6 +206,24 @@ void CTripmineGrenade::KillBeam( void )
 	}
 }
 
+#ifdef EZ2
+bool CTripmineGrenade::KeyValue( const char * szKeyName, const char * szValue )
+{
+	if ( FStrEq( szKeyName, "TripmineClass" ) )
+	{
+		for (int i = CLASS_NONE; i < NUM_AI_CLASSES; i++)
+		{
+			if ( FStrEq( szValue, g_pGameRules->AIClassText( i ) ) )
+			{
+				m_nTripmineClass = (Class_T)i;
+				break;
+			}
+		}
+	}
+
+	return BaseClass::KeyValue( szKeyName, szValue );
+}
+#endif
 
 void CTripmineGrenade::MakeBeam( void )
 {
@@ -223,9 +266,16 @@ void CTripmineGrenade::MakeBeam( void )
 
 	m_pBeam = CBeam::BeamCreate( g_pModelNameLaser, 0.35 );
 	m_pBeam->PointEntInit( vecTmpEnd, this );
+
+#ifdef EZ2
+	m_pBeam->SetColor( m_TripmineColor.r, m_TripmineColor.g, m_TripmineColor.b );
+	m_pBeam->SetScrollRate( 25.6 );
+	m_pBeam->SetBrightness( m_TripmineColor.a );
+#else
 	m_pBeam->SetColor( 255, 55, 52 );
 	m_pBeam->SetScrollRate( 25.6 );
 	m_pBeam->SetBrightness( 64 );
+#endif
 	
 	int beamAttach = LookupAttachment("beam_attach");
 	m_pBeam->SetEndAttachment( beamAttach );
@@ -266,6 +316,15 @@ void CTripmineGrenade::BeamBreakThink( void  )
 
 	CBaseEntity *pEntity = tr.m_pEnt;
 	CBaseCombatCharacter *pBCC  = ToBaseCombatCharacter( pEntity );
+
+#ifdef EZ2
+	// Tripmines do not detonate when tripped by entities that treat their class as friendly
+	if ( pBCC && pBCC->GetDefaultRelationshipDisposition( m_nTripmineClass ) == D_LI )
+	{
+		SetNextThink( gpGlobals->curtime + 0.05f );
+		return;
+	}
+#endif
 
 	if (pBCC || fabs( m_flBeamLength - tr.fraction ) > 0.001)
 	{
