@@ -5175,6 +5175,8 @@ bool CNPC_Combine::ShouldPickADeathPose( void )
 }
 
 #ifdef EZ
+ConVar npc_combine_new_follow_behavior( "npc_combine_new_follow_behavior", "1" );
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -5194,8 +5196,15 @@ int CNPC_Combine::CCombineFollowBehavior::SelectSchedule( void )
 	// the player's orders.
 	// 
 	// -Blixibon
-	if ( GetOuterS()->GetState() == NPC_STATE_COMBAT && IsFollowTargetInRange(1.5f) )
-		result = GetOuterS()->SelectCombatSchedule();
+	if (npc_combine_new_follow_behavior.GetBool())
+	{
+		if ( GetOuterS()->GetState() == NPC_STATE_COMBAT && IsFollowTargetInRange(1.5f) )
+			result = GetOuterS()->SelectCombatSchedule();
+	}
+	else
+	{
+		result = GetOuterS()->SelectScheduleAttack();
+	}
 
 	if ( result == SCHED_NONE || result == SCHED_RANGE_ATTACK1 )
 		result = BaseClass::SelectSchedule();
