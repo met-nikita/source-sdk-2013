@@ -1744,20 +1744,16 @@ void CNPC_Combine::StartTask( const Task_t *pTask )
 					right.z = 0;
 
 #ifdef EZ
-					// HACKHACK: Using sequence names until Mapbase activities are in order
-					int iSeq = -1;
 					if ( DotProduct( right, tosound ) > 0 )
 					{
 						// Right
-						iSeq = LookupSequence( "gesture_signal_right" );
+						AddGesture( ACT_GESTURE_SIGNAL_RIGHT );
 					}
 					else
 					{
 						// Left
-						iSeq = LookupSequence( "gesture_signal_left" );
+						AddGesture( ACT_GESTURE_SIGNAL_LEFT );
 					}
-
-					AddGestureSequence( iSeq );
 #else
 					if( DotProduct( right, tosound ) > 0 )
 					{
@@ -2616,6 +2612,9 @@ void CNPC_Combine::AnnounceAssault(void)
 	// Make sure player can see me
 	if ( FVisible( pBCC ) )
 	{
+#ifdef EZ2
+		AddGesture( ACT_GESTURE_SIGNAL_ADVANCE );
+#endif
 #ifdef COMBINE_SOLDIER_USES_RESPONSE_SYSTEM
 		SpeakIfAllowed( TLK_CMB_ASSAULT );
 #else
@@ -5176,15 +5175,59 @@ bool CNPC_Combine::ShouldPickADeathPose( void )
 }
 
 #ifdef EZ
+ConVar npc_combine_new_follow_behavior( "npc_combine_new_follow_behavior", "1" );
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 int CNPC_Combine::CCombineFollowBehavior::SelectSchedule( void )
 {
-	int result = GetOuterS()->SelectScheduleAttack();
+	int result = SCHED_NONE;
+
+	// We could just make them use SelectScheduleAttack() like standoff behavior does, which makes soldiers
+	// only use special schedules like grenade-throwing or manhack deployment, avoiding AI which would
+	// otherwise interfere with the running behavior. 
+	// 
+	// This is what we were doing before, with the logic being that soldiers should always follow the player.
+	// 
+	// However, players were disappointed that they weren't using their signature "Combine AI" and were basically
+	// just acting like reskinned citizens. As a result, we've expanded follow behavior to utilize all Combine
+	// combat schedules, including those that would take cover and otherwise give them plenty of freedom over
+	// the player's orders.
+	// 
+	// -Blixibon
+	if (npc_combine_new_follow_behavior.GetBool())
+	{
+		if ( GetOuterS()->GetState() == NPC_STATE_COMBAT && IsFollowTargetInRange(1.5f) )
+			result = GetOuterS()->SelectCombatSchedule();
+	}
+	else
+	{
+		result = GetOuterS()->SelectScheduleAttack();
+	}
+
 	if ( result == SCHED_NONE || result == SCHED_RANGE_ATTACK1 )
 		result = BaseClass::SelectSchedule();
 	return result;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int CNPC_Combine::CCombineFollowBehavior::TranslateSchedule( int scheduleType )
+{
+	switch( scheduleType )
+	{
+		case SCHED_COMBINE_TAKE_COVER1:
+
+			if ( ShouldMoveToFollowTarget() && !IsFollowGoalInRange( GetGoalRange(), GetGoalZRange(), GetGoalFlags() ) )
+			{
+				return SCHED_MOVE_TO_FACE_FOLLOW_TARGET;			
+			}
+			
+			break;
+	}
+	return BaseClass::TranslateSchedule( scheduleType );
 }
 #endif
 

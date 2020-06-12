@@ -484,6 +484,7 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	// Blixibon - Things like turrets use looping sounds that need to be interrupted
 	// before being removed, otherwise they play forever
 	pEnt->EmitSound( "AI_BaseNPC.SentenceStop" );
+	pEnt->EmitSound( "AI_BaseNPC.SentenceStop2" );
 
 	// Some NPCs are sucked up before they ragdoll, which stops them from dying. Stop them from breaking stuff.
 	if (pEnt->MyNPCPointer())
@@ -513,6 +514,14 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	{
 		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 		pPlayer->ForceDropOfCarriedPhysObjects( pEnt );
+	}
+
+	// Remove all children first
+	CBaseEntity *pChild = pEnt->FirstMoveChild();
+	while ( pChild )
+	{
+		pChild->RemoveDeferred();
+		pChild = pChild->NextMovePeer();
 	}
 
 	pEnt->RemoveDeferred();

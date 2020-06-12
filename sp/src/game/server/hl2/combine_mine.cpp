@@ -1353,6 +1353,7 @@ extern int ACT_BARNACLE_BITE_SMALL_THINGS;
 #ifdef EZ2
 extern int g_interactionXenGrenadePull;
 extern int g_interactionXenGrenadeConsume;
+extern int g_interactionXenGrenadeRelease;
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1404,7 +1405,31 @@ bool CBounceBomb::HandleInteraction( int interactionType, void *data, CBaseComba
 			controller.SoundDestroy( m_pWarnSound );
 		}
 
+		if (m_iMineState == MINE_STATE_ARMED)
+		{
+			if (m_pConstraint)
+			{
+				physenv->DestroyConstraint( m_pConstraint );
+				m_pConstraint = NULL;
+			}
+
+			OpenHooks( true );
+
+			SetMineState( MINE_STATE_DORMANT );
+		}
+
 		// Still be consumed as usual
+		return false;
+	}
+	else if ( interactionType == g_interactionXenGrenadeRelease )
+	{
+		if (m_iMineState == MINE_STATE_DORMANT)
+		{
+			m_bDisarmed = false;
+			SetMineState( MINE_STATE_DEPLOY );
+		}
+
+		// Still be released as usual
 		return false;
 	}
 #endif

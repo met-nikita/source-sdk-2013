@@ -90,7 +90,7 @@ void CNPC_CloneCop::Spawn( void )
 
 	if ( !GetSquad() )
 	{
-		AddToSquad( MAKE_STRING( "cc_squad" ) );
+		AddToSquad( MAKE_STRING( IsBadCop() ? "bc_squad" : "cc_squad" ) );
 	}
 }
 
@@ -106,7 +106,14 @@ void CNPC_CloneCop::Precache()
 
 	if( !GetModelName() )
 	{
-		SetModelName( MAKE_STRING( "models/clone_cop.mdl" ) );
+		if (IsBadCop())
+		{
+			SetModelName( MAKE_STRING( "models/bad_cop.mdl" ) );
+		}
+		else
+		{
+			SetModelName( MAKE_STRING( "models/clone_cop.mdl" ) );
+		}
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
@@ -531,6 +538,20 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void CNPC_CloneCop::ModifyOrAppendCriteria( AI_CriteriaSet& set )
+{
+	BaseClass::ModifyOrAppendCriteria( set );
+
+	CBaseEntity *pEnemy = GetEnemy();
+	if (pEnemy)
+	{
+		set.AppendCriteria("enemy_visible", (FInViewCone(pEnemy) && FVisible(pEnemy)) ? "1" : "0");
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Our health is low. Show damage effects.
 //-----------------------------------------------------------------------------
 void CNPC_CloneCop::BleedThink()
@@ -857,6 +878,46 @@ bool CNPC_CloneCop::GetGameTextSpeechParams( hudtextparms_t &params )
 	params.b1 = 2;
 
 	return true;
+}
+
+//---------------------------------------------------------
+// Save/Restore
+//---------------------------------------------------------
+LINK_ENTITY_TO_CLASS( npc_badcop, CNPC_BadCop );
+
+CNPC_BadCop::CNPC_BadCop()
+{
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_BadCop::Spawn( void )
+{
+	BaseClass::Spawn();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+void CNPC_BadCop::Precache()
+{
+	BaseClass::Precache();
+
+	// Pretend we're the player
+	AddContext( "classname", "player" );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+void CNPC_BadCop::Activate()
+{
+	BaseClass::Activate();
 }
 
 //-----------------------------------------------------------------------------

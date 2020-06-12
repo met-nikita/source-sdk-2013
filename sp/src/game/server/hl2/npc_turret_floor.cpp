@@ -2525,14 +2525,22 @@ CNPC_Arbeit_FloorTurret::CNPC_Arbeit_FloorTurret( void )
 //-----------------------------------------------------------------------------
 void CNPC_Arbeit_FloorTurret::Precache( void )
 {
-	switch (m_tEzVariant)
+	if (!GetModelName())
 	{
-		case EZ_VARIANT_RAD:
-			SetModelName( AllocPooledString( "models/props/glowturret_01.mdl" ) );
-			break;
+		switch (m_tEzVariant)
+		{
+			case EZ_VARIANT_RAD:
+				SetModelName( AllocPooledString( "models/props/glowturret_01.mdl" ) );
+				break;
 
-		default:
-			SetModelName( AllocPooledString( "models/props/turret_01.mdl" ) );
+			default:
+			{
+				if (IsCitizenTurret())
+					SetModelName( AllocPooledString( "models/props/hackedturret_01.mdl" ) );
+				else
+					SetModelName( AllocPooledString( "models/props/turret_01.mdl" ) );
+			} break;
+		}
 	}
 
 	PrecacheScriptSound( "NPC_ArbeitTurret.DryFire" );
