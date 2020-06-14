@@ -27,6 +27,7 @@
 #include "movevars_shared.h"
 #include "particle_parse.h"
 #include "weapon_physcannon.h"
+#include "ai_baseactor.h"
 // #include "mathlib/noise.h"
 
 // this file contains the definitions for the message ID constants (eg ADVISOR_MSG_START_BEAM etc)
@@ -151,9 +152,9 @@ END_DATADESC()
 //-----------------------------------------------------------------------------
 // The advisor class.
 //-----------------------------------------------------------------------------
-class CNPC_Advisor : public CAI_BaseNPC
+class CNPC_Advisor : public CAI_BaseActor
 {
-	DECLARE_CLASS( CNPC_Advisor, CAI_BaseNPC );
+	DECLARE_CLASS( CNPC_Advisor, CAI_BaseActor );
 
 #if NPC_ADVISOR_HAS_BEHAVIOR
 	DECLARE_SERVERCLASS();
@@ -171,6 +172,10 @@ public:
 	virtual void UpdateOnRemove();
 
 	virtual int DrawDebugTextOverlays();
+
+#ifdef EZ2
+	virtual bool		GetGameTextSpeechParams( hudtextparms_t &params );
+#endif
 
 	//
 	// CAI_BaseNPC:
@@ -190,6 +195,10 @@ public:
 	int MeleeAttack1Conditions(float flDot, float flDist);
 
 	void Event_Killed(const CTakeDamageInfo &info);
+
+#ifdef EZ2
+	virtual int	TranslateSchedule( int scheduleType );
+#endif
 
 #endif
 
@@ -293,6 +302,12 @@ protected:
 	string_t m_iszLevitateGoal1;
 	string_t m_iszLevitateGoal2;
 	string_t m_iszLevitationArea;
+
+#ifdef EZ2
+	// The way the advisor's shield works is mostly clientside... awkward. I think in order to make the gameplay match up with the effect, it should not be saved.
+	// This will cause some problems saving and loading during an advisor's attack
+	bool m_bShieldOn; 
+#endif
 
 
 #if NPC_ADVISOR_HAS_BEHAVIOR
@@ -405,7 +420,16 @@ void CNPC_Advisor::Spawn()
 	SetSolid( SOLID_BBOX );
 	AddSolidFlags(FSOLID_NOT_STANDABLE); //FSOLID_NOT_SOLID
 
+#ifndef EZ2
 	SetMoveType( MOVETYPE_FLY );
+#else
+	AddFlag( FL_FLY );
+	SetNavType( NAV_FLY );
+	CapabilitiesRemove( bits_CAP_MOVE_GROUND );
+	CapabilitiesAdd( bits_CAP_MOVE_FLY | bits_CAP_SKIP_NAV_GROUND_CHECK );
+	SetMoveType( MOVETYPE_FLY );
+#endif
+
 
 	m_flFieldOfView = 0.2; //VIEW_FIELD_FULL
 	SetViewOffset( Vector( 0, 0, 80 ) );		// Position of the eyes relative to NPC's origin.
@@ -514,6 +538,24 @@ void CNPC_Advisor::OnRestore()
 	StartLevitatingObjects();
 }
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: Parameters for scene event AI_GameText
+//-----------------------------------------------------------------------------
+bool CNPC_Advisor::GetGameTextSpeechParams( hudtextparms_t &params )
+{
+	params.channel = 3;
+	params.x = -1;
+	params.y = 0.6;
+	params.effect = 0;
+
+	params.r1 = 136;
+	params.g1 = 180;
+	params.b1 = 185;
+
+	return true;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //  Returns this monster's classification in the relationship table.
@@ -1038,12 +1080,18 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 		case TASK_ADVISOR_PIN_PLAYER:
 		{
 			
+#ifdef EZ2
+			CBaseEntity * pEnemy = AI_GetSinglePlayer();
+#else
+			CBaseEntity * pEnemy = GetEnemy();
+#endif
+
 			// bail out if the pin entity went away.
 			CBaseEntity *pPinEnt = m_hPlayerPinPos;
 			if (!pPinEnt)
 			{
-				GetEnemy()->SetGravity(1.0f);
-				GetEnemy()->SetMoveType( MOVETYPE_WALK );
+				pEnemy->SetGravity(1.0f);
+				pEnemy->SetMoveType( MOVETYPE_WALK );
 				Write_BeamOff(GetEnemy());
 				beamonce = 1;
 				TaskComplete();
@@ -1053,8 +1101,8 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 			// failsafe: don't do this for more than ten seconds.
 			if ( gpGlobals->curtime > m_playerPinFailsafeTime )
 			{
-				GetEnemy()->SetGravity(1.0f);
-				GetEnemy()->SetMoveType( MOVETYPE_WALK );
+				pEnemy->SetGravity(1.0f);
+				pEnemy->SetMoveType( MOVETYPE_WALK );
 				Write_BeamOff(GetEnemy());
 				beamonce = 1;
 				Warning( "Advisor did not leave PIN PLAYER mode. Aborting due to ten second failsafe!\n" );
@@ -1062,6 +1110,7 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 				break;
 			}
 
+#ifndef EZ2
 			// if the player isn't the enemy, bail out.
 			if ( !GetEnemy()->IsPlayer() )
 			{
@@ -1072,7 +1121,8 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 				TaskFail( "Player is not the enemy?!" );
 				break;
 			}
-			
+#endif
+
 			//FUgly, yet I can't think right now a quicker solution to only make one beam on this loop case
 			if (beamonce == 1)
 			{
@@ -1080,12 +1130,12 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 				beamonce++;
 			}
 			
-			GetEnemy()->SetMoveType( MOVETYPE_NONE ); //MOVETYPE_FLY
-			GetEnemy()->SetGravity(0);
+			pEnemy->SetMoveType( MOVETYPE_NONE ); //MOVETYPE_FLY
+			pEnemy->SetGravity( 0 );
 
 			// use exponential falloff to peg the player to the pin point
 			const Vector &desiredPos = pPinEnt->GetAbsOrigin();
-			const Vector &playerPos = GetEnemy()->GetAbsOrigin();
+			const Vector &playerPos = pEnemy->GetAbsOrigin();
 
 			Vector displacement = desiredPos - playerPos;
 
@@ -1093,7 +1143,7 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 
 			Vector nuPos = playerPos + (displacement * (1.0f - desiredDisplacementLen));
 
-			GetEnemy()->SetAbsOrigin( nuPos );
+			pEnemy->SetAbsOrigin( nuPos );
 
 			break;
 			
@@ -1112,6 +1162,7 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 void CNPC_Advisor::Event_Killed(const CTakeDamageInfo &info)
 {
 	m_OnDeath.FireOutput(info.GetAttacker(), this);
+#ifndef EZ2
 	if (info.GetAttacker())
 	{
 		info.GetAttacker()->SetGravity(1.0f);
@@ -1119,14 +1170,47 @@ void CNPC_Advisor::Event_Killed(const CTakeDamageInfo &info)
 		Write_BeamOff(info.GetAttacker());
 		beamonce = 1;
 	}
+#else
+	CBasePlayer *pLocalPlayer = AI_GetSinglePlayer();
+	if ( pLocalPlayer )
+	{
+		pLocalPlayer->SetGravity( 1.0f );
+		pLocalPlayer->SetMoveType( MOVETYPE_WALK );
+		Write_BeamOff( pLocalPlayer );
+		beamonce = 1;
+	}
+#endif
+
 	BaseClass::Event_Killed(info);
 }
+
+#ifdef EZ2
+int CNPC_Advisor::TranslateSchedule( int scheduleType )
+{
+	switch (scheduleType)
+	{
+
+	case SCHED_IDLE_STAND:
+	{
+		return SCHED_ADVISOR_IDLE_STAND;
+		break;
+	}
+	}
+
+	return BaseClass::TranslateSchedule( scheduleType );
+}
+#endif
+
 
 #endif
 
 // helper function for testing whether or not an avisor is allowed to grab an object
 static bool AdvisorCanPickObject(CBasePlayer *pPlayer, CBaseEntity *pEnt)
 {
+#ifdef EZ2
+	if (pPlayer != NULL)
+	{
+#endif
 	Assert( pPlayer != NULL );
 
 	// Is the player carrying something?
@@ -1141,6 +1225,9 @@ static bool AdvisorCanPickObject(CBasePlayer *pPlayer, CBaseEntity *pEnt)
 	{
 		return false;
 	}
+#ifdef EZ2
+	}
+#endif
 
 	if ( pEnt->GetCollisionGroup() == COLLISION_GROUP_DEBRIS )
 	{
@@ -1162,9 +1249,11 @@ static bool AdvisorCanPickObject(CBasePlayer *pPlayer, CBaseEntity *pEnt)
 CBaseEntity *CNPC_Advisor::PickThrowable( bool bRequireInView )
 {
 	CBasePlayer *pPlayer = ToBasePlayer( GetEnemy() );
+#ifndef EZ2
 	Assert(pPlayer);
 	if (!pPlayer)
 		return NULL;
+#endif
 
 	const int numObjs = m_physicsObjects.Count(); ///< total number of physics objects in my system
 	if (numObjs < 1) 
@@ -1515,6 +1604,14 @@ void CNPC_Advisor::PullObjectToStaging( CBaseEntity *pEnt, const Vector &staging
 
 int	CNPC_Advisor::OnTakeDamage( const CTakeDamageInfo &info )
 {
+#ifdef EZ2
+	// I AM BULLETPROOF
+	if ( m_bShieldOn )
+	{
+		return 0;
+	}
+#endif
+
 	// Clip our max 
 	CTakeDamageInfo newInfo = info;
 	if ( newInfo.GetDamage() > 20.0f )
@@ -1566,8 +1663,10 @@ int CNPC_Advisor::MeleeAttack1Conditions(float flDot, float flDist)
 //-----------------------------------------------------------------------------
 int CNPC_Advisor::SelectSchedule()
 {
+#ifndef EZ2
     if ( IsInAScript() )
         return SCHED_ADVISOR_IDLE_STAND;
+#endif
 
 	// Kick attack?
 	if (HasCondition(COND_CAN_MELEE_ATTACK1))
@@ -1575,26 +1674,38 @@ int CNPC_Advisor::SelectSchedule()
 		return SCHED_MELEE_ATTACK1;
 	}
 
+#ifdef EZ2
+	if ( m_hPlayerPinPos.IsValid() )//false
+		return SCHED_ADVISOR_TOSS_PLAYER;
+#endif
+
 	switch ( m_NPCState )
 	{
+#ifndef EZ2
 		case NPC_STATE_IDLE:
 		case NPC_STATE_ALERT:
 		{
+
 			return SCHED_ADVISOR_IDLE_STAND;
 		} 
+#endif
 
 		case NPC_STATE_COMBAT:
 		{
 			if (GetEnemy() && GetEnemy()->IsAlive() && HasCondition(COND_HAVE_ENEMY_LOS))
 			{
+#ifndef EZ2
 				if (   m_hPlayerPinPos.IsValid()  )//false
 					return SCHED_ADVISOR_TOSS_PLAYER;
 				else
+#endif
 					return SCHED_ADVISOR_COMBAT;
 				
 			}
 			
+#ifndef EZ2
 			return SCHED_ADVISOR_IDLE_STAND;
+#endif
 		}
 	}
 
@@ -1687,6 +1798,13 @@ void CNPC_Advisor::Precache()
 {
 	BaseClass::Precache();
 	
+#ifdef EZ2
+	if ( GetModelName() == NULL_STRING )
+	{
+		SetModelName( AllocPooledString( "models/advisor_combat.mdl" ) );
+	}
+#endif
+		
 	PrecacheModel( STRING( GetModelName() ) );
 
 #if NPC_ADVISOR_HAS_BEHAVIOR
@@ -1914,6 +2032,16 @@ void CNPC_Advisor::InputWrenchImmediate( inputdata_t &inputdata )
 void CNPC_Advisor::Write_BeamOn(  CBaseEntity *pEnt )
 {
 	Assert( pEnt );
+
+	// Protect against null pointer exceptions
+	if ( pEnt == NULL )
+		return;
+
+#ifdef EZ2
+	m_bShieldOn = true;
+	SetBloodColor( DONT_BLEED );
+#endif
+
 	EntityMessageBegin( this, true );
 		WRITE_BYTE( ADVISOR_MSG_START_BEAM );
 		WRITE_LONG( pEnt->entindex() );
@@ -1926,6 +2054,16 @@ void CNPC_Advisor::Write_BeamOn(  CBaseEntity *pEnt )
 void CNPC_Advisor::Write_BeamOff( CBaseEntity *pEnt )
 {
 	Assert( pEnt );
+
+	// Protect against null pointer exceptions
+	if ( pEnt == NULL )
+		return;
+
+#ifdef EZ2
+	m_bShieldOn = false;
+	SetBloodColor( BLOOD_COLOR_GREEN );
+#endif
+
 	EntityMessageBegin( this, true );
 		WRITE_BYTE( ADVISOR_MSG_STOP_BEAM );
 		WRITE_LONG( pEnt->entindex() );
@@ -1937,6 +2075,11 @@ void CNPC_Advisor::Write_BeamOff( CBaseEntity *pEnt )
 //-----------------------------------------------------------------------------
 void CNPC_Advisor::Write_AllBeamsOff( void )
 {
+#ifdef EZ2
+	m_bShieldOn = false;
+	SetBloodColor( BLOOD_COLOR_GREEN );
+#endif
+
 	EntityMessageBegin( this, true );
 		WRITE_BYTE( ADVISOR_MSG_STOP_ALL_BEAMS );
 	MessageEnd();

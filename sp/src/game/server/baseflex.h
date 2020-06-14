@@ -133,7 +133,7 @@ public:
 	virtual int			GetSpecialDSP( void ) { return 0; }
 
 #ifdef EZ2
-	virtual bool		GetGameTextSpeechParams( hudtextparms_t &params ) { return false; }
+	virtual bool		GetGameTextSpeechParams( hudtextparms_t &params );
 #endif
 
 protected:
