@@ -21,6 +21,9 @@ $Conditional MAPBASE	"1"
 
 // Toggles Mapbase's RPC implementation
 $Conditional MAPBASE_RPC	"1"
+
+// Toggles VScript implementation (note: interfaces still exist, just the provided implementation is not present)
+$Conditional MAPBASE_VSCRIPT	"1"
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -43,6 +46,7 @@ $Configuration "Debug"
 
 		// Mapbase base definitions
 		$PreprocessorDefinitions		"$BASE;MAPBASE"		[$MAPBASE]
+		$PreprocessorDefinitions		"$BASE;MAPBASE_VSCRIPT"		[$MAPBASE_VSCRIPT]
 	}
 }
 
@@ -61,5 +65,6 @@ $Configuration "Release"
 
 		// Mapbase base definitions
 		$PreprocessorDefinitions		"$BASE;MAPBASE"		[$MAPBASE]
+		$PreprocessorDefinitions		"$BASE;MAPBASE_VSCRIPT"		[$MAPBASE_VSCRIPT]
 	}
 }
