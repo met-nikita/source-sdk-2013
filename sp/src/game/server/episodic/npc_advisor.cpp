@@ -38,6 +38,10 @@
 #include "npcevent.h"
 #include "activitylist.h"
 
+#ifdef EZ2
+#include "npc_scanner.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -62,6 +66,9 @@ ConVar advisor_throw_stage_distance("advisor_throw_stage_distance","180.0",FCVAR
 // ConVar advisor_staging_num("advisor_staging_num","1",FCVAR_NONE,"Advisor will queue up this many objects to throw at Gordon.");
 ConVar advisor_throw_clearout_vel("advisor_throw_clearout_vel","200",FCVAR_NONE,"TEMP: velocity with which advisor clears things out of a throwable's way");
 // ConVar advisor_staging_duration("
+ConVar advisor_throw_min_mass( "advisor_throw_min_mass", "20" );
+ConVar advisor_throw_max_mass( "advisor_throw_max_mass", "220" );
+
 
 // how long it will take an object to get hauled to the staging point
 #define STAGING_OBJECT_FALLOFF_TIME 0.15f
@@ -147,7 +154,72 @@ BEGIN_SIMPLE_DATADESC( CAdvisorLevitate )
 	DEFINE_FIELD( m_Advisor, FIELD_EHANDLE ),
 END_DATADESC()
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+class CNPC_AdvisorFlyer : public CNPC_CScanner
+{
+	DECLARE_CLASS( CNPC_AdvisorFlyer, CNPC_CScanner );
+public:
+	void			Spawn( void );
 
+	virtual int	 OnTakeDamage( const CTakeDamageInfo &info ) { return 0.0f; };
+	
+	Disposition_t	IRelationType( CBaseEntity *pTarget );
+
+	bool	UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
+
+	// The Advisor flyer isn't a real enemy
+	bool		CanBeAnEnemyOf( CBaseEntity *pEnemy ) { return false; }
+	bool		CanBeSeenBy( CAI_BaseNPC *pNPC ) { return false; }
+
+	// Use the base class activation function
+	void		Activate() { BaseClass::Activate(); }
+
+};
+
+void CNPC_AdvisorFlyer::Spawn( void )
+{
+	BaseClass::Spawn();
+
+	AddEffects( EF_NODRAW );
+	SetHullType( HULL_LARGE_CENTERED );
+	SetHullSizeNormal();
+}
+
+Disposition_t CNPC_AdvisorFlyer::IRelationType( CBaseEntity * pTarget )
+{
+	if ( GetOwnerEntity() )
+	{
+		CAI_BaseNPC * pNPC = GetOwnerEntity()->MyNPCPointer();
+		if ( pNPC )
+		{
+			return pNPC->IRelationType( pTarget );
+		}
+	}
+
+	return BaseClass::IRelationType( pTarget );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Update information on my enemy
+// Input  :
+// Output : Returns true is new enemy, false is known enemy
+//-----------------------------------------------------------------------------
+bool CNPC_AdvisorFlyer::UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer )
+{
+	if (BaseClass::UpdateEnemyMemory( pEnemy, position, pInformer ))
+	{
+		if ( GetOwnerEntity() && GetOwnerEntity()->MyNPCPointer() )
+			GetOwnerEntity()->MyNPCPointer()->UpdateEnemyMemory( pEnemy, position, pInformer );
+		return true;
+	}
+
+	return false;
+}
+
+LINK_ENTITY_TO_CLASS( npc_advisor_flyer, CNPC_AdvisorFlyer );
+#endif
 
 //-----------------------------------------------------------------------------
 // The advisor class.
@@ -198,6 +270,12 @@ public:
 
 #ifdef EZ2
 	virtual int	TranslateSchedule( int scheduleType );
+
+	void StartFlying();
+	void StopFlying();
+	void FlyThink();
+
+	void UpdateAdvisorFacing();
 #endif
 
 #endif
@@ -237,6 +315,11 @@ public:
 	void InputElightOff( inputdata_t &inputdata );
 
 	void StopPinPlayer(inputdata_t &inputdata);
+
+#ifdef EZ2
+	void InputStartFlying( inputdata_t &inputdata );
+	void InputStopFlying( inputdata_t &inputdata );
+#endif
 
 	COutputEvent m_OnPickingThrowable, m_OnThrowWarn, m_OnThrow;
 
@@ -307,6 +390,8 @@ protected:
 	// The way the advisor's shield works is mostly clientside... awkward. I think in order to make the gameplay match up with the effect, it should not be saved.
 	// This will cause some problems saving and loading during an advisor's attack
 	bool m_bShieldOn; 
+	bool m_bAdvisorFlyer;
+	EHANDLE m_hAdvisorFlyer;
 #endif
 
 
@@ -348,7 +433,12 @@ BEGIN_DATADESC( CNPC_Advisor )
 #if NPC_ADVISOR_HAS_BEHAVIOR
 	DEFINE_KEYFIELD( m_iszStagingEntities, FIELD_STRING, "staging_ent_names"), ///< entities named this constitute the positions to which we stage objects to be thrown
 	DEFINE_KEYFIELD( m_iszPriorityEntityGroupName, FIELD_STRING, "priority_grab_name"),
-	
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_bAdvisorFlyer, FIELD_BOOLEAN, "AdvisorFlyer" ),
+
+	DEFINE_FIELD( m_hAdvisorFlyer, FIELD_EHANDLE ),
+#endif
+
 	DEFINE_UTLVECTOR( m_hvStagedEnts, FIELD_EHANDLE ),
 	DEFINE_UTLVECTOR( m_hvStagingPositions, FIELD_EHANDLE ),
 	DEFINE_ARRAY( m_haRecentlyThrownObjects, FIELD_EHANDLE, CNPC_Advisor::kMaxThrownObjectsTracked ),
@@ -382,6 +472,14 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_INPUTFUNC( FIELD_STRING,  "ElightOff",         InputElightOff ),
 
 	DEFINE_INPUTFUNC(FIELD_VOID, "StopPinPlayer", StopPinPlayer),
+
+#ifdef EZ2
+	DEFINE_INPUTFUNC( FIELD_VOID, "StartFlying", InputStartFlying ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "StopFlying", InputStopFlying ),
+
+
+	DEFINE_THINKFUNC( FlyThink )
+#endif
 
 #endif
 
@@ -423,15 +521,12 @@ void CNPC_Advisor::Spawn()
 #ifndef EZ2
 	SetMoveType( MOVETYPE_FLY );
 #else
-	AddFlag( FL_FLY );
-	SetNavType( NAV_FLY );
+	// Advisors cannot move unassisted
 	CapabilitiesRemove( bits_CAP_MOVE_GROUND );
-	CapabilitiesAdd( bits_CAP_MOVE_FLY | bits_CAP_SKIP_NAV_GROUND_CHECK );
-	SetMoveType( MOVETYPE_FLY );
+	SetMoveType( MOVETYPE_NONE );
 #endif
 
-
-	m_flFieldOfView = 0.2; //VIEW_FIELD_FULL
+	m_flFieldOfView = VIEW_FIELD_FULL;
 	SetViewOffset( Vector( 0, 0, 80 ) );		// Position of the eyes relative to NPC's origin.
 
 	SetBloodColor( BLOOD_COLOR_GREEN );
@@ -512,6 +607,13 @@ void CNPC_Advisor::Activate()
 	m_iStagingNum = 1;
 
 	AssertMsg(m_hvStagingPositions.Count() > 0, "You did not specify any staging positions in the advisor's staging_ent_names !");
+#endif
+
+#ifdef EZ2
+	if ( m_bAdvisorFlyer )
+	{
+		StartFlying();
+	}
 #endif
 }
 #pragma warning(pop)
@@ -714,7 +816,7 @@ void CNPC_Advisor::StartTask( const Task_t *pTask )
 				for ( touchlink_t *link = touchroot->nextLink; link != touchroot; link = link->nextLink )
 				{
 					CBaseEntity *pTouch = link->entityTouched;
-					if ( CanLevitateEntity( pTouch, 10, 220 ) )
+					if ( CanLevitateEntity( pTouch, advisor_throw_min_mass.GetInt(), advisor_throw_max_mass.GetInt() ) )
 					{
 						if ( pTouch->GetMoveType() == MOVETYPE_VPHYSICS )
 						{
@@ -859,8 +961,15 @@ void CNPC_Advisor::StartTask( const Task_t *pTask )
 //-----------------------------------------------------------------------------
 void CNPC_Advisor::RunTask( const Task_t *pTask )
 {
+#ifndef EZ2
 	//Needed for the npc face constantly at player
 	GetMotor()->SetIdealYawToTargetAndUpdate(GetEnemyLKP(), AI_KEEP_YAW_SPEED);
+#else
+	if ( !m_bAdvisorFlyer )
+	{
+		UpdateAdvisorFacing();
+	}
+#endif
 
 	switch ( pTask->iTask )
 	{
@@ -1179,6 +1288,8 @@ void CNPC_Advisor::Event_Killed(const CTakeDamageInfo &info)
 		Write_BeamOff( pLocalPlayer );
 		beamonce = 1;
 	}
+
+	StopFlying();
 #endif
 
 	BaseClass::Event_Killed(info);
@@ -1199,6 +1310,73 @@ int CNPC_Advisor::TranslateSchedule( int scheduleType )
 
 	return BaseClass::TranslateSchedule( scheduleType );
 }
+
+//-----------------------------------------------------------------------------
+// Create an advisor flyer and start the think function
+//-----------------------------------------------------------------------------
+void CNPC_Advisor::StartFlying()
+{
+	m_bAdvisorFlyer = true;
+	m_hAdvisorFlyer = CreateNoSpawn( "npc_advisor_flyer", GetAbsOrigin(), GetAbsAngles(), this );
+	m_hAdvisorFlyer->KeyValue( "SpotlightDisabled", "1" );
+	m_hAdvisorFlyer->Spawn();
+	m_hAdvisorFlyer->AcceptInput( "DisablePhotos", this, this, variant_t(), 0 );
+
+	SetContextThink( &CNPC_Advisor::FlyThink, gpGlobals->curtime + TICK_INTERVAL, "FlyThink" );
+}
+
+//-----------------------------------------------------------------------------
+// Destroy the advisor flyer and stop think function
+//-----------------------------------------------------------------------------
+void CNPC_Advisor::StopFlying()
+{
+	m_bAdvisorFlyer = false;
+	if ( m_hAdvisorFlyer )
+	{
+		m_hAdvisorFlyer->SUB_Remove();
+		m_hAdvisorFlyer = NULL;
+	}
+
+	SetContextThink( NULL, 0.0f, "FlyThink" );
+}
+
+void CNPC_Advisor::FlyThink()
+{
+	UpdateAdvisorFacing();
+
+	if ( m_hAdvisorFlyer )
+	{
+		Teleport( &m_hAdvisorFlyer->GetAbsOrigin(), &GetAbsAngles(), &GetAbsVelocity() );
+	}
+
+	SetContextThink( &CNPC_Advisor::FlyThink, gpGlobals->curtime + TICK_INTERVAL, "FlyThink" );
+}
+
+//-----------------------------------------------------------------------------
+// Face the target
+// In the original Episode 2 code, advisors would always face towards the player
+//-----------------------------------------------------------------------------
+void CNPC_Advisor::UpdateAdvisorFacing()
+{
+	switch ( GetState() )
+	{
+	case NPC_STATE_COMBAT:
+		GetMotor()->SetIdealYawToTargetAndUpdate( GetEnemyLKP(), AI_KEEP_YAW_SPEED );
+		break;
+	default:
+		if ( GetLooktarget() )
+		{
+			GetMotor()->SetIdealYawToTargetAndUpdate( GetLooktarget()->GetAbsOrigin(), AI_KEEP_YAW_SPEED );
+		}
+		else if ( HasCondition( COND_SEE_PLAYER ) )
+		{
+			CBasePlayer * pPlayer = AI_GetSinglePlayer();
+			GetMotor()->SetIdealYawToTargetAndUpdate( pPlayer->GetAbsOrigin(), AI_KEEP_YAW_SPEED );
+		}
+		break;
+	}
+}
+
 #endif
 
 
@@ -1803,6 +1981,8 @@ void CNPC_Advisor::Precache()
 	{
 		SetModelName( AllocPooledString( "models/advisor_combat.mdl" ) );
 	}
+
+	UTIL_PrecacheOther( "npc_advisor_flyer" );
 #endif
 		
 	PrecacheModel( STRING( GetModelName() ) );
@@ -1938,6 +2118,18 @@ void CNPC_Advisor::StopPinPlayer(inputdata_t &inputdata)
 {
 	m_hPlayerPinPos = NULL;
 }
+
+#ifdef EZ2
+void CNPC_Advisor::InputStartFlying( inputdata_t & inputdata )
+{
+	StartFlying();
+}
+
+void CNPC_Advisor::InputStopFlying( inputdata_t & inputdata )
+{
+	StopFlying();
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
