@@ -407,11 +407,15 @@ public:
 	CBaseCombatWeapon*	GetWeapon( int i ) const;
 	bool				RemoveWeapon( CBaseCombatWeapon *pWeapon );
 	virtual void		RemoveAllWeapons();
+	WeaponProficiency_t GetCurrentWeaponProficiency()
+	{
 #ifdef MAPBASE
-	WeaponProficiency_t GetCurrentWeaponProficiency();
+		// Mapbase adds proficiency override
+		return (m_ProficiencyOverride > WEAPON_PROFICIENCY_INVALID) ? m_ProficiencyOverride : m_CurrentWeaponProficiency;
 #else
-	WeaponProficiency_t GetCurrentWeaponProficiency() { return m_CurrentWeaponProficiency; }
+		return m_CurrentWeaponProficiency;
 #endif
+	}
 	void				SetCurrentWeaponProficiency( WeaponProficiency_t iProficiency ) { m_CurrentWeaponProficiency = iProficiency; }
 	virtual WeaponProficiency_t CalcWeaponProficiency( CBaseCombatWeapon *pWeapon );
 	virtual	Vector		GetAttackSpread( CBaseCombatWeapon *pWeapon, CBaseEntity *pTarget = NULL );
@@ -422,6 +426,7 @@ public:
 	HSCRIPT				GetScriptActiveWeapon();
 	HSCRIPT				GetScriptWeaponIndex( int i );
 	HSCRIPT				GetScriptWeaponByType( const char *pszWeapon, int iSubType = 0 );
+	void				GetScriptAllWeapons( HSCRIPT hTable );
 
 	void				ScriptEquipWeapon( HSCRIPT hWeapon );
 

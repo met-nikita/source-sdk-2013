@@ -2210,11 +2210,15 @@ BEGIN_ENT_SCRIPTDESC_ROOT( CBaseEntity, "Root class of all server-side entities"
 	DEFINE_SCRIPTFUNC_NAMED( ScriptTakeDamage, "TakeDamage", "Apply damage to this entity with a given info handle" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptFireBullets, "FireBullets", "Fire bullets from entity with a given info handle" )
 
+	DEFINE_SCRIPTFUNC( TakeHealth, "Give this entity health" )
+	DEFINE_SCRIPTFUNC( IsAlive, "Return true if this entity is alive" )
+
 	DEFINE_SCRIPTFUNC_NAMED( ScriptGetContext, "GetContext", "Get a response context value" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptAddContext, "AddContext", "Add a response context value" )
 
 	DEFINE_SCRIPTFUNC_NAMED( ScriptClassify, "Classify", "Get Class_T class ID" )
 
+	DEFINE_SCRIPTFUNC_NAMED( ScriptAddOutput, "AddOutput", "Add an output" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptGetKeyValue, "GetKeyValue", "Get a keyvalue" )
 
 	DEFINE_SCRIPTFUNC( GetSpawnFlags, "Get spawnflags" )
@@ -4258,17 +4262,8 @@ bool CBaseEntity::AcceptInput( const char *szInputName, CBaseEntity *pActivator,
 				{
 					// found a match
 
-					char szBuffer[256];
 					// mapper debug message
-					if (pCaller != NULL)
-					{
-						Q_snprintf( szBuffer, sizeof(szBuffer), "(%0.2f) input %s: %s.%s(%s)\n", gpGlobals->curtime, STRING(pCaller->m_iName.Get()), GetDebugName(), szInputName, Value.String() );
-					}
-					else
-					{
-						Q_snprintf( szBuffer, sizeof(szBuffer), "(%0.2f) input <NULL>: %s.%s(%s)\n", gpGlobals->curtime, GetDebugName(), szInputName, Value.String() );
-					}
-					DevMsg( 2, "%s", szBuffer );
+					DevMsg( 2, "(%0.2f) input %s: %s.%s(%s)\n", gpGlobals->curtime, pCaller ? STRING(pCaller->m_iName.Get()) : "<NULL>", GetDebugName(), szInputName, Value.String() );
 					ADD_DEBUG_HISTORY( HISTORY_ENTITY_IO, szBuffer );
 
 					if (m_debugOverlays & OVERLAY_MESSAGE_BIT)
@@ -9603,6 +9598,14 @@ const char *CBaseEntity::ScriptGetContext( const char *name )
 int CBaseEntity::ScriptClassify( void )
 {
 	return (int)Classify();
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+bool CBaseEntity::ScriptAddOutput( const char *pszOutputName, const char *pszTarget, const char *pszAction, const char *pszParameter, float flDelay, int iMaxTimes )
+{
+	const char *pszValue = UTIL_VarArgs("%s,%s,%s,%f,%i", pszTarget, pszAction, pszParameter, flDelay, iMaxTimes);
+	return KeyValue( pszOutputName, pszValue );
 }
 
 //-----------------------------------------------------------------------------

@@ -178,8 +178,8 @@ public:
 	void			Activate();
 
 	Class_T			Classify( void );
+	bool			IsElite() { return m_fIsElite; }
 #ifdef MAPBASE
-	bool			IsElite();
 	bool			IsAltFireCapable();
 	bool			IsGrenadeCapable();
 #ifdef EZ2
@@ -187,7 +187,6 @@ public:
 #endif
 	const char*		GetGrenadeAttachment() { return "lefthand"; }
 #else
-	bool			IsElite() { return m_fIsElite; }
 #endif
 #ifndef MAPBASE
 	void			DelayAltFireAttack( float flDelay );
@@ -292,7 +291,10 @@ public:
 	// Speaking
 	void			SpeakSentence( int sentType );
 #ifdef COMBINE_SOLDIER_USES_RESPONSE_SYSTEM
-	bool			SpeakIfAllowed( const char *concept, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD );
+	bool			SpeakIfAllowed( const char *concept, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD )
+	{
+		return SpeakIfAllowed( concept, NULL, sentencepriority, sentencecriteria );
+	}
 	bool			SpeakIfAllowed( const char *concept, const char *modifiers, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD );
 	bool			SpeakIfAllowed( const char *concept, AI_CriteriaSet& modifiers, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD );
 	void			ModifyOrAppendCriteria( AI_CriteriaSet& set );

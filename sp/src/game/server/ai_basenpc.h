@@ -1160,6 +1160,9 @@ public:
 	CBaseEntity *GetEnemyOccluder(void);
 
 	virtual void		StartTargetHandling( CBaseEntity *pTargetEnt );
+#ifdef MAPBASE
+	void				InputSetTarget( inputdata_t &inputdata );
+#endif
 
 	//---------------------------------
 	
