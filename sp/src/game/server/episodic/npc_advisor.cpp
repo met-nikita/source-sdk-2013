@@ -471,7 +471,7 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_OUTPUT( m_OnThrow, "OnThrow" ),
 	DEFINE_OUTPUT( m_OnHealthIsNow, "OnHealthIsNow" ),
 #ifdef EZ2
-	DEFINE_OUTPUT( m_OnMindBllast, "OnMindBlast" ),
+	DEFINE_OUTPUT( m_OnMindBlast, "OnMindBlast" ),
 #endif
 
 	DEFINE_INPUTFUNC( FIELD_FLOAT,   "SetThrowRate",    InputSetThrowRate ),
