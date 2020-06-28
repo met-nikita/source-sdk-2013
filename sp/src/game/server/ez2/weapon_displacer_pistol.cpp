@@ -435,6 +435,9 @@ bool CDisplacerPistol::Telefrag( CBaseEntity * pVictim, CBaseEntity * pInflictor
 		return true;
 	}
 
+	// TODO - Let's add an interaction for telefragging so that "boss" NPCs like advisors and clone cop
+	// can have special handling when you teleport something into them
+
 	DevMsg( "Telefragging %s\n", pVictim->GetDebugName() );
 
 	// TODO - Calculate damage based the mass of both objects
