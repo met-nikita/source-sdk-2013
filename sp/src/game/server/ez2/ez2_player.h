@@ -249,6 +249,9 @@ private:
 	float			m_flNextCommandHintTime;
 	float			m_flLastCommandHintTime;
 
+	float			m_flNextKickHintTime;
+	float			m_flLastKickHintTime;
+
 	// For speech purposes
 	Vector			m_vecLastCommandGoal;
 
