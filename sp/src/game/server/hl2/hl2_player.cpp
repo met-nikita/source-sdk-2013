@@ -4475,8 +4475,8 @@ void CHL2_Player::HandleKickAttack()
 	{
 		// Viewpunch
 		QAngle punchAng;
-		punchAng.x = random->RandomFloat( 4.0f, 5.0f );
-		punchAng.y = random->RandomFloat( -5.0f, -4.0f );
+		punchAng.x = random->RandomFloat( 2.0f, 3.0f );
+		punchAng.y = random->RandomFloat( -3.0f, -2.0f );
 		punchAng.z = 0.0f;
 		ViewPunch( punchAng );
 
@@ -4549,6 +4549,14 @@ void CHL2_Player::TraceKickAttack()
 		// Insert an AI sound so nearby enemies can hear the impact
 		int soundVolume = HL2GameRules()->IsBeastInStealthMode() ? 4096 : 384;
 		CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, soundVolume, 0.2f, this );
+
+		// Viewpunch again based on the view punch angles in ez2_c2_1 but milder
+		QAngle punchAng;
+		punchAng.x = random->RandomFloat( -5.0f, -4.0f );
+		punchAng.y = 0.0f;
+		punchAng.z = random->RandomFloat( 4.0f, 5.0f );
+
+		ViewPunch( punchAng );
 
 		EmitSound( "EZ2Player.KickHit" );
 	}
