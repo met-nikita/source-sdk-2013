@@ -56,6 +56,9 @@ BEGIN_DATADESC(CEZ2_Player)
 
 	DEFINE_FIELD(m_hSpeechTarget, FIELD_EHANDLE),
 
+	DEFINE_FIELD( m_flNextKickHintTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flLastKickHintTime, FIELD_TIME ),
+
 	// These don't need to be saved
 	//DEFINE_FIELD(m_iVisibleEnemies, FIELD_INTEGER),
 	//DEFINE_FIELD(m_iCloseEnemies, FIELD_INTEGER),
@@ -141,6 +144,34 @@ void CEZ2_Player::PostThink(void)
 							m_flLastCommandHintTime = gpGlobals->curtime;
 							break;
 						}
+					}
+				}
+
+				pSightEnt = GetNPCComponent()->GetSenses()->GetNextSeenEntity( &iter );
+			}
+		}
+	}
+	// Show a HUD hint for any nearby kickables
+	else if (m_flNextKickHintTime < gpGlobals->curtime)
+	{
+		// Set it ahead of time in case we don't find a kickable
+		m_flNextKickHintTime = gpGlobals->curtime + 2.0f;
+
+		if (GetNPCComponent())
+		{
+			AISightIter_t iter;
+			CBaseEntity *pSightEnt = GetNPCComponent()->GetSenses()->GetFirstSeenEntity( &iter );
+			while (pSightEnt)
+			{
+				// Look for an item crate
+				if (pSightEnt->ClassMatches( "item_item_crate" ))
+				{
+					if (GetAbsOrigin().DistToSqr( pSightEnt->GetAbsOrigin() ) <= Square( 192.0f ))
+					{
+						UTIL_HudHintText( this, "#EZ2_HudHint_KickCrate" );
+						m_flNextKickHintTime = gpGlobals->curtime + 50.0f;
+						m_flLastKickHintTime = gpGlobals->curtime;
+						break;
 					}
 				}
 

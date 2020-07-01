@@ -5327,6 +5327,12 @@ public:
 	virtual bool PassesDoorFilter(CBaseEntity *pEntity) { return !HasSpawnFlags(SF_DOOR_NONPCS); }
 #endif
 
+#ifdef EZ2
+	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+
+	COutputEvent m_OnKicked;
+#endif
+
 	DECLARE_DATADESC();
 
 private:
@@ -5389,6 +5395,11 @@ BEGIN_DATADESC(CPropDoorRotating)
 	//m_vecForwardBoundsMax
 	//m_vecBackBoundsMin
 	//m_vecBackBoundsMax
+
+#ifdef EZ2
+	DEFINE_OUTPUT( m_OnKicked, "OnKicked" ),
+#endif
+
 END_DATADESC()
 
 LINK_ENTITY_TO_CLASS(prop_door_rotating, CPropDoorRotating);
@@ -6148,6 +6159,27 @@ void CPropDoorRotating::InputSetSpeed(inputdata_t &inputdata)
 	AssertMsg1(inputdata.value.Float() > 0.0f, "InputSetSpeed on %s called with negative parameter!", GetDebugName() );
 	m_flSpeed = inputdata.value.Float();
 	DoorResume();
+}
+#endif
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose:  Uses the new CBaseEntity interaction implementation
+// Input  :  The type of interaction, extra info pointer, and who started it
+// Output :	 true  - if sub-class has a response for the interaction
+//			 false - if sub-class has no response
+//-----------------------------------------------------------------------------
+bool CPropDoorRotating::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
+{
+	if (interactionType == g_interactionBadCopKick)
+	{
+		// Fire an output
+		m_OnKicked.FireOutput( sourceEnt, this, 0.0f );
+
+		return true;
+	}
+
+	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
 #endif
 

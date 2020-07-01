@@ -39,6 +39,7 @@
 #include "activitylist.h"
 
 #ifdef EZ2
+#include "grenade_hopwire.h"
 #include "npc_scanner.h"
 #endif
 
@@ -173,6 +174,9 @@ public:
 	bool		CanBeAnEnemyOf( CBaseEntity *pEnemy ) { return false; }
 	bool		CanBeSeenBy( CAI_BaseNPC *pNPC ) { return false; }
 
+	// Never displace the flyer - the advisor should kill it if displaced
+	virtual bool	IsDisplacementImpossible() { return false; }
+
 	// Use the base class activation function
 	void		Activate() { BaseClass::Activate(); }
 
@@ -183,6 +187,7 @@ void CNPC_AdvisorFlyer::Spawn( void )
 	BaseClass::Spawn();
 
 	AddEffects( EF_NODRAW );
+	AddEffects( EF_NOSHADOW );
 	SetHullType( HULL_LARGE_CENTERED );
 	SetHullSizeNormal();
 }
@@ -276,6 +281,8 @@ public:
 	void FlyThink();
 
 	void UpdateAdvisorFacing();
+
+	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sourceEnt );
 #endif
 
 #endif
@@ -319,6 +326,8 @@ public:
 #ifdef EZ2
 	void InputStartFlying( inputdata_t &inputdata );
 	void InputStopFlying( inputdata_t &inputdata );
+
+	COutputEvent m_OnMindBlast;
 #endif
 
 	COutputEvent m_OnPickingThrowable, m_OnThrowWarn, m_OnThrow;
@@ -461,6 +470,9 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_OUTPUT( m_OnThrowWarn, "OnThrowWarn" ),
 	DEFINE_OUTPUT( m_OnThrow, "OnThrow" ),
 	DEFINE_OUTPUT( m_OnHealthIsNow, "OnHealthIsNow" ),
+#ifdef EZ2
+	DEFINE_OUTPUT( m_OnMindBlast, "OnMindBlast" ),
+#endif
 
 	DEFINE_INPUTFUNC( FIELD_FLOAT,   "SetThrowRate",    InputSetThrowRate ),
 	DEFINE_INPUTFUNC( FIELD_STRING,  "WrenchImmediate", InputWrenchImmediate ),
@@ -518,12 +530,10 @@ void CNPC_Advisor::Spawn()
 	SetSolid( SOLID_BBOX );
 	AddSolidFlags(FSOLID_NOT_STANDABLE); //FSOLID_NOT_SOLID
 
-#ifndef EZ2
 	SetMoveType( MOVETYPE_FLY );
-#else
+#ifdef EZ2
 	// Advisors cannot move unassisted
 	CapabilitiesRemove( bits_CAP_MOVE_GROUND );
-	SetMoveType( MOVETYPE_NONE );
 #endif
 
 	m_flFieldOfView = VIEW_FIELD_FULL;
@@ -1316,11 +1326,13 @@ int CNPC_Advisor::TranslateSchedule( int scheduleType )
 //-----------------------------------------------------------------------------
 void CNPC_Advisor::StartFlying()
 {
-	m_bAdvisorFlyer = true;
-	m_hAdvisorFlyer = CreateNoSpawn( "npc_advisor_flyer", GetAbsOrigin(), GetAbsAngles(), this );
-	m_hAdvisorFlyer->KeyValue( "SpotlightDisabled", "1" );
-	m_hAdvisorFlyer->Spawn();
-	m_hAdvisorFlyer->AcceptInput( "DisablePhotos", this, this, variant_t(), 0 );
+	if ( m_hAdvisorFlyer == NULL )
+	{
+		m_hAdvisorFlyer = CreateNoSpawn( "npc_advisor_flyer", GetAbsOrigin(), GetAbsAngles(), this );
+		m_hAdvisorFlyer->KeyValue( "SpotlightDisabled", "1" );
+		m_hAdvisorFlyer->Spawn();
+		m_hAdvisorFlyer->AcceptInput( "DisablePhotos", this, this, variant_t(), 0 );
+	}
 
 	SetContextThink( &CNPC_Advisor::FlyThink, gpGlobals->curtime + TICK_INTERVAL, "FlyThink" );
 }
@@ -1330,7 +1342,6 @@ void CNPC_Advisor::StartFlying()
 //-----------------------------------------------------------------------------
 void CNPC_Advisor::StopFlying()
 {
-	m_bAdvisorFlyer = false;
 	if ( m_hAdvisorFlyer )
 	{
 		m_hAdvisorFlyer->SUB_Remove();
@@ -1346,7 +1357,21 @@ void CNPC_Advisor::FlyThink()
 
 	if ( m_hAdvisorFlyer )
 	{
-		Teleport( &m_hAdvisorFlyer->GetAbsOrigin(), &GetAbsAngles(), &GetAbsVelocity() );
+		// Something went bad! The flyer is too far, let's teleport
+		if ( m_hAdvisorFlyer->GetAbsOrigin().DistTo( GetAbsOrigin() ) > 512.0f )
+		{
+			// Fire a mind blast effect to blind the player while we do something janky
+			m_OnMindBlast.FireOutput( this, this, 0.0f );
+
+			Teleport( &m_hAdvisorFlyer->GetAbsOrigin(), &GetAbsAngles(), &GetAbsVelocity() );
+		}
+		// Move towards the advisor flyer
+		else
+		{
+			// Gotta go fast!
+			float flAdvisorFlightSpeed = 128.0f;
+			SetAbsVelocity( ( m_hAdvisorFlyer->GetAbsOrigin() - GetAbsOrigin() ) * flAdvisorFlightSpeed );
+		}
 	}
 
 	SetContextThink( &CNPC_Advisor::FlyThink, gpGlobals->curtime + TICK_INTERVAL, "FlyThink" );
@@ -1377,6 +1402,98 @@ void CNPC_Advisor::UpdateAdvisorFacing()
 	}
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_Advisor::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sourceEnt )
+{
+	if ( interactionType == g_interactionXenGrenadeConsume )
+	{
+		DevMsg( "Advisor %s has been displaced by the Xen grenade or displacer pistol!\n", GetDebugName() );
+		// "Don't be sucked up" case, which is default
+
+		// Invoke effects similar to that of being lifted by a barnacle.
+		AddEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
+		AddSolidFlags( FSOLID_NOT_SOLID );
+		AddEffects( EF_NODRAW );
+		KillSprites( 0.0f );
+		SetSleepState( AISS_IGNORE_INPUT );
+		Sleep();
+
+		Write_AllBeamsOff();
+
+		IPhysicsObject *pPhys = VPhysicsGetObject();
+		if (pPhys)
+		{
+			pPhys->EnableMotion( false );
+		}
+
+		if ( m_bAdvisorFlyer )
+		{
+			StopFlying();
+		}
+
+		SetAbsVelocity( vec3_origin );
+
+		// Make all children nodraw
+		CBaseEntity *pChild = FirstMoveChild();
+		while (pChild)
+		{
+			pChild->AddEffects( EF_NODRAW );
+			pChild = pChild->NextMovePeer();
+		}
+
+		SetNextThink( TICK_NEVER_THINK );
+
+		// Return true to indicate we shouldn't be sucked up 
+		return true;
+	}
+
+	if ( interactionType == g_interactionXenGrenadeRelease )
+	{
+		DevMsg( "Advisor %s has been released by the Xen grenade or displacer pistol!\n", GetDebugName() );
+		DisplacementInfo_t *info = static_cast<DisplacementInfo_t*>( data );
+		if ( !info )
+			return false;
+
+		Teleport( info->vecTargetPos, &info->pDisplacer->GetAbsAngles(), NULL );
+
+
+		Wake();
+		StartEye();
+		RemoveEFlags( EFL_IS_BEING_LIFTED_BY_BARNACLE );
+		RemoveSolidFlags( FSOLID_NOT_SOLID );
+		RemoveEffects( EF_NODRAW );
+
+		IPhysicsObject *pPhys = VPhysicsGetObject();
+		if (pPhys)
+		{
+			pPhys->EnableMotion( true );
+			pPhys->Wake();
+		}
+
+		// Make all children draw
+		CBaseEntity *pChild = FirstMoveChild();
+		while (pChild)
+		{
+			pChild->RemoveEffects( EF_NODRAW );
+			pChild = pChild->NextMovePeer();
+		}
+
+		if ( m_bAdvisorFlyer )
+		{
+			StartFlying();
+		}
+
+		SetNextThink( gpGlobals->curtime );
+
+		return true;
+	}
+
+	// TODO - Add an interaction for telefragging
+
+	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
+}
 #endif
 
 
@@ -1887,6 +2004,11 @@ int CNPC_Advisor::SelectSchedule()
 		}
 	}
 
+#ifdef EZ2
+	// Don't fall to ground!
+	ClearCondition( COND_FLOATING_OFF_GROUND );
+#endif
+
 	return BaseClass::SelectSchedule();
 }
 
@@ -2122,11 +2244,17 @@ void CNPC_Advisor::StopPinPlayer(inputdata_t &inputdata)
 #ifdef EZ2
 void CNPC_Advisor::InputStartFlying( inputdata_t & inputdata )
 {
+	// Make sure to persist the "Advisor Flying" key value if the advisor receives an input to start or stop flying
+	// This is important for displacement via the xen grenade or displacer pistol
+	m_bAdvisorFlyer = true;
 	StartFlying();
 }
 
 void CNPC_Advisor::InputStopFlying( inputdata_t & inputdata )
 {
+	// Make sure to persist the "Advisor Flying" key value if the advisor receives an input to start or stop flying
+	// This is important for displacement via the xen grenade or displacer pistol
+	m_bAdvisorFlyer = false;
 	StopFlying();
 }
 #endif

@@ -50,6 +50,12 @@ public:
 	bool OverridePropdata( void ) { return true; }
 #endif
 
+#ifdef EZ2
+	// Item crates crates must be alive to be visible like remarkables
+	// I hope this doesn't cause any side effects - 1upD
+	bool IsAlive() { return true; } // Required for NPCs to see this entity
+#endif
+
 protected:
 	virtual void OnBreak( const Vector &vecVelocity, const AngularImpulse &angVel, CBaseEntity *pBreaker );
 
@@ -174,6 +180,12 @@ void CItem_ItemCrate::Spawn( void )
 	SetModel( pszItemCrateModelName[m_CrateAppearance] );
 #endif
 	AddEFlags( EFL_NO_ROTORWASH_PUSH );
+
+#ifdef EZ2
+	// Necessary to make item crates visible like remarkables
+	AddFlag( FL_OBJECT );
+#endif
+
 	BaseClass::Spawn( );
 }
 
