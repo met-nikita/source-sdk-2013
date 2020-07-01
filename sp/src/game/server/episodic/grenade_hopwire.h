@@ -97,7 +97,7 @@ private:
 #ifdef EZ2
 							// If this points to an entity, the Xen grenade will always call g_interactionXenGrenadeRelease on it instead of spawning Xen life.
 							// This is so Will-E pops back out of Xen grenades.
-	CHandle<CBaseCombatCharacter>	m_hReleaseEntity;
+	EHANDLE	m_hReleaseEntity;
 
 	CHandle<CBaseCombatCharacter>	m_hThrower;
 
@@ -105,6 +105,10 @@ private:
 	CUtlMap<string_t, float, short> m_ModelMass;
 	CUtlMap<string_t, float, short> m_ClassMass;
 	CUtlMap<Vector, int, short> m_HullMap;
+
+	// PVS for PullThink()
+	byte		m_PVS[ MAX_MAP_CLUSTERS/8 ];
+	bool		m_bPVSCreated;
 
 public:
 	CUtlMap<string_t, string_t> m_SpawnList;
@@ -161,6 +165,6 @@ protected:
 #endif
 };
 
-extern CBaseGrenade *HopWire_Create( const Vector &position, const QAngle &angles, const Vector &velocity, const AngularImpulse &angVelocity, CBaseEntity *pOwner, float timer, const char * modelClosed, const char * modelOpen );
+CBaseGrenade *HopWire_Create( const Vector &position, const QAngle &angles, const Vector &velocity, const AngularImpulse &angVelocity, CBaseEntity *pOwner, float timer, const char * modelClosed = NULL, const char * modelOpen = NULL );
 
 #endif // GRENADE_HOPWIRE_H

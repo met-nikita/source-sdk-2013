@@ -15,6 +15,12 @@ C_AI_TurretBase::C_AI_TurretBase()
 
 C_AI_TurretBase::~C_AI_TurretBase()
 {
+	if ( m_EyeLight )
+	{
+		// Turned off the flashlight; delete it.
+		delete m_EyeLight;
+		m_EyeLight = NULL;
+	}
 }
 
 static const float g_flTurretLightMaxFar = 500.0f;
@@ -173,6 +179,11 @@ C_NPC_Arbeit_FloorTurret::C_NPC_Arbeit_FloorTurret()
 
 C_NPC_Arbeit_FloorTurret::~C_NPC_Arbeit_FloorTurret()
 {
+	if (m_pLaser)
+	{
+		m_pLaser->Remove();
+		m_pLaser = NULL;
+	}
 }
 
 void C_NPC_Arbeit_FloorTurret::Simulate( void )

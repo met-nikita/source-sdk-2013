@@ -23,6 +23,7 @@
 #include "fmtstr.h"
 #include "mapbase\info_remarkable.h"
 #include "combine_mine.h"
+#include "weapon_physcannon.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -275,6 +276,22 @@ bool CEZ2_Player::HandleInteraction( int interactionType, void *data, CBaseComba
 			ModifyOrAppendEnemyCriteria(modifiers, sourceEnt);
 
 		SpeakIfAllowed(TLK_SCANNER_FLASH, modifiers);
+
+		return true;
+	}
+	else if ( interactionType == g_interactionXenGrenadeHop )
+	{
+		// Drop the Xen grenade if we're holding it
+		CBaseEntity *pGrenade = (CBaseEntity*)data;
+		if (pGrenade)
+		{
+			CBaseEntity *pHeldEntity = GetPlayerHeldEntity(this);
+			if ( pHeldEntity )
+			{
+				if (pHeldEntity == pGrenade)
+					ClearUseEntity();
+			}
+		}
 
 		return true;
 	}
