@@ -600,7 +600,8 @@ void CNPC_Wilson::NPCThink()
 		{
 			// TODO: NPC knock-over interaction handling?
 
-			if (m_bTipped)
+			// Only un-tip if we're not in low gravity
+			if (m_bTipped && !InLowGravity())
 			{
 				// Enable the tip controller
 				m_pMotionController->Enable( true );
