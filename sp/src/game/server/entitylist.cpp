@@ -24,6 +24,9 @@
 #include "hl2_player.h"
 #endif
 #endif // HL2_DLL
+#ifdef EZ2
+#include "ez2/npc_wilson.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -599,6 +602,40 @@ CBaseEntity *CGlobalEntityList::FindEntityProcedural( const char *szName, CBaseE
 			}
 #endif
 		}
+#ifdef EZ2
+		else if ( strnicmp( pName, "wilson", 6 ) == 0 )
+		{
+			CBaseEntity *pSearchFrom = pSearchingEntity;
+			float flBestDistSqr = FLT_MAX;
+			if ( *(pName + 6) == '_' )
+			{
+				CUtlStringList outStrings;
+				V_SplitString( pName + 7, "_", outStrings );
+				FOR_EACH_VEC( outStrings, i )
+				{
+					switch (i)
+					{
+						// Distance to searching entity
+						case 0:
+						{
+							flBestDistSqr = atof( outStrings[i] );
+							flBestDistSqr *= flBestDistSqr;
+							break;
+						}
+
+						// Entity to search from
+						case 1:
+						{
+							pSearchFrom = FindEntityProcedural( outStrings[i], pSearchingEntity, pActivator, pCaller );
+							break;
+						}
+					}
+				}
+			}
+
+			return CNPC_Wilson::GetBestWilson( flBestDistSqr, pSearchFrom ? &pSearchFrom->GetAbsOrigin() : NULL );
+		}
+#endif
 		else if (strchr(pName, ':'))
 		{
 			char name[128];

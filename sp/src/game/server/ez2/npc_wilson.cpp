@@ -48,6 +48,35 @@ CNPC_Wilson *CNPC_Wilson::GetWilson( void )
 	return g_WillieList.m_pClassList;
 }
 
+CNPC_Wilson *CNPC_Wilson::GetBestWilson( float &flBestDistSqr, const Vector *vecOrigin )
+{
+	CNPC_Wilson *pBestWilson = NULL;
+
+	CNPC_Wilson *pWilson = CNPC_Wilson::GetWilson();
+	for (; pWilson; pWilson = pWilson->m_pNext)
+	{
+		if (!pWilson->HasCondition(COND_IN_PVS))
+			continue;
+
+		if (vecOrigin)
+		{
+			float flDistSqr = (pWilson->GetAbsOrigin() - *vecOrigin).LengthSqr();
+			if ( flDistSqr < flBestDistSqr )
+			{
+				pBestWilson = pWilson;
+				flBestDistSqr = flDistSqr;
+			}
+		}
+		else
+		{
+			// No entity to search from
+			return pWilson;
+		}
+	}
+
+	return pBestWilson;
+}
+
 ConVar npc_wilson_depressing_death("npc_wilson_depressing_death", "0", FCVAR_NONE, "Makes Will-E shut down and die into an empty husk rather than explode.");
 
 static const char *g_DamageZapContext = "DamageZapEffect";

@@ -521,9 +521,11 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 	ResetPlayerCriteria();
 
 	// Look for Will-E.
-	if (CNPC_Wilson *pWilson = CNPC_Wilson::GetWilson())
+	float flBestDistSqr = FLT_MAX;
+	CNPC_Wilson *pWilson = CNPC_Wilson::GetBestWilson( flBestDistSqr, &GetAbsOrigin() );
+	if (pWilson)
 	{
-		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<32>( "%f.3", (pWilson->GetAbsOrigin() - GetAbsOrigin()).Length() ));
+		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<32>( "%f.3", sqrt(flBestDistSqr) ));
 	}
 	else
 	{
@@ -889,8 +891,12 @@ bool CEZ2_Player::SelectSpeechResponse( AIConcept_t concept, AI_CriteriaSet *mod
 void CEZ2_Player::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response )
 {
 	CBaseEntity *pTarget = GetSpeechTarget();
-	if (!pTarget || !pTarget->IsAlive())
-		pTarget = CNPC_Wilson::GetWilson();
+	if (!pTarget || !pTarget->IsAlive() || !pTarget->IsCombatCharacter())
+	{
+		// Find Wilson
+		float flDistSqr = Square( 4096.0f );
+		pTarget = CNPC_Wilson::GetBestWilson( flDistSqr, &GetAbsOrigin() );
+	}
 
 	if (pTarget)
 	{

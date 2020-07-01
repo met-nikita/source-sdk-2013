@@ -669,7 +669,8 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 #ifdef EZ2
 		if (CNPC_Wilson::GetWilson())
 		{
-			CNPC_Wilson *pWilson = CNPC_Wilson::GetWilson();
+			float flDist = 4096.0f;
+			CNPC_Wilson *pWilson = CNPC_Wilson::GetBestWilson( flDist, &GetAbsOrigin() );
 			CSound *pScent = GetBestScent();
 			if (pScent && pWilson->FInViewCone(this) && pWilson->FVisible(this))
 			{

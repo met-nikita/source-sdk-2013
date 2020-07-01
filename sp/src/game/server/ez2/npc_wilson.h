@@ -46,6 +46,7 @@ public:
 	~CNPC_Wilson();
 
 	static CNPC_Wilson *GetWilson( void );
+	static CNPC_Wilson *GetBestWilson( float &flBestDistSqr, const Vector *vecOrigin );
 	CNPC_Wilson *m_pNext;
 
 	void	Precache();

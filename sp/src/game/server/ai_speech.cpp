@@ -858,8 +858,11 @@ bool CAI_Expresser::Speak( AIConcept_t concept, const char *modifiers /*= NULL*/
 	}
 
 #ifdef EZ2
-	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
-	GetSink()->PostSpeakDispatchResponse( concept, result );
+	if ( spoke )
+	{
+		// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
+		GetSink()->PostSpeakDispatchResponse( concept, result );
+	}
 #endif
 	
 	return spoke;
