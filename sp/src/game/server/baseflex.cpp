@@ -800,29 +800,30 @@ bool CBaseFlex::StartSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CCh
 
 					if ( GetGameTextSpeechParams( textParams ) )
 					{
-						char message[192];
-						Q_strncpy( message, event->GetParameters2(), sizeof( message ) );
+						CRecipientFilter filter;
+						filter.AddAllPlayers();
+						filter.MakeReliable();
 
-						int len = Q_strlen( message );
-						int cur = 0;
-						for (int i = 0; i < len; i++)
-						{
-							cur++;
-
-							if (cur >= 32)
-							{
-								// Line break at the next space
-								if (message[i] == ' ')
-								{
-									message[i] = '\n';
-									cur = 0;
-								}
-							}
-
-							i++;
-						}
-
-						UTIL_HudMessageAll( textParams, message );
+						UserMessageBegin( filter, "HudMsg" );
+							WRITE_BYTE ( textParams.channel & 0xFF );
+							WRITE_FLOAT( textParams.x );
+							WRITE_FLOAT( textParams.y );
+							WRITE_BYTE ( textParams.r1 );
+							WRITE_BYTE ( textParams.g1 );
+							WRITE_BYTE ( textParams.b1 );
+							WRITE_BYTE ( textParams.a1 );
+							WRITE_BYTE ( textParams.r2 );
+							WRITE_BYTE ( textParams.g2 );
+							WRITE_BYTE ( textParams.b2 );
+							WRITE_BYTE ( textParams.a2 );
+							WRITE_BYTE ( textParams.effect );
+							WRITE_FLOAT( textParams.fadeinTime );
+							WRITE_FLOAT( textParams.fadeoutTime );
+							WRITE_FLOAT( textParams.holdTime );
+							WRITE_FLOAT( textParams.fxTime );
+							WRITE_STRING( event->GetParameters2() );
+							WRITE_BYTE ( Q_strlen( event->GetParameters2() ) );
+						MessageEnd();
 					}
 					return true;
 				}
