@@ -2202,12 +2202,14 @@ int CNPC_Citizen::TranslateSuppressingFireSchedule(int scheduleType)
 		return scheduleType;
 	}
 
+#ifdef EZ1
 	if(m_flLastAttackTime == 0)
 	{
 		if (ai_debug_rebel_suppressing_fire.GetBool())
 			DevMsg("NPC_Citizen::TranslateSuppressingFireSchedule: %s tried to suppress but hasn't shot at any enemies yet! \n", GetDebugName());
 		return scheduleType;
 	}
+#endif
 
 	m_vecDecoyObjectTarget = vec3_invalid;
 	if (FindDecoyObject() || FindEnemyCoverTarget()) {
@@ -2305,7 +2307,7 @@ bool CNPC_Citizen::FindDecoyObject(void)
 	for (i = 0; i < CITIZEN_NUM_DECOYS; i++)
 	{
 		CBaseEntity *pProspect;
-		trace_t		tr;
+		trace_t		tr, blockTr;
 
 		// // Pick one of the decoys at random.
 		pProspect = pDecoys[random->RandomInt(0, iIterator - 1)];
@@ -2336,11 +2338,20 @@ bool CNPC_Citizen::FindDecoyObject(void)
 				NDebugOverlay::Line( vecBulletOrigin, vecDecoyTarget, 0, 0, 255, false, 5.0f );
 			}
 
-			// Great! A shot will hit this object.
-			m_vecDecoyObjectTarget = tr.endpos;
-			SetAimTarget( pProspect );
+			// One more trace - let's make sure there's nothing immediately in front of the NPC to occlude this firing vector
+			AI_TraceLine( vecBulletOrigin, vecDecoyTarget, MASK_SHOT, this, COLLISION_GROUP_NONE, &blockTr );
+			if (ai_debug_rebel_suppressing_fire.GetBool() && blockTr.fraction < ai_suppression_distance_ratio.GetFloat())
+			{
+				DevMsg( "NPC_Citizen::FindDecoyObject: %s covering fire doesn't cover sufficent ratio at: %f\n", GetDebugName(), blockTr.fraction );
+			}
+			else
+			{
+				// Great! A shot will hit this object.
+				m_vecDecoyObjectTarget = tr.endpos;
+				SetAimTarget( pProspect );
 
-			return true;
+				return true;
+			}
 		}
 
 		if (ai_debug_rebel_suppressing_fire.GetBool())
