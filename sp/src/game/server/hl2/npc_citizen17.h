@@ -179,9 +179,14 @@ public:
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);
 	int				TranslateSuppressingFireSchedule(int scheduleType);
+	bool			FindDecoyObject(void);
+	bool			FindEnemyCoverTarget(void);
+	void			AimGun();
+
 	const char*		GetSquadSlotDebugName(int iSquadSlot); // Debug names for new squad slots
 
 	float			m_flLastWillpowerMsgTime;
+	Vector			m_vecDecoyObjectTarget;
 #endif
 	//---------------------------------
 	// Damage handling
@@ -317,7 +322,9 @@ private:
 #ifdef HL2_EPISODIC
 		TASK_CIT_HEAL_TOSS,
 #endif
-
+#ifdef EZ
+		TASK_CIT_PAINT_SUPPRESSION_TARGET
+#endif
 	};
 
 	//-----------------------------------------------------

@@ -102,6 +102,7 @@ ConVar ai_debug_rebel_suppressing_fire("ai_debug_rebel_suppressing_fire", "0"); 
 ConVar ai_min_suppression_distance("ai_min_suppression_distance", "256", FCVAR_REPLICATED); // 1upD - minimum distance from object for an NPC to use suppressing fire
 ConVar ai_suppression_distance_ratio("ai_suppression_distance_ratio", "0.5", FCVAR_REPLICATED); // 1upD - What percent of distance to suppression target must be covered
 ConVar ai_willpower_translate_schedules("ai_willpower_translate_schedules", "1", FCVAR_REPLICATED); // 1upD - Should new EZ2 schedules be used?
+ConVar ai_suppression_shoot_props( "ai_suppression_shoot_props", "1", FCVAR_REPLICATED ); // 1upD - Should rebels with suppressing fire shoot at props?
 #endif
 #define ShouldAutosquad() (npc_citizen_auto_player_squad.GetBool())
 
@@ -354,7 +355,8 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_KEYFIELD(	m_iszDenyCommandConcept,	FIELD_STRING, "denycommandconcept" ),
 #ifdef EZ
 	DEFINE_KEYFIELD(	m_iWillpowerModifier,		FIELD_INTEGER, "willpowermodifier"),
-	DEFINE_KEYFIELD(    m_bWillpowerDisabled, FIELD_BOOLEAN, "willpowerdisabled"),
+	DEFINE_KEYFIELD(    m_bWillpowerDisabled,		FIELD_BOOLEAN, "willpowerdisabled"),
+	DEFINE_FIELD(		m_vecDecoyObjectTarget,		FIELD_VECTOR),
 #endif
 	DEFINE_OUTPUT(		m_OnJoinedPlayerSquad,	"OnJoinedPlayerSquad" ),
 	DEFINE_OUTPUT(		m_OnLeftPlayerSquad,	"OnLeftPlayerSquad" ),
@@ -1834,38 +1836,220 @@ int CNPC_Citizen::TranslateSuppressingFireSchedule(int scheduleType)
 		return scheduleType;
 	}
 
+	m_vecDecoyObjectTarget = vec3_invalid;
+	if (FindDecoyObject() || FindEnemyCoverTarget()) {
+		if (ai_debug_rebel_suppressing_fire.GetBool())
+			DevMsg( "NPC_Citizen::TranslateSuppressingFireSchedule: %s is using suppressing fire! \n", GetDebugName() );
+		return SCHED_CITIZEN_RANGE_ATTACK1_SUPPRESS;
+	}
+
+	return scheduleType;
+}
+
+#define CITIZEN_DECOY_RADIUS 128.0f
+#define CITIZEN_NUM_DECOYS 10
+#define CITIZEN_DECOY_MAX_MASS 200.0f
+bool CNPC_Citizen::FindDecoyObject(void)
+{
+	if ( !ai_suppression_shoot_props.GetBool() )
+		return false;
+
+	if(ai_debug_rebel_suppressing_fire.GetBool())
+		DevMsg( "NPC_Citizen::FindDecoyObject: %s searching for decoy objects \n", GetDebugName() );
+	#define SEARCH_DEPTH 50
+
+	CBaseEntity *pDecoys[CITIZEN_NUM_DECOYS];
+	CBaseEntity *pList[SEARCH_DEPTH];
+	CBaseEntity	*pCurrent;
+	int			count;
+	int			i;
+	Vector vecTarget = GetEnemy()->WorldSpaceCenter();
+	Vector vecDelta;
+
+	for (i = 0; i < CITIZEN_NUM_DECOYS; i++)
+	{
+		pDecoys[i] = NULL;
+	}
+
+	vecDelta.x = CITIZEN_DECOY_RADIUS;
+	vecDelta.y = CITIZEN_DECOY_RADIUS;
+	vecDelta.z = CITIZEN_DECOY_RADIUS;
+
+	count = UTIL_EntitiesInBox(pList, SEARCH_DEPTH, vecTarget - vecDelta, vecTarget + vecDelta, 0);
+
+	// Now we have the list of entities near the target. 
+	// Dig through that list and build the list of decoys.
+	int iIterator = 0;
+
+	for (i = 0; i < count; i++)
+	{
+		pCurrent = pList[i];
+
+		if (FClassnameIs(pCurrent, "func_breakable") || FClassnameIs(pCurrent, "prop_physics") || FClassnameIs(pCurrent, "func_physbox"))
+		{
+			if (!pCurrent->VPhysicsGetObject())
+				continue;
+
+			if (pCurrent->VPhysicsGetObject()->GetMass() > CITIZEN_DECOY_MAX_MASS)
+			{
+				// Skip this very heavy object. Probably a car or dumpster.
+				continue;
+			}
+
+			if (pCurrent->VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD)
+			{
+				// Ah! If the player is holding something, try to shoot it!
+				if (FVisible(pCurrent))
+				{
+					if ( ai_debug_rebel_suppressing_fire.GetBool() )
+						DevMsg( "NPC_Citizen::FindDecoyObject: %s found player held object! \n", GetDebugName() );
+					m_vecDecoyObjectTarget = pCurrent->WorldSpaceCenter();
+					SetAimTarget( pCurrent );
+					return true;
+				}
+			}
+
+			pDecoys[iIterator] = pCurrent;
+			if (iIterator == CITIZEN_NUM_DECOYS - 1)
+			{
+				break;
+			}
+			else
+			{
+				iIterator++;
+			}
+		}
+	}
+
+	if (iIterator == 0)
+	{
+		if ( ai_debug_rebel_suppressing_fire.GetBool() )
+			DevMsg( "NPC_Citizen::FindDecoyObject: %s couldn't find any decoy targets. :( \n", GetDebugName() );
+		return false;
+	}
+
+	// If the trace goes off, that's the object!
+	for (i = 0; i < CITIZEN_NUM_DECOYS; i++)
+	{
+		CBaseEntity *pProspect;
+		trace_t		tr;
+
+		// // Pick one of the decoys at random.
+		pProspect = pDecoys[random->RandomInt(0, iIterator - 1)];
+		if (pProspect == NULL)
+		{
+			Msg( "Citizen %s tried to access null decoy target \n", GetDebugName() );
+			continue;
+		}
+
+
+		Vector vecDecoyTarget;
+		Vector vecBulletOrigin;
+
+		vecBulletOrigin = Weapon_ShootPosition();
+		pProspect->CollisionProp()->RandomPointInBounds(Vector(.1, .1, .1), Vector(.6, .6, .6), &vecDecoyTarget);
+
+		// Right now, tracing with MASK_BLOCKLOS and checking the fraction as well as the object the trace
+		// has hit makes it possible for the decoy behavior to shoot through glass. 
+		UTIL_TraceLine( vecBulletOrigin, vecDecoyTarget,
+			MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
+
+		if (tr.m_pEnt == pProspect || tr.fraction == 1.0)
+		{
+			if (ai_debug_rebel_suppressing_fire.GetBool())
+			{
+				DevMsg( "NPC_Citizen::FindDecoyObject: %s has LOS to decoy target %s\n", GetDebugName(), pProspect->GetDebugName() );
+				// Blue line - successful decoy trace
+				NDebugOverlay::Line( vecBulletOrigin, vecDecoyTarget, 0, 0, 255, false, 5.0f );
+			}
+
+			// Great! A shot will hit this object.
+			m_vecDecoyObjectTarget = tr.endpos;
+			SetAimTarget( pProspect );
+
+			return true;
+		}
+
+		if (ai_debug_rebel_suppressing_fire.GetBool())
+		{
+			DevMsg( "NPC_Citizen::FindDecoyObject: %s could not trace to decoy target %s\n", GetDebugName(), pProspect->GetDebugName() );
+			// Cyan line - failed decoy trace
+			NDebugOverlay::Line( vecBulletOrigin, vecDecoyTarget, 0, 255, 255, false, 5.0f );
+		}
+	}
+
+	if (ai_debug_rebel_suppressing_fire.GetBool())
+		DevMsg( "NPC_Citizen::FindDecoyObject: %s could not trace to any decoy target \n", GetDebugName() );
+	return false;
+}
+
+bool CNPC_Citizen::FindEnemyCoverTarget(void)
+{
+	if (m_vecDecoyObjectTarget != vec3_invalid)
+	{
+		if (ai_debug_rebel_suppressing_fire.GetBool())
+			DevMsg( "NPC_Citizen::FindEnemyCoverTarget: %s already selected decoy target \n", GetDebugName() );
+		return false;
+	}
+
 	trace_t tr;
-	Vector startpos = this->EyePosition();
-	Vector targetpos = pEnemy->EyePosition();
+	Vector startpos = this->Weapon_ShootPosition();
+	Vector targetpos = GetEnemy()->EyePosition();
 
 	float distance = UTIL_DistApprox(startpos, targetpos);
 	if (ai_debug_rebel_suppressing_fire.GetBool() && distance <= ai_min_suppression_distance.GetFloat())
 	{
-		DevMsg("NPC_Citizen::TranslateSuppressingFireSchedule: %s too close to target to use suppressing fire at range: %f\n", GetDebugName(), distance);
+		DevMsg("NPC_Citizen::FindEnemyCoverTarget: %s too close to target to use suppressing fire at range: %f\n", GetDebugName(), distance);
 	}
 
 	AI_TraceLine(startpos, targetpos, MASK_SHOT, this, COLLISION_GROUP_NONE, &tr);
-	if (ai_debug_rebel_suppressing_fire.GetBool())
-		NDebugOverlay::Line(startpos, targetpos, 255, 0, 0, false, 5.0f);
+	if ( ai_debug_rebel_suppressing_fire.GetBool() )
+	{
+		// Yellow line - successful enemy cover target trace
+		NDebugOverlay::Line( startpos, targetpos, 255, 255, 0, false, 5.0f );
+	}
 
 	float traceLength = abs(tr.fraction  * distance);
 	if (ai_debug_rebel_suppressing_fire.GetBool() && tr.fraction < ai_suppression_distance_ratio.GetFloat())
 	{
-		DevMsg("NPC_Citizen::TranslateSuppressingFireSchedule: %s covering fire doesn't cover sufficent ratio at: %f\n", GetDebugName(), tr.fraction);
+		DevMsg("NPC_Citizen::FindEnemyCoverTarget: %s covering fire doesn't cover sufficent ratio at: %f\n", GetDebugName(), tr.fraction);
 	}
 
 	if (traceLength > ai_min_suppression_distance.GetFloat() && tr.fraction >= ai_suppression_distance_ratio.GetFloat())
 	{
 		if (ai_debug_rebel_suppressing_fire.GetBool())
-			DevMsg(UTIL_VarArgs("NPC_Citizen::TranslateSuppressingFireSchedule: %s using suppressing fire at range: %f\n", GetDebugName(), traceLength));
-		
-		return SCHED_CITIZEN_RANGE_ATTACK1_SUPPRESS;
+			DevMsg(UTIL_VarArgs("NPC_Citizen::FindEnemyCoverTarget: %s found enemy cover target at range: %f\n", GetDebugName(), traceLength));
+		m_vecDecoyObjectTarget = targetpos;
+		m_vecDecoyObjectTarget.x += RandomInt( -16, 16 );
+		m_vecDecoyObjectTarget.y += RandomInt( -16, 16 );
+		m_vecDecoyObjectTarget.z += RandomInt( -32, 32 );
+		return true;
 	}
 	else if (ai_debug_rebel_suppressing_fire.GetBool()) {
-		DevMsg(UTIL_VarArgs("NPC_Citizen::TranslateSuppressingFireSchedule: %s failed to use suppressing fire at range: %f\n", GetDebugName(), traceLength));
+		DevMsg(UTIL_VarArgs("NPC_Citizen::FindEnemyCoverTarget: %s failed to use suppressing fire at range: %f\n", GetDebugName(), traceLength));
 	}
 
-	return scheduleType;
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::AimGun()
+{
+	Vector vecAimDir;
+	if (m_vecDecoyObjectTarget != vec3_invalid && FInAimCone( m_vecDecoyObjectTarget ))
+	{
+		float flDist;
+		flDist = (m_vecDecoyObjectTarget - GetAbsOrigin()).Length2DSqr();
+
+		// Aim at my target if it's in my cone
+		vecAimDir = m_vecDecoyObjectTarget - Weapon_ShootPosition();;
+		VectorNormalize( vecAimDir );
+		SetAim( vecAimDir );
+		return;
+	}
+
+	BaseClass::AimGun();
 }
 #endif
 
@@ -1972,7 +2156,11 @@ void CNPC_Citizen::StartTask( const Task_t *pTask )
 		}
 		TaskComplete();
 		break;
-
+#ifdef EZ
+	case TASK_CIT_PAINT_SUPPRESSION_TARGET:
+		// This task is handled once in RunTask
+		break;
+#endif
 	default:
 		BaseClass::StartTask( pTask );
 		break;
@@ -2167,7 +2355,44 @@ void CNPC_Citizen::RunTask( const Task_t *pTask )
 				pRPG->UpdateNPCLaserPosition( vecLaserPos );
 			}
 			break;
+#ifdef EZ
+		case TASK_CIT_PAINT_SUPPRESSION_TARGET:
+		{
+			// Wait for shot regulator to be ready
+			if ( !GetShotRegulator()->IsInRestInterval() )
+			{
+				CBaseEntity *pEnemy = GetEnemy();
+				if (!pEnemy)
+					TaskFail( FAIL_NO_TARGET );
 
+				CAI_BaseNPC *pTarget = CreateCustomTarget( m_vecDecoyObjectTarget, 2.0f );
+				AddEntityRelationship( pTarget, IRelationType( pEnemy ), IRelationPriority( pEnemy ) );
+
+				// Update or Create a memory entry for this target and make Alyx think she's seen this target recently.
+				// This prevents the baseclass from not recognizing this target and forcing Alyx into 
+				// SCHED_WAKE_ANGRY, which wastes time and causes her to change animation sequences rapidly.
+				GetEnemies()->UpdateMemory( GetNavigator()->GetNetwork(), pTarget, pTarget->GetAbsOrigin(), 0.0f, true );
+				AI_EnemyInfo_t *pMemory = GetEnemies()->Find( pTarget );
+
+				if (pMemory)
+				{
+					// Pretend we've known about this target longer than we really have.
+					pMemory->timeFirstSeen = gpGlobals->curtime - 10.0f;
+				}
+
+				SetEnemy( pTarget );
+
+				if (ai_debug_rebel_suppressing_fire.GetBool())
+				{
+					// Green line - actual suppressing fire
+					NDebugOverlay::Line( Weapon_ShootPosition(), m_vecDecoyObjectTarget, 0, 255, 0, false, 2.0f );
+				}
+
+				TaskComplete();
+				break;
+			}
+		}
+#endif
 		default:
 			BaseClass::RunTask( pTask );
 			break;
@@ -4279,6 +4504,9 @@ AI_BEGIN_CUSTOM_NPC( npc_citizen, CNPC_Citizen )
 #if HL2_EPISODIC
 	DECLARE_TASK( TASK_CIT_HEAL_TOSS )
 #endif
+#ifdef EZ
+	DECLARE_TASK( TASK_CIT_PAINT_SUPPRESSION_TARGET )
+#endif
 
 	DECLARE_ACTIVITY( ACT_CIT_HANDSUP )
 	DECLARE_ACTIVITY( ACT_CIT_BLINDED )
@@ -4497,14 +4725,13 @@ AI_BEGIN_CUSTOM_NPC( npc_citizen, CNPC_Citizen )
 		SCHED_CITIZEN_RANGE_ATTACK1_SUPPRESS,
 
 		"	Tasks"
-		"		TASK_STOP_MOVING		0"
-		"		TASK_FACE_ENEMY			0"
-		"		TASK_RANGE_ATTACK1		0"
+		"		TASK_STOP_MOVING					0"
+		"		TASK_CIT_PAINT_SUPPRESSION_TARGET	0"
+		"		TASK_FACE_ENEMY						0"
+		"		TASK_RANGE_ATTACK1					0"
 		""
 		"	Interrupts"
 		"		COND_NO_PRIMARY_AMMO"
-		"		COND_NEW_ENEMY"
-		"		COND_ENEMY_DEAD"
 		"		COND_LIGHT_DAMAGE"
 		"		COND_HEAVY_DAMAGE"
 		"		COND_HEAR_DANGER"
