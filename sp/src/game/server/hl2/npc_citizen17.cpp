@@ -1312,6 +1312,9 @@ bool CNPC_Citizen::GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * 
 		return false;
 	}
 
+	// Don't give any more backup weapons!
+	m_bUsedBackupWeapon = true;
+
 	// Is this weapon already a side arm?
 	if ( pWeapon != NULL && pWeapon->ClassMatches( "weapon_smg1" ) || pWeapon->ClassMatches( "weapon_smg2" ) || pWeapon->ClassMatches( "weapon_pistol" ) )
 	{
@@ -1321,8 +1324,6 @@ bool CNPC_Citizen::GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * 
 			CBaseCombatWeapon * pCrowbar = GiveWeaponHolstered( AllocPooledString( "weapon_crowbar" ) );
 			pCrowbar->AddSpawnFlags( SF_WEAPON_NO_PLAYER_PICKUP );
 			pCrowbar->SetName( AllocPooledString( "worthless" ) ); // Bad Cop will say the crowbar pickup line upon interacting with this
-
-			m_bUsedBackupWeapon = true; // Don't give any more backup weapons!
 
 			return true;
 		}
@@ -1335,9 +1336,6 @@ bool CNPC_Citizen::GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * 
 	{
 		return false;
 	}
-
-	// Don't give any more backup weapons!
-	m_bUsedBackupWeapon = true; 
 
 	// TODO - Pistols would be very nice.
 	GiveWeaponHolstered( AllocPooledString( m_Type == CT_BRUTE ? "weapon_smg2" : "weapon_smg1" ) );
@@ -2097,6 +2095,9 @@ int CNPC_Citizen::TranslateWillpowerSchedule(int scheduleType)
 
 		// Don't look for another weapon for 15 seconds!
 		m_flNextWeaponSearchTime = gpGlobals->curtime + 15.0;
+
+		// Never use a backup weapon after this!
+		m_bUsedBackupWeapon = true;
 
 		// Don't shoot!
 		SpeakIfAllowed( TLK_SURRENDER );
