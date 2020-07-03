@@ -862,6 +862,39 @@ void CHudMessage::MsgFunc_HudMsg(bf_read &msg)
 	// see tmessage.cpp why 512
 	msg.ReadString( (char*)pNetMessage->pMessage, 512 );
 
+#ifdef EZ2
+	// This is used for placeholder scene game_text to make sure it fits on the screen.
+	if (msg.GetNumBitsLeft() > 0)
+	{
+		char *message = (char*)pNetMessage->pMessage;
+		int len = msg.ReadByte();
+
+		// TODO: What causes text to be cut off for some users? It's not resolution
+		//int lineMax = 64 * ((float)ScreenWidth() / 1440.0f);
+		int lineMax = 64;
+
+		DevMsg( "Line max is %i from a width of %i (strlen %i)\n", lineMax, ScreenWidth(), len );
+
+		int cur = 0;
+		for (int i = 0; i < len; i++)
+		{
+			cur++;
+
+			if (cur >= lineMax)
+			{
+				// Line break at the next space
+				if (message[i] == ' ')
+				{
+					message[i] = '\n';
+					cur = 0;
+				}
+			}
+
+			//i++;
+		}
+	}
+#endif
+
 	MessageAdd( pNetMessage->pName );
 }
 

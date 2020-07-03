@@ -672,7 +672,30 @@ bool CAI_Expresser::SpeakDispatchResponse( AIConcept_t concept, AI_Response *res
 
 			if (GetOuter()->GetGameTextSpeechParams( textParams ))
 			{
-				UTIL_HudMessageAll( textParams, response );
+				CRecipientFilter filter;
+				filter.AddAllPlayers();
+				filter.MakeReliable();
+
+				UserMessageBegin( filter, "HudMsg" );
+					WRITE_BYTE ( textParams.channel & 0xFF );
+					WRITE_FLOAT( textParams.x );
+					WRITE_FLOAT( textParams.y );
+					WRITE_BYTE ( textParams.r1 );
+					WRITE_BYTE ( textParams.g1 );
+					WRITE_BYTE ( textParams.b1 );
+					WRITE_BYTE ( textParams.a1 );
+					WRITE_BYTE ( textParams.r2 );
+					WRITE_BYTE ( textParams.g2 );
+					WRITE_BYTE ( textParams.b2 );
+					WRITE_BYTE ( textParams.a2 );
+					WRITE_BYTE ( textParams.effect );
+					WRITE_FLOAT( textParams.fadeinTime );
+					WRITE_FLOAT( textParams.fadeoutTime );
+					WRITE_FLOAT( textParams.holdTime );
+					WRITE_FLOAT( textParams.fxTime );
+					WRITE_STRING( response );
+					WRITE_BYTE ( Q_strlen( response ) );
+				MessageEnd();
 			}
 			else
 #endif
@@ -858,8 +881,11 @@ bool CAI_Expresser::Speak( AIConcept_t concept, const char *modifiers /*= NULL*/
 	}
 
 #ifdef EZ2
-	// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
-	GetSink()->PostSpeakDispatchResponse( concept, result );
+	if ( spoke )
+	{
+		// Blixibon - Needed for BC's response system; predicted to have minimal effect on existing NPCs
+		GetSink()->PostSpeakDispatchResponse( concept, result );
+	}
 #endif
 	
 	return spoke;

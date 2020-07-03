@@ -452,7 +452,6 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 				Vector vecStart;
 				GetAttachment( "lefthand", vecStart );
 
-				static const char *szHopwireModel = "models/weapons/w_xengrenade.mdl";
 				if( m_NPCState == NPC_STATE_SCRIPT )
 				{
 					// Use a fixed velocity for grenades thrown in scripted state.
@@ -465,7 +464,7 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 					CBaseEntity *pGrenade = NULL;
 					if ( m_bThrowXenGrenades )
 					{
-						pGrenade = HopWire_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, szHopwireModel, szHopwireModel );
+						pGrenade = HopWire_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER );
 					}
 					else
 					{
@@ -480,7 +479,7 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 					CBaseEntity *pGrenade = NULL;
 					if ( m_bThrowXenGrenades )
 					{
-						pGrenade = HopWire_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, szHopwireModel, szHopwireModel );
+						pGrenade = HopWire_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER );
 					}
 					else
 					{

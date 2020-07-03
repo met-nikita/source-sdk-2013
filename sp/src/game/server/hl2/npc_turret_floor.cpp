@@ -1290,7 +1290,12 @@ void CNPC_FloorTurret::TippedThink( void )
 	SetEnemy( NULL );
 
 	// If we're not on side anymore, stop thrashing
+#ifdef EZ2
+	// (except in low gravity)
+	if ( !OnSide() && (!InLowGravity() || IsBeingCarriedByPlayer()) )
+#else
 	if ( !OnSide() )
+#endif
 	{
 		ReturnToLife();
 		return;
@@ -1376,6 +1381,10 @@ void CNPC_FloorTurret::TippedThink( void )
 			{
 				m_OnTipped.FireOutput( this, this );
 				SetEyeState( TURRET_EYE_DEAD );
+#ifdef EZ2
+				// Remain solid in low gravity
+				if (!InLowGravity())
+#endif
 				SetCollisionGroup( COLLISION_GROUP_DEBRIS_TRIGGER );
 
 				// Start thinking slowly to see if we're ever set upright somehow
@@ -1396,7 +1405,12 @@ void CNPC_FloorTurret::InactiveThink( void )
 	CheckPVSCondition();
 
 	// Wake up if we're not on our side
+#ifdef EZ2
+	// (and not in low gravity)
+	if ( !OnSide() && m_bEnabled && (!InLowGravity() || IsBeingCarriedByPlayer()) )
+#else
 	if ( !OnSide() && m_bEnabled )
+#endif
 	{
 		ReturnToLife();
 		return;
@@ -2253,6 +2267,11 @@ void CNPC_FloorTurret::InputSelfDestruct( inputdata_t &inputdata )
 	SetThink( &CNPC_FloorTurret::SelfDestructThink );
 	SetNextThink( gpGlobals->curtime + 0.1f );
 
+#ifdef EZ2
+	// Arbeit turrets look weird if they don't have arms out
+	SetActivity( (Activity)ACT_FLOOR_TURRET_OPEN_IDLE );
+#endif
+
 	// Create the dust effect in place
 	m_hFizzleEffect = (CParticleSystem *) CreateEntityByName( "info_particle_system" );
 	if ( m_hFizzleEffect != NULL )
@@ -2373,6 +2392,12 @@ IMotionEvent::simresult_e CTurretTipController::Simulate( IPhysicsMotionControll
 {
 	if ( Enabled() == false )
 		return SIM_NOTHING;
+
+#ifdef EZ2
+	// Don't do anything when there's low gravity
+	if (m_pTippable->InLowGravity())
+		return SIM_NOTHING;
+#endif
 
 	// Don't simulate if we're being carried by the player
 #ifdef EZ2
@@ -2592,7 +2617,7 @@ void CNPC_Arbeit_FloorTurret::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGu
 {
 	BaseClass::OnPhysGunPickup( pPhysGunUser, reason );
 
-	if (pPhysGunUser && IRelationType( pPhysGunUser ) <= D_FR)
+	if (pPhysGunUser && IRelationType( pPhysGunUser ) <= D_FR && IsAlive())
 	{
 		SpeakIfAllowed( TLK_PICKUP );
 	}
@@ -2668,7 +2693,10 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 				break;
 
 			case TURRET_AUTO_SEARCHING:
-				SpeakIfAllowed( TLK_AUTOSEARCH );
+				// Only autosearch if we have an enemy somewhere
+				AIEnemiesIter_t iter;
+				if ( GetEnemies()->GetFirst(&iter) != NULL && !IsBeingCarriedByPlayer() )
+					SpeakIfAllowed( TLK_AUTOSEARCH );
 				break;
 
 			case TURRET_ACTIVE:
@@ -2846,7 +2874,8 @@ void CNPC_Arbeit_FloorTurret::TippedThink( void )
 	SetEnemy( NULL );
 
 	// If we're not on side anymore, stop thrashing
-	if ( !OnSide() )
+	// (except in low gravity)
+	if ( !OnSide() && (!InLowGravity() || IsBeingCarriedByPlayer()) )
 	{
 		ReturnToLife();
 		return;
@@ -2934,6 +2963,10 @@ void CNPC_Arbeit_FloorTurret::TippedThink( void )
 			{
 				m_OnTipped.FireOutput( this, this );
 				SetEyeState( TURRET_EYE_DEAD );
+#ifdef EZ2
+				// Remain solid in low gravity
+				if (!InLowGravity())
+#endif
 				SetCollisionGroup( COLLISION_GROUP_DEBRIS_TRIGGER );
 
 				// Start thinking slowly to see if we're ever set upright somehow
@@ -2954,7 +2987,8 @@ void CNPC_Arbeit_FloorTurret::InactiveThink( void )
 	CheckPVSCondition();
 
 	// Wake up if we're not on our side
-	if ( !OnSide() && m_bEnabled )
+	// (and not in low gravity)
+	if ( !OnSide() && m_bEnabled && (!InLowGravity() || IsBeingCarriedByPlayer()) )
 	{
 		m_bLaser = m_bUseLaser;
 		ReturnToLife();

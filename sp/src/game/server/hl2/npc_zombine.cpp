@@ -32,6 +32,9 @@
 #include "basecombatweapon.h"
 #include "basegrenade_shared.h"
 #include "grenade_frag.h"
+#ifdef EZ2
+#include "grenade_hopwire.h"
+#endif
 
 #include "ai_interactions.h"
 
@@ -628,6 +631,15 @@ bool CNPC_Zombine::HandleInteraction( int interactionType, void *data, CBaseComb
 			DropGrenade( vec3_origin );
 		}
 	}
+#ifdef EZ2
+	else if ( interactionType == g_interactionXenGrenadeHop )
+	{
+		if ( HasGrenade() )
+		{
+			DropGrenade( vec3_origin );
+		}
+	}
+#endif
 
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
@@ -661,7 +673,20 @@ void CNPC_Zombine::HandleAnimEvent( animevent_t *pEvent )
 		QAngle angles;
 		GetAttachment( "grenade_attachment", vecStart, angles );
 
+#ifdef EZ2
+		CBaseGrenade *pGrenade = NULL;
+		if (m_tEzVariant == EZ_VARIANT_RAD)
+		{
+			// Glowbines pull Xen grenades. Yikes!
+			pGrenade = HopWire_Create( vecStart, vec3_angle, vec3_origin, AngularImpulse( 0, 0, 0 ), this, 3.5f );
+		}
+		else
+		{
+			pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vec3_origin, AngularImpulse( 0, 0, 0 ), this, 3.5f, true );
+		}
+#else
 		CBaseGrenade *pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vec3_origin, AngularImpulse( 0, 0, 0 ), this, 3.5f, true );
+#endif
 
 		if ( pGrenade )
 		{

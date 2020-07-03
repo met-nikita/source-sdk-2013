@@ -88,6 +88,7 @@ int	g_interactionXenGrenadePull			= 0;
 int	g_interactionXenGrenadeConsume		= 0;
 int	g_interactionXenGrenadeRelease		= 0;
 int g_interactionXenGrenadeCreate		= 0;
+int g_interactionXenGrenadeHop			= 0;
 #endif
 
 #ifdef EZ2
@@ -393,10 +394,10 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	else
 	{
 		DisplacementInfo_t dinfo( this, this, &GetAbsOrigin(), &GetAbsAngles() );
-		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetThrower() ))
+		if (pEnt->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetThrower() ))
 		{
 			// Do not remove
-			m_hReleaseEntity = pEnt->MyCombatCharacterPointer();
+			m_hReleaseEntity = pEnt;
 			return;
 		}
 		else
@@ -617,6 +618,13 @@ bool CGravityVortexController::KillNPCInRange( CBaseEntity *pVictim, IPhysicsObj
 		// Don't infinitely generate ragdolls of entities we can't kill
 		if ( !pVictim->PassesDamageFilter( info ) )
 		{
+			*pPhysObj = NULL;
+			return false;
+		}
+
+		if ( pVictim->DispatchInteraction( g_interactionXenGrenadePull, &info, GetThrower() ) )
+		{
+			// Pull the object in if there was no special handling
 			*pPhysObj = NULL;
 			return false;
 		}
@@ -1377,6 +1385,22 @@ void CGravityVortexController::PullThink( void )
 	if(hopwire_pull_player.GetBool())
 		PullPlayersInRange();
 
+#ifdef EZ2
+	// Draw debug information
+	if ( g_debug_hopwire.GetInt() >= 2 )
+	{
+		NDebugOverlay::Sphere( GetAbsOrigin(), m_flRadius, 0, 255, 0, 16, 4.0f );
+	}
+
+	CBaseEntity *pEnts[128];
+	int numEnts = UTIL_EntitiesInSphere( pEnts, 128, GetAbsOrigin(), m_flRadius, 0 );
+
+	if (!m_bPVSCreated)
+	{
+		// Create a PVS for this entity
+		engine->GetPVSForCluster( engine->GetClusterForOrigin( GetAbsOrigin() ), sizeof(m_PVS), m_PVS );
+	}
+#else
 	Vector mins, maxs;
 	mins = GetAbsOrigin() - Vector( m_flRadius, m_flRadius, m_flRadius );
 	maxs = GetAbsOrigin() + Vector( m_flRadius, m_flRadius, m_flRadius );
@@ -1393,6 +1417,7 @@ void CGravityVortexController::PullThink( void )
 
 	CBaseEntity *pEnts[128];
 	int numEnts = UTIL_EntitiesInBox( pEnts, 128, mins, maxs, 0 );
+#endif
 
 	for ( int i = 0; i < numEnts; i++ )
 	{
@@ -1414,6 +1439,10 @@ void CGravityVortexController::PullThink( void )
 
 		// Don't pull objects that are protected
 		if ( pEnts[i]->IsDisplacementImpossible() )
+			continue;
+
+		// We do a PVS check here to make sure the entity isn't on another floor or behind a thick wall.
+		if ( !engine->CheckOriginInPVS( pEnts[i]->WorldSpaceCenter(), m_PVS, sizeof( m_PVS ) ) )
 			continue;
 
 		Vector	vecForce = GetAbsOrigin() - pEnts[i]->WorldSpaceCenter();
@@ -1511,9 +1540,11 @@ void CGravityVortexController::PullThink( void )
 			continue;
 		}
 
+#ifndef EZ2 // Since this uses UTIL_EntitiesInSphere now, the distance radius check is no longer necessary.
 		// Must be within the radius
 		if ( dist > m_flRadius )
 			continue;
+#endif
 
 		// Find the pull force
 		vecForce *= ( 1.0f - ( dist2D / m_flRadius ) ) * m_flStrength * mass;
@@ -1729,10 +1760,12 @@ bool CGrenadeHopwire::CreateVPhysics()
 //-----------------------------------------------------------------------------
 void CGrenadeHopwire::Precache( void )
 {
+#ifndef EZ2
 	// FIXME: Replace
 	PrecacheScriptSound("NPC_Strider.Charge");
 	PrecacheScriptSound("NPC_Strider.Shoot");
 	//PrecacheSound("d3_citadel.weapon_zapper_beam_loop2");
+#endif
 
 	PrecacheModel( szWorldModelOpen );
 	PrecacheModel( szWorldModelClosed );
@@ -1763,6 +1796,7 @@ void CGrenadeHopwire::Precache( void )
 		g_interactionXenGrenadeConsume = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeRelease = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeCreate = CBaseCombatCharacter::GetInteractionID();
+		g_interactionXenGrenadeHop = CBaseCombatCharacter::GetInteractionID();
 	}
 #endif
 
@@ -1960,6 +1994,15 @@ void CGrenadeHopwire::EndThink( void )
 //-----------------------------------------------------------------------------
 void CGrenadeHopwire::CombatThink( void )
 {
+#ifdef EZ2
+	if ( VPhysicsGetObject() && VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
+	{
+		// Players must stop holding us here
+		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+		pPlayer->ForceDropOfCarriedPhysObjects( this );
+	}
+#endif
+
 	// Stop the grenade from moving
 	AddEFlags( EF_NODRAW );
 	AddFlag( FSOLID_NOT_SOLID );
@@ -1970,13 +2013,11 @@ void CGrenadeHopwire::CombatThink( void )
 #ifndef EZ2 // No special behavior for striders in EZ2 - wouldn't want to Xen Grenade our allies!
 	// Do special behaviors if there are any striders in the area
 	KillStriders();
-#endif
 
 	// FIXME: Replace
-#ifndef EZ2
 	EmitSound("NPC_Strider.Charge"); // Sound to emit during detonation
-#endif
 	//EmitSound("d3_citadel.weapon_zapper_beam_loop2");
+#endif
 
 	// Quick screen flash
 	CBasePlayer *pPlayer = ToBasePlayer( GetThrower() );
@@ -2033,10 +2074,10 @@ void CGrenadeHopwire::SetVelocity( const Vector &velocity, const AngularImpulse 
 void CGrenadeHopwire::Detonate( void )
 {
 #ifdef EZ2
-	if ( VPhysicsGetObject() && VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
+	if ( GetThrower() )
 	{
-		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
-		pPlayer->ForceDropOfCarriedPhysObjects( this );
+		// Tell the thrower we're hopping
+		GetThrower()->DispatchInteraction( g_interactionXenGrenadeHop, this, GetThrower() );
 	}
 
 	EmitSound("WeaponXenGrenade.Explode");
@@ -2167,6 +2208,13 @@ void CGrenadeHopwire::Detonate( void )
 //-----------------------------------------------------------------------------
 CBaseGrenade *HopWire_Create( const Vector &position, const QAngle &angles, const Vector &velocity, const AngularImpulse &angVelocity, CBaseEntity *pOwner, float timer, const char * modelClosed, const char * modelOpen)
 {
+	// Fall back to a default model if none specified
+	static const char *szHopwireModel = "models/weapons/w_xengrenade.mdl";
+	if (modelClosed == NULL)
+		modelClosed = szHopwireModel;
+	if (modelOpen == NULL)
+		modelOpen = szHopwireModel;
+
 	CGrenadeHopwire *pGrenade = (CGrenadeHopwire *) CBaseEntity::CreateNoSpawn( "npc_grenade_hopwire", position, angles, pOwner ); // Don't spawn the hopwire until models are set!
 	pGrenade->SetWorldModelClosed(modelClosed);
 	pGrenade->SetWorldModelOpen(modelOpen);

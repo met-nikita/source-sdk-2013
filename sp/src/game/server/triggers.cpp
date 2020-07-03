@@ -42,6 +42,10 @@
 #include "ai_hint.h"
 #endif
 
+#ifdef EZ2
+#include "npc_turret_floor.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -5093,6 +5097,19 @@ void CTriggerVPhysicsMotion::StartTouch( CBaseEntity *pOther )
 	{
 		CRagdollBoogie::IncrementSuppressionCount( pOther );
 	}
+
+#ifdef EZ2
+	// Consider <0.2 to be "low gravity"
+	if ( pOther->IsNPC() && m_gravityScale < 0.2f )
+	{
+		// Important for stopping turrets from being annoying and strange while under no gravity
+		ITippableTurret *pTippable = dynamic_cast<ITippableTurret*>(pOther);
+		if (pTippable)
+		{
+			pTippable->SetLowGravity( true );
+		}
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -5129,6 +5146,19 @@ void CTriggerVPhysicsMotion::EndTouch( CBaseEntity *pOther )
 	{
 		CRagdollBoogie::DecrementSuppressionCount( pOther );
 	}
+
+#ifdef EZ2
+	// Consider <0.2 to be "low gravity"
+	if ( pOther->IsNPC() && m_gravityScale < 0.2f )
+	{
+		// Important for stopping turrets from being annoying and strange while under no gravity
+		ITippableTurret *pTippable = dynamic_cast<ITippableTurret*>(pOther);
+		if (pTippable)
+		{
+			pTippable->SetLowGravity( false );
+		}
+	}
+#endif
 }
 
 

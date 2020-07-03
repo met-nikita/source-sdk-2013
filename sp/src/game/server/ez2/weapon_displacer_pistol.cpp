@@ -218,10 +218,10 @@ bool CDisplacerPistol::DispaceEntity( CBaseEntity * pEnt )
 		}
 
 		DisplacementInfo_t dinfo( this, this, &m_hTargetPosition->GetAbsOrigin(), &m_hTargetPosition->GetAbsAngles() );
-		if (pEnt->IsCombatCharacter() && pEnt->MyCombatCharacterPointer()->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetOwner() ))
+		if (pEnt->DispatchInteraction( g_interactionXenGrenadeConsume, &dinfo, GetOwner() ))
 		{
 			// Do not remove
-			m_hDisplacedEntity = pEnt->MyCombatCharacterPointer();
+			m_hDisplacedEntity = pEnt;
 			return true;
 		}
 

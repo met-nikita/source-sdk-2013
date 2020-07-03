@@ -56,7 +56,6 @@ class CSprite;
 #ifdef EZ2
 //-----------------------------------------------------------------------------
 // A new abstract class that allows us to use CTurretTipController on Wilson.
-// You might consider the implementation for this messy, but it was necessary.
 // -Blixibon
 //-----------------------------------------------------------------------------
 abstract_class ITippableTurret
@@ -64,6 +63,13 @@ abstract_class ITippableTurret
 public:
 	virtual bool IsBeingCarriedByPlayer( void ) = 0;
 	virtual bool WasJustDroppedByPlayer( void ) = 0;
+
+	// Prevents tip controller from interfering with turrets under low gravity
+	// trigger_vphysics_motion also uses this class and these methods to detect and apply that to both turrets and Wilson
+	bool	InLowGravity( void ) { return m_bInLowGravity; }
+	void	SetLowGravity( bool bToggle ) { m_bInLowGravity = bToggle; }
+
+	bool	m_bInLowGravity; // Not saved
 };
 #endif
 
