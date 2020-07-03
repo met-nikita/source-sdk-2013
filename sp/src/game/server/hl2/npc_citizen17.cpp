@@ -415,7 +415,8 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_KEYFIELD(	m_iszDenyCommandConcept,	FIELD_STRING, "denycommandconcept" ),
 #ifdef EZ
 	DEFINE_KEYFIELD(	m_iWillpowerModifier,		FIELD_INTEGER, "willpowermodifier"),
-	DEFINE_KEYFIELD(    m_bWillpowerDisabled, FIELD_BOOLEAN, "willpowerdisabled"),
+	DEFINE_KEYFIELD(    m_bWillpowerDisabled,		FIELD_BOOLEAN, "willpowerdisabled"),
+	DEFINE_KEYFIELD(	m_bUsedBackupWeapon,		FIELD_BOOLEAN, "disablebackupweapon" ),
 #endif
 #ifdef MAPBASE
 	DEFINE_INPUT(		m_bTossesMedkits,			FIELD_BOOLEAN, "SetTossMedkits" ),
@@ -652,9 +653,9 @@ void CNPC_Citizen::Spawn()
 	}
 #ifdef EZ
 	// In Entropy : Zero, armed citizens can use melee attacks if the 'Enable melee' key value is unset
-	if ( m_spawnEquipment != NULL_STRING )
-		CapabilitiesAdd( bits_CAP_INNATE_MELEE_ATTACK1 ); 
-	#ifndef EZ2
+	CapabilitiesAdd( bits_CAP_INNATE_MELEE_ATTACK1 ); 
+	
+#ifndef EZ2
 	if ( m_Type == CT_LONGFALL )
 	{
 		CapabilitiesAdd( bits_CAP_MOVE_JUMP );
@@ -1099,6 +1100,9 @@ void CNPC_Citizen::GatherWillpowerConditions()
 	if (pWeapon == NULL) // Unarmed citizens do not use willpower
 		return;
 
+	if ( pWeapon->IsMeleeWeapon() ) // Melee citizens do not use willpower
+		return;
+
 	int l_iWillpower = sk_citizen_default_willpower.GetInt() + m_iWillpowerModifier;
 
 	bool typeCanPanic = m_Type != CT_BRUTE && m_Type != CT_LONGFALL;
@@ -1213,6 +1217,23 @@ void CNPC_Citizen::GatherWillpowerConditions()
 	}
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: Overridden so that citizens cannot melee attack without a weapon
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+int CNPC_Citizen::MeleeAttack1Conditions ( float flDot, float flDist )
+{
+	if ( GetActiveWeapon() == NULL )
+	{
+		return COND_NONE;
+	}
+
+	return BaseClass::MeleeAttack1Conditions( flDot, flDist );
+}
+#endif
+
 Disposition_t CNPC_Citizen::IRelationType(CBaseEntity * pTarget)
 {
 	Disposition_t disposition = BaseClass::IRelationType(pTarget);
@@ -1266,6 +1287,59 @@ bool CNPC_Citizen::JustStartedFearing( CBaseEntity *pTarget )
 		return true;
 
 	return false;
+}
+
+//-----------------------------------------------------------------------------
+// This rebel dropped their weapons and might need a new one
+//-----------------------------------------------------------------------------
+bool CNPC_Citizen::GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * pActivator )
+{
+	if ( m_iLastHolsteredWeapon > 0)
+	{
+		DevMsg( "Already have multiple weapons: %i\n", m_iLastHolsteredWeapon );
+		// Already have another weapon, don't need a new backup
+		// Return true because there is another weapon
+
+		m_bUsedBackupWeapon = true; // Don't give any more backup weapons!
+
+		return true;
+	}
+
+	if ( m_bUsedBackupWeapon )
+	{
+		return false;
+	}
+
+	// Is this weapon already a side arm?
+	if ( pWeapon != NULL && pWeapon->ClassMatches( "weapon_smg1" ) || pWeapon->ClassMatches( "weapon_smg2" ) || pWeapon->ClassMatches( "weapon_pistol" ) )
+	{
+		// Very lucky citizens get crowbars as backup
+		if ( random->RandomInt( 1, 6 ) == 1 )
+		{
+			CBaseCombatWeapon * pCrowbar = GiveWeaponHolstered( AllocPooledString( "weapon_crowbar" ) );
+			pCrowbar->AddSpawnFlags( SF_WEAPON_NO_PLAYER_PICKUP );
+			pCrowbar->SetName( AllocPooledString( "worthless" ) ); // Bad Cop will say the crowbar pickup line upon interacting with this
+
+			m_bUsedBackupWeapon = true; // Don't give any more backup weapons!
+
+			return true;
+		}
+
+		return false;
+	}
+
+	// Is this a melee weapon?
+	if ( pWeapon != NULL && pWeapon->IsMeleeWeapon() || pWeapon->ClassMatches( "weapon_crowbar" ) )
+	{
+		return false;
+	}
+
+	// Don't give any more backup weapons!
+	m_bUsedBackupWeapon = true; 
+
+	// TODO - Pistols would be very nice.
+	GiveWeaponHolstered( AllocPooledString( m_Type == CT_BRUTE ? "weapon_smg2" : "weapon_smg1" ) );
+	return true;
 }
 #endif
 
@@ -1946,6 +2020,15 @@ int CNPC_Citizen::TranslateSchedule( int scheduleType )
 		{
 			return SCHED_STANDOFF;
 		}
+#ifdef EZ2
+		// Don't chase enemies if you're weaponless!
+		if ( GetActiveWeapon() == NULL )
+		{
+			return SCHED_STANDOFF;
+		}
+#endif
+
+
 		break;
 
 	case SCHED_RANGE_ATTACK1:
@@ -2009,9 +2092,6 @@ int CNPC_Citizen::TranslateWillpowerSchedule(int scheduleType)
 	{
 		// TODO Add a new schedule. For now, just drop it!
 		Weapon_Drop( GetActiveWeapon() );
-
-		// Remove melee capabilities now - TODO return these after picking up a weapon again!
-		CapabilitiesRemove( bits_CAP_INNATE_MELEE_ATTACK1 );
 
 		// Don't look for another weapon for 15 seconds!
 		m_flNextWeaponSearchTime = gpGlobals->curtime + 15.0;
@@ -4737,20 +4817,31 @@ bool CNPC_Citizen::HandleInteraction(int interactionType, void *data, CBaseComba
 	{
 		// If we have directional information, see if this kick knocked a weapon free
 		trace_t * pTr = static_cast< trace_t *>(data);
-		if ( pTr && GetActiveWeapon() )
+		CBaseCombatWeapon * pWeapon = GetActiveWeapon();
+		if ( pTr && pWeapon )
 		{
 			Vector pWeaponPos = Weapon_ShootPosition();
-			if ( ( pWeaponPos - pTr->endpos).Length() < 16.0f )
-			{
-				const Vector weaponTarget = pWeaponPos + (pTr->endpos - pTr->startpos);
-				const Vector weaponVelocity = ( (pTr->endpos - pTr->startpos) * 1024.0f );
+			const Vector weaponTarget = pWeaponPos + (pTr->endpos - pTr->startpos);
+			const Vector weaponVelocity = ( (pTr->endpos - pTr->startpos) * 1024.0f );
 
-				Weapon_Drop( GetActiveWeapon(), &weaponTarget, &weaponVelocity );
-			}
+			Weapon_Drop( pWeapon, &weaponTarget, &weaponVelocity );
 		}
 
 		// Oof
 		SetCondition( COND_HEAVY_DAMAGE );
+
+		if (GetActiveWeapon() == NULL)
+		{
+			TaskFail( FAIL_ITEM_TAKEN );
+
+			// If I don't have any weapons to switch to, lose willpower and stop attacking
+			if ( pWeapon == NULL || !GiveBackupWeapon( pWeapon, sourceEnt ) )
+			{
+				ClearCondition( COND_CIT_WILLPOWER_HIGH );
+				SetCondition( COND_CIT_WILLPOWER_LOW );
+				SetCondition( COND_TOO_CLOSE_TO_ATTACK );
+			}
+		}
 
 		// Do normal kick handling
 		return false;
