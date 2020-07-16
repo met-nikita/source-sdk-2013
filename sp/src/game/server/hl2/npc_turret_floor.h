@@ -403,6 +403,7 @@ public:
 
 	virtual void	Precache( void );
 	virtual void	Spawn( void );
+	virtual void	Activate( void );
 	virtual bool	CreateVPhysics( void );
 
 	// Player pickup
@@ -410,6 +411,8 @@ public:
 	virtual void	OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reason );
 
 	const char *GetTracerType( void ) { return "Tracer"; }
+
+	void			OnChangeActivity( Activity eNewActivity );
 
 	// TODO: Unique class?
 	Class_T	Classify( void ) { return BaseClass::Classify(); }
@@ -473,6 +476,11 @@ private:
 
 	bool	m_bUseLaser;
 	CNetworkVar( bool, m_bLaser );
+
+	CNetworkVar( bool, m_bGooTurret );
+
+	// Client needs to know for ropes
+	CNetworkVar( bool, m_bClosedIdle );
 };
 #endif
 

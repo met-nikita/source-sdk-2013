@@ -10,6 +10,7 @@
 #include "view.h"
 #include "c_pixel_visibility.h"
 #include "beam_shared.h"
+#include "c_rope.h"
 
 // Based on env_lightglow code
 class C_TurretGlowOverlay : public CGlowOverlay
@@ -56,7 +57,6 @@ protected:
 	int		m_nOuterMaxDist;
 };
 
-// TODO: Move this
 class C_AI_TurretBase : public C_AI_BaseNPC
 {
 public:
@@ -66,9 +66,12 @@ public:
 	~C_AI_TurretBase();
 
 	void OnDataChanged( DataUpdateType_t type );
+	void ClientThink( void );
 	void Simulate( void );
 
-	virtual void UpdateGlow( Vector &vVector, Vector &vecForward ) {}
+	virtual void UpdateGlow( Vector &vVector, Vector &vecForward ) = 0;
+
+	virtual C_RopeKeyframe *CreateRope( int iStartAttach, int iEndAttach ) = 0;
 
 	int m_iLightAttachment = -1;
 
@@ -82,6 +85,12 @@ public:
 
 	float m_flRange;
 	float m_flFOV;
+
+	int m_iRopeStartAttachments[4];
+	int m_iRopeEndAttachments[4];
+	C_RopeKeyframe *m_pRopes[4];
+
+	bool m_bClosedIdle;
 };
 
 class C_NPC_Wilson : public C_AI_TurretBase
@@ -99,6 +108,7 @@ public:
 	void ClientThink( void );
 
 	void UpdateGlow( Vector &vVector, Vector &vecForward );
+	C_RopeKeyframe *CreateRope( int iStartAttach, int iEndAttach );
 
 	C_TurretGlowOverlay m_Glow;
 };
@@ -114,11 +124,17 @@ public:
 	~C_NPC_Arbeit_FloorTurret();
 
 	void OnDataChanged( DataUpdateType_t type );
+	void Activate( void );
 	void Simulate( void );
+
+	void UpdateGlow( Vector &vVector, Vector &vecForward ) {}
+	C_RopeKeyframe *CreateRope( int iStartAttach, int iEndAttach );
 
 	bool m_bLaser;
 
 	C_Beam *m_pLaser;
+
+	bool m_bGooTurret;
 };
 
 

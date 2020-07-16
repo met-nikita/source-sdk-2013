@@ -334,6 +334,7 @@ void CNPC_Gonome::Precache()
 			break;
 		case EZ_VARIANT_RAD:
 			SetModelName( AllocPooledString( "models/glownome.mdl" ) );
+			PrecacheMaterial( "cable/goocable.vmt" );
 			break;
 		default:
 			SetModelName( AllocPooledString( "models/gonome.mdl" ) );

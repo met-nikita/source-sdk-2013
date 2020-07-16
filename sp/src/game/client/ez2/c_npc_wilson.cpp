@@ -11,6 +11,7 @@
 
 C_AI_TurretBase::C_AI_TurretBase()
 {
+	m_iRopeStartAttachments[0] = -1;
 }
 
 C_AI_TurretBase::~C_AI_TurretBase()
@@ -20,6 +21,53 @@ C_AI_TurretBase::~C_AI_TurretBase()
 		// Turned off the flashlight; delete it.
 		delete m_EyeLight;
 		m_EyeLight = NULL;
+	}
+
+	if (m_pRopes[0])
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			DevMsg("Removing rope %i\n", i);
+			if (m_pRopes[i])
+				m_pRopes[i]->Remove();
+			m_pRopes[i] = NULL;
+		}
+	}
+}
+
+void C_AI_TurretBase::ClientThink( void )
+{
+	BaseClass::ClientThink();
+
+	if (!IsDormant() && !m_bClosedIdle)
+	{
+		if (!m_pRopes[0])
+		{
+			if (m_iRopeStartAttachments[0] == -1)
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					m_iRopeStartAttachments[i] = LookupAttachment( VarArgs( "Wire%i_start", i+1 ) );
+					m_iRopeEndAttachments[i] = LookupAttachment( VarArgs( "Wire%i_end", i+1 ) );
+				}
+			}
+
+			for (int i = 0; i < 4; i++)
+			{
+				DevMsg("Creating rope %i\n", i);
+				m_pRopes[i] = CreateRope( m_iRopeStartAttachments[i], m_iRopeEndAttachments[i] );
+			}
+		}
+	}
+	else if (m_pRopes[0])
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			DevMsg("Removing rope %i\n", i);
+			if (m_pRopes[i])
+				m_pRopes[i]->Remove();
+			m_pRopes[i] = NULL;
+		}
 	}
 }
 
@@ -85,6 +133,11 @@ void C_AI_TurretBase::Simulate( void )
 
 void C_AI_TurretBase::OnDataChanged( DataUpdateType_t type )
 {
+	if (type == DATA_UPDATE_CREATED)
+	{
+		SetNextClientThink( CLIENT_THINK_ALWAYS );
+	}
+
 	if (m_iEyeLightBrightness != m_iLastEyeLightBrightness)
 	{
 		// 255 = Equivalent to sprite color byte
@@ -162,12 +215,21 @@ void C_NPC_Wilson::UpdateGlow( Vector &vVector, Vector &vecForward )
 	m_Glow.m_flHDRColorScale = FLerp( m_Glow.m_flHDRColorScale, m_flEyeLightBrightnessScale, 0.1f );
 }
 
+C_RopeKeyframe *C_NPC_Wilson::CreateRope( int iStartAttach, int iEndAttach )
+{
+	C_RopeKeyframe *pRope = C_RopeKeyframe::Create( this, this, iStartAttach, iEndAttach, 0.5f, "cable/cable.vmt", 5, ROPE_SIMULATE | ROPE_USE_WIND );
+	pRope->SetSlack( 110 );
+	return pRope;
+}
+
 IMPLEMENT_CLIENTCLASS_DT( C_NPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret, CNPC_Arbeit_FloorTurret )
 	RecvPropBool( RECVINFO( m_bEyeLightEnabled ) ),
 	RecvPropInt( RECVINFO( m_iEyeLightBrightness ) ),
 	RecvPropFloat( RECVINFO( m_flRange ) ),
 	RecvPropFloat( RECVINFO( m_flFOV ) ),
 	RecvPropBool( RECVINFO( m_bLaser ) ),
+	RecvPropBool( RECVINFO( m_bGooTurret ) ),
+	RecvPropBool( RECVINFO( m_bClosedIdle ) ),
 END_RECV_TABLE()
 
 BEGIN_PREDICTION_DATA( C_NPC_Arbeit_FloorTurret )
@@ -186,6 +248,11 @@ C_NPC_Arbeit_FloorTurret::~C_NPC_Arbeit_FloorTurret()
 	}
 }
 
+void C_NPC_Arbeit_FloorTurret::Activate( void )
+{
+	BaseClass::Activate();
+}
+
 void C_NPC_Arbeit_FloorTurret::Simulate( void )
 {
 	BaseClass::Simulate();
@@ -200,7 +267,7 @@ void C_NPC_Arbeit_FloorTurret::Simulate( void )
 		AngleVectors( angAngles, &vecDir );
 
 		trace_t tr;
-		UTIL_TraceLine( vecLight, vecLight + (vecDir * (m_flRange + 8.0f)), MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
+		UTIL_TraceLine( vecLight, vecLight + (vecDir * (m_flRange + 8.0f)), MASK_BLOCKLOS_AND_NPCS, this, COLLISION_GROUP_NONE, &tr );
 
 		m_pLaser->PointsInit( vecLight, tr.endpos );
 		m_pLaser->SetStartEntity( this );
@@ -257,4 +324,20 @@ void C_NPC_Arbeit_FloorTurret::OnDataChanged( DataUpdateType_t type )
 		m_pLaser->Remove();
 		m_pLaser = NULL;
 	}
+}
+
+C_RopeKeyframe *C_NPC_Arbeit_FloorTurret::CreateRope( int iStartAttach, int iEndAttach )
+{
+	C_RopeKeyframe *pRope = NULL;
+	if (m_bGooTurret)
+	{
+		pRope = C_RopeKeyframe::Create( this, this, iStartAttach, iEndAttach, 0.5f, "cable/goocable.vmt", 5, ROPE_SIMULATE | ROPE_USE_WIND );
+		pRope->SetSlack( 120 );
+	}
+	else
+	{
+		pRope = C_RopeKeyframe::Create( this, this, iStartAttach, iEndAttach, 0.5f, "cable/cable.vmt", 5, ROPE_SIMULATE | ROPE_USE_WIND );
+		pRope->SetSlack( 110 );
+	}
+	return pRope;
 }
