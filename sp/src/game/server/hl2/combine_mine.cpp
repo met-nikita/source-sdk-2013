@@ -954,11 +954,15 @@ float CBounceBomb::FindNearestNPC()
 			// Disregard flora
 			if( pNPC->Classify() == CLASS_ALIEN_FLORA )
 				continue;
-#endif
 
+			// Disregard turrets (must apply to Arbeit turrets too)
+			if( pNPC->ClassMatches( "*turret*" ) )
+				continue;
+#else
 			// Disregard turrets
 			if( pNPC->m_iClassname == gm_iszFloorTurretClassname || pNPC->m_iClassname == gm_iszGroundTurretClassname )
 				continue;
+#endif
 
 #ifdef MAPBASE
 			}
