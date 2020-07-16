@@ -201,16 +201,25 @@ public:
 	// Willpower
 	//---------------------------------
 	void			GatherWillpowerConditions();
+	int				MeleeAttack1Conditions( float flDot, float flDist );
+
 	Disposition_t	IRelationType(CBaseEntity *pTarget);
 #ifdef EZ2
 	bool			JustStartedFearing( CBaseEntity *pTarget ); // Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
+
+	bool			GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * pActivator );
 #endif
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);
 	int				TranslateSuppressingFireSchedule(int scheduleType);
+	bool			FindDecoyObject(void);
+	bool			FindEnemyCoverTarget(void);
+	void			AimGun();
+
 	const char*		GetSquadSlotDebugName(int iSquadSlot); // Debug names for new squad slots
 
 	float			m_flLastWillpowerMsgTime;
+	Vector			m_vecDecoyObjectTarget;
 #endif
 	//---------------------------------
 	// Damage handling
@@ -376,9 +385,9 @@ private:
 #endif
 #ifdef EZ
 		TASK_CIT_DIE_INSTANTLY,
+		TASK_CIT_PAINT_SUPPRESSION_TARGET,
 		NEXT_TASK,
 #endif
-
 	};
 
 	//-----------------------------------------------------
@@ -420,6 +429,8 @@ private:
 #ifdef EZ
 	int				m_iWillpowerModifier;	// 1upD - Amount of 'mental fortitude' points before panic
 	bool			m_bWillpowerDisabled;	// 1upD - Override willpower behavior
+
+	bool			m_bUsedBackupWeapon;	// 1upD - Has this rebel been given a backup weapon already?
 #endif
 	//-----------------------------------------------------
 	//	Outputs

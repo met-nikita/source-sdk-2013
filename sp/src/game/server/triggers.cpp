@@ -1238,6 +1238,9 @@ void CTriggerLook::Touch(CBaseEntity *pOther)
 		EHANDLE hLookingAtEntity = NULL;
 		for (int i = 0; i < m_hLookTargets.Count(); i++)
 		{
+			if (!m_hLookTargets[i])
+				continue;
+
 			Vector vTargetDir = m_hLookTargets[i]->GetAbsOrigin() - pOther->EyePosition();
 			VectorNormalize(vTargetDir);
 
