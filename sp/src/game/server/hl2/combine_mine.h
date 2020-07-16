@@ -38,7 +38,7 @@ class CBounceBomb : public CBaseAnimating, public CDefaultPlayerPickupVPhysics
 
 public:
 #ifdef MAPBASE
-	CBounceBomb() { m_pWarnSound = NULL; m_bPlacedByPlayer = false; m_flExplosionDelay = 0.5f; }
+	CBounceBomb() { m_pWarnSound = NULL; m_bPlacedByPlayer = false; m_flExplosionDelay = 0.5f; m_iLOSMask = MASK_SOLID_BRUSHONLY; }
 #else
 	CBounceBomb() { m_pWarnSound = NULL; m_bPlacedByPlayer = false; }
 #endif
@@ -135,6 +135,9 @@ private:
 #ifdef MAPBASE
 	int		m_iInitialState;
 	bool	m_bCheapWarnSound;
+
+	// Allows control over the mask used in LOS
+	int		m_iLOSMask;
 #endif
 
 	bool	m_bPlacedByPlayer;
