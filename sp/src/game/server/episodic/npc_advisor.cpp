@@ -163,6 +163,7 @@ class CNPC_AdvisorFlyer : public CNPC_CScanner
 	DECLARE_CLASS( CNPC_AdvisorFlyer, CNPC_CScanner );
 public:
 	void			Spawn( void );
+	void			Precache( void );
 
 	virtual int	 OnTakeDamage( const CTakeDamageInfo &info ) { return 0.0f; };
 	
@@ -180,6 +181,9 @@ public:
 	// Use the base class activation function
 	void		Activate() { BaseClass::Activate(); }
 
+	virtual char		*GetEngineSound( void ) { return "NPC_AdvisorFlyer.FlyLoop"; }
+	virtual char		*GetScannerSoundPrefix( void ) { return "NPC_AdvisorFlyer"; }
+
 };
 
 void CNPC_AdvisorFlyer::Spawn( void )
@@ -190,6 +194,27 @@ void CNPC_AdvisorFlyer::Spawn( void )
 	AddEffects( EF_NOSHADOW );
 	SetHullType( HULL_LARGE_CENTERED );
 	SetHullSizeNormal();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_AdvisorFlyer::Precache( void )
+{
+	PrecacheScriptSound( "NPC_AdvisorFlyer.Shoot" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.Alert" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.Die" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.Combat" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.Idle" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.Pain" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.TakePhoto" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.AttackFlash" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.DiveBombFlyby" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.DiveBomb" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.DeployMine" );
+	PrecacheScriptSound( "NPC_AdvisorFlyer.FlyLoop" );
+
+	BaseClass::Precache();
 }
 
 Disposition_t CNPC_AdvisorFlyer::IRelationType( CBaseEntity * pTarget )
@@ -281,6 +306,9 @@ public:
 	void FlyThink();
 
 	void UpdateAdvisorFacing();
+	
+	void			StartSounds( void );
+	virtual void	StopLoopingSounds();
 
 	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sourceEnt );
 #endif
@@ -401,6 +429,8 @@ protected:
 	bool m_bShieldOn; 
 	bool m_bAdvisorFlyer;
 	EHANDLE m_hAdvisorFlyer;
+
+	CSoundPatch *m_pBreathSound;
 #endif
 
 
@@ -472,6 +502,8 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_OUTPUT( m_OnHealthIsNow, "OnHealthIsNow" ),
 #ifdef EZ2
 	DEFINE_OUTPUT( m_OnMindBlast, "OnMindBlast" ),
+
+	DEFINE_SOUNDPATCH( m_pBreathSound ),
 #endif
 
 	DEFINE_INPUTFUNC( FIELD_FLOAT,   "SetThrowRate",    InputSetThrowRate ),
@@ -624,6 +656,9 @@ void CNPC_Advisor::Activate()
 	{
 		StartFlying();
 	}
+
+	// Start looping sounds
+	StartSounds();
 #endif
 }
 #pragma warning(pop)
@@ -1405,6 +1440,38 @@ void CNPC_Advisor::UpdateAdvisorFacing()
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CNPC_Advisor::StartSounds( void )
+{
+	//Initialize the additive sound channels
+	CPASAttenuationFilter filter( this );
+
+	if (m_pBreathSound == NULL)
+	{
+		m_pBreathSound	= CSoundEnvelopeController::GetController().SoundCreate( filter, entindex(), CHAN_ITEM, "NPC_Advisor.BreatheLoop", ATTN_NORM );
+
+		if (m_pBreathSound)
+		{
+			CSoundEnvelopeController::GetController().Play( m_pBreathSound, 0.5f, 100 );
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Advisor::StopLoopingSounds()
+{
+	//Stop all sounds
+	CSoundEnvelopeController::GetController().SoundDestroy( m_pBreathSound );
+
+	m_pBreathSound		= NULL;
+
+	BaseClass::StopLoopingSounds();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 bool CNPC_Advisor::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sourceEnt )
 {
 	if ( interactionType == g_interactionXenGrenadeConsume )
@@ -2105,6 +2172,8 @@ void CNPC_Advisor::Precache()
 	}
 
 	UTIL_PrecacheOther( "npc_advisor_flyer" );
+
+	PrecacheScriptSound( "NPC_Advisor.BreatheLoop" );
 #endif
 		
 	PrecacheModel( STRING( GetModelName() ) );
@@ -2115,9 +2184,9 @@ void CNPC_Advisor::Precache()
 
 	PrecacheScriptSound( "NPC_Advisor.Blast" );
 	PrecacheScriptSound( "BaseCombatCharacter.CorpseGib" );	//NPC_Advisor.Gib
-	PrecacheScriptSound( "NPC_Advisor.Speak" );	//NPC_Advisor.Idle
-	PrecacheScriptSound( "NPC_Advisor.ScreenVx02" );	//NPC_Advisor.Alert
-	PrecacheScriptSound( "NPC_Advisor.Scream" ); //NPC_Advisor.Die
+	PrecacheScriptSound( "NPC_Advisor.Idle" );
+	PrecacheScriptSound( "NPC_Advisor.Alert" );
+	PrecacheScriptSound( "NPC_Advisor.Die" );
 	PrecacheScriptSound( "NPC_Advisor.Pain" );
 	PrecacheScriptSound( "NPC_Advisor.ObjectChargeUp" );
 	PrecacheParticleSystem( "Advisor_Psychic_Beam" );
@@ -2132,13 +2201,13 @@ void CNPC_Advisor::Precache()
 //-----------------------------------------------------------------------------
 void CNPC_Advisor::IdleSound()
 {
-	EmitSound( "NPC_Advisor.Speak" );
+	EmitSound( "NPC_Advisor.Idle" );
 }
 
 
 void CNPC_Advisor::AlertSound()
 {
-	EmitSound( "NPC_Advisor.ScreenVx02" );
+	EmitSound( "NPC_Advisor.Alert" );
 }
 
 
@@ -2150,7 +2219,7 @@ void CNPC_Advisor::PainSound( const CTakeDamageInfo &info )
 
 void CNPC_Advisor::DeathSound( const CTakeDamageInfo &info )
 {
-	EmitSound( "NPC_Advisor.Scream" );
+	EmitSound( "NPC_Advisor.Die" );
 }
 
 
