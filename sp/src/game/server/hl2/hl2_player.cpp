@@ -4523,14 +4523,44 @@ void CHL2_Player::HandleKickAttack()
 	}
 }
 
+// Should these be separate from g_bludgeonMins and g_bludgeonMaxs in basebludgeonweapon?
+#define KICK_HULL_DIM		16
+static const Vector g_kickMins( -KICK_HULL_DIM, -KICK_HULL_DIM, -KICK_HULL_DIM );
+static const Vector g_kickMaxs( KICK_HULL_DIM, KICK_HULL_DIM, KICK_HULL_DIM );
+
 void CHL2_Player::TraceKickAttack()
 {
 	Vector vecSrc = GetFlags() & FL_DUCKING ? EyePosition() : EyePosition() - Vector(0, 0, 32);
 	Vector vecAim = BaseClass::GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+	Vector vecEnd = EyePosition() + (vecAim * 80);
 
 	trace_t tr;
 
-	AI_TraceLine( vecSrc, EyePosition() + (vecAim * 80), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
+	UTIL_TraceLine( vecSrc, vecEnd, MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &tr );
+
+	// If the ray trace didn't hit anything, use a hull trace based on bludgeon weapons
+	if ( tr.fraction == 1.0 )
+	{
+		float bludgeonHullRadius = 1.732f * KICK_HULL_DIM;  // hull is +/- 16, so use cuberoot of 2 to determine how big the hull is from center to the corner point
+																// Back off by hull "radius"
+		vecEnd -= vecAim * bludgeonHullRadius;
+
+		UTIL_TraceHull( vecSrc, vecEnd, g_kickMins, g_kickMaxs, MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &tr );
+		if (tr.fraction < 1.0 && tr.m_pEnt)
+		{
+			Vector vecToTarget = tr.m_pEnt->GetAbsOrigin() - vecSrc;
+			VectorNormalize( vecToTarget );
+
+			float dot = vecToTarget.Dot( vecAim );
+
+			// YWB:  Make sure they are sort of facing the guy at least...
+			if (dot < 0.70721f)
+			{
+				// Force amiss
+				tr.fraction = 1.0f;
+			}
+		}
+	}
 
 	CBaseEntity *pEntity = tr.m_pEnt;
 	if ( pEntity != NULL )
