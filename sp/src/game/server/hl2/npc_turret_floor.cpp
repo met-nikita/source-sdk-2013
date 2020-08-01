@@ -2510,6 +2510,7 @@ BEGIN_DATADESC( CNPC_Arbeit_FloorTurret )
 	//DEFINE_FIELD( m_iEyeLightBrightness, FIELD_INTEGER ), // SetEyeGlow()'s call in Activate() means we don't need to save this
 
 	DEFINE_KEYFIELD( m_bUseLaser, FIELD_BOOLEAN, "Laser" ),
+	DEFINE_FIELD( m_bLaser, FIELD_BOOLEAN ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnEyeLight", InputTurnOnEyeLight ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffEyeLight", InputTurnOffEyeLight ),
@@ -2527,6 +2528,8 @@ IMPLEMENT_SERVERCLASS_ST( CNPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret )
 	SendPropFloat( SENDINFO( m_flRange ) ),
 	SendPropFloat( SENDINFO( m_flFOV ) ),
 	SendPropBool( SENDINFO( m_bLaser ) ),
+	SendPropBool( SENDINFO( m_bGooTurret ) ), // TODO: Send full E:Z variant? Enum is only on server
+	SendPropBool( SENDINFO( m_bClosedIdle ) ),
 END_SEND_TABLE()
 
 LINK_ENTITY_TO_CLASS( npc_arbeit_turret_floor, CNPC_Arbeit_FloorTurret );
@@ -2543,6 +2546,7 @@ CNPC_Arbeit_FloorTurret::CNPC_Arbeit_FloorTurret( void )
 	m_flFOV = 60.0f;
 	//m_bEyeLightEnabled = true;
 	m_bUseLaser = true;
+	m_bClosedIdle = true;
 }
 
 //-----------------------------------------------------------------------------
@@ -2556,6 +2560,7 @@ void CNPC_Arbeit_FloorTurret::Precache( void )
 		{
 			case EZ_VARIANT_RAD:
 				SetModelName( AllocPooledString( "models/props/glowturret_01.mdl" ) );
+				PrecacheMaterial( "cable/goocable.vmt" );
 				break;
 
 			default:
@@ -2586,6 +2591,18 @@ void CNPC_Arbeit_FloorTurret::Spawn( void )
 
 	if (m_bUseLaser && m_bEnabled && !OnSide())
 		m_bLaser = true;
+
+	m_bGooTurret = (m_tEzVariant == EZ_VARIANT_RAD);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Activate the entity
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::Activate( void )
+{
+	BaseClass::Activate();
+
+	m_bGooTurret = (m_tEzVariant == EZ_VARIANT_RAD);
 }
 
 //-----------------------------------------------------------------------------
@@ -2692,13 +2709,6 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 				SpeakIfAllowed( TLK_SEARCHING );
 				break;
 
-			case TURRET_AUTO_SEARCHING:
-				// Only autosearch if we have an enemy somewhere
-				AIEnemiesIter_t iter;
-				if ( GetEnemies()->GetFirst(&iter) != NULL && !IsBeingCarriedByPlayer() )
-					SpeakIfAllowed( TLK_AUTOSEARCH );
-				break;
-
 			case TURRET_ACTIVE:
 				SpeakIfAllowed( TLK_ACTIVE );
 				break;
@@ -2737,6 +2747,18 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 			} break;
 		}
 	}
+	else
+	{
+		switch ( state )
+		{
+			case TURRET_AUTO_SEARCHING:
+				// Only autosearch if we have an enemy somewhere
+				AIEnemiesIter_t iter;
+				if ( GetEnemies()->GetFirst(&iter) != NULL && !IsBeingCarriedByPlayer() )
+					SpeakIfAllowed( TLK_AUTOSEARCH );
+				break;
+		}
+	}
 
 	if (state != TURRET_TIPPED)
 		return BaseClass::PreThink( state );
@@ -2763,14 +2785,25 @@ void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
 	}
 
 	// Add the laser if it doesn't already exist
-	//if ( m_hLaser == NULL )
+	//if ( m_hLaser == NULL && m_bLaser )
 	//{
-	//	m_hLaser = CBeam::BeamCreate( LASER_BEAM_SPRITE, 3.0f );
+	//	m_hLaser = CBeam::BeamCreate( "effects/laser1.vmt", 3.0f );
 	//	if ( m_hLaser == NULL )
 	//		return;
 	//
-	//	CheckPVSCondition();
-	//	UpdateLaser();
+	//	Vector vecLight;
+	//	QAngle angAngles;
+	//	GetAttachment( m_iEyeAttachment, vecLight, angAngles );
+	//
+	//	Vector vecDir;
+	//	AngleVectors( angAngles, &vecDir );
+	//
+	//	trace_t tr;
+	//	UTIL_TraceLine( vecLight, vecLight + (vecDir * (m_flRange + 8.0f)), MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
+	//
+	//	m_hLaser->PointsInit( vecLight, tr.endpos );
+	//	m_hLaser->SetStartEntity( this );
+	//	m_hLaser->SetStartAttachment( m_iEyeAttachment );
 	//
 	//	//m_hLaser->FollowEntity( this );
 	//	m_hLaser->SetNoise( 0 );
@@ -2780,6 +2813,15 @@ void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
 	//	m_hLaser->SetEndWidth( 2.0f );
 	//	m_hLaser->SetBrightness( 200 );
 	//	m_hLaser->SetBeamFlags( SF_BEAM_SHADEIN );
+	//
+	//	SetContextThink( &CNPC_Arbeit_FloorTurret::UpdateLaser, gpGlobals->curtime + TICK_INTERVAL, g_pLaserUpdateContext );
+	//}
+	//else if ( !m_bLaser )
+	//{
+	//	DevMsg( "Removing m_hLaser\n" );
+	//
+	//	UTIL_Remove( m_hLaser );
+	//	m_hLaser = NULL;
 	//}
 
 	m_iEyeState = state;
@@ -3034,7 +3076,7 @@ void CNPC_Arbeit_FloorTurret::UpdateLaser( void )
 			AngleVectors( angAngles, &vecDir );
 
 			trace_t tr;
-			UTIL_TraceLine( vecLight, vecLight + (vecDir * (GetSenses()->GetDistLook() + 8.0f)), MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
+			UTIL_TraceLine( vecLight, vecLight + (vecDir * (m_flRange + 8.0f)), MASK_BLOCKLOS, this, COLLISION_GROUP_NONE, &tr );
 
 			m_hLaser->PointsInit( vecLight, tr.endpos );
 			m_hLaser->SetStartEntity( this );
@@ -3043,6 +3085,23 @@ void CNPC_Arbeit_FloorTurret::UpdateLaser( void )
 
 		SetContextThink( &CNPC_Arbeit_FloorTurret::UpdateLaser, gpGlobals->curtime + TICK_INTERVAL, g_pLaserUpdateContext );
 	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::OnChangeActivity( Activity eNewActivity )
+{
+	if (eNewActivity == (Activity)ACT_FLOOR_TURRET_CLOSED_IDLE)
+	{
+		m_bClosedIdle = true;
+	}
+	else
+	{
+		m_bClosedIdle = false;
+	}
+
+	BaseClass::OnChangeActivity( eNewActivity );
 }
 
 //-----------------------------------------------------------------------------
