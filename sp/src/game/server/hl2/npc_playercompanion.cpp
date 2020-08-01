@@ -1333,7 +1333,7 @@ int CNPC_PlayerCompanion::TranslateSchedule( int scheduleType )
 
 	case SCHED_MELEE_ATTACK1:
 #ifdef EZ
-		if( !HasCondition( COND_NO_PRIMARY_AMMO ) )
+		if( !HasCondition( COND_NO_PRIMARY_AMMO ) && ( GetActiveWeapon() == NULL || !GetActiveWeapon()->IsMeleeWeapon() ) )
 #endif
 		{
 			return SCHED_PC_MELEE_AND_MOVE_AWAY;

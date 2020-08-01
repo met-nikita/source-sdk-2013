@@ -1998,6 +1998,11 @@ int CNPC_Citizen::TranslateSchedule( int scheduleType )
 	case SCHED_ESTABLISH_LINE_OF_FIRE:
 	case SCHED_MOVE_TO_WEAPON_RANGE:
 #ifdef EZ
+		if (GetActiveWeapon() && GetActiveWeapon()->IsMeleeWeapon())
+		{
+			return SCHED_CHASE_ENEMY;
+		}
+
 		// Per Breadman's changes to ai_basenpc_schedule, fire at where you think the enemy will be instead of advancing
 		if ( !HasCondition(COND_SEE_ENEMY) && !HasCondition(COND_TOO_CLOSE_TO_ATTACK)) // We don't want this to use Attack squad slots because it could 'steal' a slot from a squadmate who might need it. 
 		{
@@ -2189,6 +2194,11 @@ int CNPC_Citizen::TranslateSuppressingFireSchedule(int scheduleType)
 	}
 
 	if (HasCondition(COND_NO_PRIMARY_AMMO) || HasCondition(COND_NO_WEAPON)) 
+	{
+		return scheduleType;
+	}
+
+	if ( GetActiveWeapon() && GetActiveWeapon()->IsMeleeWeapon() )
 	{
 		return scheduleType;
 	}
