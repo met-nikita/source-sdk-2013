@@ -138,10 +138,12 @@
 
 #ifdef EZ
 // Entropy : Zero 2 Citizen contexts
-#define TLK_SURRENDER	"TLK_SURRENDER"	// Citizen just dropped their weapon in fear
-#define TLK_MELEE		"TLK_MELEE"
-#define TLK_THROWGRENADE		"TLK_THROWGRENADE"
-#define TLK_USE_SCARE	"TLK_USE_SCARE"
+#define TLK_SURRENDER		"TLK_SURRENDER"	// Citizen just dropped their weapon in fear
+#define TLK_BEG				"TLK_BEG"	// Citizen are unarmed and threatened
+#define TLK_FEAR			"TLK_FEAR"
+#define TLK_MELEE			"TLK_MELEE"
+#define TLK_THROWGRENADE	"TLK_THROWGRENADE"
+#define TLK_USE_SCARE		"TLK_USE_SCARE"
 #endif
 
 #ifdef EZ2

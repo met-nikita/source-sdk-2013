@@ -417,6 +417,7 @@ BEGIN_DATADESC( CNPC_Citizen )
 #ifdef EZ
 	DEFINE_KEYFIELD(	m_iWillpowerModifier,		FIELD_INTEGER, "willpowermodifier"),
 	DEFINE_KEYFIELD(    m_bWillpowerDisabled,		FIELD_BOOLEAN, "willpowerdisabled"),
+	DEFINE_KEYFIELD(    m_bSuppressiveFireDisabled, FIELD_BOOLEAN, "suppressivefiredisabled" ),
 	DEFINE_KEYFIELD(	m_bUsedBackupWeapon,		FIELD_BOOLEAN, "disablebackupweapon" ),
 	DEFINE_FIELD(		m_vecDecoyObjectTarget,		FIELD_VECTOR),
 #endif
@@ -893,11 +894,11 @@ void CNPC_Citizen::SelectModel()
 #ifdef EZ2
 		const char * subtype = ""; // 1upD - used to be the only subtype was "m" for medic
 
-		if (m_Type == CT_REBEL)
-			subtype = (m_spawnEquipment == AllocPooledString("weapon_shotgun")) ? "b" : subtype;	// Rebel Brute - may wish to rethind this approach
-																									//	Currently, rebels with shotguns are still CT_REBEL with modelset Group03b
-																									//	If we want any special behaviors for the brute, we will need to set the type of
-																									//	shotgun rebels to "CT_BRUTE".
+		// if (m_Type == CT_REBEL)
+		// 	subtype = (m_spawnEquipment == AllocPooledString("weapon_shotgun")) ? "b" : subtype;	// Rebel Brute - may wish to rethink this approach
+		// 																							//	Currently, rebels with shotguns are still CT_REBEL with modelset Group03b
+		// 																							//	If we want any special behaviors for the brute, we will need to set the type of
+		// 																							//	shotgun rebels to "CT_BRUTE".
 		subtype = (IsMedic()) ? "m" : subtype; // Rebel Medic takes precedence
 
 		// If this citizen's type is "LongFall", they should use the appropriate subtype
@@ -1341,6 +1342,21 @@ bool CNPC_Citizen::GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * 
 	GiveWeaponHolstered( AllocPooledString( m_Type == CT_BRUTE ? "weapon_smg2" : "weapon_smg1" ) );
 	return true;
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: Speak TLK_BEG if the right conditions exist
+//		Returns true if the concept is spoken
+//-----------------------------------------------------------------------------
+bool CNPC_Citizen::TrySpeakBeg()
+{
+	// If we are unarmed and not actively searching for a weapon to fight with, beg for mercy
+	if ( GetEnemy() != NULL && GetActiveWeapon() == NULL && m_flNextWeaponSearchTime > gpGlobals->curtime )
+	{
+		return SpeakIfAllowed( TLK_BEG );
+	}
+
+	return false;
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1660,6 +1676,11 @@ int CNPC_Citizen::SelectFailSchedule( int failedSchedule, int failedTask, AI_Tas
 //-----------------------------------------------------------------------------
 int CNPC_Citizen::SelectSchedule()
 {
+// TODO - Find a better spot for this!
+#ifdef EZ
+	TrySpeakBeg();
+#endif
+
 #ifdef MAPBASE
 	if ( IsWaitingToRappel() && BehaviorSelectSchedule() )
 	{
@@ -2191,6 +2212,12 @@ int CNPC_Citizen::TranslateSuppressingFireSchedule(int scheduleType)
 	if (rangeAttack2Schedule != SCHED_NONE)
 	{
 		return rangeAttack2Schedule;
+	}
+
+	// If suppressive fire is disabled, stop
+	if ( m_bSuppressiveFireDisabled )
+	{
+		return scheduleType;
 	}
 
 	if (HasCondition(COND_NO_PRIMARY_AMMO) || HasCondition(COND_NO_WEAPON)) 
@@ -5647,8 +5674,14 @@ void CNPC_Citizen::DeathSound( const CTakeDamageInfo &info )
 //------------------------------------------------------------------------------
 void CNPC_Citizen::FearSound( void )
 {
-#ifdef EZ
+#ifdef EZ1
 	SpeakIfAllowed(TLK_DANGER); // Say something when afraid
+#endif
+#ifdef EZ2
+	if ( TrySpeakBeg() == false )
+	{
+		SpeakIfAllowed( TLK_FEAR ); // Say something when afraid
+	}
 #endif
 }
 

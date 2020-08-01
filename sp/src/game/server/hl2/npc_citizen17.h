@@ -208,6 +208,7 @@ public:
 	bool			JustStartedFearing( CBaseEntity *pTarget ); // Blixibon - Needed so the player's speech AI doesn't pick this up as D_FR before it's apparent (e.g. fast, rapid kills)
 
 	bool			GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * pActivator );
+	bool			TrySpeakBeg();
 #endif
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);
@@ -429,6 +430,7 @@ private:
 #ifdef EZ
 	int				m_iWillpowerModifier;	// 1upD - Amount of 'mental fortitude' points before panic
 	bool			m_bWillpowerDisabled;	// 1upD - Override willpower behavior
+	bool			m_bSuppressiveFireDisabled; // 1upD - Override suppressive fire behavior
 
 	bool			m_bUsedBackupWeapon;	// 1upD - Has this rebel been given a backup weapon already?
 #endif
