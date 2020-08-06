@@ -295,6 +295,10 @@ public:
 	void InputSetPlayerDrawExternally( inputdata_t &inputdata );
 #endif
 
+#ifdef EZ2
+	void InputSetLegModel( inputdata_t &inputdata );
+#endif
+
 	void Activate ( void );
 
 #ifdef MAPBASE
@@ -569,6 +573,7 @@ BEGIN_DATADESC( CHL2_Player )
 #ifdef EZ2
 	DEFINE_FIELD( m_flNextKickAttack , FIELD_TIME ),
 	DEFINE_FIELD( m_bKickWeaponLowered, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_LegModelName, FIELD_STRING ),
 #endif
 
 	DEFINE_FIELD( m_flTimeIgnoreFallDamage, FIELD_TIME ),
@@ -718,7 +723,12 @@ void CHL2_Player::Precache( void )
 	PrecacheScriptSound( "EZ2Player.KickHit" );
 	PrecacheScriptSound( "EZ2Player.KickMiss" );
 
-	PrecacheModel( "models/weapons/v_kick.mdl" );
+	if ( m_LegModelName == NULL_STRING )
+	{
+		m_LegModelName = AllocPooledString( "models/weapons/v_kick.mdl" );
+	}
+
+	PrecacheModel( STRING( m_LegModelName ) );
 
 	// Interactions
 	if ( g_interactionBadCopKick == 0 )
@@ -4613,7 +4623,7 @@ void CHL2_Player::StartKickAnimation( void )
 
 	if ( vm )
 	{
-		vm->SetWeaponModel( "models/weapons/v_kick.mdl", NULL );
+		vm->SetWeaponModel( STRING( m_LegModelName ), NULL );
 
 		int	idealSequence = vm->SelectWeightedSequence( ACT_VM_PRIMARYATTACK );
 
@@ -4637,6 +4647,10 @@ void CHL2_Player::HandleKickAnimation( void )
 		if ( pVM->IsSequenceFinished() )
 		{
 			pVM->SetPlaybackRate( 0.0f );
+			
+			// Destroy the kick viewmodel. 
+			// This should prevent the kick animation from firing off after level transitions.
+			pVM->SUB_Remove();
 		}
 	}
 }
@@ -4901,6 +4915,11 @@ BEGIN_DATADESC( CLogicPlayerProxy )
 	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetPlayerDrawExternally", InputSetPlayerDrawExternally ),
 	DEFINE_INPUT( m_MaxArmor, FIELD_INTEGER, "SetMaxInputArmor" ),
 #endif
+
+#ifdef EZ2
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetLegModel", InputSetLegModel ),
+#endif
+
 	DEFINE_FIELD( m_hPlayer, FIELD_EHANDLE ),
 END_DATADESC()
 
@@ -5163,6 +5182,10 @@ void CHL2_Player::ApplyFlashlightColorCorrection( bool bColorCorrectionEnabled )
 		m_hFlashlightColorCorrection->AcceptInput( "Enable", this, this, emptyVariant, 0 );
 	}
 }
+void CHL2_Player::SetLegModel( string_t iszModel )
+{
+	m_LegModelName = iszModel;
+}
 #endif
 
 void CLogicPlayerProxy::InputSetFlashlightSlowDrain( inputdata_t &inputdata )
@@ -5405,5 +5428,21 @@ void CLogicPlayerProxy::InputSetPlayerDrawExternally( inputdata_t &inputdata )
 
 	CBasePlayer *pPlayer = static_cast<CBasePlayer*>(m_hPlayer.Get());
 	pPlayer->m_bDrawPlayerModelExternally = inputdata.value.Bool();
+}
+#endif
+
+#ifdef EZ2
+void CLogicPlayerProxy::InputSetLegModel( inputdata_t &inputdata )
+{
+	if (!m_hPlayer)
+		return;
+
+	string_t iszModel = inputdata.value.StringID();
+
+	if (iszModel != NULL_STRING)
+		PrecacheModel( STRING( iszModel ) );
+
+	CHL2_Player *pPlayer = dynamic_cast<CHL2_Player*>(m_hPlayer.Get());
+	pPlayer->SetLegModel( iszModel );
 }
 #endif

@@ -175,6 +175,8 @@ public:
 
 #ifdef EZ2
 	virtual void ApplyFlashlightColorCorrection( bool bColorCorrectionEnabled );
+
+	virtual void SetLegModel( string_t iszModel );
 #endif
 
 	// Apply a battery
@@ -435,6 +437,8 @@ private:
 
 	float				m_flNextKickAttack;
 	bool				m_bKickWeaponLowered;
+
+	string_t		    m_LegModelName;
 #endif
 
 	// Aiming heuristics code
