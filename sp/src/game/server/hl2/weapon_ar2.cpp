@@ -709,6 +709,8 @@ const WeaponProficiencyInfo_t *CWeaponAR2::GetProficiencyValues()
 ConVar	sk_plr_dmg_ar2_proto( "sk_plr_dmg_ar2_proto", "16", FCVAR_REPLICATED );
 ConVar	sk_npc_dmg_ar2_proto( "sk_npc_dmg_ar2_proto", "8", FCVAR_REPLICATED );
 
+ConVar	sk_ez2_super_proto_ar2( "sk_ez2_super_proto_ar2", "1", FCVAR_REPLICATED );
+
 BEGIN_DATADESC( CWeaponAR2Proto )
 
 	DEFINE_FIELD( m_nBurstMax,	FIELD_INTEGER ),
@@ -739,19 +741,43 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 		
 
 		// Fire the bullets
-		FireBulletsInfo_t info;
-		info.m_iShots = 2;
-		info.m_vecSrc = pPlayer->Weapon_ShootPosition();
-		info.m_vecDirShooting = pPlayer->GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
-		info.m_vecSpread = pPlayer->GetAttackSpread(this);
-		info.m_flDistance = MAX_TRACE_LENGTH;
-		info.m_iAmmoType = m_iPrimaryAmmoType;
-		info.m_iTracerFreq = 2;
+		if ( sk_ez2_super_proto_ar2.GetBool() )
+		{
+			FireBulletsInfo_t info;
+			info.m_iShots = 1;
+			info.m_vecSrc = pPlayer->Weapon_ShootPosition();
+			info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+			info.m_vecSpread = pPlayer->GetAttackSpread( this );
+			info.m_flDistance = MAX_TRACE_LENGTH;
+			info.m_iAmmoType = m_iPrimaryAmmoType;
+			info.m_iTracerFreq = 2;
 
-		info.m_flDamage = sk_plr_dmg_ar2_proto.GetFloat();
-		info.m_iPlayerDamage = (int)info.m_flDamage;
+			info.m_flDamage = sk_plr_dmg_ar2_proto.GetFloat();
+			info.m_iPlayerDamage = (int)info.m_flDamage;
 
-		pPlayer->FireBullets(info);
+			pPlayer->FireBullets( info );
+
+			// Second shot is laser accurate
+			info.m_vecSpread = VECTOR_CONE_PRECALCULATED;
+			pPlayer->FireBullets( info );
+		}
+		else
+		{
+			FireBulletsInfo_t info;
+			info.m_iShots = 2;
+			info.m_vecSrc = pPlayer->Weapon_ShootPosition();
+			info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+			info.m_vecSpread = pPlayer->GetAttackSpread( this );
+			info.m_flDistance = MAX_TRACE_LENGTH;
+			info.m_iAmmoType = m_iPrimaryAmmoType;
+			info.m_iTracerFreq = 2;
+
+			info.m_flDamage = sk_plr_dmg_ar2_proto.GetFloat();
+			info.m_iPlayerDamage = (int)info.m_flDamage;
+
+			pPlayer->FireBullets( info );
+		}		
+		
 		pPlayer->DoMuzzleFlash();
 
 		// Time we wait before allowing to throw another
