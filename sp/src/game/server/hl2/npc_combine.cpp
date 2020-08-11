@@ -2364,6 +2364,13 @@ bool CNPC_Combine::PassesDamageFilter( const CTakeDamageInfo &info )
 		}
 	}
 
+	// Crude ragdoll damage prevention
+	// Prevents server ragdolls from flopping on Combine and killing them
+	if ( IsCommandable() && info.GetAttacker() && info.GetAttacker()->ClassMatches( AllocPooledString( "prop_ragdoll" ) ))
+	{
+		return false;
+	}
+
 	return BaseClass::PassesDamageFilter(info);
 }
 #endif
