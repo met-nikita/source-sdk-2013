@@ -354,6 +354,8 @@ public:
 #ifdef EZ2
 	void InputStartFlying( inputdata_t &inputdata );
 	void InputStopFlying( inputdata_t &inputdata );
+	void InputDisablePinFailsafe( inputdata_t &inputdata ) { m_bPinFailsafeActive = false; }
+	void InputEnablePinFailsafe( inputdata_t &inputdata ) { m_bPinFailsafeActive = true; }
 
 	COutputEvent m_OnMindBlast;
 #endif
@@ -427,6 +429,7 @@ protected:
 	// The way the advisor's shield works is mostly clientside... awkward. I think in order to make the gameplay match up with the effect, it should not be saved.
 	// This will cause some problems saving and loading during an advisor's attack
 	bool m_bShieldOn; 
+	bool m_bPinFailsafeActive = true;
 	bool m_bAdvisorFlyer;
 	EHANDLE m_hAdvisorFlyer;
 
@@ -474,6 +477,7 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_KEYFIELD( m_iszPriorityEntityGroupName, FIELD_STRING, "priority_grab_name"),
 #ifdef EZ2
 	DEFINE_KEYFIELD( m_bAdvisorFlyer, FIELD_BOOLEAN, "AdvisorFlyer" ),
+	DEFINE_KEYFIELD( m_bPinFailsafeActive, FIELD_BOOLEAN, "pin_failsafe_active"),
 
 	DEFINE_FIELD( m_hAdvisorFlyer, FIELD_EHANDLE ),
 #endif
@@ -520,7 +524,8 @@ BEGIN_DATADESC( CNPC_Advisor )
 #ifdef EZ2
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartFlying", InputStartFlying ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopFlying", InputStopFlying ),
-
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnablePinFailsafe", InputEnablePinFailsafe ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisablePinFailsafe", InputDisablePinFailsafe ),
 
 	DEFINE_THINKFUNC( FlyThink )
 #endif
@@ -1253,7 +1258,7 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 			}
 
 			// failsafe: don't do this for more than ten seconds.
-			if ( gpGlobals->curtime > m_playerPinFailsafeTime )
+			if ( gpGlobals->curtime > m_playerPinFailsafeTime && m_bPinFailsafeActive )
 			{
 				pEnemy->SetGravity(1.0f);
 				pEnemy->SetMoveType( MOVETYPE_WALK );
