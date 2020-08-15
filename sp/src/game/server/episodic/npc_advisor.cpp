@@ -57,6 +57,7 @@ ConVar sk_advisor_health( "sk_advisor_health", "0" );
 ConVar advisor_use_impact_table("advisor_use_impact_table","1",FCVAR_NONE,"If true, advisor will use her custom impact damage table.");
 
 ConVar sk_advisor_melee_dmg("sk_advisor_melee_dmg", "0");
+ConVar sk_advisor_pin_speed( "sk_advisor_pin_speed", "32" );
 
 #if NPC_ADVISOR_HAS_BEHAVIOR
 ConVar advisor_throw_velocity( "advisor_throw_velocity", "1100" );
@@ -1289,7 +1290,7 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 				beamonce++;
 			}
 			
-			pEnemy->SetMoveType( MOVETYPE_NONE ); //MOVETYPE_FLY
+			pEnemy->SetMoveType( MOVETYPE_FLY );
 			pEnemy->SetGravity( 0 );
 
 			// use exponential falloff to peg the player to the pin point
@@ -1300,9 +1301,7 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 
 			float desiredDisplacementLen = ExponentialDecay(0.250f,gpGlobals->frametime);// * sqrt(displacementLen);			
 
-			Vector nuPos = playerPos + (displacement * (1.0f - desiredDisplacementLen));
-
-			pEnemy->SetAbsOrigin( nuPos );
+			pEnemy->SetAbsVelocity( displacement * (1.0f - desiredDisplacementLen) * sk_advisor_pin_speed.GetFloat() );
 
 			break;
 			
@@ -2728,8 +2727,6 @@ AI_BEGIN_CUSTOM_NPC( npc_advisor, CNPC_Advisor )
 		SCHED_ADVISOR_TOSS_PLAYER,
 
 		"	Tasks"
-		"		TASK_ADVISOR_FIND_OBJECTS			0"
-		"		TASK_ADVISOR_LEVITATE_OBJECTS		0"
 		"		TASK_FACE_ENEMY						0"
 		"		TASK_ADVISOR_PIN_PLAYER				0"
 		"	"
