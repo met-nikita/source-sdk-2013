@@ -182,6 +182,19 @@ BEGIN_DATADESC(CRagdollProp)
 
 END_DATADESC()
 
+#ifdef MAPBASE_VSCRIPT
+BEGIN_ENT_SCRIPTDESC( CRagdollProp, CBaseAnimating, "Ragdoll physics prop." )
+
+	DEFINE_SCRIPTFUNC_NAMED( GetSourceClassNameAsCStr, "GetSourceClassName", "Gets the ragdoll's source classname." )
+	DEFINE_SCRIPTFUNC( SetSourceClassName, "Sets the ragdoll's source classname." )
+	DEFINE_SCRIPTFUNC( HasPhysgunInteraction, "Checks if the ragdoll has the specified interaction." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetRagdollObject, "GetRagdollObject", "Gets the ragdoll object of the specified index." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetRagdollObjectCount, "GetRagdollObjectCount", "Gets the number of ragdoll objects on this ragdoll." )
+
+END_SCRIPTDESC()
+#endif
+
 //-----------------------------------------------------------------------------
 // Disable auto fading under dx7 or when level fades are specified
 //-----------------------------------------------------------------------------
@@ -2003,6 +2016,24 @@ void CRagdollProp::InputEnableScent( inputdata_t & inputdata )
 void CRagdollProp::InputDisableScent( inputdata_t & inputdata )
 {
 	SetEmitScent( false );
+}
+#endif
+
+#ifdef MAPBASE_VSCRIPT
+HSCRIPT CRagdollProp::ScriptGetRagdollObject( int iIndex )
+{
+	if (iIndex < 0 || iIndex > m_ragdoll.listCount)
+	{
+		Warning("%s GetRagdollObject: Index %i not valid (%i objects)\n", GetDebugName(), iIndex, m_ragdoll.listCount);
+		return NULL;
+	}
+
+	return g_pScriptVM->RegisterInstance( m_ragdoll.list[iIndex].pObject );
+}
+
+int CRagdollProp::ScriptGetRagdollObjectCount()
+{
+	return m_ragdoll.listCount;
 }
 #endif
 

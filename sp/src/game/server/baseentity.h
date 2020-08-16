@@ -1977,6 +1977,11 @@ public:
 	void RunPrecacheScripts(void);
 	void RunOnPostSpawnScripts(void);
 
+#ifdef MAPBASE_VSCRIPT
+	HSCRIPT LookupScriptFunction(const char* pFunctionName);
+	bool CallScriptFunctionHandle(HSCRIPT hFunc, ScriptVariant_t* pFunctionReturn);
+#endif
+
 	HSCRIPT ScriptGetMoveParent(void);
 	HSCRIPT ScriptGetRootMoveParent();
 	HSCRIPT ScriptFirstMoveChild(void);
@@ -2002,7 +2007,12 @@ public:
 	const Vector& ScriptGetUp(void) { static Vector vecUp; GetVectors(NULL, NULL, &vecUp); return vecUp; }
 
 #ifdef MAPBASE_VSCRIPT
+	void ScriptSetOriginAngles(const Vector &vecOrigin, const QAngle &angAngles) { Teleport(&vecOrigin, &angAngles, NULL); }
+	void ScriptSetOriginAnglesVelocity(const Vector &vecOrigin, const QAngle &angAngles, const Vector &vecVelocity) { Teleport(&vecOrigin, &angAngles, &vecVelocity); }
+
 	HSCRIPT ScriptEntityToWorldTransform( void );
+
+	HSCRIPT ScriptGetPhysicsObject( void );
 #endif
 
 	const char* ScriptGetModelName(void) const;
@@ -2045,6 +2055,12 @@ public:
 	void ScriptSetColorG( int iVal )	{ SetRenderColorG( iVal ); }
 	void ScriptSetColorB( int iVal )	{ SetRenderColorB( iVal ); }
 	void ScriptSetAlpha( int iVal )		{ SetRenderColorA( iVal ); }
+
+	int ScriptGetRenderMode() { return GetRenderMode(); }
+	void ScriptSetRenderMode( int nRenderMode ) { SetRenderMode( (RenderMode_t)nRenderMode ); }
+
+	int ScriptGetMoveType() { return GetMoveType(); }
+	void ScriptSetMoveType( int iMoveType ) { SetMoveType( (MoveType_t)iMoveType ); }
 #endif
 
 	string_t		m_iszVScripts;

@@ -22,6 +22,9 @@
 class CRagdollProp : public CBaseAnimating, public CDefaultPlayerPickupVPhysics
 {
 	DECLARE_CLASS( CRagdollProp, CBaseAnimating );
+#ifdef MAPBASE_VSCRIPT
+	DECLARE_ENT_SCRIPTDESC();
+#endif
 
 public:
 	CRagdollProp( void );
@@ -65,6 +68,10 @@ public:
 	void SetSourceClassification( Class_T classification );
 
 	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+#endif
+
+#ifdef MAPBASE
+	const char *GetSourceClassNameAsCStr() { return STRING( m_strSourceClassName ); }
 #endif
 
 	// Physics attacker
@@ -128,6 +135,11 @@ public:
 	void			InputTurnOn( inputdata_t &inputdata );
 	void			InputTurnOff( inputdata_t &inputdata );
 	void			InputFadeAndRemove( inputdata_t &inputdata );
+
+#ifdef MAPBASE_VSCRIPT
+	HSCRIPT			ScriptGetRagdollObject( int iIndex );
+	int				ScriptGetRagdollObjectCount();
+#endif
 
 #ifdef EZ2
 	void			InputEnableScent( inputdata_t &inputdata );
