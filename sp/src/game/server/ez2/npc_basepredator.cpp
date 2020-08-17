@@ -672,7 +672,7 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 			float flDist = 4096.0f;
 			CNPC_Wilson *pWilson = CNPC_Wilson::GetBestWilson( flDist, &GetAbsOrigin() );
 			CSound *pScent = GetBestScent();
-			if (pScent && pWilson->FInViewCone(this) && pWilson->FVisible(this))
+			if (pScent && pWilson && pWilson->FInViewCone(this) && pWilson->FVisible(this))
 			{
 				pWilson->SetSpeechTarget( pScent->m_hOwner );
 				pWilson->SpeakIfAllowed( TLK_WITNESS_EAT );
