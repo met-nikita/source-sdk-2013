@@ -161,6 +161,10 @@ public:
 		return VECTOR_CONE_5DEGREES * ((CBaseHLCombatWeapon::GetDefaultProficiencyValues())[ WEAPON_PROFICIENCY_PERFECT ].spreadscale);
 	}
 
+#ifdef EZ2
+	virtual bool IsLabTurret() { return false; }
+#endif
+
 protected:
 
 #ifdef MAPBASE
@@ -975,7 +979,12 @@ void CNPC_CeilingTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnem
 		info.m_iTracerFreq = 1;
 		info.m_iShots = 1;
 		info.m_pAttacker = this;
+#ifdef EZ2
+		// Lab turrets are enemies in E:Z2, so they should not be OP
+		info.m_vecSpread = IsLabTurret() ? VECTOR_CONE_8DEGREES : VECTOR_CONE_PRECALCULATED;
+#else
 		info.m_vecSpread = VECTOR_CONE_PRECALCULATED;
+#endif
 		info.m_flDistance = MAX_COORD_RANGE;
 		info.m_iAmmoType = m_iAmmoType;
 	}
@@ -988,7 +997,12 @@ void CNPC_CeilingTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnem
 		info.m_iTracerFreq = 1;
 		info.m_iShots = 1;
 		info.m_pAttacker = this;
+#ifdef EZ2
+		// Lab turrets are enemies in E:Z2, so they should not be OP
+		info.m_vecSpread = IsLabTurret() ? VECTOR_CONE_8DEGREES : GetAttackSpread( NULL, NULL );
+#else
 		info.m_vecSpread = GetAttackSpread( NULL, NULL );
+#endif
 		info.m_flDistance = MAX_COORD_RANGE;
 		info.m_iAmmoType = m_iAmmoType;
 	}
@@ -1419,6 +1433,10 @@ public:
 
 		return CLASS_NONE;
 	}
+
+#ifdef EZ2
+	bool IsLabTurret() { return true; }
+#endif
 
 	const char *GetTracerType( void ) { return "Tracer"; }
 	bool		PreThink( turretState_e state );
