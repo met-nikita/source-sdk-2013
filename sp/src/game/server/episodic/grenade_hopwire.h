@@ -41,6 +41,9 @@ struct DisplacementInfo_t
 	const Vector *vecTargetPos;
 	const QAngle *vecTargetAng;
 };
+
+#define SF_VORTEX_CONTROLLER_DONT_REMOVE (1 << 0)
+#define SF_VORTEX_CONTROLLER_DONT_SPAWN_LIFE (1 << 1)
 #endif
 
 class CGravityVortexController : public CBaseEntity, public CDisplacerSink
@@ -59,6 +62,7 @@ public:
 	void	StartSpawning();
 	void	SpawnThink();
 	bool	TryCreateRecipeNPC( const char *szClass, const char *szKV );
+	bool	TrySpawnRecipeNPC( CBaseEntity *pEntity, bool bCallSpawnFuncs = true );
 	void	ParseKeyValues( CBaseEntity *pEntity, const char *szKV );
 
 	// For both real and fake spawns
@@ -66,6 +70,14 @@ public:
 
 	void	SetThrower( CBaseCombatCharacter *pBCC ) { m_hThrower.Set( pBCC ); }
 	CBaseCombatCharacter *GetThrower() { return m_hThrower.Get(); }
+
+	bool	CanConsumeEntity( CBaseEntity *pEnt );
+
+	void	InputDetonate( inputdata_t &inputdata ) { StartPull( GetAbsOrigin(), m_flRadius, m_flStrength, m_flEndTime ); }
+	void	InputFakeSpawnEntity( inputdata_t &inputdata ) { inputdata.value.Entity() ? TrySpawnRecipeNPC( inputdata.value.Entity(), false ) : Warning("Warning: FakeSpawnEntity cannot spawn null entity\n"); }
+	void	InputCreateXenLife( inputdata_t &inputdata ) { CreateXenLife(); }
+
+	void	SetNodeRadius( float flRadius ) { m_flNodeRadius = flRadius; }
 #else
 	static CGravityVortexController *Create( const Vector &origin, float radius, float strength, float duration );
 #endif
@@ -95,6 +107,8 @@ private:
 	float	m_flStrength;	// Pulling strength of the vortex
 
 #ifdef EZ2
+	float	m_flNodeRadius;	// Radius to look for nodes
+
 							// If this points to an entity, the Xen grenade will always call g_interactionXenGrenadeRelease on it instead of spawning Xen life.
 							// This is so Will-E pops back out of Xen grenades.
 	EHANDLE	m_hReleaseEntity;
@@ -109,6 +123,9 @@ private:
 	// PVS for PullThink()
 	byte		m_PVS[ MAX_MAP_CLUSTERS/8 ];
 	bool		m_bPVSCreated;
+
+	COutputEvent		m_OnPullFinished;
+	COutputEHANDLE		m_OutEntity;
 
 public:
 	CUtlMap<string_t, string_t> m_SpawnList;

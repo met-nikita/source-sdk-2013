@@ -339,6 +339,61 @@ bool CXenGrenadeRecipeManager::ParseRecipeBlock( char *szRecipe, CGravityVortexC
 
 	return true;
 }
+
+// This is used for when an entity is close enough to be consumed, but shouldn't be consumed through
+// solid objects.
+class CXenGrenadeTraceFilter : public CTraceFilterSimple
+{
+public:
+
+	CXenGrenadeTraceFilter( const IHandleEntity *passentity, int collisionGroup, CGravityVortexController *vortex ) : CTraceFilterSimple( passentity, collisionGroup )
+	{
+		m_pVortex = vortex;
+	}
+
+	bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask )
+	{
+		bool base = CTraceFilterSimple::ShouldHitEntity( pHandleEntity, contentsMask );
+
+		if ( base )
+		{
+			// Just don't hit entities which are also going to be consumed.
+			// (Also don't hit the grenade itself!)
+			CBaseEntity *pEntity = EntityFromEntityHandle( pHandleEntity );
+			return pEntity != m_pVortex->GetOwnerEntity() && !m_pVortex->CanConsumeEntity( pEntity );
+		}
+
+		return base;
+	}
+
+	CGravityVortexController *m_pVortex;
+
+};
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns whether an entity can be consumed
+//-----------------------------------------------------------------------------
+bool CGravityVortexController::CanConsumeEntity( CBaseEntity *pEnt )
+{
+	// Don't try to consume the player! What would even happen!?
+	if (pEnt->IsPlayer())
+		return false;
+
+	// Don't consume objects that are protected
+	if ( pEnt->IsDisplacementImpossible() )
+		return false;
+
+	// Don't consume barnacle parts! (Weird edge case)
+	CBarnacleTongueTip *pBarnacleTongueTip = dynamic_cast< CBarnacleTongueTip* >(pEnt);
+	if (pBarnacleTongueTip != NULL)
+		return false;
+
+	// Get our base physics object
+	if ( pEnt->VPhysicsGetObject() == NULL )
+		return false;
+
+	return true;
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -354,6 +409,13 @@ float CGravityVortexController::GetConsumedMass( void ) const
 //-----------------------------------------------------------------------------
 void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 {
+#ifdef EZ2
+	// Make sure we can consume this entity
+	if (!CanConsumeEntity(pEnt))
+		return;
+
+	IPhysicsObject *pPhysObject = pEnt->VPhysicsGetObject();
+#else
 	// Don't try to consume the player! What would even happen!?
 	if (pEnt->IsPlayer())
 		return;
@@ -376,6 +438,7 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	IPhysicsObject *pPhysObject = pEnt->VPhysicsGetObject();
 	if ( pPhysObject == NULL )
 		return;
+#endif
 
 #ifdef EZ2
 	float flMass = 0.0f;
@@ -713,6 +776,8 @@ void CGravityVortexController::CreateXenLife()
 	if ( pPlayer )
 		pPlayer->ModifyOrAppendPlayerCriteria( set );
 
+	AppendContextToCriteria( set );
+
 	//set.AppendCriteria( "thrower", CFmtStrN<64>( "%s", ????? ) );
 	set.AppendCriteria( "mass", CFmtStrN<32>( "%0.2f", m_flMass ) );
 
@@ -771,12 +836,11 @@ void CGravityVortexController::CreateXenLife()
 	// Go through each node and find available links.
 	int iTotalHulls = 0;
 
-	Vector vecHopTo = vec3_invalid;
 	for ( int node = 0; node < g_pBigAINet->NumNodes(); node++)
 	{
 		CAI_Node *pNode = g_pBigAINet->GetNode(node);
 
-		if ((GetAbsOrigin() - pNode->GetOrigin()).LengthSqr() > Square( hopwire_spawn_node_radius.GetFloat() ))
+		if ((GetAbsOrigin() - pNode->GetOrigin()).LengthSqr() > Square( m_flNodeRadius ))
 			continue;
 
 		// Only use ground nodes
@@ -998,12 +1062,20 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 		ParseKeyValues( pEntity, szKV );
 	}
 
+	return TrySpawnRecipeNPC( pEntity, true );
+}
+
+bool CGravityVortexController::TrySpawnRecipeNPC( CBaseEntity *pEntity, bool bCallSpawnFuncs )
+{
 	DisplacementInfo_t dinfo( this, this, &pEntity->GetAbsOrigin(), &pEntity->GetAbsAngles() );
 	pEntity->DispatchInteraction( g_interactionXenGrenadeCreate, &dinfo, GetThrower() );
 
-	DispatchSpawn( pEntity );
+	if (bCallSpawnFuncs)
+		DispatchSpawn( pEntity );
 
-	XenGrenadeDebugMsg( "	TryCreateRecipeNPC: \"%s\" spawned\n", szClass );
+	XenGrenadeDebugMsg( "	TryCreateRecipeNPC: \"%s\" spawned\n", pEntity->GetDebugName() );
+
+	CAI_BaseNPC *baseNPC = pEntity->MyNPCPointer();
 
 	// Now find a valid space
 	Vector vecBestSpace = vec3_invalid;
@@ -1071,10 +1143,10 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 		if ( tr.startsolid || (tr.fraction < 1.0) )
 		{
 			if (FindPassableSpaceForXentity( pEntity ))
-				DevMsg( "Xen grenade found space for %s\n", szClass );
+				DevMsg( "Xen grenade found space for %s\n", pEntity->GetDebugName() );
 			else
 			{
-				DevMsg( "Xen grenade can't create %s.  Bad Position!\n", szClass );
+				DevMsg( "Xen grenade can't create %s.  Bad Position!\n", pEntity->GetDebugName() );
 				UTIL_Remove( pEntity );
 				return false;
 			}
@@ -1092,7 +1164,8 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 	SpawnEffects( pEntity );
 
 	// XenPC - ACTIVATE! Especially important for antlion glows
-	pEntity->Activate();
+	if (bCallSpawnFuncs)
+		pEntity->Activate();
 
 	CBaseCombatCharacter *pThrower = GetThrower();
 	if ( baseNPC && pThrower )
@@ -1128,7 +1201,7 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 		pFinder->KeyValue( "StartOn", "1" );
 		pFinder->KeyValue( "MinSearchDist", "0" );
 		pFinder->KeyValue( "MaxSearchDist", "2048" );
-		pFinder->KeyValue( "squadname", UTIL_VarArgs( "xe%s", szClass ) );
+		pFinder->KeyValue( "squadname", baseNPC->GetSquad() ? baseNPC->GetSquad()->GetName() : UTIL_VarArgs( "xe%s", pEntity->GetClassname() ) );
 
 		DispatchSpawn( pFinder );
 
@@ -1147,7 +1220,9 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 	}
 	*/
 
-	XenGrenadeDebugMsg( "	TryCreateRecipeNPC: \"%s\" reached end of function\n", szClass );
+	m_OutEntity.Set( pEntity, pEntity, this );
+
+	XenGrenadeDebugMsg( "	TryCreateRecipeNPC: \"%s\" reached end of function\n", pEntity->GetDebugName() );
 	return true;
 }
 
@@ -1432,20 +1507,17 @@ void CGravityVortexController::PullThink( void )
 		if ( pEnts[i]->IsMarkedForDeletion() || pEnts[i]->IsEffectActive(EF_NODRAW) )
 			continue;
 
-		// Hackhack - don't suck voltigores
-		// TODO Improve this
-		if ( FClassnameIs( pEnts[i], "npc_voltigore_projectile" ) || FClassnameIs( pEnts[i], "npc_voltigore" ))
-			continue;
-
 		// Don't pull objects that are protected
 		if ( pEnts[i]->IsDisplacementImpossible() )
 			continue;
 
+		const Vector& vecEntCenter = pEnts[i]->WorldSpaceCenter();
+
 		// We do a PVS check here to make sure the entity isn't on another floor or behind a thick wall.
-		if ( !engine->CheckOriginInPVS( pEnts[i]->WorldSpaceCenter(), m_PVS, sizeof( m_PVS ) ) )
+		if ( !engine->CheckOriginInPVS( vecEntCenter, m_PVS, sizeof( m_PVS ) ) )
 			continue;
 
-		Vector	vecForce = GetAbsOrigin() - pEnts[i]->WorldSpaceCenter();
+		Vector	vecForce = GetAbsOrigin() - vecEntCenter;
 		Vector	vecForce2D = vecForce;
 		vecForce2D[2] = 0.0f;
 		float	dist2D = VectorNormalize( vecForce2D );
@@ -1536,8 +1608,25 @@ void CGravityVortexController::PullThink( void )
 		// FIXME: Need a more deterministic method here
 		if ( dist < 48.0f )
 		{
+#ifdef EZ2
+			// The Xen grenade should not consume entities through grates and other non-consumable objects
+			trace_t tr;
+			CXenGrenadeTraceFilter traceFilter( pEnts[i], COLLISION_GROUP_NONE, this );
+			UTIL_TraceLine( vecEntCenter, GetAbsOrigin(), MASK_SOLID, &traceFilter, &tr );
+			if (tr.fraction == 1.0f)
+			{
+				DevMsg( "%s: Consuming solid since fraction is 1.0\n", pEnts[i]->GetDebugName() );
+				ConsumeEntity( pEnts[i] );
+				continue;
+			}
+			else
+			{
+				DevMsg( "%s: Not consuming solid since fraction is %.2f, entity is %s\n", pEnts[i]->GetDebugName(), tr.fraction, tr.m_pEnt->GetDebugName() );
+			}
+#else
 			ConsumeEntity( pEnts[i] );
 			continue;
+#endif
 		}
 
 #ifndef EZ2 // Since this uses UTIL_EntitiesInSphere now, the distance radius check is no longer necessary.
@@ -1575,25 +1664,32 @@ void CGravityVortexController::PullThink( void )
 	else
 	{
 #ifdef EZ2
+		DevMsg( "Consumed %.2f kilograms\n", m_flMass );
+
 		DisplacementInfo_t dinfo( this, this, &GetAbsOrigin(), &GetAbsAngles() );
 		if ( m_hReleaseEntity && m_hReleaseEntity->DispatchInteraction( g_interactionXenGrenadeRelease, &dinfo, GetThrower() ) )
 		{
 			// Act as if it's the Xen life we were supposed to spawn
 			m_hReleaseEntity = NULL;
-			return;
+		}
+		else if (!HasSpawnFlags( SF_VORTEX_CONTROLLER_DONT_SPAWN_LIFE ))
+		{
+			// Spawn Xen lifeform
+			if ( hopwire_spawn_life.GetInt() == 1 )
+				CreateXenLife();
+			else if ( hopwire_spawn_life.GetInt() == 2 )
+				CreateOldXenLife();
 		}
 
-		DevMsg( "Consumed %.2f kilograms\n", m_flMass );
-		// Spawn Xen lifeform
-		if ( hopwire_spawn_life.GetInt() == 1 )
-			CreateXenLife();
-		else if ( hopwire_spawn_life.GetInt() == 2 )
-			CreateOldXenLife();
+		m_OnPullFinished.FireOutput( this, this );
 
-		// Remove at the maximum possible time of when we would be finished spawning entities
-		SetThink( &CBaseEntity::SUB_Remove );
-		SetNextThink( gpGlobals->curtime + (m_SpawnList.Count() * hopwire_spawn_interval_max.GetFloat() + 1.0f) );
-		XenGrenadeDebugMsg("REMOVE TIME: Count %i * interval %f + 1.0 = %f\n", m_SpawnList.Count(), hopwire_spawn_interval_max.GetFloat(), (m_SpawnList.Count() * hopwire_spawn_interval_max.GetFloat() + 1.0f) );
+		if (!HasSpawnFlags(SF_VORTEX_CONTROLLER_DONT_REMOVE))
+		{
+			// Remove at the maximum possible time of when we would be finished spawning entities
+			SetThink( &CBaseEntity::SUB_Remove );
+			SetNextThink( gpGlobals->curtime + (m_SpawnList.Count() * hopwire_spawn_interval_max.GetFloat() + 1.0f) );
+			XenGrenadeDebugMsg("REMOVE TIME: Count %i * interval %f + 1.0 = %f\n", m_SpawnList.Count(), hopwire_spawn_interval_max.GetFloat(), (m_SpawnList.Count() * hopwire_spawn_interval_max.GetFloat() + 1.0f) );
+		}
 #else
 		//Msg( "Consumed %.2f kilograms\n", m_flMass );
 		//CreateDenseBall();
@@ -1649,6 +1745,8 @@ CGravityVortexController *CGravityVortexController::Create( const Vector &origin
 	pVortex->SetOwnerEntity( pGrenade );
 	if (pGrenade)
 		pVortex->SetThrower( static_cast<CGrenadeHopwire*>(pGrenade)->GetThrower() );
+
+	pVortex->SetNodeRadius( hopwire_spawn_node_radius.GetFloat() );
 #endif
 
 	// Start the vortex working
@@ -1658,12 +1756,15 @@ CGravityVortexController *CGravityVortexController::Create( const Vector &origin
 }
 
 BEGIN_DATADESC( CGravityVortexController )
-	DEFINE_FIELD( m_flMass, FIELD_FLOAT ),
-	DEFINE_FIELD( m_flEndTime, FIELD_TIME ),
-	DEFINE_FIELD( m_flRadius, FIELD_FLOAT ),
-	DEFINE_FIELD( m_flStrength, FIELD_FLOAT ),
 
 #ifdef EZ2
+	DEFINE_KEYFIELD( m_flMass, FIELD_FLOAT, "mass" ),
+	DEFINE_KEYFIELD( m_flEndTime, FIELD_TIME, "duration" ),
+	DEFINE_KEYFIELD( m_flRadius, FIELD_FLOAT, "radius" ),
+	DEFINE_KEYFIELD( m_flStrength, FIELD_FLOAT, "strength" ),
+
+	DEFINE_KEYFIELD( m_flNodeRadius, FIELD_FLOAT, "node_radius" ),
+
 	DEFINE_FIELD( m_hReleaseEntity, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_hThrower, FIELD_EHANDLE ),
 
@@ -1676,6 +1777,18 @@ BEGIN_DATADESC( CGravityVortexController )
 
 	DEFINE_FIELD( m_iSuckedProps, FIELD_INTEGER ),
 	DEFINE_FIELD( m_iSuckedNPCs, FIELD_INTEGER ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "Detonate", InputDetonate ),
+	DEFINE_INPUTFUNC( FIELD_EHANDLE, "FakeSpawnEntity", InputFakeSpawnEntity ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "CreateXenLife", InputCreateXenLife ),
+
+	DEFINE_OUTPUT( m_OnPullFinished, "OnPullFinished" ),
+	DEFINE_OUTPUT( m_OutEntity, "OutEntity" ),
+#else
+	DEFINE_FIELD( m_flMass, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flEndTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flRadius, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flStrength, FIELD_FLOAT ),
 #endif
 
 	DEFINE_THINKFUNC( PullThink ),
