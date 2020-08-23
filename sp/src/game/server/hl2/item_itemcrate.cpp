@@ -54,6 +54,8 @@ public:
 	// Item crates crates must be alive to be visible like remarkables
 	// I hope this doesn't cause any side effects - 1upD
 	bool IsAlive() { return true; } // Required for NPCs to see this entity
+
+	void Break( CBaseEntity *pBreaker, const CTakeDamageInfo &info );
 #endif
 
 protected:
@@ -267,6 +269,28 @@ bool CItem_ItemCrate::ShouldRandomizeAngles( CBaseEntity *pEnt )
 }
 #endif
 
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CItem_ItemCrate::Break( CBaseEntity *pBreaker, const CTakeDamageInfo &info )
+{
+	BaseClass::Break( pBreaker, info );
+
+	if ( pBreaker->IsPlayer() )
+	{
+		IGameEvent *event = gameeventmanager->CreateEvent( "player_smash_crate" );
+		if ( event )
+		{
+			event->SetInt( "userid", ToBasePlayer( pBreaker )->GetUserID() );
+			event->SetInt( "damage_type", info.GetDamageType() );
+			event->SetInt( "crate", entindex() );
+			gameeventmanager->FireEvent( event );
+		}
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 

@@ -24,6 +24,7 @@
 #include "mapbase\info_remarkable.h"
 #include "combine_mine.h"
 #include "weapon_physcannon.h"
+#include "saverestore_utlvector.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -31,6 +32,8 @@
 ConVar player_mute_responses( "player_mute_responses", "0", FCVAR_ARCHIVE, "Mutes the responsive Bad Cop." );
 ConVar player_dummy_in_squad( "player_dummy_in_squad", "0", FCVAR_ARCHIVE, "Puts the player dummy in the player's squad, which means squadmates will see enemies the player sees." );
 ConVar player_dummy( "player_dummy", "1", FCVAR_NONE, "Enables the player NPC dummy." );
+
+ConVar player_use_instructor( "player_use_instructor", "1", FCVAR_NONE, "Enables game instructor hints instead of HL2 HUD hints" );
 
 #if EZ2
 LINK_ENTITY_TO_CLASS(player, CEZ2_Player);
@@ -43,8 +46,7 @@ BEGIN_DATADESC(CEZ2_Player)
 	DEFINE_FIELD(m_hStaringEntity, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flCurrentStaringTime, FIELD_TIME),
 
-	DEFINE_FIELD( m_flNextCommandHintTime, FIELD_TIME ),
-	DEFINE_FIELD( m_flLastCommandHintTime, FIELD_TIME ),
+	//DEFINE_UTLVECTOR( m_SightEvents, FIELD_EMBEDDED ),
 
 	DEFINE_FIELD( m_vecLastCommandGoal, FIELD_VECTOR ),
 
@@ -55,9 +57,6 @@ BEGIN_DATADESC(CEZ2_Player)
 	DEFINE_EMBEDDED( m_MemoryComponent ),
 
 	DEFINE_FIELD(m_hSpeechTarget, FIELD_EHANDLE),
-
-	DEFINE_FIELD( m_flNextKickHintTime, FIELD_TIME ),
-	DEFINE_FIELD( m_flLastKickHintTime, FIELD_TIME ),
 
 	// These don't need to be saved
 	//DEFINE_FIELD(m_iVisibleEnemies, FIELD_INTEGER),
@@ -73,6 +72,17 @@ END_DATADESC()
 IMPLEMENT_SERVERCLASS_ST(CEZ2_Player, DT_EZ2_Player)
 
 END_SEND_TABLE()
+
+/*
+BEGIN_SIMPLE_DATADESC( SightEvent_t )
+
+	DEFINE_FIELD( flNextHintTime, FIELD_TIME ),
+	DEFINE_FIELD( flLastHintTime, FIELD_TIME ),
+
+	DEFINE_FIELD( flCooldown, FIELD_FLOAT ),
+
+END_DATADESC()
+*/
 
 #define PLAYER_MIN_ENEMY_CONSIDER_DIST Square(4096)
 #define PLAYER_MIN_MOB_DIST_SQR Square(192)
@@ -118,64 +128,39 @@ void CEZ2_Player::PostThink(void)
 		DoSpeechAI();
 	}
 
-	// Show a HUD hint for any nearby commandable soldiers
-	if (m_flNextCommandHintTime < gpGlobals->curtime)
+	if (GetNPCComponent())
 	{
-		// Set it ahead of time in case we don't find a NPC
-		m_flNextCommandHintTime = gpGlobals->curtime + 2.0f;
-
-		if (GetNPCComponent())
+		AISightIter_t iter;
+		CBaseEntity *pSightEnt = GetNPCComponent()->GetSenses()->GetFirstSeenEntity( &iter );
+		if (pSightEnt)
 		{
-			AISightIter_t iter;
-			CBaseEntity *pSightEnt = GetNPCComponent()->GetSenses()->GetFirstSeenEntity( &iter );
-			while( pSightEnt )
+			// Go through sight events if we have entities in our vision
+			for (int i = 0; i < m_SightEvents.Count(); i++)
 			{
-				// Look for a commandable soldier
-				// (must be a soldier and not, say, a commandable rollermine)
-				if ( pSightEnt->IsNPC() )
+				if (m_SightEvents[i]->flNextHintTime < gpGlobals->curtime)
 				{
-					CAI_BaseNPC *pNPC = pSightEnt->MyNPCPointer();
-					if ( pNPC->IsCommandable() && !pNPC->IsInPlayerSquad() && FClassnameIs( pNPC, "npc_combine_s" ) )
+					iter = AISightIter_t();
+					pSightEnt = GetNPCComponent()->GetSenses()->GetFirstSeenEntity( &iter );
+					while ( pSightEnt )
 					{
-						if (GetAbsOrigin().DistToSqr(pNPC->GetAbsOrigin()) <= Square(192.0f) && IRelationType(pNPC) == D_LI)
+						if (m_SightEvents[i]->Test( this, pSightEnt ))
 						{
-							ShowCommandHint( pNPC );
-							m_flNextCommandHintTime = gpGlobals->curtime + 50.0f;
-							m_flLastCommandHintTime = gpGlobals->curtime;
+							DevMsg("Showing hint %s\n", m_SightEvents[i]->pName);
+							m_SightEvents[i]->DoEvent( this, pSightEnt );
+							m_SightEvents[i]->flLastHintTime = gpGlobals->curtime;
+							m_SightEvents[i]->flNextHintTime = gpGlobals->curtime + m_SightEvents[i]->flCooldown;
 							break;
 						}
+
+						pSightEnt = GetNPCComponent()->GetSenses()->GetNextSeenEntity( &iter );
 					}
-				}
 
-				pSightEnt = GetNPCComponent()->GetSenses()->GetNextSeenEntity( &iter );
-			}
-		}
-	}
-	// Show a HUD hint for any nearby kickables
-	else if (m_flNextKickHintTime < gpGlobals->curtime)
-	{
-		// Set it ahead of time in case we don't find a kickable
-		m_flNextKickHintTime = gpGlobals->curtime + 2.0f;
-
-		if (GetNPCComponent())
-		{
-			AISightIter_t iter;
-			CBaseEntity *pSightEnt = GetNPCComponent()->GetSenses()->GetFirstSeenEntity( &iter );
-			while (pSightEnt)
-			{
-				// Look for an item crate
-				if (pSightEnt->ClassMatches( "item_item_crate" ))
-				{
-					if (GetAbsOrigin().DistToSqr( pSightEnt->GetAbsOrigin() ) <= Square( 192.0f ))
+					if (m_SightEvents[i]->flNextHintTime < gpGlobals->curtime)
 					{
-						UTIL_HudHintText( this, "#EZ2_HudHint_KickCrate" );
-						m_flNextKickHintTime = gpGlobals->curtime + 50.0f;
-						m_flLastKickHintTime = gpGlobals->curtime;
-						break;
+						// Just check again in 2 seconds if we can't find what we're looking for
+						m_SightEvents[i]->flNextHintTime = gpGlobals->curtime + 2.0f;
 					}
 				}
-
-				pSightEnt = GetNPCComponent()->GetSenses()->GetNextSeenEntity( &iter );
 			}
 		}
 	}
@@ -193,9 +178,82 @@ void CEZ2_Player::Precache( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+bool SoldierHintTest( CEZ2_Player *pPlayer, CBaseEntity *pActivator )
+{
+	// Look for a commandable soldier
+	// (must be a soldier and not, say, a commandable rollermine)
+	CAI_BaseNPC *pNPC = pActivator->MyNPCPointer();
+	if (pNPC && pNPC->IsCommandable() && !pNPC->IsInPlayerSquad() && FClassnameIs( pNPC, "npc_combine_s" ))
+		return (pPlayer->GetAbsOrigin().DistToSqr(pNPC->GetAbsOrigin()) <= Square(192.0f) && pPlayer->IRelationType(pNPC) == D_LI);
+	return false;
+}
+
+// Shows the hint when the player sees a soldier
+SIGHT_EVENT_HINT_START( SoldierHintShow, "player_see_soldier" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "soldier", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "#EZ2_HudHint_Soldiers" )
+
+// Hides the hint when the soldier joins the squad
+SIGHT_EVENT_HINT_START( SoldierHintHide, "player_squad_join_soldier" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "soldier", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "" )
+
+// Show a HUD hint for any nearby commandable soldiers
+SightEvent_t g_SightHintSoldierSquad( "Soldier Squad", 50.0f, SoldierHintTest, SoldierHintShow );
+
+//-----------------------------------------------------------------------------
+bool CrateHintTest( CEZ2_Player *pPlayer, CBaseEntity *pActivator )
+{
+	// Look for an item crate
+	if (pActivator->ClassMatches( "item_item_crate" ))
+		return (pPlayer->GetAbsOrigin().DistToSqr(pActivator->GetAbsOrigin()) <= Square(192.0f));
+	return false;
+}
+
+// Shows the hint when the player sees a soldier
+SIGHT_EVENT_HINT_START( CrateHintShow, "player_see_crate" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "crate", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "#EZ2_HudHint_KickCrate" )
+
+// Show a HUD hint for any nearby kickables
+SightEvent_t g_SightHintCrateKick( "Crate Kick", 50.0f, CrateHintTest, CrateHintShow );
+
+//-----------------------------------------------------------------------------
+inline void CEZ2_Player::AddSightEvent( SightEvent_t &sightEvent )
+{
+	sightEvent.flLastHintTime = 0.0f;
+	sightEvent.flNextHintTime = 0.0f;
+	m_SightEvents.AddToTail( &sightEvent );
+}
+
+//-----------------------------------------------------------------------------
+CEZ2_Player::CEZ2_Player()
+{
+	AddSightEvent( g_SightHintSoldierSquad );
+	AddSightEvent( g_SightHintCrateKick );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CEZ2_Player::Spawn( void )
 {
-	if (player_dummy.GetBool())
+	if (player_dummy.GetBool() && gpGlobals->eLoadType != MapLoad_Background)
 	{
 		// Must do this here because PostConstructor() is called before save/restore,
 		// which causes duplicates to be created.
@@ -853,26 +911,22 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 	if (m_lifeState > LIFE_DYING)
 		return false;
 
-	if (!GetExpresser()->CanSpeak())
+	bool bCanSpeak = GetExpresser()->CanSpeak();
+	if (concept && !bCanSpeak)
+	{
+		ConceptInfo_t *pInfo = GetAllySpeechManager()->GetConceptInfo( concept );
+		ConceptInfo_t *pPrevInfo = GetAllySpeechManager()->GetConceptInfo( GetExpresser()->GetLastSpokeConcept() );
+		if (pInfo && pPrevInfo)
+		{
+			bCanSpeak = pInfo->category > pPrevInfo->category;
+		}
+	}
+
+	if (!bCanSpeak)
 		return false;
 
-	if (concept)
-	{
-		if (!GetExpresser()->CanSpeakConcept(concept))
-			return false;
-
-		// Player ally manager stuff taken from ai_playerally
-		//CAI_AllySpeechManager *	pSpeechManager = GetAllySpeechManager();
-		//ConceptInfo_t *			pInfo = pSpeechManager->GetConceptInfo(concept);
-		//
-		//if (!pSpeechManager->ConceptDelayExpired(concept))
-		//	return false;
-		//
-		//if ((pInfo && pInfo->flags & AICF_SPEAK_ONCE) && GetExpresser()->SpokeConcept(concept))
-		//	return false;
-		//
-		// End player ally manager content
-	}
+	if (!GetExpresser()->CanSpeakConcept(concept))
+		return false;
 
 	// Remove this once we've replaced gagging in all of the maps and talker files
 	const char *szGag = GetContextValue( "gag" );
@@ -886,7 +940,7 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 		return false;
 
 	// Don't say anything if we're running a scene
-	if ( IsTalkingInAScriptedScene( this, false ) )
+	if ( IsTalkingInAScriptedScene( this, true ) )
 	{
 		return false;
 	}
@@ -1357,8 +1411,8 @@ void CEZ2_Player::Event_SeeEnemy( CBaseEntity *pEnemy )
 bool CEZ2_Player::HandleAddToPlayerSquad( CAI_BaseNPC *pNPC )
 {
 	// See MIN_HUDHINT_DISPLAY_TIME in basecombatweapon_shared.cpp
-	if (m_flLastCommandHintTime != 0 && gpGlobals->curtime - m_flLastCommandHintTime < 7.0f)
-		HideCommandHint();
+	if (g_SightHintSoldierSquad.flLastHintTime != 0 && gpGlobals->curtime - g_SightHintSoldierSquad.flLastHintTime < 7.0f)
+		SoldierHintHide( this, pNPC );
 
 	SetSpeechTarget(pNPC);
 
@@ -1841,18 +1895,6 @@ bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEZ2_Player::ShowCommandHint( CAI_BaseNPC *pNPC )
-{
-	UTIL_HudHintText( this, "#EZ2_HudHint_Soldiers" );
-}
-
-void CEZ2_Player::HideCommandHint()
-{
-	UTIL_HudHintText( this, "" );
-}
-
-//-----------------------------------------------------------------------------
-
 CBaseEntity *CEZ2_Player::GetEnemy()
 {
 	return GetNPCComponent() ? GetNPCComponent()->GetEnemy() : NULL;
@@ -2249,3 +2291,20 @@ AI_BEGIN_CUSTOM_NPC( player_npc_dummy, CAI_PlayerNPCDummy )
 	);
 
 AI_END_CUSTOM_NPC()
+
+//-----------------------------------------------------------------------------
+// Purpose: Debugging commands
+//-----------------------------------------------------------------------------
+
+CON_COMMAND( player_reset_sight_events, "Resets the cooldown on all player sight events" )
+{
+	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+	if (pPlayer)
+	{
+		CUtlVector<SightEvent_t*> *pSightEvents = ((CEZ2_Player*)pPlayer)->GetSightEvents();
+		for (int i = 0; i < pSightEvents->Count(); i++)
+		{
+			pSightEvents->Element(i)->flNextHintTime = gpGlobals->curtime;
+		}
+	}
+}

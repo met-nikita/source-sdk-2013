@@ -20,6 +20,7 @@
 
 class CAI_PlayerNPCDummy;
 class CEZ2_Player;
+struct SightEvent_t;
 
 // 
 // Bad Cop-specific concepts
@@ -103,6 +104,9 @@ class CEZ2_Player : public CAI_ExpresserHost<CHL2_Player>
 {
 	DECLARE_CLASS(CEZ2_Player, CAI_ExpresserHost<CHL2_Player>);
 public:
+
+	CEZ2_Player();
+
 	void			Precache( void );
 	void			Spawn( void );
 	void			UpdateOnRemove( void );
@@ -187,9 +191,6 @@ public:
 
 	bool				ReactToSound( CSound *pSound, float flDist );
 
-	void				ShowCommandHint( CAI_BaseNPC *pNPC );
-	void				HideCommandHint();
-
 	CBaseEntity*		GetStaringEntity() { return m_hStaringEntity.Get(); }
 	void				SetStaringEntity(CBaseEntity *pEntity) { return m_hStaringEntity.Set(pEntity); }
 
@@ -213,6 +214,9 @@ public:
 	// NPC component shortcuts
 	CBaseEntity*		GetEnemy();
 	NPC_STATE			GetState();
+
+	void AddSightEvent( SightEvent_t &sightEvent );
+	CUtlVector<SightEvent_t*>	*GetSightEvents() { return &m_SightEvents; }
 
 protected:
 	virtual	void	PostThink(void);
@@ -246,11 +250,7 @@ private:
 	float			m_flCurrentStaringTime;
 	QAngle			m_angLastStaringEyeAngles;
 
-	float			m_flNextCommandHintTime;
-	float			m_flLastCommandHintTime;
-
-	float			m_flNextKickHintTime;
-	float			m_flLastKickHintTime;
+	CUtlVector<SightEvent_t*>	m_SightEvents;
 
 	// For speech purposes
 	Vector			m_vecLastCommandGoal;
@@ -367,5 +367,76 @@ protected:
 
 	DEFINE_CUSTOM_AI;
 };
+
+//-----------------------------------------------------------------------------
+// Purpose: Kick data for interaction.
+// (Blixibon)
+//-----------------------------------------------------------------------------
+struct KickInfo_t
+{
+	KickInfo_t( trace_t *_tr, CTakeDamageInfo *_dmgInfo )
+	{
+		tr = _tr;
+		dmgInfo = _dmgInfo;
+	}
+
+	trace_t *tr;
+	CTakeDamageInfo *dmgInfo;
+};
+
+//-----------------------------------------------------------------------------
+// Purpose: Sight events for hints and stuff.
+// (Blixibon)
+//-----------------------------------------------------------------------------
+typedef bool (*SIGHTEVENTPTR)(CEZ2_Player *pPlayer, CBaseEntity *pActivator);
+
+struct SightEvent_t
+{
+	//DECLARE_SIMPLE_DATADESC();
+
+	SightEvent_t( const char *_pName, float _flCooldown, SIGHTEVENTPTR _pTestFunc, SIGHTEVENTPTR _pMainFunc )
+	{
+		pName = _pName;
+		flCooldown = _flCooldown;
+		pTestFunc = _pTestFunc;
+		pMainFunc = _pMainFunc;
+		flNextHintTime = 0.0f;
+		flLastHintTime = 0.0f;
+	}
+
+	bool Test( CEZ2_Player *pPlayer, CBaseEntity *pActivator ) { return (*pTestFunc)(pPlayer, pActivator); }
+	bool DoEvent( CEZ2_Player *pPlayer, CBaseEntity *pActivator ) { return (*pMainFunc)(pPlayer, pActivator); }
+
+	const char *pName;
+
+	float	flNextHintTime;
+	float	flLastHintTime;
+
+	float	flCooldown;
+
+private:
+
+	SIGHTEVENTPTR pTestFunc;
+	SIGHTEVENTPTR pMainFunc;
+};
+
+#define SIGHT_EVENT_HINT_START( funcName, eventName ) \
+	bool funcName( CEZ2_Player *pPlayer, CBaseEntity *pActivator ) \
+	{ \
+		if (player_use_instructor.GetBool()) \
+		{ \
+			IGameEvent *event = gameeventmanager->CreateEvent( eventName ); \
+			if ( event ) \
+			{
+
+#define SIGHT_EVENT_HINT_END( hintName ) \
+			} \
+		} \
+		else \
+		{ \
+			UTIL_HudHintText( pPlayer, hintName ); \
+		} \
+		return true; \
+	}
 
 #endif	//EZ2_PLAYER_H

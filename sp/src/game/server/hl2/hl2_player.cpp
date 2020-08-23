@@ -4618,18 +4618,19 @@ void CHL2_Player::TraceKickAttack()
 	CBaseEntity *pEntity = tr.m_pEnt;
 	if ( pEntity != NULL )
 	{
+		float dmg = sk_plr_dmg_kick.GetFloat();;
+		int dmgType = DMG_CLUB;
+
+		CTakeDamageInfo dmgInfo( this, this, dmg, dmgType );
+		dmgInfo.SetDamagePosition( tr.endpos );
+		VectorNormalize( vecAim );// not a unit vec yet
+		// hit like a 5kg object flying 100 ft/s
+		dmgInfo.SetDamageForce( dmg * 256 * 12 * vecAim );
+
 		// Try to dispatch an interaction
-		if ( !pEntity->DispatchInteraction( g_interactionBadCopKick, &tr, this ) )
+		KickInfo_t kickInfo( &tr, &dmgInfo );
+		if ( !pEntity->DispatchInteraction( g_interactionBadCopKick, &kickInfo, this ) )
 		{
-			float dmg = sk_plr_dmg_kick.GetFloat();;
-			int dmgType = DMG_CLUB;
-
-			CTakeDamageInfo dmgInfo( this, this, dmg, dmgType );
-			dmgInfo.SetDamagePosition( tr.endpos );
-			VectorNormalize( vecAim );// not a unit vec yet
-									  // hit like a 5kg object flying 100 ft/s
-			dmgInfo.SetDamageForce( dmg * 256 * 12 * vecAim );
-
 			// Send the damage to the recipient
 			pEntity->DispatchTraceAttack( dmgInfo, vecAim, &tr );
 		}

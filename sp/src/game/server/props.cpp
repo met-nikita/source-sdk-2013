@@ -46,6 +46,10 @@
 #include "collisionutils.h"
 #endif
 
+#ifdef EZ2
+#include "ez2/ez2_player.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -794,13 +798,16 @@ bool CBreakableProp::HandleInteraction( int interactionType, void *data, CBaseCo
 #ifdef EZ2
 	if ( interactionType == g_interactionBadCopKick )
 	{
+		KickInfo_t * info = static_cast< KickInfo_t *>( data );
+
 		// If we're an item crate, explode violently!
 		if (FClassnameIs( this, "item_item_crate" ))
 		{
-			int dmgType = DMG_CLUB;
-			CTakeDamageInfo dmgInfo( this, this, 500, dmgType );
-			TakeDamage( dmgInfo );
-			return true;
+			info->dmgInfo->SetDamage( 500 );
+			info->dmgInfo->ScaleDamageForce( 0.1f );
+
+			// Still take the damage
+			return false;
 		}
 
 		// If we're an explosive barrel, DON'T explode violently!
@@ -812,7 +819,7 @@ bool CBreakableProp::HandleInteraction( int interactionType, void *data, CBaseCo
 				HasInteraction( PROPINTER_FIRE_EXPLOSIVE_RESIST ) )
 		{
 			// If we have directional information, PUNT!
-			trace_t * pTr = static_cast< trace_t *>( data );
+			trace_t * pTr = info->tr;
 			if (pTr)
 			{
 				ApplyAbsVelocityImpulse ( ( pTr->endpos - pTr->startpos ) * 1024.0f );
