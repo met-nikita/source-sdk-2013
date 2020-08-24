@@ -18,6 +18,8 @@ class CNPC_Voltigore : public CNPC_BasePredator
 	DECLARE_DATADESC();
 
 public:
+	CNPC_Voltigore() { SetDisplacementImpossible( true ); }
+
 	void Spawn( void );
 	void Precache( void );
 	Class_T	Classify( void );

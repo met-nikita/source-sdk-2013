@@ -4009,7 +4009,7 @@ void GetXenGrenadeResponseFromSystem( char *szResponse, size_t szResponseSize, I
 bool LoadCustomXenRecipeFile(const char *scriptfile)
 {
 	CUtlBuffer buf;
-	if ( !filesystem->ReadFile( scriptfile, "GAME", buf ) )
+	if ( !filesystem->ReadFile( scriptfile, "MOD", buf ) )
 	{
 		return false;
 	}

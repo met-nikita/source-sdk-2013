@@ -35,6 +35,10 @@
 #include "ieffects.h"
 #endif
 
+#ifdef EZ2
+#include "ez2/ez2_player.h"
+#endif
+
 #include "ai_squad.h"
 #include "ai_pathfinder.h"
 #include "ai_route.h"
@@ -5088,8 +5092,10 @@ bool CNPC_Citizen::HandleInteraction(int interactionType, void *data, CBaseComba
 #ifdef EZ2
 	else if ( interactionType == g_interactionBadCopKick )
 	{
+		KickInfo_t * pInfo = static_cast< KickInfo_t *>(data);
+
 		// If we have directional information, see if this kick knocked a weapon free
-		trace_t * pTr = static_cast< trace_t *>(data);
+		trace_t * pTr = pInfo->tr;
 		CBaseCombatWeapon * pWeapon = GetActiveWeapon();
 		if ( pTr && pWeapon )
 		{
