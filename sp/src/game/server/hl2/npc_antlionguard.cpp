@@ -720,6 +720,13 @@ void CNPC_AntlionGuard::Precache( void )
 	PrecacheParticleSystem( "blood_antlionguard_injured_light" );
 	PrecacheParticleSystem( "blood_antlionguard_injured_heavy" );
 
+#ifdef EZ2
+	if (m_tEzVariant == EZ_VARIANT_XEN)
+	{
+		PrecacheParticleSystem( "xenpc_spawn" );
+	}
+#endif
+
 	BaseClass::Precache();
 }
 
@@ -3201,7 +3208,12 @@ void CNPC_AntlionGuard::SummonAntlions( void )
 
 		// Ensure it's dirt or sand
 		const surfacedata_t *pdata = physprops->GetSurfaceData( tr.surface.surfaceProps );
+#ifdef EZ2
+		// Unless it's a Xen variant
+		if ( m_tEzVariant != EZ_VARIANT_XEN && ( pdata->game.material != CHAR_TEX_DIRT ) && ( pdata->game.material != CHAR_TEX_SAND ) )
+#else
 		if ( ( pdata->game.material != CHAR_TEX_DIRT ) && ( pdata->game.material != CHAR_TEX_SAND ) )
+#endif
 		{
 			if ( g_debug_antlionguard.GetInt() == 2 )
 			{
@@ -3255,10 +3267,31 @@ void CNPC_AntlionGuard::SummonAntlions( void )
 		pAntlion->KeyValue( "OnDeath", UTIL_VarArgs("%s,SummonedAntlionDied,,0,-1", STRING(GetEntityName())) );
 
 		// Start the antlion burrowed, and tell him to come up
+#ifdef EZ2
+		pAntlion->m_tEzVariant = m_tEzVariant;
+
+		if (m_tEzVariant == EZ_VARIANT_XEN)
+		{
+			// Xen antlions instead teleport in
+			DispatchSpawn( pAntlion );
+			pAntlion->Activate();
+
+			pAntlion->EmitSound( "WeaponXenGrenade.SpawnXenPC" );
+			DispatchParticleEffect( "xenpc_spawn", pAntlion->WorldSpaceCenter(), pAntlion->GetAbsAngles(), pAntlion );
+		}
+		else
+		{
+			pAntlion->m_bStartBurrowed = true;
+			DispatchSpawn( pAntlion );
+			pAntlion->Activate();
+			g_EventQueue.AddEvent( pAntlion, "Unburrow", RandomFloat(0.1, 1.0), this, this );
+		}
+#else
 		pAntlion->m_bStartBurrowed = true;
 		DispatchSpawn( pAntlion );
 		pAntlion->Activate();
 		g_EventQueue.AddEvent( pAntlion, "Unburrow", RandomFloat(0.1, 1.0), this, this );
+#endif
 
 		// Add it to our squad
 		if ( GetSquad() != NULL )

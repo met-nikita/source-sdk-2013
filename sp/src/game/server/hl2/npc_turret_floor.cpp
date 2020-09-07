@@ -2706,6 +2706,7 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 		switch ( state )
 		{
 			case TURRET_SEARCHING:
+			case TURRET_SUPPRESSING:
 				SpeakIfAllowed( TLK_SEARCHING );
 				break;
 
@@ -2733,8 +2734,13 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 			} break;
 
 			case TURRET_RETIRING:
+			{
 				SpeakIfAllowed( TLK_RETIRE );
-				break;
+
+				// If we're retiring because of Disable(), turn off the laser
+				if (!m_bEnabled)
+					m_bLaser = false;
+			} break;
 
 			case TURRET_TIPPED:
 			{

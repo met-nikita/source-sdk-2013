@@ -182,9 +182,10 @@ void CNPC_CloneCop::PrescheduleThink()
 
 	if (!IsInAScript())
 	{
+		// TODO: Consider caching this
 		int iNumWeapons = 0;
 		int iMyWeapon = WEAPONSWITCH_COUNT;
-		CBaseCombatWeapon *pWeapons[WEAPONSWITCH_COUNT];
+		CHandle<CBaseCombatWeapon> pWeapons[WEAPONSWITCH_COUNT];
 		for (int i=0;i<MAX_WEAPONS;i++)
 		{
 			if ( m_hMyWeapons[i].Get() )
@@ -194,19 +195,19 @@ void CNPC_CloneCop::PrescheduleThink()
 				if (EntIsClass( m_hMyWeapons[i], gm_isz_class_Shotgun ))
 				{
 					pWeapons[WEAPONSWITCH_SHOTGUN] = m_hMyWeapons[i];
-					if (GetActiveWeapon() == m_hMyWeapons[i])
+					if (GetActiveWeapon() == m_hMyWeapons[i].Get())
 						iMyWeapon = WEAPONSWITCH_SHOTGUN;
 				}
 				else if (EntIsClass( m_hMyWeapons[i], gm_isz_class_AR2 ) || FClassnameIs( m_hMyWeapons[i], "weapon_ar2_proto" ))
 				{
 					pWeapons[WEAPONSWITCH_AR2] = m_hMyWeapons[i];
-					if (GetActiveWeapon() == m_hMyWeapons[i])
+					if (GetActiveWeapon() == m_hMyWeapons[i].Get())
 						iMyWeapon = WEAPONSWITCH_AR2;
 				}
 				else if (FClassnameIs( m_hMyWeapons[i], "weapon_crossbow" ))
 				{
 					pWeapons[WEAPONSWITCH_CROSSBOW] = m_hMyWeapons[i];
-					if (GetActiveWeapon() == m_hMyWeapons[i])
+					if (GetActiveWeapon() == m_hMyWeapons[i].Get())
 						iMyWeapon = WEAPONSWITCH_CROSSBOW;
 				}
 			}
@@ -227,7 +228,7 @@ void CNPC_CloneCop::PrescheduleThink()
 			else if (HasCondition(COND_NO_PRIMARY_AMMO))
 				iSwitchTo = RandomInt(0, WEAPONSWITCH_COUNT-1);
 
-			if (iSwitchTo != iMyWeapon && pWeapons[iSwitchTo])
+			if (iSwitchTo != iMyWeapon && (iSwitchTo >= 0 && iSwitchTo < WEAPONSWITCH_COUNT) && pWeapons[iSwitchTo].Get() != NULL)
 			{
 				inputdata_t inputdata;
 				inputdata.value.SetString( pWeapons[iSwitchTo]->m_iClassname );
@@ -417,6 +418,13 @@ Vector CNPC_CloneCop::GetActualShootPosition( const Vector &shootOrigin )
 			// Aim for the head, like players do
 			Vector vecEnemyLKP = GetEnemyLKP();
 			Vector vecEnemyOffset = GetEnemy()->HeadTarget( shootOrigin ) - GetEnemy()->GetAbsOrigin();
+
+			// Scale down towards the torso the closer the target is
+			if (flDist < 192.0f)
+			{
+				vecEnemyOffset *= ( ((flDist / 192.0f) * 0.5f) + 0.5f );
+			}
+
 			Vector vecTargetPosition = vecEnemyOffset + vecEnemyLKP;
 
 			// lead for some fraction of a second.
@@ -834,6 +842,10 @@ bool CNPC_CloneCop::Weapon_Switch( CBaseCombatWeapon *pWeapon, int viewmodelinde
 //-----------------------------------------------------------------------------
 void CNPC_CloneCop::PlayDeploySound( CBaseCombatWeapon *pWeapon )
 {
+	// Don't play sound if not in combat
+	if (GetState() != NPC_STATE_COMBAT)
+		return;
+
 	if (EntIsClass( pWeapon, gm_isz_class_Shotgun ))
 	{
 		pWeapon->WeaponSound( SPECIAL1 );
