@@ -69,6 +69,19 @@ BEGIN_DATADESC(CEZ2_Player)
 	DEFINE_INPUTFUNC(FIELD_VOID, "StopScripting", InputStopScripting),
 END_DATADESC()
 
+BEGIN_ENT_SCRIPTDESC( CEZ2_Player, CBasePlayer, "E:Z2's player entity." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetNPCComponent, "GetNPCComponent", "Gets the player's NPC component." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetStaringEntity, "GetStaringEntity", "Gets the player's staring entity." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetEnemy, "GetEnemy", "Gets the player's current enemy." )
+	DEFINE_SCRIPTFUNC( GetVisibleEnemies, "Gets the player's visible enemies." )
+	DEFINE_SCRIPTFUNC( GetCloseEnemies, "Gets the player's close enemies." )
+
+	DEFINE_SCRIPTFUNC( IsInAScript, "Returns true if the player is in a script." )
+
+END_SCRIPTDESC();
+
 IMPLEMENT_SERVERCLASS_ST(CEZ2_Player, DT_EZ2_Player)
 
 END_SEND_TABLE()
@@ -1890,6 +1903,19 @@ bool CEZ2_Player::ReactToSound( CSound *pSound, float flDist )
 	}
 
 	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+HSCRIPT CEZ2_Player::ScriptGetNPCComponent()
+{
+	return ToHScript( GetNPCComponent() );
+}
+
+HSCRIPT CEZ2_Player::ScriptGetStaringEntity()
+{
+	return ToHScript( GetStaringEntity() );
 }
 
 //-----------------------------------------------------------------------------

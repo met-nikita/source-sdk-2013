@@ -177,7 +177,7 @@ public:
 	void			Event_VehicleOverturned( CBaseEntity *pVehicle );
 
 	// Blixibon - StartScripting for gag replacement
-	inline bool			IsInAScript( void ) { return m_bInAScript; }
+	bool				IsInAScript( void ) { return m_bInAScript; }
 	inline void			SetInAScript( bool bScript ) { m_bInAScript = bScript; }
 	void				InputStartScripting( inputdata_t &inputdata );
 	void				InputStopScripting( inputdata_t &inputdata );
@@ -205,6 +205,17 @@ public:
 
 	DECLARE_SERVERCLASS();
 	DECLARE_DATADESC();
+	DECLARE_ENT_SCRIPTDESC();
+
+public:
+
+	// VScript functions
+	HSCRIPT				ScriptGetNPCComponent();
+	HSCRIPT				ScriptGetStaringEntity();
+
+	HSCRIPT				VScriptGetEnemy() { return ToHScript( GetEnemy() ); }
+	int					GetVisibleEnemies() { return m_iVisibleEnemies; }
+	int					GetCloseEnemies() { return m_iCloseEnemies; }
 
 public:
 
