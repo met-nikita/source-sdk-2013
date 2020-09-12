@@ -220,15 +220,15 @@ void CNPC_CloneCop::PrescheduleThink()
 
 			// Check if enemy is too far
 			if (HasCondition( COND_TOO_FAR_TO_ATTACK ))
-				iSwitchTo++;
+				iSwitchTo = clamp( iSwitchTo + 1, WEAPONSWITCH_SHOTGUN, WEAPONSWITCH_CROSSBOW );
 			else if (HasCondition( COND_TOO_CLOSE_TO_ATTACK ))
-				iSwitchTo--;
+				iSwitchTo = clamp( iSwitchTo - 1, WEAPONSWITCH_SHOTGUN, WEAPONSWITCH_CROSSBOW );
 
 			// Check if we have no ammo
-			else if (HasCondition(COND_NO_PRIMARY_AMMO))
+			if ( iSwitchTo == iMyWeapon && HasCondition( COND_NO_PRIMARY_AMMO ))
 				iSwitchTo = RandomInt(0, WEAPONSWITCH_COUNT-1);
 
-			if (iSwitchTo != iMyWeapon && (iSwitchTo >= 0 && iSwitchTo < WEAPONSWITCH_COUNT) && pWeapons[iSwitchTo].Get() != NULL)
+			if (iSwitchTo != iMyWeapon && pWeapons[iSwitchTo].Get() != NULL)
 			{
 				inputdata_t inputdata;
 				inputdata.value.SetString( pWeapons[iSwitchTo]->m_iClassname );
@@ -831,6 +831,21 @@ bool CNPC_CloneCop::Weapon_Switch( CBaseCombatWeapon *pWeapon, int viewmodelinde
 	{
 		EmitSound( "NPC_Combine.Zipline_MidClothing" );
 		PlayDeploySound( pWeapon );
+
+		if (EntIsClass( pWeapon, gm_isz_class_Shotgun ))
+		{
+			pWeapon->m_fMaxRange1 = MIN( 512, pWeapon->m_fMaxRange1 );
+		}
+		else if (EntIsClass( pWeapon, gm_isz_class_AR2 ) || FClassnameIs( pWeapon, "weapon_ar2_proto" ))
+		{
+			pWeapon->m_fMinRange1 = MAX( 256, pWeapon->m_fMinRange1 );
+			pWeapon->m_fMaxRange1 = MIN( 1024, pWeapon->m_fMaxRange1 );
+		}
+		else if (FClassnameIs( pWeapon, "weapon_crossbow" ))
+		{
+			pWeapon->m_fMinRange1 = MAX( 768, pWeapon->m_fMinRange1 );
+		}
+
 		return true;
 	}
 
