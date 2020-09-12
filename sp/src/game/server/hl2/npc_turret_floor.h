@@ -479,6 +479,8 @@ private:
 
 	CNetworkVar( bool, m_bGooTurret );
 
+	CNetworkVar( bool, m_bCitizenTurret );
+
 	// Client needs to know for ropes
 	CNetworkVar( bool, m_bClosedIdle );
 };
