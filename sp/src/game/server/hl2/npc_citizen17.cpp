@@ -2844,8 +2844,8 @@ void CNPC_Citizen::RunTask( const Task_t *pTask )
 				}
 
 				TaskComplete();
-				break;
 			}
+			break;
 		}
 #endif
 		default:
@@ -3145,6 +3145,15 @@ void CNPC_Citizen::Event_Killed( const CTakeDamageInfo &info )
 			return;
 		}
 	}
+
+#ifdef EZ2
+	// Medics ALWAYS drop healthkits. Reward the player for taking them out
+	if ( IsMedic() )
+	{
+		DropItem( "item_healthkit", WorldSpaceCenter() + RandomVector( -4, 4 ), RandomAngle( 0, 360 ) );
+	}
+
+#endif
 
 	BaseClass::Event_Killed( info );
 }
