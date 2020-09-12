@@ -78,6 +78,11 @@ float CNPC_FloorTurret::fMaxTipControllerAngularVelocity = 90.0f * 90.0f;
 #define	FLOOR_TURRET_MAX_NOHARM_PERIOD		0.0f
 #define	FLOOR_TURRET_MAX_GRACE_PERIOD		3.0f
 
+#ifdef EZ2
+// Currently only used on Arbeit turrets
+#define FLOOR_TURRET_CITIZEN_SPRITE_COLOR		255, 240, 0
+#endif
+
 //Activities
 int ACT_FLOOR_TURRET_OPEN;
 int ACT_FLOOR_TURRET_CLOSE;
@@ -2529,6 +2534,7 @@ IMPLEMENT_SERVERCLASS_ST( CNPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret )
 	SendPropFloat( SENDINFO( m_flFOV ) ),
 	SendPropBool( SENDINFO( m_bLaser ) ),
 	SendPropBool( SENDINFO( m_bGooTurret ) ), // TODO: Send full E:Z variant? Enum is only on server
+	SendPropBool( SENDINFO( m_bCitizenTurret ) ), // TODO: Send spawnflags instead?
 	SendPropBool( SENDINFO( m_bClosedIdle ) ),
 END_SEND_TABLE()
 
@@ -2593,6 +2599,8 @@ void CNPC_Arbeit_FloorTurret::Spawn( void )
 		m_bLaser = true;
 
 	m_bGooTurret = (m_tEzVariant == EZ_VARIANT_RAD);
+
+	m_bCitizenTurret = IsCitizenTurret();
 }
 
 //-----------------------------------------------------------------------------
@@ -2603,6 +2611,8 @@ void CNPC_Arbeit_FloorTurret::Activate( void )
 	BaseClass::Activate();
 
 	m_bGooTurret = (m_tEzVariant == EZ_VARIANT_RAD);
+
+	m_bCitizenTurret = IsCitizenTurret();
 }
 
 //-----------------------------------------------------------------------------
@@ -2759,8 +2769,9 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 		{
 			case TURRET_AUTO_SEARCHING:
 				// Only autosearch if we have an enemy somewhere
-				AIEnemiesIter_t iter;
-				if ( GetEnemies()->GetFirst(&iter) != NULL && !IsBeingCarriedByPlayer() )
+				//AIEnemiesIter_t iter;
+				//if ( GetEnemies()->GetFirst(&iter) != NULL && !IsBeingCarriedByPlayer() )
+				if (GetLastEnemyTime() != 0.0 && gpGlobals->curtime - GetLastEnemyTime() < 30.0f)
 					SpeakIfAllowed( TLK_AUTOSEARCH );
 				break;
 		}
@@ -2786,7 +2797,11 @@ void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
 		if ( !m_hEyeGlow )
 			return;
 
-		m_hEyeGlow->SetTransparency( kRenderWorldGlow, 255, 0, 0, 128, kRenderFxNoDissipation );
+		if (IsCitizenTurret())
+			m_hEyeGlow->SetTransparency( kRenderWorldGlow, FLOOR_TURRET_CITIZEN_SPRITE_COLOR, 128, kRenderFxNoDissipation );
+		else
+			m_hEyeGlow->SetTransparency( kRenderWorldGlow, 255, 0, 0, 128, kRenderFxNoDissipation );
+
 		m_hEyeGlow->SetAttachment( this, m_iEyeAttachment );
 	}
 
@@ -2838,7 +2853,7 @@ void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
 	{
 	case TURRET_EYE_SEE_TARGET: //Fade in and scale up
 	default:
-		m_hEyeGlow->SetColor( 255, 0, 0 );
+		IsCitizenTurret() ? m_hEyeGlow->SetColor( FLOOR_TURRET_CITIZEN_SPRITE_COLOR ) : m_hEyeGlow->SetColor( 255, 0, 0 );
 		m_hEyeGlow->SetBrightness( 255, 0.1f );
 		m_hEyeGlow->SetScale( 0.5f, 0.1f );
 		break;
@@ -2847,7 +2862,7 @@ void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
 		
 		//Toggle our state
 		m_bBlinkState = !m_bBlinkState;
-		m_hEyeGlow->SetColor( 255, 0, 0 );
+		IsCitizenTurret() ? m_hEyeGlow->SetColor( FLOOR_TURRET_CITIZEN_SPRITE_COLOR ) : m_hEyeGlow->SetColor( 255, 0, 0 );
 
 		if ( m_bBlinkState )
 		{
@@ -2865,13 +2880,13 @@ void CNPC_Arbeit_FloorTurret::SetEyeState( eyeState_t state )
 		break;
 
 	case TURRET_EYE_DORMANT: //Fade out and scale down
-		m_hEyeGlow->SetColor( 255, 0, 0 );
+		IsCitizenTurret() ? m_hEyeGlow->SetColor( FLOOR_TURRET_CITIZEN_SPRITE_COLOR ) : m_hEyeGlow->SetColor( 255, 0, 0 );
 		m_hEyeGlow->SetScale( 0.3f, 0.5f );
 		m_hEyeGlow->SetBrightness( 192, 0.5f );
 		break;
 
 	case TURRET_EYE_DEAD: //Fade out slowly
-		m_hEyeGlow->SetColor( 255, 0, 0 );
+		IsCitizenTurret() ? m_hEyeGlow->SetColor( FLOOR_TURRET_CITIZEN_SPRITE_COLOR ) : m_hEyeGlow->SetColor( 255, 0, 0 );
 		m_hEyeGlow->SetScale( 0.1f, 3.0f );
 		m_hEyeGlow->SetBrightness( 0, 3.0f );
 		m_nSkin = 1;

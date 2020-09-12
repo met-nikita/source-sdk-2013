@@ -77,6 +77,8 @@ public:
 
 	bool m_bEyeLightEnabled;
 
+	float m_EyeLightColor[3];
+
 	int m_iLastEyeLightBrightness;
 	int m_iEyeLightBrightness;
 
@@ -135,6 +137,7 @@ public:
 	C_Beam *m_pLaser;
 
 	bool m_bGooTurret;
+	bool m_bCitizenTurret;
 };
 
 

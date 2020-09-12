@@ -90,6 +90,7 @@ public:
 	virtual void UpdateLight( const Vector &vecPos, const Vector &vecDir, const Vector &vecRight, const Vector &vecUp, int nDistance );
 
 	float	m_flBrightnessScale;
+	float	m_Color[3];
 	float	m_flFarZ;
 	float	m_flFOV;
 };

@@ -12,6 +12,10 @@
 C_AI_TurretBase::C_AI_TurretBase()
 {
 	m_iRopeStartAttachments[0] = -1;
+
+	m_EyeLightColor[0] = 1.0f;
+	m_EyeLightColor[1] = 0.0f;
+	m_EyeLightColor[2] = 0.0f;
 }
 
 C_AI_TurretBase::~C_AI_TurretBase()
@@ -85,6 +89,10 @@ void C_AI_TurretBase::Simulate( void )
 
 			if ( m_EyeLight == NULL )
 				return;
+
+			m_EyeLight->m_Color[0] = m_EyeLightColor[0];
+			m_EyeLight->m_Color[1] = m_EyeLightColor[1];
+			m_EyeLight->m_Color[2] = m_EyeLightColor[2];
 
 			m_EyeLight->m_flBrightnessScale = m_flEyeLightBrightnessScale;
 			if (m_flRange > 0)
@@ -222,6 +230,9 @@ C_RopeKeyframe *C_NPC_Wilson::CreateRope( int iStartAttach, int iEndAttach )
 	return pRope;
 }
 
+// Currently only used on Arbeit turrets
+#define FLOOR_TURRET_CITIZEN_SPRITE_COLOR		255, 240, 0
+
 IMPLEMENT_CLIENTCLASS_DT( C_NPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret, CNPC_Arbeit_FloorTurret )
 	RecvPropBool( RECVINFO( m_bEyeLightEnabled ) ),
 	RecvPropInt( RECVINFO( m_iEyeLightBrightness ) ),
@@ -229,6 +240,7 @@ IMPLEMENT_CLIENTCLASS_DT( C_NPC_Arbeit_FloorTurret, DT_NPC_Arbeit_FloorTurret, C
 	RecvPropFloat( RECVINFO( m_flFOV ) ),
 	RecvPropBool( RECVINFO( m_bLaser ) ),
 	RecvPropBool( RECVINFO( m_bGooTurret ) ),
+	RecvPropBool( RECVINFO( m_bCitizenTurret ) ),
 	RecvPropBool( RECVINFO( m_bClosedIdle ) ),
 END_RECV_TABLE()
 
@@ -309,7 +321,12 @@ void C_NPC_Arbeit_FloorTurret::OnDataChanged( DataUpdateType_t type )
 
 			//m_pLaser->FollowEntity( this );
 			m_pLaser->SetNoise( 0 );
-			m_pLaser->SetColor( 255, 0, 0 );
+
+			if (m_bCitizenTurret)
+				m_pLaser->SetColor( FLOOR_TURRET_CITIZEN_SPRITE_COLOR );
+			else
+				m_pLaser->SetColor( 255, 0, 0 );
+
 			m_pLaser->SetScrollRate( 0 );
 			m_pLaser->SetWidth( 3.0f );
 			m_pLaser->SetEndWidth( 2.0f );
@@ -323,6 +340,15 @@ void C_NPC_Arbeit_FloorTurret::OnDataChanged( DataUpdateType_t type )
 
 		m_pLaser->Remove();
 		m_pLaser = NULL;
+	}
+
+	if (m_bEyeLightEnabled && m_bCitizenTurret)
+	{
+		// Citizen turrets use a different color
+		// (NOTE: update if FLOOR_TURRET_CITIZEN_SPRITE_COLOR is changed)
+		m_EyeLightColor[0] = 1.0f;
+		m_EyeLightColor[1] = 0.94f;
+		m_EyeLightColor[2] = 0.0f;
 	}
 }
 
