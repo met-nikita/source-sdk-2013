@@ -317,6 +317,8 @@ public:
 	// Special handling for info_remarkable
 	void	OnSeeEntity( CBaseEntity *pEntity );
 
+	bool	IsValidEnemy( CBaseEntity *pEnemy );
+
 	//---------------------------------------------------------------------------------------------
 	// Override a bunch of stuff to redirect to our outer.
 	//---------------------------------------------------------------------------------------------
