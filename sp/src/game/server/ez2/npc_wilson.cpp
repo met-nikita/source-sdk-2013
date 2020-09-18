@@ -325,6 +325,15 @@ bool CNPC_Wilson::CreateVPhysics( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+unsigned int CNPC_Wilson::PhysicsSolidMaskForEntity( void ) const
+{
+	// Wilson should ignore NPC clips
+	return BaseClass::PhysicsSolidMaskForEntity() & ~CONTENTS_MONSTERCLIP;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CNPC_Wilson::UpdateOnRemove( void )
 {
 	if ( m_pMotionController != NULL )

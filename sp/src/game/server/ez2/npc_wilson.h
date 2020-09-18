@@ -56,6 +56,9 @@ public:
 	void	UpdateOnRemove( void );
 	float	MaxYawSpeed( void ){ return 0; }
 
+	bool	ShouldSavePhysics() { return true; }
+	unsigned int	PhysicsSolidMaskForEntity( void ) const;
+
 	void	Touch(	CBaseEntity *pOther );
 
 	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
