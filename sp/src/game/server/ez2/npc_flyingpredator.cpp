@@ -18,10 +18,9 @@
 ConVar sk_flyingpredator_health( "sk_flyingpredator_health", "100" );
 ConVar sk_flyingpredator_dmg_dive( "sk_flyingpredator_dmg_dive", "33" );
 ConVar sk_flyingpredator_dmg_explode( "sk_flyingpredator_dmg_explode", "75" );
-ConVar sk_flyingpredator_spit_gravity( "sk_flyingpredator_spit_gravity", "600" );
-ConVar sk_flyingpredator_spit_arc_size( "sk_flyingpredator_spit_arc_size", "3");
 ConVar sk_flyingpredator_spit_min_wait( "sk_flyingpredator_spit_min_wait", "0.5");
 ConVar sk_flyingpredator_spit_max_wait( "sk_flyingpredator_spit_max_wait", "1");
+ConVar sk_flyingpredator_radius_explode( "sk_flyingpredator_radius_explode", "128" );
 ConVar sk_flyingpredator_gestation( "sk_flyingpredator_gestation", "15.0" );
 ConVar sk_flyingpredator_spawn_time( "sk_flyingpredator_spawn_time", "5.0" );
 
@@ -594,7 +593,7 @@ void CNPC_FlyingPredator::ExplosionEffect( void )
 
 	CTakeDamageInfo info( this, this, sk_flyingpredator_dmg_explode.GetFloat(), DMG_BLAST_SURFACE | DMG_ACID | DMG_ALWAYSGIB );
 
-	RadiusDamage( info, GetAbsOrigin(), 300, CLASS_NONE, this );
+	RadiusDamage( info, GetAbsOrigin(), sk_flyingpredator_radius_explode.GetFloat(), CLASS_NONE, this );
 	EmitSound( "NPC_FlyingPredator.Explode" );
 }
 
