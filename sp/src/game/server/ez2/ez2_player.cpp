@@ -2268,6 +2268,9 @@ void CAI_PlayerNPCDummy::DrawDebugGeometryOverlays( void )
 	}
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CAI_PlayerNPCDummy::OnSeeEntity( CBaseEntity * pEntity )
 {
 	if ( pEntity->IsRemarkable() )
@@ -2285,6 +2288,22 @@ void CAI_PlayerNPCDummy::OnSeeEntity( CBaseEntity * pEntity )
 	}
 
 	BaseClass::OnSeeEntity( pEntity );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CAI_PlayerNPCDummy::IsValidEnemy( CBaseEntity *pEnemy )
+{
+	if (!BaseClass::IsValidEnemy( pEnemy ))
+		return false;
+
+	// Just completely ignore bullseyes for now
+	// (fixes an issue where the NPC component always regards any bullseye as an enemy)
+	if (pEnemy->Classify() == CLASS_BULLSEYE)
+		return false;
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------

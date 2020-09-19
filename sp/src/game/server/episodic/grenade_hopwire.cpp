@@ -55,6 +55,7 @@ ConVar hopwire_pull_player("hopwire_pull_player", "1");
 ConVar hopwire_strength( "hopwire_strength", "256" );
 ConVar hopwire_hopheight( "hopwire_hopheight", "200" );
 ConVar hopwire_ragdoll_radius( "hopwire_ragdoll_radius", "96" );
+ConVar hopwire_conusme_radius( "hopwire_conusme_radius", "48" );
 ConVar hopwire_spawn_life("hopwire_spawn_life", "1");
 ConVar hopwire_spawn_node_radius( "hopwire_spawn_node_radius", "256" );
 ConVar hopwire_spawn_interval_min( "hopwire_spawn_interval_min", "0.35" );
@@ -1160,8 +1161,11 @@ bool CGravityVortexController::TrySpawnRecipeNPC( CBaseEntity *pEntity, bool bCa
 	// and ragdoll Teleport() always crashes
 	pEntity->CBaseEntity::Teleport( &vecBestSpace, NULL, NULL );
 
-	// Now that the XenPC was created successfully, play a sound and display a particle effect
-	SpawnEffects( pEntity );
+	if ( !pEntity->IsEFlagSet( EFL_SERVER_ONLY ) )
+	{
+		// Now that the XenPC was created successfully and we know it isn't a server-only entity, play a sound and display a particle effect
+		SpawnEffects( pEntity );
+	}
 
 	// XenPC - ACTIVATE! Especially important for antlion glows
 	if (bCallSpawnFuncs)
@@ -1571,6 +1575,19 @@ void CGravityVortexController::PullThink( void )
 		{
 			mass = pPhysObject->GetMass();
 		}
+
+		if ( dist < m_flConsumeRadius )
+		{
+			// The Xen grenade should not consume entities through grates and other non-consumable objects
+			trace_t tr;
+			CXenGrenadeTraceFilter traceFilter( pEnts[i], COLLISION_GROUP_NONE, this );
+			UTIL_TraceLine( vecEntCenter, GetAbsOrigin(), MASK_SOLID, &traceFilter, &tr );
+			if (tr.fraction == 1.0f)
+			{
+				ConsumeEntity( pEnts[i] );
+				continue;
+			}
+		}
 #else
 		// Attempt to kill and ragdoll any victims in range
 		if ( KillNPCInRange( pEnts[i], &pPhysObject ) == false )
@@ -1604,32 +1621,14 @@ void CGravityVortexController::PullThink( void )
 		vecForce2D[2] = 0.0f;
 		float	dist2D = VectorNormalize( vecForce2D );
 		float	dist = VectorNormalize( vecForce );
-#endif
+
 		// FIXME: Need a more deterministic method here
 		if ( dist < 48.0f )
 		{
-#ifdef EZ2
-			// The Xen grenade should not consume entities through grates and other non-consumable objects
-			trace_t tr;
-			CXenGrenadeTraceFilter traceFilter( pEnts[i], COLLISION_GROUP_NONE, this );
-			UTIL_TraceLine( vecEntCenter, GetAbsOrigin(), MASK_SOLID, &traceFilter, &tr );
-			if (tr.fraction == 1.0f)
-			{
-				DevMsg( "%s: Consuming solid since fraction is 1.0\n", pEnts[i]->GetDebugName() );
-				ConsumeEntity( pEnts[i] );
-				continue;
-			}
-			else
-			{
-				DevMsg( "%s: Not consuming solid since fraction is %.2f, entity is %s\n", pEnts[i]->GetDebugName(), tr.fraction, tr.m_pEnt->GetDebugName() );
-			}
-#else
 			ConsumeEntity( pEnts[i] );
 			continue;
-#endif
 		}
 
-#ifndef EZ2 // Since this uses UTIL_EntitiesInSphere now, the distance radius check is no longer necessary.
 		// Must be within the radius
 		if ( dist > m_flRadius )
 			continue;
@@ -1747,6 +1746,7 @@ CGravityVortexController *CGravityVortexController::Create( const Vector &origin
 		pVortex->SetThrower( static_cast<CGrenadeHopwire*>(pGrenade)->GetThrower() );
 
 	pVortex->SetNodeRadius( hopwire_spawn_node_radius.GetFloat() );
+	pVortex->SetConsumeRadius( hopwire_conusme_radius.GetFloat() );
 #endif
 
 	// Start the vortex working
@@ -1764,6 +1764,8 @@ BEGIN_DATADESC( CGravityVortexController )
 	DEFINE_KEYFIELD( m_flStrength, FIELD_FLOAT, "strength" ),
 
 	DEFINE_KEYFIELD( m_flNodeRadius, FIELD_FLOAT, "node_radius" ),
+
+	DEFINE_KEYFIELD( m_flConsumeRadius, FIELD_FLOAT, "consume_radius" ),
 
 	DEFINE_FIELD( m_hReleaseEntity, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_hThrower, FIELD_EHANDLE ),

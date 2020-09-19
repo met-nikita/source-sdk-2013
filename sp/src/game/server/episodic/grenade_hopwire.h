@@ -53,7 +53,8 @@ class CGravityVortexController : public CBaseEntity, public CDisplacerSink
 
 public:
 
-	CGravityVortexController( void ) : m_flEndTime( 0.0f ), m_flRadius( 256 ), m_flStrength( 256 ), m_flMass( 0.0f ) {}
+	CGravityVortexController( void ) : m_flEndTime( 0.0f ), m_flRadius( 256 ), m_flStrength( 256 ), m_flMass( 0.0f ),
+		m_flNodeRadius( 256.0f ), m_flConsumeRadius( 48.0f ) {}
 	float	GetConsumedMass( void ) const;
 
 #ifdef EZ2
@@ -78,6 +79,7 @@ public:
 	void	InputCreateXenLife( inputdata_t &inputdata ) { CreateXenLife(); }
 
 	void	SetNodeRadius( float flRadius ) { m_flNodeRadius = flRadius; }
+	void	SetConsumeRadius( float flRadius ) { m_flConsumeRadius = flRadius; }
 #else
 	static CGravityVortexController *Create( const Vector &origin, float radius, float strength, float duration );
 #endif
@@ -108,6 +110,8 @@ private:
 
 #ifdef EZ2
 	float	m_flNodeRadius;	// Radius to look for nodes
+
+	float	m_flConsumeRadius; // The maximum distance for an entity to be consumed
 
 							// If this points to an entity, the Xen grenade will always call g_interactionXenGrenadeRelease on it instead of spawning Xen life.
 							// This is so Will-E pops back out of Xen grenades.
