@@ -730,6 +730,13 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 		BeginSpawnSound();
 		TaskComplete();
 		break;
+	// If the child class has no defined spawn task, just complete the task
+	// here in the base class.
+	case TASK_PREDATOR_SPAWN:
+		PredMsg( "Warning: %s does not have spawn behavior.\n" );
+		m_bReadyToSpawn = false;
+		TaskComplete();
+		break;
 	default:
 	{
 		BaseClass::StartTask( pTask );
