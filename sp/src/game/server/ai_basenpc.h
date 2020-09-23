@@ -1296,6 +1296,9 @@ public:
 	void				VScriptClearCondition( const char *szCondition ) { ClearCondition( GetConditionID( szCondition ) ); }
 
 	HSCRIPT				VScriptGetExpresser();
+
+	HSCRIPT				VScriptGetCine();
+	int					GetScriptState() { return m_scriptState; }
 #endif
 
 	//-----------------------------------------------------
