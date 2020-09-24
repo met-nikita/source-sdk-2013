@@ -1522,7 +1522,12 @@ void CPropDrivableAPC::CreateDangerSounds( void )
 	else
 	{
 		//TERO: added by me
+#ifdef EZ
+		// Blixibon - Corrected APC danger sounds
+		CSoundEnt::InsertSound( SOUND_MOVE_AWAY, GetAbsOrigin(), 250, soundDuration, this );
+#else
 		CSoundEnt::InsertSound( SOUND_MOVE_AWAY, GetAbsOrigin(), 250, soundDuration, NULL );
+#endif
 	}
 
 	m_flDangerSoundTime = gpGlobals->curtime + 0.1;

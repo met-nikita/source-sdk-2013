@@ -954,10 +954,17 @@ bool CNPC_Wilson::QueryHearSound( CSound *pSound )
 	CBaseEntity *pOwner = pSound->m_hOwner;
 	if ( pOwner )
 	{
-		// If this is a vehicle, use the vehicle's driver instead of the vehicle itself.
+		// Check if this is a vehicle
 		IServerVehicle *pVehicle = pSound->m_hOwner->GetServerVehicle();
 		if ( pVehicle )
+		{
+			// Do not hear sounds from the vehicle we're attached to.
+			if ( pOwner == m_hAttachedVehicle )
+				return false;
+
+			// For the next code, check the vehicle's driver instead of the vehicle itself.
 			pOwner = pVehicle->GetPassenger();
+		}
 
 		// We shouldn't hear sounds emitted by entities/players we like.
 		if ( IRelationType(pOwner) == D_LI )
