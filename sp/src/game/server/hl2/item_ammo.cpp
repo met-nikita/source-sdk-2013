@@ -1097,3 +1097,160 @@ void CItem_AmmoCrate::InputKill( inputdata_t &data )
 	UTIL_Remove( this );
 }
 
+#ifdef EZ2
+#undef CItem
+
+#define XEN_GRENADE_SLOT_1 1
+#define XEN_GRENADE_SLOT_2 2
+#define XEN_GRENADE_SLOT_3 3
+
+#define XEN_GRENADE_SLOTS 3
+
+// ==================================================================
+// Xen grenade holder
+// ==================================================================
+class CItem_XenGrenadeHolder : public CItem
+{
+public:
+	DECLARE_CLASS( CItem_XenGrenadeHolder, CItem );
+
+	CItem_XenGrenadeHolder()
+	{
+		m_bRemoveWhenEmpty = true;
+
+		// Enable all slots by default
+		for (int i = 0; i < XEN_GRENADE_SLOTS; i++)
+		{
+			SetSlot( i, true );
+		}
+	}
+
+	void Spawn( void )
+	{ 
+		Precache( );
+		SetModel( STRING( GetModelName() ) );
+
+		BaseClass::Spawn( );
+	}
+
+	void Activate( void )
+	{
+		m_nAttachmentSlots[0] = LookupAttachment( "slot1" );
+		m_nAttachmentSlots[1] = LookupAttachment( "slot2" );
+		m_nAttachmentSlots[2] = LookupAttachment( "slot3" );
+
+		BaseClass::Activate( );
+	}
+
+	void Precache( void )
+	{
+		if (GetModelName() == NULL_STRING)
+			SetModelName( AllocPooledString( "models/items/xen_grenade_holder001a.mdl" ) );
+
+		PrecacheModel( STRING( GetModelName() ) );
+	}
+
+	bool MyTouch( CBasePlayer *pPlayer )
+	{
+		if (IsEmpty())
+			return false;
+
+		int iAmmoType = GetAmmoDef()->Index( "XenGrenade" );
+		if (iAmmoType == -1)
+			return 0;
+
+		// Give the closest slot until we're either empty or the player is full
+		while (!IsEmpty())
+		{
+			if ( !GiveClosestSlot(pPlayer, iAmmoType) )
+				break;
+		}
+
+		if (IsEmpty())
+		{
+			// We are now debris
+			m_OnEmpty.FireOutput( pPlayer, this );
+
+			if (m_bRemoveWhenEmpty)
+			{
+				SetContextThink( &CBaseEntity::SUB_RemoveWhenNotVisible, gpGlobals->curtime + 10.0f, "SUB_RemoveWhenNotVisible" );
+			}
+		}
+
+		// Never return true to avoid direct removal
+		return false;
+	}
+
+	bool GiveClosestSlot( CBasePlayer *pPlayer, int iAmmoType )
+	{
+		// Figure out which slots the player is closest to
+		int iClosestSlot = 0;
+		float flClosestSqr = FLT_MAX;
+		for (int i = 0; i < XEN_GRENADE_SLOTS; i++)
+		{
+			if (!SlotOccupied(i))
+				continue;
+
+			// TODO: Perhaps use a dot product method instead?
+			Vector vecOrigin;
+			GetAttachment( m_nAttachmentSlots[i], vecOrigin );
+			float flLengthSqr = (vecOrigin - pPlayer->GetAbsOrigin()).LengthSqr();
+			if (flLengthSqr < flClosestSqr)
+			{
+				iClosestSlot = i;
+				flClosestSqr = flLengthSqr;
+			}
+		}
+
+		if (SlotOccupied( iClosestSlot ))
+		{
+			if (pPlayer->GiveAmmo( 1, iAmmoType ))
+			{
+				SetSlot( iClosestSlot, false );
+				m_OnPickupSlot[iClosestSlot].FireOutput( pPlayer, this );
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	void	SetSlot( int iSlot, bool bOn ) { SetBodygroup( iSlot+1, bOn ); }
+	bool	SlotOccupied( int iSlot ) { return GetBodygroup( iSlot+1 ) != 0; }
+
+	bool	IsEmpty() { return m_nBody == 0; }
+
+	void	InputSetSlot1( inputdata_t &inputdata ) { SetSlot( 0, inputdata.value.Bool() ); }
+	void	InputSetSlot2( inputdata_t &inputdata ) { SetSlot( 1, inputdata.value.Bool() ); }
+	void	InputSetSlot3( inputdata_t &inputdata ) { SetSlot( 2, inputdata.value.Bool() ); }
+
+protected:
+
+	int m_nAttachmentSlots[XEN_GRENADE_SLOTS];
+
+	bool m_bRemoveWhenEmpty;
+
+	COutputEvent m_OnPickupSlot[XEN_GRENADE_SLOTS];
+	COutputEvent m_OnEmpty;
+
+	DECLARE_DATADESC();
+};
+
+LINK_ENTITY_TO_CLASS( item_hopwire_holder, CItem_XenGrenadeHolder );
+
+BEGIN_DATADESC( CItem_XenGrenadeHolder )
+
+	DEFINE_KEYFIELD( m_bRemoveWhenEmpty,	FIELD_BOOLEAN, "RemoveWhenEmpty" ),
+
+	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetSlot1", InputSetSlot1 ),
+	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetSlot2", InputSetSlot2 ),
+	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetSlot3", InputSetSlot3 ),
+
+	DEFINE_OUTPUT( m_OnPickupSlot[0], "OnPickupSlot1" ),
+	DEFINE_OUTPUT( m_OnPickupSlot[1], "OnPickupSlot2" ),
+	DEFINE_OUTPUT( m_OnPickupSlot[3], "OnPickupSlot3" ),
+	DEFINE_OUTPUT( m_OnEmpty, "OnEmpty" ),
+
+END_DATADESC()
+#endif
+
