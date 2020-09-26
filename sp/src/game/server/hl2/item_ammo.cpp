@@ -1204,7 +1204,8 @@ public:
 
 		if (SlotOccupied( iClosestSlot ))
 		{
-			if (pPlayer->GiveAmmo( 1, iAmmoType ))
+			// Give a weapon_hopwire first in case the player doesn't have it yet.
+			if (pPlayer->GiveNamedItem( "weapon_hopwire" ) || pPlayer->GiveAmmo( 1, iAmmoType ))
 			{
 				SetSlot( iClosestSlot, false );
 				m_OnPickupSlot[iClosestSlot].FireOutput( pPlayer, this );
