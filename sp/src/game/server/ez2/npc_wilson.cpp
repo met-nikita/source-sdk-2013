@@ -79,6 +79,9 @@ CNPC_Wilson *CNPC_Wilson::GetBestWilson( float &flBestDistSqr, const Vector *vec
 
 ConVar npc_wilson_depressing_death("npc_wilson_depressing_death", "0", FCVAR_NONE, "Makes Will-E shut down and die into an empty husk rather than explode.");
 
+ConVar npc_wilson_clearance_speed_threshold( "npc_wilson_clearance_speed_threshold", "500.0", FCVAR_NONE, "The speed at which Will-E starts to think he's gonna get knocked off if approaching a surface." );
+ConVar npc_wilson_clearance_debug( "npc_wilson_clearance_debug", "0", FCVAR_NONE, "Debugs Will-E's low clearance detection." );
+
 static const char *g_DamageZapContext = "DamageZapEffect";
 
 #define WILSON_MODEL "models/will_e.mdl"
@@ -142,6 +145,18 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_OUTPUT( m_OnDestroyed, "OnDestroyed" ),
 
 END_DATADESC()
+
+BEGIN_ENT_SCRIPTDESC( CNPC_Wilson, CAI_BaseActor, "E:Z2's Wilson, the pacifist turret." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptIsBeingCarriedByPlayer, "IsBeingCarriedByPlayer", "Returns true if Wilson is being carried by the player." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptWasJustDroppedByPlayer, "WasJustDroppedByPlayer", "Returns true if Wilson was just dropped by the player." )
+	DEFINE_SCRIPTFUNC( IsHeldByPhyscannon, "Returns true if Wilson is being held by the gravity gun." )
+
+	DEFINE_SCRIPTFUNC( OnSide, "Returns true if Wilson is on his side." )
+
+	DEFINE_SCRIPTFUNC( InLowGravity, "Returns true if Wilson is in low gravity." )
+
+END_SCRIPTDESC();
 
 IMPLEMENT_SERVERCLASS_ST( CNPC_Wilson, DT_NPC_Wilson )
 	SendPropBool( SENDINFO( m_bEyeLightEnabled ) ),
@@ -701,8 +716,11 @@ void CNPC_Wilson::PrescheduleThink( void )
 
 	if (m_hAttachedVehicle && m_flNextClearanceCheck < gpGlobals->curtime)
 	{
+		Vector vecForward = EyeDirection3D();
 		Vector velocity = m_hAttachedVehicle->GetSmoothedVelocity();
-		if (velocity.LengthSqr() >= Square(50))
+
+		// Make sure we can see the direction we're going in
+		if (velocity.LengthSqr() >= Square(npc_wilson_clearance_speed_threshold.GetFloat()) && vecForward.Dot(velocity) > 0.0f)
 		{
 			// For approximating the front of the APC
 			Vector vecOrigin = GetAbsOrigin() + (velocity);
@@ -712,8 +730,43 @@ void CNPC_Wilson::PrescheduleThink( void )
 			UTIL_TraceHull( vecOrigin, vecOrigin + velocity, GetHullMins(), GetHullMaxs(), MASK_SOLID, &pFilter, &tr );
 			if (tr.fraction != 1.0f)
 			{
-				// We're gonna get knocked off!
-				SpeakIfAllowed( TLK_APC_LOW_CLEARANCE );
+				// We need to see how "head-on" to the surface we are
+				// (copied from passenger behavior code)
+				float impactDot = DotProduct( tr.plane.normal, vecForward );
+
+				// Don't warn over grazing blows or slopes
+				if ( impactDot < -0.8f && tr.plane.normal.z < 0.75f )
+				{
+					AI_CriteriaSet modifiers;
+
+					// Check if the APC is gonna hit it too
+					trace_t tr2;
+					vecOrigin = m_hAttachedVehicle->WorldSpaceCenter() + (velocity);
+					UTIL_TraceLine( vecOrigin, vecOrigin + velocity, MASK_SOLID, &pFilter, &tr2 );
+					if (tr2.fraction != 1.0f)
+						modifiers.AppendCriteria( "complete_crash", "1" );
+
+					// We're gonna get knocked off!
+					SpeakIfAllowed( TLK_APC_LOW_CLEARANCE, modifiers );
+
+					if (npc_wilson_clearance_debug.GetBool())
+					{
+						// Red for collision
+						NDebugOverlay::BoxAngles( tr.endpos, GetHullMins(), GetHullMaxs(), GetAbsAngles(), 255, 0, 0, 128, 10.0f );
+
+						NDebugOverlay::Axis( tr2.endpos, GetAbsAngles(), 5.0f, true, 10.0f );
+					}
+				}
+				else if (npc_wilson_clearance_debug.GetBool())
+				{
+					// Gray for ignore
+					NDebugOverlay::BoxAngles( tr.endpos, GetHullMins(), GetHullMaxs(), GetAbsAngles(), 64, 64, 64, 128, 5.0f );
+				}
+			}
+			else if (npc_wilson_clearance_debug.GetBool())
+			{
+				// Green for clear
+				NDebugOverlay::BoxAngles( tr.endpos, GetHullMins(), GetHullMaxs(), GetAbsAngles(), 0, 255, 0, 128, 2.0f );
 			}
 		}
 

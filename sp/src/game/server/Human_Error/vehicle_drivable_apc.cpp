@@ -104,6 +104,9 @@ ConVar	sk_apc_damage_normal( "sk_apc_damage_normal", "0.15" );
 ConVar	sk_apc_damage_blast( "sk_apc_damage_blast", "0.1" );
 ConVar	sk_apc_damage_vort( "sk_apc_damage_vort", "0.75" );
 
+ConVar apc_constraint_force_limit( "apc_constraint_force_limit", "1250", FCVAR_CHEAT );
+ConVar apc_constraint_torque_limit( "apc_constraint_torque_limit", "1500", FCVAR_CHEAT );
+
 // APC Interactions
 int	g_interactionAPCConstrain = 0;
 int	g_interactionAPCUnconstrain = 0;
@@ -347,8 +350,8 @@ void CPropDrivableAPC::ConstrainEntity( CBaseEntity *pEntity, CBasePlayer *pPlay
 	fixed.Defaults();
 	fixed.InitWithCurrentObjectState( pPhysics, pOtherPhysics );
 	fixed.constraint.Defaults();
-	fixed.constraint.forceLimit	= ImpulseScale( pOtherPhysics->GetMass(), 600 );
-	fixed.constraint.torqueLimit = ImpulseScale( pOtherPhysics->GetMass(), 1000 );
+	fixed.constraint.forceLimit	= ImpulseScale( pOtherPhysics->GetMass(), apc_constraint_force_limit.GetFloat() );
+	fixed.constraint.torqueLimit = ImpulseScale( pOtherPhysics->GetMass(), apc_constraint_torque_limit.GetFloat() );
 	m_pConstraint = physenv->CreateFixedConstraint( pPhysics, pOtherPhysics, NULL, fixed );
 	m_pConstraint->SetGameData( (void *)this );
 

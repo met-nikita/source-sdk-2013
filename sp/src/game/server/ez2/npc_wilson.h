@@ -40,6 +40,7 @@ class CNPC_Wilson : public CAI_WilsonBase, public CDefaultPlayerPickupVPhysics, 
 {
 	DECLARE_CLASS(CNPC_Wilson, CAI_WilsonBase);
 	DECLARE_DATADESC();
+	DECLARE_ENT_SCRIPTDESC();
 	DECLARE_SERVERCLASS();
 public:
 	CNPC_Wilson();
@@ -117,11 +118,15 @@ public:
 	virtual bool	OnAttemptPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason );
 	CBasePlayer		*HasPhysicsAttacker( float dt );
 
-	bool			IsBeingCarriedByPlayer( void ) { return m_flCarryTime != -1.0f; }
-	bool			WasJustDroppedByPlayer( void ) { return m_flPlayerDropTime > gpGlobals->curtime; }
+	bool			IsBeingCarriedByPlayer( ) { return m_flCarryTime != -1.0f; }
+	bool			WasJustDroppedByPlayer( ) { return m_flPlayerDropTime > gpGlobals->curtime; }
 	bool			IsHeldByPhyscannon( )	{ return VPhysicsGetObject() && (VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD); }
 
 	bool			OnSide( void );
+
+	// Needed to prevent weird binding crash
+	/*__declspec(noinline)*/ bool	ScriptIsBeingCarriedByPlayer() { return IsBeingCarriedByPlayer(); }
+	/*__declspec(noinline)*/ bool	ScriptWasJustDroppedByPlayer() { return WasJustDroppedByPlayer(); }
 
 	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter *sourceEnt );
 
