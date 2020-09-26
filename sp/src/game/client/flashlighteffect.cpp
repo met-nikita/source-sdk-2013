@@ -663,6 +663,10 @@ CTurretLightEffect::CTurretLightEffect()
 	m_flBrightnessScale = 1.0f;
 	m_flFarZ = r_turretlightfar.GetFloat();
 	m_flFOV = r_turretlightfov.GetFloat();
+
+	m_Color[0] = 1.0f;
+	m_Color[1] = 0.0f;
+	m_Color[2] = 0.0f;
 }
 
 CTurretLightEffect::~CTurretLightEffect()
@@ -693,8 +697,8 @@ void CTurretLightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir
 	state.m_fLinearAtten = r_turretlightlinear.GetFloat();
 	state.m_fConstantAtten = r_turretlightconstant.GetFloat();
 	state.m_Color[0] = m_Color[0] * (m_flBrightnessScale != 1.0f ? r_turretlightbrightness.GetFloat() * m_flBrightnessScale : r_turretlightbrightness.GetFloat());
-	state.m_Color[1] = m_Color[1];
-	state.m_Color[2] = m_Color[2];
+	state.m_Color[1] = m_Color[1] * (m_flBrightnessScale != 1.0f ? r_turretlightbrightness.GetFloat() * m_flBrightnessScale : r_turretlightbrightness.GetFloat());
+	state.m_Color[2] = m_Color[2] * (m_flBrightnessScale != 1.0f ? r_turretlightbrightness.GetFloat() * m_flBrightnessScale : r_turretlightbrightness.GetFloat());
 	state.m_Color[3] = r_flashlightambient.GetFloat();
 
 	state.m_NearZ = r_turretlightnear.GetFloat();
