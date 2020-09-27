@@ -1406,6 +1406,14 @@ void CResponseSystem::ResetResponseGroups()
 	{
 		m_Responses[ i ].Reset();
 	}
+
+#ifdef EZ2
+	c = m_Rules.Count();
+	for ( i = 0; i < c; i++ )
+	{
+		m_Rules[ i ].m_bEnabled = true;
+	}
+#endif
 }
 
 #ifdef EZ2
@@ -3303,6 +3311,9 @@ public:
 			Precache();
 		}
 
+#ifdef EZ2
+		if (gpGlobals->eLoadType != MapLoad_Transition)
+#endif
 		ResetResponseGroups();
 	}
 
@@ -3715,6 +3726,24 @@ public:
 
 			pSave->EndBlock();
 		}
+
+#ifdef EZ2
+		// Blixibon - Rule state save/load
+		int count2 = rs.m_Rules.Count();
+		pSave->WriteInt( &count2 );
+		for ( int i = 0; i < count2; ++i )
+		{
+			pSave->StartBlock( "Rule" );
+
+			pSave->WriteString( rs.m_Rules.GetElementName( i ) );
+			const Rule *rule = &rs.m_Rules[ i ];
+
+			bool bEnabled = rule->m_bEnabled;
+			pSave->WriteBool( &bEnabled );
+
+			pSave->EndBlock();
+		}
+#endif
 	}
 
 	void Restore( IRestore *pRestore, bool createPlayers )
@@ -3778,6 +3807,34 @@ public:
 
 			pRestore->EndBlock();
 		}
+
+#ifdef EZ2
+		// Blixibon - Rule state save/load
+		count = pRestore->ReadInt();
+		for ( int i = 0; i < count; ++i )
+		{
+			char szRuleBlockName[SIZE_BLOCK_NAME_BUF];
+			pRestore->StartBlock( szRuleBlockName );
+			if ( !Q_stricmp( szRuleBlockName, "Rule" ) )
+			{
+				char groupname[ 256 ];
+				pRestore->ReadString( groupname, sizeof( groupname ), 0 );
+
+				// Try and find it
+				int idx = rs.m_Rules.Find( groupname );
+				if ( idx != rs.m_Rules.InvalidIndex() )
+				{
+					Rule *rule = &rs.m_Rules[ idx ];
+
+					bool bEnabled;
+					pRestore->ReadBool( &bEnabled );
+					rule->m_bEnabled = bEnabled;
+				}
+			}
+
+			pRestore->EndBlock();
+		}
+#endif
 	}
 private:
 
