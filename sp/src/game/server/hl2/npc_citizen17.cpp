@@ -5677,11 +5677,15 @@ void CNPC_Citizen::DeathSound( const CTakeDamageInfo &info )
 	EmitSound( "NPC_Citizen.Die" );
 #endif
 #ifdef EZ
-	// BREADMAN - hijacking this
-	// dump a decal beneath us.
-	trace_t tr;
-	AI_TraceLine(GetAbsOrigin() + Vector(0, 0, 1), GetAbsOrigin() - Vector(0, 0, 64), MASK_SOLID_BRUSHONLY | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, this, COLLISION_GROUP_NONE, &tr);
-	UTIL_DecalTrace(&tr, "Blood"); // my bits - trying to dump a big splat on the floor when we die.
+	// Blixibon - Don't drop blood decal under these damage types
+	if (!(info.GetDamageType() & (DMG_DISSOLVE | DMG_DROWN | DMG_RADIATION | DMG_POISON | DMG_NERVEGAS)))
+	{
+		// BREADMAN - hijacking this
+		// dump a decal beneath us.
+		trace_t tr;
+		AI_TraceLine(GetAbsOrigin() + Vector(0, 0, 1), GetAbsOrigin() - Vector(0, 0, 64), MASK_SOLID_BRUSHONLY | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, this, COLLISION_GROUP_NONE, &tr);
+		UTIL_DecalTrace(&tr, "Blood"); // my bits - trying to dump a big splat on the floor when we die.
+	}
 #endif
 }
 
