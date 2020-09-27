@@ -341,6 +341,14 @@ bool CXenGrenadeRecipeManager::ParseRecipeBlock( char *szRecipe, CGravityVortexC
 	return true;
 }
 
+void CreateRecipeManager()
+{
+	g_hXenGrenadeRecipeManager = static_cast<CXenGrenadeRecipeManager*>(CreateEntityByName( "xen_grenade_recipe_manager" ));
+	DispatchSpawn( g_hXenGrenadeRecipeManager );
+
+	XenGrenadeDebugMsg( "Spawned xen_grenade_recipe_manager\n" );
+}
+
 // This is used for when an entity is close enough to be consumed, but shouldn't be consumed through
 // solid objects.
 class CXenGrenadeTraceFilter : public CTraceFilterSimple
@@ -761,10 +769,7 @@ void CGravityVortexController::CreateXenLife()
 {
 	if (!g_hXenGrenadeRecipeManager)
 	{
-		g_hXenGrenadeRecipeManager = static_cast<CXenGrenadeRecipeManager*>(CreateEntityByName( "xen_grenade_recipe_manager" ));
-		DispatchSpawn( g_hXenGrenadeRecipeManager );
-
-		XenGrenadeDebugMsg( "Spawned xen_grenade_recipe_manager\n" );
+		CreateRecipeManager();
 	}
 
 	// Create a list of conditions based on the consumed entities
@@ -1912,6 +1917,12 @@ void CGrenadeHopwire::Precache( void )
 		g_interactionXenGrenadeRelease = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeCreate = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeHop = CBaseCombatCharacter::GetInteractionID();
+	}
+
+	// The recipe manager is needed for save/restore
+	if (!g_hXenGrenadeRecipeManager)
+	{
+		CreateRecipeManager();
 	}
 #endif
 
