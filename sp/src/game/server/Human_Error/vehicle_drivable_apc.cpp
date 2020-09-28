@@ -99,7 +99,7 @@ ConVar apc_no_rpg_while_moving( "hlss_apc_no_rpg_while_moving", "0", FCVAR_CHEAT
 ConVar apc_hull_trace_attack( "hlss_apc_hull_trace_attack", "0", FCVAR_CHEAT );
 
 #ifdef EZ
-ConVar apc_target_glow( "apc_target_glow", "0", FCVAR_CHEAT );
+ConVar apc_target_glow( "apc_target_glow", "0", FCVAR_NONE );
 ConVar	sk_apc_damage_normal( "sk_apc_damage_normal", "0.15" );
 ConVar	sk_apc_damage_blast( "sk_apc_damage_blast", "0.1" );
 ConVar	sk_apc_damage_vort( "sk_apc_damage_vort", "0.75" );
