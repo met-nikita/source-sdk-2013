@@ -696,6 +696,8 @@ bool CAI_Expresser::SpeakDispatchResponse( AIConcept_t concept, AI_Response *res
 					WRITE_STRING( response );
 					WRITE_BYTE ( Q_strlen( response ) );
 				MessageEnd();
+
+				spoke = true;
 			}
 			else
 #endif

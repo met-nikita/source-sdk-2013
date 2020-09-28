@@ -144,11 +144,14 @@ ConceptInfo_t g_ConceptInfos[] =
 
 #ifdef EZ2
 	// Will-E
-	{ TLK_TIPPED,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
-	{ TLK_FIDGET,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
-	{ TLK_XEN_GRENADE_RELEASE,		SPEECH_PRIORITY, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
-	{ TLK_REMIND_PLAYER,	SPEECH_PRIORITY, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_TIPPED,				SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_FIDGET,				SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_XEN_GRENADE_RELEASE,	SPEECH_PRIORITY, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_REMIND_PLAYER,		SPEECH_PRIORITY, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
 	{ TLK_APC_LOW_CLEARANCE,	SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_APC_EJECTED,			SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_WITNESS_EAT,			SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
+	{ TLK_GOODBYE,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		80,		120,	AICF_DEFAULT, },
 
 	{ TLK_CONCEPT_ANSWER,		SPEECH_IMPORTANT, 	-1,		-1,		-1,		-1,		-1,		-1,		AICF_DEFAULT, },
 #endif
