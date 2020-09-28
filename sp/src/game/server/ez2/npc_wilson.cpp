@@ -130,8 +130,6 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
 
-	DEFINE_INPUTFUNC( FIELD_STRING, "AnswerConcept", InputAnswerConcept ),
-
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnEyeLight", InputTurnOnEyeLight ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffEyeLight", InputTurnOffEyeLight ),
 
@@ -1616,15 +1614,6 @@ void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		// Delay is now based off of predelay
 		g_EventQueue.AddEvent(pTarget, "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
 	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CNPC_Wilson::InputAnswerConcept( inputdata_t &inputdata )
-{
-	// Complex Q&A
-	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
 }
 
 //-----------------------------------------------------------------------------

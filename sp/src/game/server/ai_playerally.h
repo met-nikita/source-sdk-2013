@@ -461,6 +461,10 @@ public:
 	void			InputAnswerQuestionHello( inputdata_t &inputdata );
 	void			InputEnableSpeakWhileScripting( inputdata_t &inputdata );
 	void			InputDisableSpeakWhileScripting( inputdata_t &inputdata );
+
+#ifdef EZ2
+	void			InputAnswerConcept( inputdata_t &inputdata );
+#endif
 	
 	void			AnswerQuestion( CAI_PlayerAlly *pQuestioner, int iQARandomNum, bool bAnsweringHello );
 

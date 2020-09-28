@@ -130,10 +130,6 @@ public:
 	void InputSetManhacks( inputdata_t &inputdata );
 	COutputEHANDLE	m_OutManhack;
 
-#ifdef EZ2
-	void InputAnswerConcept( inputdata_t &inputdata ); // Blixibon - For responding to Bad Cop
-#endif
-
 	//-----------------------------------------------------
 	//	Outputs
 	//-----------------------------------------------------	

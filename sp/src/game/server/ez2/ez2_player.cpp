@@ -448,7 +448,9 @@ int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 
 	if (IsAllowedToSpeak(TLK_WOUND))
 	{
-		SetSpeechTarget( info.GetAttacker() );
+		SetSpeechTarget( FindSpeechTarget() );
+		if (!GetSpeechTarget())
+			SetSpeechTarget( info.GetAttacker() );
 
 		// Complain about taking damage from an enemy.
 		// If that doesn't work, just do a regular wound. (we know we're allowed to speak it)
@@ -895,6 +897,9 @@ CBaseEntity *CEZ2_Player::FindSpeechTarget()
 		}
 	}
 
+	if (pNearest)
+		return pNearest;
+
 	// Next, search our squad
 	AISquadIter_t iter;
 	for (CAI_BaseNPC *pAllyNpc = GetPlayerSquad()->GetFirstMember( &iter ); pAllyNpc; pAllyNpc = GetPlayerSquad()->GetNextMember( &iter ))
@@ -910,6 +915,32 @@ CBaseEntity *CEZ2_Player::FindSpeechTarget()
 		{
 			closestDistSq = distSq;
 			pNearest = pAllyNpc;
+		}
+	}
+
+	if (pNearest)
+		return pNearest;
+
+	// Finally, look for one of our enemies
+	if (GetNPCComponent())
+	{
+		CAI_Enemies *pEnemies = GetNPCComponent()->GetEnemies();
+		AIEnemiesIter_t iter;
+		for ( AI_EnemyInfo_t *pEMemory = pEnemies->GetFirst(&iter); pEMemory != NULL; pEMemory = pEnemies->GetNext(&iter) )
+		{
+			distSq = (vAbsOrigin - pEMemory->hEnemy->GetAbsOrigin()).LengthSqr();
+			if ( distSq > Square(TALKRANGE_MIN) || distSq > closestDistSq )
+				continue;
+
+			CAI_BaseNPC *pNPC = pEMemory->hEnemy->MyNPCPointer();
+			if (!pNPC)
+				continue;
+
+			if (pNPC->IsAlive() && pNPC->CanBeUsedAsAFriend() && !pNPC->IsInAScript() && !pNPC->HasSpawnFlags( SF_NPC_GAG ))
+			{
+				closestDistSq = distSq;
+				pNearest = pNPC;
+			}
 		}
 	}
 
@@ -1278,6 +1309,11 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 		// Our "enemy" was actually our "friend"
 		SetSpeechTarget( pVictim );
 		bSpoken = SpeakIfAllowed(TLK_KILLED_ALLY, modifiers);
+	}
+	else
+	{
+		// Look for someone to talk to during murder
+		SetSpeechTarget( FindSpeechTarget() );
 	}
 
 	if (!bSpoken)

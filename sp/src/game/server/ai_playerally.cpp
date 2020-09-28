@@ -372,6 +372,9 @@ BEGIN_DATADESC( CAI_PlayerAlly )
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "AnswerQuestionHello", InputAnswerQuestionHello ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSpeakWhileScripting", InputEnableSpeakWhileScripting ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableSpeakWhileScripting", InputDisableSpeakWhileScripting ),
+#ifdef EZ2
+	DEFINE_INPUTFUNC( FIELD_STRING, "AnswerConcept", InputAnswerConcept ),
+#endif
 
 END_DATADESC()
 
@@ -509,6 +512,10 @@ void CAI_PlayerAlly::GatherEnemyConditions( CBaseEntity *pEnemy )
 					}
 				}
 			}
+#ifdef EZ2
+			// Blixibon - For citizens responding to Wilson seeing them
+			SetSpeechTarget( pEnemy );
+#endif
 			SpeakIfAllowed( TLK_STARTCOMBAT );
 		}
 #else
@@ -1874,6 +1881,18 @@ void CAI_PlayerAlly::InputDisableSpeakWhileScripting( inputdata_t &inputdata )
 {
 	m_bCanSpeakWhileScripting = false;
 }
+
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_PlayerAlly::InputAnswerConcept( inputdata_t &inputdata )
+{
+	// Complex Q&A
+	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
+}
+#endif
 
 
 //-----------------------------------------------------------------------------
