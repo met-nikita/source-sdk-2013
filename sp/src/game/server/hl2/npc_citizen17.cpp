@@ -3837,7 +3837,7 @@ void CNPC_Citizen::ModifyOrAppendCriteriaForPlayer( CBasePlayer *pPlayer, AI_Cri
 //-----------------------------------------------------------------------------
 bool CNPC_Citizen::GetGameTextSpeechParams( hudtextparms_t &params )
 {
-	if (NameMatches( "RadioGuy" ))
+	if (NameMatches( "*RadioGuy*" ))
 	{
 		// Radio guy has a specific color
 		params.channel = 3;

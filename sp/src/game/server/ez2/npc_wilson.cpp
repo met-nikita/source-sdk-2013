@@ -1507,9 +1507,12 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 		if (pPlayer->IsInAVehicle())
 		{
 			// Override playerspeed if in vehicle
-			Vector velocity;
-			pPlayer->GetVehicleEntity()->VPhysicsGetObject()->GetVelocity( &velocity, NULL );
-			set.AppendCriteria( "playerspeed_vehicle", CFmtStrN<32>( "%.3f", velocity.Length() ) );
+			if (pPlayer->GetVehicleEntity() && pPlayer->GetVehicleEntity()->VPhysicsGetObject())
+			{
+				Vector velocity;
+				pPlayer->GetVehicleEntity()->VPhysicsGetObject()->GetVelocity( &velocity, NULL );
+				set.AppendCriteria( "playerspeed_vehicle", CFmtStrN<32>( "%.3f", velocity.Length() ) );
+			}
 
 			set.AppendCriteria( "player_in_vehicle", pPlayer->GetVehicleEntity()->GetClassname() );
 		}
