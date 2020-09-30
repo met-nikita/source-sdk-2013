@@ -153,7 +153,9 @@
 #define TLK_XEN_GRENADE_RELEASE "TLK_XEN_GRENADE_RELEASE"
 #define TLK_REMIND_PLAYER "TLK_REMIND_PLAYER"
 #define TLK_APC_LOW_CLEARANCE "TLK_APC_LOW_CLEARANCE"
+#define TLK_APC_EJECTED "TLK_APC_EJECTED"
 #define TLK_WITNESS_EAT "TLK_WITNESS_EAT"
+#define TLK_GOODBYE "TLK_GOODBYE"
 
 // Remarkable!
 #define TLK_REMARK "TLK_REMARK"
@@ -461,6 +463,10 @@ public:
 	void			InputAnswerQuestionHello( inputdata_t &inputdata );
 	void			InputEnableSpeakWhileScripting( inputdata_t &inputdata );
 	void			InputDisableSpeakWhileScripting( inputdata_t &inputdata );
+
+#ifdef EZ2
+	void			InputAnswerConcept( inputdata_t &inputdata );
+#endif
 	
 	void			AnswerQuestion( CAI_PlayerAlly *pQuestioner, int iQARandomNum, bool bAnsweringHello );
 

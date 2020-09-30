@@ -130,8 +130,6 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
 
-	DEFINE_INPUTFUNC( FIELD_STRING, "AnswerConcept", InputAnswerConcept ),
-
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnEyeLight", InputTurnOnEyeLight ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffEyeLight", InputTurnOffEyeLight ),
 
@@ -383,9 +381,12 @@ void CNPC_Wilson::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 	m_OnPlayerUse.FireOutput( pActivator, this );
 
 	CBasePlayer *pPlayer = ToBasePlayer( pActivator );
-	if ( pPlayer && !m_bStatic )
+	if ( pPlayer )
 	{
-		pPlayer->PickupObject( this, false );
+		if (!m_bStatic)
+			pPlayer->PickupObject( this, false );
+
+		SpeakIfAllowed( TLK_USE );
 	}
 }
 
@@ -1088,12 +1089,24 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 	if ( HasCondition(COND_IN_PVS) )
 	{
 		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
-		if ( HasCondition( COND_TALKER_PLAYER_DEAD ) && pPlayer && FInViewCone(pPlayer) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
+		if (pPlayer)
 		{
-			if ( SpeakIfAllowed( TLK_PLDEAD ) )
-				return true;
+			if ( HasCondition( COND_TALKER_PLAYER_DEAD ) && FInViewCone(pPlayer) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
+			{
+				if ( SpeakIfAllowed( TLK_PLDEAD ) )
+					return true;
+			}
+
+			float flDistSqr = (GetAbsOrigin() - pPlayer->GetAbsOrigin()).LengthSqr();
+			if (flDistSqr >= Square( 256 ))
+			{
+				if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
+					return true;
+			}
 		}
 	}
+	else if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
+		return true;
 
 	return false;
 }
@@ -1354,7 +1367,7 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 
 	if ( interactionType == g_interactionAPCBreak )
 	{
-		SpeakIfAllowed( TLK_TIPPED );
+		SpeakIfAllowed( TLK_APC_EJECTED );
 
 		m_hAttachedVehicle = NULL;
 		return false;
@@ -1457,10 +1470,14 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 		set.AppendCriteria("physics_attacker", "0");
 	}
 
+	set.AppendCriteria("in_vehicle", m_hAttachedVehicle ? m_hAttachedVehicle->GetClassname() : "0");
+
 	// Assume that if we're not using carrying angles, Will-E is not looking at the player.
     set.AppendCriteria("facing_player", m_bUseCarryAngles ? "1" : "0");
 
 	set.AppendCriteria("on_side", OnSide() ? "1" : "0");
+
+	set.AppendCriteria( "speed", UTIL_VarArgs( "%.3f", GetSmoothedVelocity().Length() ) );
 
     BaseClass::ModifyOrAppendCriteria(set);
 
@@ -1486,10 +1503,28 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 	if (pPlayer)
 	{
 		set.AppendCriteria( "wilson_distance", CFmtStrN<32>( "%f.3", (GetAbsOrigin() - pPlayer->GetAbsOrigin()).Length() ) );
+
+		if (pPlayer->IsInAVehicle())
+		{
+			// Override playerspeed if in vehicle
+			if (pPlayer->GetVehicleEntity() && pPlayer->GetVehicleEntity()->VPhysicsGetObject())
+			{
+				Vector velocity;
+				pPlayer->GetVehicleEntity()->VPhysicsGetObject()->GetVelocity( &velocity, NULL );
+				set.AppendCriteria( "playerspeed_vehicle", CFmtStrN<32>( "%.3f", velocity.Length() ) );
+			}
+
+			set.AppendCriteria( "player_in_vehicle", pPlayer->GetVehicleEntity()->GetClassname() );
+		}
+		else
+		{
+			set.AppendCriteria( "player_in_vehicle", "0" );
+		}
 	}
 	else
 	{
 		set.AppendCriteria( "wilson_distance", "99999999999" );
+		set.AppendCriteria( "player_in_vehicle", "0" );
 	}
 }
 
@@ -1593,11 +1628,10 @@ bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPla
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response )
 {
-	// Only respond to speech that targets the playe
 	CBaseEntity *pTarget = GetSpeechTarget();
-	if (pTarget && pTarget->IsPlayer() && pTarget->IsAlive()) // IsValidSpeechTarget(0, pPlayer)
+	if (pTarget /*&& pTarget->IsPlayer()*/ && pTarget->IsAlive()) // IsValidSpeechTarget(0, pPlayer)
 	{
-		// Notify the player so they could respond
+		// Notify the target so they could respond
 		variant_t variant;
 		variant.SetString(AllocPooledString(concept));
 
@@ -1616,15 +1650,6 @@ void CNPC_Wilson::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *r
 		// Delay is now based off of predelay
 		g_EventQueue.AddEvent(pTarget, "AnswerConcept", variant, (GetTimeSpeechComplete() - gpGlobals->curtime) /*+ RandomFloat(0.25f, 0.5f)*/, this, this);
 	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CNPC_Wilson::InputAnswerConcept( inputdata_t &inputdata )
-{
-	// Complex Q&A
-	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
 }
 
 //-----------------------------------------------------------------------------

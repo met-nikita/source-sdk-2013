@@ -143,9 +143,10 @@ public:
 	virtual CAI_Expresser *CreateExpresser(void);
 	virtual CAI_Expresser *GetExpresser() { return m_pExpresser;  }
 
+	inline bool		CanSpeakGoodbye() { return (GetExpresser()->GetTimeSpokeConcept(TLK_FOUNDPLAYER) >= GetExpresser()->GetTimeSpokeConcept(TLK_GOODBYE)); }
+
 	bool			GetGameTextSpeechParams( hudtextparms_t &params );
 
-	void			InputAnswerConcept( inputdata_t &inputdata );
 	bool			IsOmniscient() { return m_bOmniscient; }
 
 	void			InputEnableMotion( inputdata_t &inputdata );
