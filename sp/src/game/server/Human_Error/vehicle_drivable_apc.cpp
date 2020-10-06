@@ -72,10 +72,10 @@
 #define MACHINE_GUN_BURST_TIME		0.075f
 #define MACHINE_GUN_RELOAD_TIME		0.15f
 
-#define ROCKET_SALVO_SIZE				3
-#define ROCKET_DELAY_TIME				0.75
-#define ROCKET_MIN_BURST_PAUSE_TIME		3
-#define ROCKET_MAX_BURST_PAUSE_TIME		4
+#define ROCKET_SALVO_SIZE				sk_apc_rocket_salvo_size.GetFloat()
+#define ROCKET_DELAY_TIME				sk_apc_rocket_delay_time.GetFloat()
+#define ROCKET_MIN_BURST_PAUSE_TIME		sk_apc_rocket_min_burst_pause_time.GetFloat()
+#define ROCKET_MAX_BURST_PAUSE_TIME		sk_apc_rocket_max_burst_pause_time.GetFloat()
 #define ROCKET_SPEED					1500 //Originally 800
 #define DEATH_VOLLEY_ROCKET_COUNT		4
 #define DEATH_VOLLEY_MIN_FIRE_TIME		0.333
@@ -97,6 +97,11 @@ ConVar apc_zoomed_yaw_fix("hlss_apc_zoomed_yaw_fix", "0" );
 
 ConVar apc_no_rpg_while_moving( "hlss_apc_no_rpg_while_moving", "0", FCVAR_CHEAT );
 ConVar apc_hull_trace_attack( "hlss_apc_hull_trace_attack", "0", FCVAR_CHEAT );
+
+ConVar	sk_apc_rocket_salvo_size( "sk_apc_rocket_salvo_size", "3" );
+ConVar	sk_apc_rocket_delay_time( "sk_apc_rocket_delay_time", "0.75" );
+ConVar	sk_apc_rocket_min_burst_pause_time( "sk_apc_rocket_min_burst_pause_time", "3" );
+ConVar	sk_apc_rocket_max_burst_pause_time( "sk_apc_rocket_max_burst_pause_time", "4" );
 
 #ifdef EZ
 ConVar apc_target_glow( "apc_target_glow", "0", FCVAR_NONE );
