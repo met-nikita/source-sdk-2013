@@ -276,6 +276,9 @@ void CEZ2_Player::Spawn( void )
 	BaseClass::Spawn();
 
 	SetModel( "models/bad_cop.mdl" );
+
+	ListenForGameEvent( "zombie_scream" );
+	ListenForGameEvent( "vehicle_overturned" );
 }
 
 //-----------------------------------------------------------------------------
@@ -1542,11 +1545,33 @@ void CEZ2_Player::Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBas
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// Purpose: called when a game event is fired
 //-----------------------------------------------------------------------------
-void CEZ2_Player::Event_VehicleOverturned( CBaseEntity *pVehicle )
+void CEZ2_Player::FireGameEvent( IGameEvent *event )
 {
-	SpeakIfAllowed( TLK_VEHICLE_OVERTURNED );
+	DevMsg("Player heard event\n");
+
+	if ( FStrEq( "zombie_scream", event->GetName() ) )
+	{
+		CBaseEntity *pZombie = UTIL_EntityByIndex( event->GetInt("zombie") );
+		CBaseEntity *pTarget = UTIL_EntityByIndex( event->GetInt("target") );
+
+		if (pTarget == this)
+		{
+			// WTF IS WRONG WITH YOU ZOMBIE
+			SetSpeechTarget( pZombie );
+			SpeakIfAllowed( TLK_ZOMBIE_SCREAM );
+		}
+	}
+	else if ( FStrEq( "vehicle_overturned", event->GetName() ) )
+	{
+		if (event->GetInt("userid") == GetUserID())
+		{
+			//CBaseEntity *pVehicle = UTIL_EntityByIndex( event->GetInt("vehicle") );
+
+			SpeakIfAllowed( TLK_VEHICLE_OVERTURNED );
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

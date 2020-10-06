@@ -932,8 +932,13 @@ void CPropDrivableAPC::Think(void)
 			m_onOverturned.FireOutput( this, this, 0 );
 
 #ifdef EZ2
-			if (m_hPlayer)
-				static_cast<CEZ2_Player*>(m_hPlayer.Get())->Event_VehicleOverturned( this );
+			IGameEvent *event = gameeventmanager->CreateEvent( "vehicle_overturned" );
+			if (event)
+			{
+				event->SetInt( "userid", m_hPlayer->GetUserID() );
+				event->SetInt( "vehicle", entindex() );
+				gameeventmanager->FireEvent( event );
+			}
 #endif
 		}
 #endif

@@ -2436,15 +2436,13 @@ void CNPC_BaseZombie::StartTask( const Task_t *pTask )
 		// Call for help from across the map
 		MakeAIAlarmSound( 8192.0f, 5.0f );
 
-		// Alert the beast directly
-		CBaseEntity *pEntity = NULL;
-		while ((pEntity = gEntList.FindEntityByClassname( pEntity, "npc_zassassin" ) ) != NULL)
+		// Alerts the beast, does player stuff, etc.
+		IGameEvent *event = gameeventmanager->CreateEvent( "zombie_scream" );
+		if (event)
 		{
-			CAI_BaseNPC * pNPC = pEntity->MyNPCPointer();
-			if (pNPC && GetEnemy())
-			{
-				pNPC->UpdateEnemyMemory( GetEnemy(), GetAbsOrigin(), this );
-			}
+			event->SetInt( "zombie", entindex() );
+			event->SetInt( "target", GetEnemy() ? GetEnemy()->entindex() : -1 );
+			gameeventmanager->FireEvent( event );
 		}
 	}
 	break;
