@@ -266,6 +266,9 @@ BEGIN_DATADESC(CNPC_Gonome)
 	DEFINE_FIELD(m_flBurnDamageResetTime, FIELD_TIME),
 	DEFINE_FIELD(m_nGonomeSpitSprite, FIELD_INTEGER),
 
+	DEFINE_INPUTFUNC( FIELD_VOID, "GoHome", InputGoHome ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "GoHomeInstant", InputGoHomeInstant ),
+
 	DEFINE_OUTPUT( m_OnBeastHome, "OnBeastHome" ),
 	DEFINE_OUTPUT( m_OnBeastLeaveHome, "OnBeastLeaveHome" ),
 END_DATADESC()
@@ -922,6 +925,34 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 		default:
 			BaseClass::HandleAnimEvent( pEvent );
 	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Gonome::InputGoHome( inputdata_t &inputdata )
+{
+	if (!m_BeastBehavior.CanSelectSchedule())
+	{
+		Warning("%s received GoHome input, but beast behavior can't run! (global might be off)\n");
+		return;
+	}
+
+	m_BeastBehavior.GoHome();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Gonome::InputGoHomeInstant( inputdata_t &inputdata )
+{
+	if (!m_BeastBehavior.CanSelectSchedule())
+	{
+		Warning("%s received GoHomeInstant input, but beast behavior can't run! (global might be off)\n");
+		return;
+	}
+
+	m_BeastBehavior.GoHome( true );
 }
 
 //=========================================================

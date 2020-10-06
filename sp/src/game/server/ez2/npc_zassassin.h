@@ -81,6 +81,9 @@ public:
 
 	void PrescheduleThink( void );
 
+	void	InputGoHome( inputdata_t &inputdata );
+	void	InputGoHomeInstant( inputdata_t &inputdata );
+
 	float	m_flBurnDamage;				// Keeps track of how much burn damage we've incurred in the last few seconds.
 	float	m_flBurnDamageResetTime;	// Time at which we reset the burn damage.
 
