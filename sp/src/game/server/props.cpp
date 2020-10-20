@@ -103,6 +103,9 @@ ConVar mapbase_prop_consistency_noremove("mapbase_prop_consistency_noremove", "1
 	void KillFlare( CBaseEntity *pOwnerEntity, CBaseEntity *pEntity, float flKillTime );
 #endif
 
+#ifdef EZ2
+	#define PROP_PHYSICS_KICK_MULTIPLIER 3
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Breakable objects take different levels of damage based upon the damage type.
@@ -808,6 +811,12 @@ bool CBreakableProp::HandleInteraction( int interactionType, void *data, CBaseCo
 
 			// Still take the damage
 			return false;
+		}
+
+		// If we're a phsyics prop with the "motion disabled" flag set, do extra damage!
+		if ( IsPropPhysics() && HasSpawnFlags( SF_PHYSPROP_MOTIONDISABLED ) )
+		{
+			info->dmgInfo->SetDamage( info->dmgInfo->GetDamage() * PROP_PHYSICS_KICK_MULTIPLIER );
 		}
 
 		// If we're an explosive barrel, DON'T explode violently!
