@@ -164,6 +164,11 @@ private:
 	void OnSkillLevelChanged(int iNewLevel);
 #endif
 	int						DefaultFOV( void ) { return 75; }
+
+#ifdef EZ2
+	virtual bool FPlayerCanRespawn( CBasePlayer *pPlayer );
+#endif
+
 #endif
 };
 

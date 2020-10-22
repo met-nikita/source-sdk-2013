@@ -395,6 +395,10 @@ ConVar	sk_max_gauss_round		( "sk_max_gauss_round", "0", FCVAR_REPLICATED );
 ConVar	sk_npc_dmg_gunship			( "sk_npc_dmg_gunship", "0", FCVAR_REPLICATED );
 ConVar	sk_npc_dmg_gunship_to_plr	( "sk_npc_dmg_gunship_to_plr", "0", FCVAR_REPLICATED );
 
+#ifdef EZ2
+ConVar	sv_player_death_time( "sv_player_death_time", "1.0", FCVAR_REPLICATED );
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : iDmgType - 
@@ -2409,6 +2413,14 @@ void CHalfLife2::OnSkillLevelChanged(int iNewLevel)
 	BaseClass::OnSkillLevelChanged(iNewLevel);
 }
 	#endif
+
+#ifdef EZ2
+bool CHalfLife2::FPlayerCanRespawn( CBasePlayer *pPlayer )
+{
+	return gpGlobals->curtime - pPlayer->GetDeathTime() > sv_player_death_time.GetFloat();
+}
+#endif
+
 #endif//CLIENT_DLL
 
 //---------------------------------------------------------
