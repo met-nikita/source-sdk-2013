@@ -250,13 +250,7 @@ public:
 	void	Precache();
 	void	Spawn();
 
-	inline bool	IsScannable( CAI_BaseNPC *pNPC )
-	{
-		if (m_hScanFilter)
-			return pNPC->ClassMatches( m_target ) && m_hScanFilter->PassesFilter( this, pNPC );
-
-		return pNPC->ClassMatches( m_target );
-	}
+	bool	IsScannable( CAI_BaseNPC *pNPC );
 
 	// Checks if they're in front and then tests visibility
 	inline bool	IsInScannablePosition( CAI_BaseNPC *pNPC, Vector &vecToNPC, Vector &vecForward ) { return DotProduct( vecToNPC, vecForward ) < -0.10f && FVisible( pNPC, MASK_SOLID_BRUSHONLY ); }

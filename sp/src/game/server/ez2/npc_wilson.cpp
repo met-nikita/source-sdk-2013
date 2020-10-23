@@ -1900,6 +1900,21 @@ void CArbeitScanner::Spawn( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+bool CArbeitScanner::IsScannable( CAI_BaseNPC *pNPC )
+{
+	if (m_hScanFilter && m_hScanFilter->PassesFilter( this, pNPC ))
+		return true;
+
+	if (STRING(m_target)[0] != '\0')
+		return pNPC->ClassMatches( m_target );
+
+	// If no filter or specific target, use CLASS_ARBEIT_TECH
+	return pNPC->Classify() == CLASS_ARBEIT_TECH;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CArbeitScanner::InputEnable( inputdata_t &inputdata )
 {
 	// Only reset to IdleThink if we're disabled or "done"
