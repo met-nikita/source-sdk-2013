@@ -234,7 +234,7 @@ bool CrateHintTest( CEZ2_Player *pPlayer, CBaseEntity *pActivator )
 	return false;
 }
 
-// Shows the hint when the player sees a soldier
+// Shows the hint when the player sees an item crate
 SIGHT_EVENT_HINT_START( CrateHintShow, "player_see_crate" )
 
 			event->SetInt( "userid", pPlayer->GetUserID() );
@@ -245,6 +245,37 @@ SIGHT_EVENT_HINT_END( "#EZ2_HudHint_KickCrate" )
 
 // Show a HUD hint for any nearby kickables
 SightEvent_t g_SightHintCrateKick( "Crate Kick", 50.0f, CrateHintTest, CrateHintShow );
+
+//-----------------------------------------------------------------------------
+bool VehicleHintTest( CEZ2_Player *pPlayer, CBaseEntity *pActivator )
+{
+	// Look for a nearby vehicle we can enter
+	// (only APCs for now)
+	if (pActivator->ClassMatches("prop_vehicle_drivable_apc") && pActivator->GetServerVehicle() && pPlayer->CanEnterVehicle(pActivator->GetServerVehicle(), VEHICLE_ROLE_DRIVER) && !pPlayer->IsInAVehicle())
+		return (pPlayer->GetAbsOrigin().DistToSqr(pActivator->GetAbsOrigin()) <= Square(384.0f));
+	return false;
+}
+
+// Shows the hint when the player sees a vehicle they can enter
+SIGHT_EVENT_HINT_START( VehicleHintShow, "player_see_vehicle" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "vehicle", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "#EZ2_HudHint_EnterAPC" )
+
+// Hides the hint when the player enters the vehicle
+SIGHT_EVENT_HINT_START( VehicleHintHide, "player_enter_vehicle" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "vehicle", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "" )
+
+// Show a HUD hint for any nearby vehicles
+SightEvent_t g_SightHintEnterVehicle( "Vehicle Enter", 200.0f, VehicleHintTest, VehicleHintShow );
 
 //-----------------------------------------------------------------------------
 inline void CEZ2_Player::AddSightEvent( SightEvent_t &sightEvent )
@@ -259,6 +290,7 @@ CEZ2_Player::CEZ2_Player()
 {
 	AddSightEvent( g_SightHintSoldierSquad );
 	AddSightEvent( g_SightHintCrateKick );
+	AddSightEvent( g_SightHintEnterVehicle );
 }
 
 //-----------------------------------------------------------------------------
@@ -412,6 +444,21 @@ Disposition_t CEZ2_Player::IRelationType( CBaseEntity *pTarget )
 	Disposition_t base = BaseClass::IRelationType( pTarget );
 
 	return base;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Put this player in a vehicle 
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::GetInVehicle( IServerVehicle *pVehicle, int nRole )
+{
+	if (!BaseClass::GetInVehicle( pVehicle, nRole ))
+		return false;
+
+	// See MIN_HUDHINT_DISPLAY_TIME in basecombatweapon_shared.cpp
+	if (g_SightHintEnterVehicle.flLastHintTime != 0 && gpGlobals->curtime - g_SightHintEnterVehicle.flLastHintTime < 7.0f)
+		VehicleHintHide( this, pVehicle->GetVehicleEnt() );
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -2283,6 +2330,11 @@ bool CAI_PlayerNPCDummy::QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrF
 			Disposition_t disposition = IRelationType( pEntity );
 			return ( disposition == D_HT || disposition == D_FR );
 		}
+	}
+	else if ( pEntity == GetOuter() )
+	{
+		// Do not see our player
+		return false;
 	}
 
 	return true;

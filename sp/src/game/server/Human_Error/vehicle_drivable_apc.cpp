@@ -446,6 +446,12 @@ void CPropDrivableAPC::Spawn( void )
 	SetVehicleType( VEHICLE_TYPE_CAR_WHEELS );
 	SetCollisionGroup( COLLISION_GROUP_VEHICLE );
 
+#ifdef EZ2
+	// Necessary to make vehicles visible to the player NPC component
+	AddFlag( FL_OBJECT );
+	SetViewOffset( Vector(0,0,96) );
+#endif
+
 	BaseClass::Spawn();
 	m_flHandbrakeTime = gpGlobals->curtime + 0.1;
 	m_bInitialHandbrake = false;

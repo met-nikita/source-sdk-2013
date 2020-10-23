@@ -151,6 +151,8 @@ public:
 
 	Disposition_t	IRelationType( CBaseEntity *pTarget );
 
+	bool			GetInVehicle( IServerVehicle *pVehicle, int nRole );
+
 	// For more accurate representations of whether the player actually sees something
 	// (3D dot calculations instead of 2D dot calculations)
 	bool			FInTrueViewCone( const Vector &vecSpot );
