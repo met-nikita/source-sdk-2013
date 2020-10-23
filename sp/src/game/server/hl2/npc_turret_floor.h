@@ -427,6 +427,9 @@ public:
 
 	void			InputEnableSilently( inputdata_t &inputdata );
 
+	void			InputEnableRetire( inputdata_t &inputdata );
+	void			InputDisableRetire( inputdata_t &inputdata );
+
 	bool SpeakIfAllowed( const char *concept );
 	bool SpeakIfAllowed( const char *concept, AI_CriteriaSet &modifiers );
 	void ModifyOrAppendCriteria( AI_CriteriaSet& set );
@@ -445,6 +448,8 @@ protected:
 	virtual void	TippedThink( void );
 	virtual void	InactiveThink( void );
 
+	virtual void	RetireRestrictedThink( void );
+
 	void	UpdateLaser();
 
 	void	DryFire( void );
@@ -455,6 +460,8 @@ private:
 	CAI_Expresser *m_pExpresser;
 
 	turretState_e m_iCurrentState;
+
+	bool	m_bCanRetire;
 
 	enum TurretType_t
 	{
