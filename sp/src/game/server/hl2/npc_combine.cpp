@@ -3757,7 +3757,19 @@ void CNPC_Combine::HandleAnimEvent( animevent_t *pEvent )
 					GetVectors( &forward, NULL, &up );
 					vecThrow = forward * 750 + up * 175;
 #ifdef MAPBASE
+#ifdef EZ2
+					CBaseEntity *pGrenade = NULL;
+					if ( m_bThrowXenGrenades )
+					{
+						pGrenade = HopWire_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER );
+					}
+					else
+					{
+						pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, true );
+					}
+#else
 					CBaseEntity *pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, true );
+#endif
 					m_OnThrowGrenade.Set(pGrenade, pGrenade, this);
 #else
 					Fraggrenade_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, true );
@@ -3767,7 +3779,19 @@ void CNPC_Combine::HandleAnimEvent( animevent_t *pEvent )
 				{
 					// Use the Velocity that AI gave us.
 #ifdef MAPBASE
+#ifdef EZ2
+					CBaseEntity *pGrenade = NULL;
+					if ( m_bThrowXenGrenades )
+					{
+						pGrenade = HopWire_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER );
+					}
+					else
+					{
+						pGrenade = Fraggrenade_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, !this->IsPlayerAlly() );
+					}
+#else
 					CBaseEntity *pGrenade = Fraggrenade_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, true );
+#endif
 					m_OnThrowGrenade.Set(pGrenade, pGrenade, this);
 					AddGrenades(-1, pGrenade);
 #else
