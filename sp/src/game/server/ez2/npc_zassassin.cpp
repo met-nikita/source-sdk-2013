@@ -440,7 +440,7 @@ int CNPC_Gonome::SelectFailSchedule( int failedSchedule, int failedTask, AI_Task
 		Vector2D vecOrigin = GetAbsOrigin().AsVector2D();
 		Vector vecEnemyPos = GetEnemies()->LastSeenPosition( GetEnemy() );
 		float flDistSqr = vecOrigin.DistToSqr( vecEnemyPos.AsVector2D() );
-		if ( flDistSqr <= Square(128.0f) )
+		if ( flDistSqr <= Square(224.0f) )
 		{
 			CHintCriteria hintCriteria;
 			hintCriteria.SetHintType( HINT_BEAST_FRUSTRATION );
@@ -769,6 +769,13 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 				UTIL_ScreenShake( tr.endpos, 2, 35.0, 0.75f, 384, SHAKE_START );
 
 				EmitSound( pEvent->options );
+
+				// HACKHACK: If we have a hint node, hijack FireUser4 to tell it we're striking the wall
+				// (for any potential decals or particle effects)
+				if (GetHintNode())
+				{
+					GetHintNode()->FireNamedOutput( "FireUser4", variant_t(), this, this );
+				}
 			}
 		}
 		else
