@@ -414,8 +414,7 @@ public:
 
 	void			OnChangeActivity( Activity eNewActivity );
 
-	// TODO: Unique class?
-	Class_T	Classify( void ) { return BaseClass::Classify(); }
+	Class_T			Classify( void );
 
 	bool			CanBeAnEnemyOf( CBaseEntity *pEnemy );
 
