@@ -154,9 +154,10 @@ public:
 
 	int		BloodColor( void ) { return DONT_BLEED; }
 
-	// Will-E doesn't attack anyone and nobody attacks him. (although he does see enemies for BC, see IRelationType)
-	// You can make NPCs attack him with ai_relationship, but Will-E is literally incapable of combat.
-	Class_T		Classify( void ) { return CLASS_NONE; }
+	// By default, Will-E doesn't attack anyone and nobody attacks him. (although he does see enemies for BC, see IRelationType)
+	// You can make NPCs attack him with m_bCanBeEnemy, but Will-E is literally incapable of combat.
+	bool	CanBeAnEnemyOf( CBaseEntity *pEnemy );
+	Class_T		Classify( void ) { return CLASS_ARBEIT_TECH; }
 
 	Disposition_t		IRelationType( CBaseEntity *pTarget );
 
@@ -220,6 +221,9 @@ protected:
 	// Makes Will-E always available as a speech target, even when out of regular range.
 	// (e.g. Will-E on monitor in ez2_c3_3)
 	bool	m_bOmniscient;
+
+	// See CNPC_Wilson::CanBeAnEnemyOf().
+	bool	m_bCanBeEnemy;
 
 	// Enables a projected texture spotlight on the client.
 	CNetworkVar( bool, m_bEyeLightEnabled );

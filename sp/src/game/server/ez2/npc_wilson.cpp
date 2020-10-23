@@ -123,6 +123,8 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_INPUT( m_bOmniscient, FIELD_BOOLEAN, "SetOmniscient" ),
 
+	DEFINE_INPUT( m_bCanBeEnemy, FIELD_BOOLEAN, "SetCanBeEnemy" ),
+
 	DEFINE_KEYFIELD( m_bEyeLightEnabled, FIELD_BOOLEAN, "EyeLightEnabled" ),
 	//DEFINE_FIELD( m_iEyeLightBrightness, FIELD_INTEGER ), // SetEyeGlow()'s call in Activate() means we don't need to save this
 
@@ -932,7 +934,21 @@ void CNPC_Wilson::OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Higher priority for enemies the player is actually aiming at
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::CanBeAnEnemyOf( CBaseEntity *pEnemy )
+{ 
+	// Don't be anyone's enemy unless it's needed for something
+	if (!m_bCanBeEnemy)
+	{
+		return false;
+	}
+
+	return BaseClass::CanBeAnEnemyOf(pEnemy);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
 //-----------------------------------------------------------------------------
 Disposition_t CNPC_Wilson::IRelationType( CBaseEntity *pTarget )
 {
