@@ -1,14 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//=============================================================================//
 //
-// Purpose:		Gonome. Big scary-ass headcrab zombie, based heavily on the Bullsquid.+
-//				+++Repurposed into the Zombie Assassin
-//				++Can now Jump and Climb like the fast zombie
+// Purpose:		Beast behavior used primarily by the Chapter 3 monster.
+// 
+//				This behavior mainly centers around a "home" which the beast dwells within when idle.
+//				When the beast hears a sound, it will leave home to investigate and attack any intruders.
+//				If the beast doesn't sense anything for a while, it will return home and wait to be alerted again.
 //
-// 			Originally, the Gonome / Zombie Assassin was created by Sergeant Stacker
-// 			and provided to the EZ2 team. 
-//			It has been heavily modified for its role as the boss of EZ2 chapter 3. 
-//			It now inherits from a base class, CNPC_BasePredator			
-// $NoKeywords: $
 //=============================================================================//
 
 #include "cbase.h"

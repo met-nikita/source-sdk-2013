@@ -1,8 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//=============================================================================//
 //
-// Purpose: 
+// Purpose:		Beast behavior used primarily by the Chapter 3 monster.
 // 
-// $NoKeywords: $
+//				This behavior mainly centers around a "home" which the beast dwells within when idle.
+//				When the beast hears a sound, it will leave home to investigate and attack any intruders.
+//				If the beast doesn't sense anything for a while, it will return home and wait to be alerted again.
+//
 //=============================================================================//
 #ifndef AI_BEHAVIOR_BEAST_H
 #define AI_BEHAVIOR_BEAST_H
