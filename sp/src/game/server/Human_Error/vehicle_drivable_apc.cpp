@@ -451,6 +451,12 @@ void CPropDrivableAPC::Spawn( void )
 	SetVehicleType( VEHICLE_TYPE_CAR_WHEELS );
 	SetCollisionGroup( COLLISION_GROUP_VEHICLE );
 
+#ifdef EZ2
+	// Necessary to make vehicles visible to the player NPC component
+	AddFlag( FL_OBJECT );
+	SetViewOffset( Vector(0,0,96) );
+#endif
+
 	BaseClass::Spawn();
 	m_flHandbrakeTime = gpGlobals->curtime + 0.1;
 	m_bInitialHandbrake = false;
@@ -937,8 +943,13 @@ void CPropDrivableAPC::Think(void)
 			m_onOverturned.FireOutput( this, this, 0 );
 
 #ifdef EZ2
-			if (m_hPlayer)
-				static_cast<CEZ2_Player*>(m_hPlayer.Get())->Event_VehicleOverturned( this );
+			IGameEvent *event = gameeventmanager->CreateEvent( "vehicle_overturned" );
+			if (event)
+			{
+				event->SetInt( "userid", m_hPlayer->GetUserID() );
+				event->SetInt( "vehicle", entindex() );
+				gameeventmanager->FireEvent( event );
+			}
 #endif
 		}
 #endif

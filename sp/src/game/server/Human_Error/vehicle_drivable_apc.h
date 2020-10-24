@@ -64,6 +64,11 @@ public:
 	void			OnRestore( void );
 	void			UpdateOnRemove( void );
 
+#ifdef EZ2
+	// Required for NPC sensing. Hopefully causes no side effects
+	bool			IsAlive() { return true; }
+#endif
+
 	virtual void	CreateServerVehicle( void );
 	virtual Vector	BodyTarget( const Vector &posSrc, bool bNoisy = true );
 	virtual void	TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr );

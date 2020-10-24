@@ -17,6 +17,7 @@
 #include "ai_playerally.h"
 #include "ai_sensorydummy.h"
 #include "ai_concept_response.h"
+#include "GameEventListener.h"
 
 class CAI_PlayerNPCDummy;
 class CEZ2_Player;
@@ -34,6 +35,7 @@ struct SightEvent_t;
 #define TLK_DISPLACER_RELEASE "TLK_DISPLACER_RELEASE" // Bad Cop released an entity via the displacer pistol
 #define TLK_SCANNER_FLASH "TLK_SCANNER_FLASH" // Bad Cop was flashed by a scanner
 #define TLK_VEHICLE_OVERTURNED "TLK_VEHICLE_OVERTURNED" // Bad Cop's vehicle was overturned
+#define TLK_ZOMBIE_SCREAM "TLK_ZOMBIE_SCREAM" // A zombie screams at Bad Cop
 
 //=============================================================================
 // >> EZ2_PLAYERMEMORY
@@ -100,7 +102,7 @@ private:
 // This class was created by Blixibon and 1upD.
 // 
 //=============================================================================
-class CEZ2_Player : public CAI_ExpresserHost<CHL2_Player>
+class CEZ2_Player : public CAI_ExpresserHost<CHL2_Player>, public CGameEventListener
 {
 	DECLARE_CLASS(CEZ2_Player, CAI_ExpresserHost<CHL2_Player>);
 public:
@@ -149,6 +151,8 @@ public:
 
 	Disposition_t	IRelationType( CBaseEntity *pTarget );
 
+	bool			GetInVehicle( IServerVehicle *pVehicle, int nRole );
+
 	// For more accurate representations of whether the player actually sees something
 	// (3D dot calculations instead of 2D dot calculations)
 	bool			FInTrueViewCone( const Vector &vecSpot );
@@ -174,7 +178,7 @@ public:
 	void			Event_DisplacerPistolDisplace( CBaseCombatWeapon *pWeapon, CBaseEntity *pVictimEntity );
 	void			Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity );
 
-	void			Event_VehicleOverturned( CBaseEntity *pVehicle );
+	void			FireGameEvent( IGameEvent *event );
 
 	// Blixibon - StartScripting for gag replacement
 	bool				IsInAScript( void ) { return m_bInAScript; }

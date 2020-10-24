@@ -266,6 +266,9 @@ BEGIN_DATADESC(CNPC_Gonome)
 	DEFINE_FIELD(m_flBurnDamageResetTime, FIELD_TIME),
 	DEFINE_FIELD(m_nGonomeSpitSprite, FIELD_INTEGER),
 
+	DEFINE_INPUTFUNC( FIELD_VOID, "GoHome", InputGoHome ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "GoHomeInstant", InputGoHomeInstant ),
+
 	DEFINE_OUTPUT( m_OnBeastHome, "OnBeastHome" ),
 	DEFINE_OUTPUT( m_OnBeastLeaveHome, "OnBeastLeaveHome" ),
 END_DATADESC()
@@ -437,7 +440,7 @@ int CNPC_Gonome::SelectFailSchedule( int failedSchedule, int failedTask, AI_Task
 		Vector2D vecOrigin = GetAbsOrigin().AsVector2D();
 		Vector vecEnemyPos = GetEnemies()->LastSeenPosition( GetEnemy() );
 		float flDistSqr = vecOrigin.DistToSqr( vecEnemyPos.AsVector2D() );
-		if ( flDistSqr <= Square(128.0f) )
+		if ( flDistSqr <= Square(224.0f) )
 		{
 			CHintCriteria hintCriteria;
 			hintCriteria.SetHintType( HINT_BEAST_FRUSTRATION );
@@ -766,6 +769,13 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 				UTIL_ScreenShake( tr.endpos, 2, 35.0, 0.75f, 384, SHAKE_START );
 
 				EmitSound( pEvent->options );
+
+				// HACKHACK: If we have a hint node, hijack FireUser4 to tell it we're striking the wall
+				// (for any potential decals or particle effects)
+				if (GetHintNode())
+				{
+					GetHintNode()->FireNamedOutput( "FireUser4", variant_t(), this, this );
+				}
 			}
 		}
 		else
@@ -922,6 +932,34 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 		default:
 			BaseClass::HandleAnimEvent( pEvent );
 	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Gonome::InputGoHome( inputdata_t &inputdata )
+{
+	if (!m_BeastBehavior.CanSelectSchedule())
+	{
+		Warning("%s received GoHome input, but beast behavior can't run! (global might be off)\n");
+		return;
+	}
+
+	m_BeastBehavior.GoHome();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Gonome::InputGoHomeInstant( inputdata_t &inputdata )
+{
+	if (!m_BeastBehavior.CanSelectSchedule())
+	{
+		Warning("%s received GoHomeInstant input, but beast behavior can't run! (global might be off)\n");
+		return;
+	}
+
+	m_BeastBehavior.GoHome( true );
 }
 
 //=========================================================

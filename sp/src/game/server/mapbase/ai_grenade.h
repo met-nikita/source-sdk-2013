@@ -19,6 +19,9 @@
 #include "basegrenade_shared.h"
 #include "ai_squad.h"
 #include "GlobalStrings.h"
+#ifdef EZ2
+#include "grenade_hopwire.h"
+#endif
 
 #define COMBINE_AE_GREN_TOSS		( 7 )
 
@@ -36,6 +39,7 @@
 	DEFINE_FIELD( m_flNextAltFireTime, FIELD_TIME ),	\
 	DEFINE_FIELD( m_vecAltFireTarget, FIELD_VECTOR ),	\
 	DEFINE_FIELD( m_vecTossVelocity, FIELD_VECTOR ),	\
+	DEFINE_INPUT( m_bThrowXenGrenades, FIELD_BOOLEAN, "SetThrowXenGrenades" ),	\
 	DEFINE_INPUTFUNC( FIELD_STRING,	"ThrowGrenadeAtTarget",	InputThrowGrenadeAtTarget ),	\
 	DEFINE_INPUTFUNC( FIELD_INTEGER,	"SetGrenades",	InputSetGrenades ),	\
 	DEFINE_INPUTFUNC( FIELD_INTEGER,	"AddGrenades",	InputAddGrenades ),	\
@@ -151,6 +155,9 @@ protected: // We can't have any private saved variables because only derived cla
 	Vector			m_vecAltFireTarget;
 	Vector			m_vecTossVelocity;
 
+	// E:Z2 - NPCs can throw Xen grenades
+	bool			m_bThrowXenGrenades;
+
 	COutputEHANDLE	m_OnThrowGrenade;
 	COutputEHANDLE	m_OnOutOfGrenades;
 };
@@ -208,13 +215,37 @@ void CAI_GrenadeUser<BASE_NPC>::HandleAnimEvent( animevent_t *pEvent )
 			vecThrow = forward * 750 + up * 175;
 
 			// This code is used by player allies now, so it's only "combine spawned" if the thrower isn't allied with the player.
+#ifdef EZ2
+			CBaseEntity *pGrenade = NULL;
+			if ( m_bThrowXenGrenades )
+			{
+				pGrenade = HopWire_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER );
+			}
+			else
+			{
+				pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, !this->IsPlayerAlly() );
+			}
+#else
 			CBaseEntity *pGrenade = Fraggrenade_Create( vecStart, vec3_angle, vecThrow, vecSpin, this, COMBINE_GRENADE_TIMER, !this->IsPlayerAlly() );
+#endif
 			m_OnThrowGrenade.Set(pGrenade, pGrenade, this);
 		}
 		else
 		{
 			// Use the Velocity that AI gave us.
+#ifdef EZ2
+			CBaseEntity *pGrenade = NULL;
+			if ( m_bThrowXenGrenades )
+			{
+				pGrenade = HopWire_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER );
+			}
+			else
+			{
+				pGrenade = Fraggrenade_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, !this->IsPlayerAlly() );
+			}
+#else
 			CBaseEntity *pGrenade = Fraggrenade_Create( vecStart, vec3_angle, m_vecTossVelocity, vecSpin, this, COMBINE_GRENADE_TIMER, !this->IsPlayerAlly() );
+#endif
 			m_OnThrowGrenade.Set(pGrenade, pGrenade, this);
 			AddGrenades(-1, pGrenade);
 		}

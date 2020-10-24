@@ -1194,12 +1194,15 @@ bool CGravityVortexController::TrySpawnRecipeNPC( CBaseEntity *pEntity, bool bCa
 			else if (pThrower->IsPlayer())
 				pSquad = static_cast<CHL2_Player*>( pThrower )->GetPlayerSquad();
 
-			// Iterate through the thrower's squad and apply the same relationship code
-			AISquadIter_t iter;
-			for (CAI_BaseNPC *pSquadmate = pSquad->GetFirstMember( &iter ); pSquadmate; pSquadmate = pSquad->GetNextMember( &iter ))
+			if (pSquad)
 			{
-				baseNPC->AddEntityRelationship( pSquadmate, baseNPC->IRelationType(pSquadmate), baseNPC->IRelationPriority(pSquadmate) - 1 );
-				pSquadmate->AddEntityRelationship( baseNPC, pSquadmate->IRelationType(baseNPC), pSquadmate->IRelationPriority(baseNPC) - 1 );	
+				// Iterate through the thrower's squad and apply the same relationship code
+				AISquadIter_t iter;
+				for (CAI_BaseNPC *pSquadmate = pSquad->GetFirstMember( &iter ); pSquadmate; pSquadmate = pSquad->GetNextMember( &iter ))
+				{
+					baseNPC->AddEntityRelationship( pSquadmate, baseNPC->IRelationType(pSquadmate), baseNPC->IRelationPriority(pSquadmate) - 1 );
+					pSquadmate->AddEntityRelationship( baseNPC, pSquadmate->IRelationType(baseNPC), pSquadmate->IRelationPriority(baseNPC) - 1 );	
+				}
 			}
 		}
 
