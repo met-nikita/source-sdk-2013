@@ -17,8 +17,8 @@
 // 
 // Beast Behavior
 // 
-// Move this to another file if necessary.
-// 
+
+ConVar ez2_beast_return_time( "ez2_beast_return_time", "20.0", FCVAR_NONE, "How much time should pass after the beast becomes alert (e.g. due to investigating a sound with no enemy in sight or losing an existing enemy) before it should be slammed to idle, allowing it to return home." );
 
 //---------------------------------------------------------
 // Save/Restore
@@ -118,6 +118,16 @@ int CAI_BeastBehavior::SelectSchedule()
 void CAI_BeastBehavior::GatherConditions( void )
 {
 	BaseClass::GatherConditions();
+
+	if ( GetOuter()->GetState() == NPC_STATE_ALERT )
+	{
+		// If we've been in this state for X seconds, go back home
+		if (gpGlobals->curtime - GetOuter()->m_flLastStateChangeTime > ez2_beast_return_time.GetFloat())
+		{
+			//SetEnemy( NULL );
+			GetOuter()->SetIdealState( NPC_STATE_IDLE );
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

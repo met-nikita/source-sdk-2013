@@ -2504,6 +2504,8 @@ BEGIN_DATADESC( CNPC_Arbeit_FloorTurret )
 
 	DEFINE_FIELD( m_iCurrentState, FIELD_INTEGER ),
 
+	DEFINE_FIELD( m_bCanRetire, FIELD_BOOLEAN ),
+
 	DEFINE_KEYFIELD( m_iTurretType, FIELD_INTEGER, "TurretType" ),
 
 	DEFINE_KEYFIELD( m_flRange, FIELD_FLOAT, "Range" ),
@@ -2524,6 +2526,11 @@ BEGIN_DATADESC( CNPC_Arbeit_FloorTurret )
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffLaser", InputTurnOffLaser ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSilently", InputEnableSilently ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableRetire", InputEnableRetire ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableRetire", InputDisableRetire ),
+
+	DEFINE_THINKFUNC( RetireRestrictedThink ),
 
 END_DATADESC()
 
@@ -2548,6 +2555,7 @@ static const char *g_pLaserUpdateContext = "LaserUpdateContext";
 CNPC_Arbeit_FloorTurret::CNPC_Arbeit_FloorTurret( void )
 {
 	m_iCurrentState = TURRET_STATE_TOTAL;
+	m_bCanRetire = true;
 	m_flRange = FLOOR_TURRET_RANGE;
 	m_flFOV = 60.0f;
 	//m_bEyeLightEnabled = true;
@@ -2721,6 +2729,19 @@ void CNPC_Arbeit_FloorTurret::InputEnableSilently( inputdata_t &inputdata )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::InputEnableRetire( inputdata_t &inputdata )
+{
+	m_bCanRetire = true;
+}
+
+void CNPC_Arbeit_FloorTurret::InputDisableRetire( inputdata_t &inputdata )
+{
+	m_bCanRetire = false;
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Allows a generic think function before the others are called
 // Input  : state - which state the turret is currently in
 //-----------------------------------------------------------------------------
@@ -2762,6 +2783,15 @@ bool CNPC_Arbeit_FloorTurret::PreThink( turretState_e state )
 
 			case TURRET_RETIRING:
 			{
+				if (!m_bCanRetire)
+				{
+					// Don't retire if there's a beast around.
+					SetThink( &CNPC_Arbeit_FloorTurret::RetireRestrictedThink );
+					SetNextThink( gpGlobals->curtime );
+					SetEyeState( TURRET_EYE_ALARM );
+					return true;
+				}
+
 				SpeakIfAllowed( TLK_RETIRE );
 
 				// If we're retiring because of Disable(), turn off the laser
@@ -3094,6 +3124,35 @@ void CNPC_Arbeit_FloorTurret::InactiveThink( void )
 	else
 	{
 		SetNextThink( gpGlobals->curtime + 1.0f );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: This turret is unable to retire due to constant stress and paranoia.
+//			This is for beast behavior.
+//-----------------------------------------------------------------------------
+void CNPC_Arbeit_FloorTurret::RetireRestrictedThink( void )
+{
+	// Spread out our thinking
+	SetNextThink( gpGlobals->curtime + random->RandomFloat( 0.2f, 0.4f ) );
+
+	// Remove any lingering enemies
+	if ( GetEnemy() != NULL )
+	{
+		SetEnemy( NULL );
+	}
+
+	// Level out the turret
+	m_vecGoalAngles = GetAbsAngles();
+
+	if ( UpdateFacing() )
+		SetNextThink( gpGlobals->curtime + 0.05f );
+
+	// If we can retire, retire!
+	if (m_bCanRetire)
+	{
+		SetThink( &CNPC_FloorTurret::Retire );
+		SetNextThink( gpGlobals->curtime );
 	}
 }
 
