@@ -2640,6 +2640,23 @@ bool CNPC_Arbeit_FloorTurret::CreateVPhysics( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+Class_T	CNPC_Arbeit_FloorTurret::Classify( void )
+{
+	if ( m_bEnabled ) 
+	{
+		// Hacked or friendly turrets attack players
+		if( m_bHackedByAlyx || IsCitizenTurret() )
+			return CLASS_PLAYER_ALLY;
+
+		return CLASS_ARBEIT_TECH;
+	}
+
+	return CLASS_NONE;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CNPC_Arbeit_FloorTurret::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason )
 {
 	BaseClass::OnPhysGunPickup( pPhysGunUser, reason );
