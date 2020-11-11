@@ -17,6 +17,7 @@
 ConVar sk_zombigaunt_health( "sk_zombigaunt_health", "150" );
 ConVar sk_zombigaunt_dmg_rake( "sk_zombigaunt_dmg_rake", "15" );
 ConVar sk_zombigaunt_dispel_time( "sk_zombigaunt_dispel_time", "5" );
+ConVar sk_zombigaunt_health_drain_time( "sk_zombigaunt_health_drain_time", "10" );
 ConVar sk_zombigaunt_dispel_radius( "sk_zombigaunt_dispel_radius", "300" );
 // The range of a zombigaunt's attack is notably less than a vortigaunt's
 ConVar sk_zombigaunt_zap_range( "sk_zombigaunt_zap_range", "30", FCVAR_NONE, "Range of zombie vortigaunt's ranged attack (feet)" );
@@ -45,26 +46,24 @@ END_DATADESC()
 LINK_ENTITY_TO_CLASS( npc_zombigaunt, CNPC_Zombigaunt );
 
 //-----------------------------------------------------------------------------
+// Default models by variant
+//-----------------------------------------------------------------------------
+const char *CNPC_Zombigaunt::pModelNames[EZ_VARIANT_COUNT] ={
+	"models/zombie/zombigaunt.mdl",
+	"models/zombie/xenbigaunt.mdl", // "Shackles. How long have these guys been down here?"
+	"models/zombie/glowbigaunt.mdl", // "Now I've seen everything."
+	"models/zombie/xenbigaunt.mdl" // No temporal zombigaunt model - right now temporal variants limited to poison headcrabs
+};
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void CNPC_Zombigaunt::Spawn( void )
 {
-	// Allow multiple models but default to zombigaunt.mdl
-	char *szModel = (char *)STRING( GetModelName() );
-	if (!szModel || !*szModel)
+	// Default model by variant
+	if (GetModelName() == NULL_STRING)
 	{
-		switch ( m_tEzVariant )
-		{
-		case EZ_VARIANT_XEN:
-			// "Shackles. How long have these guys been down here?"
-			szModel = "models/zombie/xenbigaunt.mdl";
-			break;
-		default:
-			szModel = "models/zombie/zombigaunt.mdl";
-			break;
-		}
-
-		SetModelName( AllocPooledString( szModel ) );
+		SetModelName( AllocPooledString( pModelNames[ m_tEzVariant % EZ_VARIANT_COUNT ] ) );
 	}
 
 	// Disable back-away
@@ -81,6 +80,7 @@ void CNPC_Zombigaunt::Spawn( void )
 	BaseClass::Spawn();
 
 	CapabilitiesAdd( bits_CAP_MOVE_JUMP );
+	CapabilitiesAdd( bits_CAP_INNATE_RANGE_ATTACK2 );
 
 	m_iMaxHealth = sk_zombigaunt_health.GetFloat();
 	m_iHealth = m_iMaxHealth;
@@ -102,12 +102,10 @@ void CNPC_Zombigaunt::Spawn( void )
 //-----------------------------------------------------------------------------
 void CNPC_Zombigaunt::Precache()
 {
-	// Allow multiple models but default to zombigaunt.mdl
-	char *szModel = (char *)STRING( GetModelName() );
-	if (!szModel || !*szModel)
+	// Default model by variant
+	if (GetModelName() == NULL_STRING)
 	{
-		szModel = "models/zombie/zombigaunt.mdl";
-		SetModelName( AllocPooledString( szModel ) );
+		SetModelName( AllocPooledString( pModelNames[m_tEzVariant % EZ_VARIANT_COUNT] ) );
 	}
 
 	PrecacheParticleSystem( "blood_drip_zombigaunt_01" );
@@ -313,6 +311,14 @@ void CNPC_Zombigaunt::OnStartSchedule( int scheduleType )
 float CNPC_Zombigaunt::GetNextDispelTime( void )
 {
 	return sk_zombigaunt_dispel_time.GetFloat();
+}
+
+//-----------------------------------------------------------------------------
+//		Next Zombigaunt health drain time
+//-----------------------------------------------------------------------------
+float CNPC_Zombigaunt::GetNextHealthDrainTime( void )
+{
+	return sk_zombigaunt_health_drain_time.GetFloat();
 }
 
 //-----------------------------------------------------------------------------
