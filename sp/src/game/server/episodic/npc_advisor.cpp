@@ -62,6 +62,8 @@ ConVar sk_advisor_pin_speed( "sk_advisor_pin_speed", "32" );
 #ifdef EZ2
 ConVar sk_advisor_pin_throw_cooldown( "sk_advisor_pin_throw_cooldown", "3" );
 
+// Think contexts
+static const char * ADVISOR_PARTICLE_THINK = "AdvisorParticle";
 #endif
 
 #if NPC_ADVISOR_HAS_BEHAVIOR
@@ -308,6 +310,9 @@ public:
 	void Event_Killed(const CTakeDamageInfo &info);
 
 #ifdef EZ2
+	virtual bool IsShieldOn( void );
+	virtual void ApplyShieldedEffects( void );
+
 	virtual int	TranslateSchedule( int scheduleType );
 
 	void StartFlying();
@@ -363,6 +368,8 @@ public:
 #ifdef EZ2
 	void InputStartFlying( inputdata_t &inputdata );
 	void InputStopFlying( inputdata_t &inputdata );
+	void InputStartPsychicShield( inputdata_t &inputdata );
+	void InputStopPsychicShield( inputdata_t &inputdata );
 	void InputDisablePinFailsafe( inputdata_t &inputdata ) { m_bPinFailsafeActive = false; }
 	void InputEnablePinFailsafe( inputdata_t &inputdata ) { m_bPinFailsafeActive = true; }
 
@@ -435,9 +442,16 @@ protected:
 	string_t m_iszLevitationArea;
 
 #ifdef EZ2
-	// The way the advisor's shield works is mostly clientside... awkward. I think in order to make the gameplay match up with the effect, it should not be saved.
+	// Start glow effects for this NPC
+	virtual void StartEye( void );
+	// Context think function for advisor particle
+	void ParticleThink();
+
+	// The way the advisor's throw particle effect works is mostly clientside... awkward. I think in order to make the gameplay match up with the effect, it should not be saved.
 	// This will cause some problems saving and loading during an advisor's attack
-	bool m_bShieldOn; 
+	bool m_bThrowBeamShield; 
+	// "Throw beam shield" is for the effect when the advisor picks up a prop, "Psychic shield" is for the active shield it puts up
+	bool m_bPsychicShieldOn;
 	bool m_bPinFailsafeActive = true;
 	bool m_bAdvisorFlyer;
 	EHANDLE m_hAdvisorFlyer;
@@ -489,6 +503,8 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_KEYFIELD( m_bPinFailsafeActive, FIELD_BOOLEAN, "pin_failsafe_active"),
 
 	DEFINE_FIELD( m_hAdvisorFlyer, FIELD_EHANDLE ),
+
+	DEFINE_FIELD( m_bPsychicShieldOn, FIELD_BOOLEAN ),
 #endif
 
 	DEFINE_UTLVECTOR( m_hvStagedEnts, FIELD_EHANDLE ),
@@ -535,6 +551,8 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopFlying", InputStopFlying ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnablePinFailsafe", InputEnablePinFailsafe ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisablePinFailsafe", InputDisablePinFailsafe ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "StartPsychicShield", InputStartPsychicShield ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "StopPsychicShield", InputStopPsychicShield ),
 
 	DEFINE_THINKFUNC( FlyThink )
 #endif
@@ -1353,6 +1371,23 @@ void CNPC_Advisor::Event_Killed(const CTakeDamageInfo &info)
 }
 
 #ifdef EZ2
+bool CNPC_Advisor::IsShieldOn( void )
+{
+	return m_bThrowBeamShield || m_bPsychicShieldOn;
+}
+
+void CNPC_Advisor::ApplyShieldedEffects(  )
+{
+	if ( IsShieldOn() )
+	{
+		SetBloodColor( DONT_BLEED );
+	}
+	else
+	{
+		SetBloodColor( BLOOD_COLOR_GREEN );
+	}
+}
+
 int CNPC_Advisor::TranslateSchedule( int scheduleType )
 {
 	switch (scheduleType)
@@ -1980,7 +2015,7 @@ int	CNPC_Advisor::OnTakeDamage( const CTakeDamageInfo &info )
 {
 #ifdef EZ2
 	// I AM BULLETPROOF
-	if ( m_bShieldOn )
+	if ( IsShieldOn() )
 	{
 		return 0;
 	}
@@ -2190,6 +2225,8 @@ void CNPC_Advisor::Precache()
 	UTIL_PrecacheOther( "npc_advisor_flyer" );
 
 	PrecacheScriptSound( "NPC_Advisor.BreatheLoop" );
+
+	PrecacheParticleSystem( "Advisor_Psychic_Shield_Idle" );
 #endif
 		
 	PrecacheModel( STRING( GetModelName() ) );
@@ -2348,6 +2385,19 @@ void CNPC_Advisor::InputStopFlying( inputdata_t & inputdata )
 	m_bAdvisorFlyer = false;
 	StopFlying();
 }
+
+void CNPC_Advisor::InputStartPsychicShield( inputdata_t & inputdata )
+{
+	m_bPsychicShieldOn = true;
+	ApplyShieldedEffects();
+}
+
+void CNPC_Advisor::InputStopPsychicShield( inputdata_t & inputdata )
+{
+	m_bPsychicShieldOn = false;
+	ApplyShieldedEffects();
+}
+
 #endif
 
 //-----------------------------------------------------------------------------
@@ -2449,8 +2499,8 @@ void CNPC_Advisor::Write_BeamOn(  CBaseEntity *pEnt )
 		return;
 
 #ifdef EZ2
-	m_bShieldOn = true;
-	SetBloodColor( DONT_BLEED );
+	m_bThrowBeamShield = true;
+	ApplyShieldedEffects();
 #endif
 
 	EntityMessageBegin( this, true );
@@ -2471,8 +2521,8 @@ void CNPC_Advisor::Write_BeamOff( CBaseEntity *pEnt )
 		return;
 
 #ifdef EZ2
-	m_bShieldOn = false;
-	SetBloodColor( BLOOD_COLOR_GREEN );
+	m_bThrowBeamShield = false;
+	ApplyShieldedEffects();
 #endif
 
 	EntityMessageBegin( this, true );
@@ -2487,14 +2537,42 @@ void CNPC_Advisor::Write_BeamOff( CBaseEntity *pEnt )
 void CNPC_Advisor::Write_AllBeamsOff( void )
 {
 #ifdef EZ2
-	m_bShieldOn = false;
-	SetBloodColor( BLOOD_COLOR_GREEN );
+	m_bThrowBeamShield = false;
+	ApplyShieldedEffects();
 #endif
 
 	EntityMessageBegin( this, true );
 		WRITE_BYTE( ADVISOR_MSG_STOP_ALL_BEAMS );
 	MessageEnd();
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+//  Purpose: Overridden to handle particles
+//  Weird place to start this, but it worked great for Zombigaunts
+//-----------------------------------------------------------------------------
+void CNPC_Advisor::StartEye( void )
+{
+	// Start particle
+	if (GetSleepState() == AISS_AWAKE)
+	{
+		SetContextThink( &CNPC_Advisor::ParticleThink, gpGlobals->curtime + 0.1, ADVISOR_PARTICLE_THINK );
+	}
+
+	BaseClass::StartEye();
+}
+
+
+void CNPC_Advisor::ParticleThink()
+{
+	if ( m_bPsychicShieldOn )
+	{
+		DispatchParticleEffect( "Advisor_Psychic_Shield_Idle", PATTACH_ABSORIGIN_FOLLOW, this, 0, false );
+	}
+
+	SetNextThink( gpGlobals->curtime + 1.0f, ADVISOR_PARTICLE_THINK );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // input wrapper around Write_BeamOn
