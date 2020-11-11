@@ -59,6 +59,11 @@ ConVar advisor_use_impact_table("advisor_use_impact_table","1",FCVAR_NONE,"If tr
 ConVar sk_advisor_melee_dmg("sk_advisor_melee_dmg", "0");
 ConVar sk_advisor_pin_speed( "sk_advisor_pin_speed", "32" );
 
+#ifdef EZ2
+ConVar sk_advisor_pin_throw_cooldown( "sk_advisor_pin_throw_cooldown", "3" );
+
+#endif
+
 #if NPC_ADVISOR_HAS_BEHAVIOR
 ConVar advisor_throw_velocity( "advisor_throw_velocity", "1100" );
 ConVar advisor_throw_rate( "advisor_throw_rate", "4" );					// Throw an object every 4 seconds.
@@ -119,6 +124,9 @@ enum
 enum
 {
 	COND_ADVISOR_PHASE_INTERRUPT = LAST_SHARED_CONDITION,
+#ifdef EZ2
+	COND_ADVISOR_FORCE_PIN
+#endif
 };
 #endif
 
@@ -2041,8 +2049,12 @@ int CNPC_Advisor::SelectSchedule()
 	}
 
 #ifdef EZ2
-	if ( m_hPlayerPinPos.IsValid() )//false
+	// Don't pin the player immediately after throwing an object!
+	if ( m_hPlayerPinPos.IsValid() && gpGlobals->curtime - m_flLastThrowTime > sk_advisor_pin_throw_cooldown.GetFloat() )
+	{
+		ClearCondition( COND_ADVISOR_FORCE_PIN );
 		return SCHED_ADVISOR_TOSS_PLAYER;
+	}
 #endif
 
 	switch ( m_NPCState )
@@ -2297,6 +2309,9 @@ void CNPC_Advisor::InputPinPlayer( inputdata_t &inputdata )
 	if (pEnt)
 	{
 		m_hPlayerPinPos = pEnt;
+#ifdef EZ2
+		SetCondition( COND_ADVISOR_FORCE_PIN );
+#endif
 	}
 	else
 	{
@@ -2311,6 +2326,9 @@ void CNPC_Advisor::InputPinPlayer( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CNPC_Advisor::StopPinPlayer(inputdata_t &inputdata)
 {
+#ifdef EZ2
+	ClearCondition( COND_ADVISOR_FORCE_PIN );
+#endif
 	m_hPlayerPinPos = NULL;
 }
 
@@ -2683,12 +2701,16 @@ AI_BEGIN_CUSTOM_NPC( npc_advisor, CNPC_Advisor )
 	*/
 
 	DECLARE_CONDITION( COND_ADVISOR_PHASE_INTERRUPT )	// A stage has interrupted us
+#ifdef EZ2
+	DECLARE_CONDITION( COND_ADVISOR_FORCE_PIN )
+#endif
 
 	DECLARE_TASK( TASK_ADVISOR_STAGE_OBJECTS ) // haul all the objects into the throw-from slots
 	DECLARE_TASK( TASK_ADVISOR_BARRAGE_OBJECTS ) // hurl all the objects in sequence
 
 	DECLARE_TASK( TASK_ADVISOR_PIN_PLAYER ) // pinion the player to a point in space
 	
+#ifndef EZ2
 	//=========================================================
 	DEFINE_SCHEDULE
 	(
@@ -2732,6 +2754,54 @@ AI_BEGIN_CUSTOM_NPC( npc_advisor, CNPC_Advisor )
 		"	"
 		"	Interrupts"
 	)
+#else
+	//=========================================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_ADVISOR_COMBAT,
+
+		"	Tasks"
+		"		TASK_ADVISOR_FIND_OBJECTS			0"
+		"		TASK_ADVISOR_LEVITATE_OBJECTS		0"
+		"		TASK_ADVISOR_STAGE_OBJECTS			1"
+		"		TASK_FACE_ENEMY						0"
+		"		TASK_ADVISOR_BARRAGE_OBJECTS		0"
+		"	"
+		"	Interrupts"
+		"		COND_ADVISOR_PHASE_INTERRUPT"
+		"		COND_ENEMY_DEAD"
+		"		COND_ADVISOR_FORCE_PIN"
+		"		COND_CAN_MELEE_ATTACK1"
+	)
+
+		//=========================================================
+		DEFINE_SCHEDULE
+		(
+			SCHED_ADVISOR_IDLE_STAND,
+
+			"	Tasks"
+			"		TASK_SET_ACTIVITY		ACTIVITY:ACT_IDLE"
+			"		TASK_WAIT				3"
+			""
+			"	Interrupts"
+			"		COND_NEW_ENEMY"
+			"		COND_SEE_FEAR"
+			"		COND_ADVISOR_PHASE_INTERRUPT"
+			"		COND_ADVISOR_FORCE_PIN"
+		)
+
+		DEFINE_SCHEDULE
+		(
+			SCHED_ADVISOR_TOSS_PLAYER,
+
+			"	Tasks"
+			"		TASK_FACE_ENEMY						0"
+			"		TASK_ADVISOR_PIN_PLAYER				0"
+			"	"
+			"	Interrupts"
+			"       COND_ADVISOR_FORCE_PIN"
+		)
+#endif
 
 AI_END_CUSTOM_NPC()
 #endif
