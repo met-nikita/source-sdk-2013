@@ -1375,7 +1375,7 @@ void CNPC_CScanner::RunTask( const Task_t *pTask )
 			if ( IsWaitFinished() )
 			{	
 				// If light was on turn it off
-				if ( m_pEyeFlash->GetBrightness() > 0 )
+				if ( m_pEyeFlash && m_pEyeFlash->GetBrightness() > 0 )
 				{
 					m_pEyeFlash->SetBrightness( 0 );
 
