@@ -78,6 +78,10 @@ ConVar advisor_throw_clearout_vel("advisor_throw_clearout_vel","200",FCVAR_NONE,
 ConVar advisor_throw_min_mass( "advisor_throw_min_mass", "20" );
 ConVar advisor_throw_max_mass( "advisor_throw_max_mass", "220" );
 
+#ifdef EZ2
+ConVar advisor_throw_stage_min_mass( "advisor_throw_stage_min_mass", "20" );
+ConVar advisor_throw_stage_max_mass( "advisor_throw_stage_max_mass", "220" );
+#endif
 
 // how long it will take an object to get hauled to the staging point
 #define STAGING_OBJECT_FALLOFF_TIME 0.15f
@@ -1635,6 +1639,12 @@ static bool AdvisorCanPickObject(CBasePlayer *pPlayer, CBaseEntity *pEnt)
 		return false;
 	}
 #ifdef EZ2
+	}
+
+	// Is this object within mass thresholds?
+	if ( pEnt->GetMass() < advisor_throw_stage_min_mass.GetInt() || pEnt->GetMass() > advisor_throw_stage_max_mass.GetInt() )
+	{
+		return false;
 	}
 #endif
 
