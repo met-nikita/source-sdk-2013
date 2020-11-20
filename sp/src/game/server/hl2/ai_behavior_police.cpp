@@ -443,6 +443,12 @@ void CAI_PolicingBehavior::RunTask( const Task_t *pTask )
 //-----------------------------------------------------------------------------
 bool CAI_PolicingBehavior::MaintainGoalPosition( void )
 {
+	if ( m_hPoliceGoal == NULL )
+	{
+		DevMsg( "Warning: m_hPoliceGoal is null. Something went wrong.\n" );
+		return false;
+	}
+
 	Vector vecOrg = GetAbsOrigin();
 	Vector vecTarget = m_hPoliceGoal->GetAbsOrigin();
 
