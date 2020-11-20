@@ -137,6 +137,7 @@ ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "1", FCVAR_REPLI
 ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "0", FCVAR_REPLICATED);
 ConVar sv_flashlight_cc_enabled( "sv_flashlight_cc_enabled", "1", FCVAR_REPLICATED );
 ConVar sv_flashlight_cc_maxweight( "sv_flashlight_cc_maxweight", "100", FCVAR_REPLICATED );
+ConVar sv_flashlight_cc_filename( "sv_flashlight_cc_filename", "ez2_nvg.raw", FCVAR_REPLICATED );
 #else
 ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "0", FCVAR_REPLICATED);
 ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "1", FCVAR_REPLICATED);
@@ -5276,7 +5277,7 @@ void CHL2_Player::ApplyFlashlightColorCorrection( bool bColorCorrectionEnabled )
 		m_hFlashlightColorCorrection->KeyValue( "targetname", "cc_nvg" );
 		m_hFlashlightColorCorrection->KeyValue( "fadeInDuration", 0.1f );
 		m_hFlashlightColorCorrection->KeyValue( "fadeOutDuration", 0.1f );
-		m_hFlashlightColorCorrection->KeyValue( "filename", "ez2_nvg.raw" );
+		m_hFlashlightColorCorrection->KeyValue( "filename", sv_flashlight_cc_filename.GetString() );
 		m_hFlashlightColorCorrection->KeyValue( "maxfalloff", -1.0f );
 		m_hFlashlightColorCorrection->KeyValue( "minfalloff", 0.0f );
 		m_hFlashlightColorCorrection->KeyValue( "maxweight", sv_flashlight_cc_maxweight.GetFloat() );
