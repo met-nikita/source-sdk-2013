@@ -17,7 +17,6 @@
 #include "gamerules.h"
 #include "vscript_server.nut"
 #ifdef MAPBASE_VSCRIPT
-#include "particle_parse.h"
 #include "world.h"
 #endif
 
@@ -106,7 +105,12 @@ public:
 	{
 		return ToHScript( gEntList.FindEntityByClassnameWithin( ToEnt( hStartEntity ), szName, vecSrc, flRadius ) );
 	}
-
+#ifdef MAPBASE_VSCRIPT
+	HSCRIPT FindByClassnameWithinBox( HSCRIPT hStartEntity , const char *szName, const Vector &vecMins, const Vector &vecMaxs )
+	{
+		return ToHScript( gEntList.FindEntityByClassnameWithin( ToEnt( hStartEntity ), szName, vecMins, vecMaxs ) );
+	}
+#endif
 private:
 } g_ScriptEntityIterator;
 
@@ -126,8 +130,12 @@ BEGIN_SCRIPTDESC_ROOT_NAMED( CScriptEntityIterator, "CEntities", SCRIPT_SINGLETO
 	DEFINE_SCRIPTFUNC( FindByNameWithin, "Find entities by name within a radius. Pass 'null' to start an iteration, or reference to a previously found entity to continue a search"  )
 	DEFINE_SCRIPTFUNC( FindByClassnameNearest, "Find entities by class name nearest to a point."  )
 	DEFINE_SCRIPTFUNC( FindByClassnameWithin, "Find entities by class name within a radius. Pass 'null' to start an iteration, or reference to a previously found entity to continue a search"  )
+#ifdef MAPBASE_VSCRIPT
+	DEFINE_SCRIPTFUNC( FindByClassnameWithinBox, "Find entities by class name within an AABB. Pass 'null' to start an iteration, or reference to a previously found entity to continue a search"  )
+#endif
 END_SCRIPTDESC();
 
+#ifndef MAPBASE_VSCRIPT // Mapbase adds this to the base library so that CScriptKeyValues can be accessed anywhere, like VBSP.
 // ----------------------------------------------------------------------------
 // KeyValues access - CBaseEntity::ScriptGetKeyFromModel returns root KeyValues
 // ----------------------------------------------------------------------------
@@ -143,24 +151,6 @@ BEGIN_SCRIPTDESC_ROOT( CScriptKeyValues, "Wrapper class over KeyValues instance"
 	DEFINE_SCRIPTFUNC_NAMED( ScriptGetKeyValueString, "GetKeyString", "Given a KeyValues object and a key name, return associated string value" );
 	DEFINE_SCRIPTFUNC_NAMED( ScriptIsKeyValueEmpty, "IsKeyEmpty", "Given a KeyValues object and a key name, return true if key name has no value" );
 	DEFINE_SCRIPTFUNC_NAMED( ScriptReleaseKeyValues, "ReleaseKeyValues", "Given a root KeyValues object, release its contents" );
-#ifdef MAPBASE_VSCRIPT
-	DEFINE_SCRIPTFUNC_NAMED( ScriptGetName, "GetName", "Given a KeyValues object, return its name" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptGetInt, "GetInt", "Given a KeyValues object, return its own associated integer value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptGetFloat, "GetFloat", "Given a KeyValues object, return its own associated float value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptGetString, "GetString", "Given a KeyValues object, return its own associated string value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptGetBool, "GetBool", "Given a KeyValues object, return its own associated bool value" );
-
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetKeyValueInt, "SetKeyInt", "Given a KeyValues object and a key name, set associated integer value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetKeyValueFloat, "SetKeyFloat", "Given a KeyValues object and a key name, set associated float value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetKeyValueBool, "SetKeyBool", "Given a KeyValues object and a key name, set associated bool value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetKeyValueString, "SetKeyString", "Given a KeyValues object and a key name, set associated string value" );
-
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetName, "SetName", "Given a KeyValues object, set its name" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetInt, "SetInt", "Given a KeyValues object, set its own associated integer value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetFloat, "SetFloat", "Given a KeyValues object, set its own associated float value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetBool, "SetBool", "Given a KeyValues object, set its own associated bool value" );
-	DEFINE_SCRIPTFUNC_NAMED( ScriptSetString, "SetString", "Given a KeyValues object, set its own associated string value" );
-#endif
 END_SCRIPTDESC();
 
 HSCRIPT CScriptKeyValues::ScriptFindKey( const char *pszName )
@@ -238,84 +228,6 @@ void CScriptKeyValues::ScriptReleaseKeyValues( )
 	m_pKeyValues = NULL;
 }
 
-#ifdef MAPBASE_VSCRIPT
-const char *CScriptKeyValues::ScriptGetName()
-{
-	const char *psz = m_pKeyValues->GetName();
-	return psz;
-}
-
-int CScriptKeyValues::ScriptGetInt()
-{
-	int i = m_pKeyValues->GetInt();
-	return i;
-}
-
-float CScriptKeyValues::ScriptGetFloat()
-{
-	float f = m_pKeyValues->GetFloat();
-	return f;
-}
-
-const char *CScriptKeyValues::ScriptGetString()
-{
-	const char *psz = m_pKeyValues->GetString();
-	return psz;
-}
-
-bool CScriptKeyValues::ScriptGetBool()
-{
-	bool b = m_pKeyValues->GetBool();
-	return b;
-}
-
-
-void CScriptKeyValues::ScriptSetKeyValueInt( const char *pszName, int iValue )
-{
-	m_pKeyValues->SetInt( pszName, iValue );
-}
-
-void CScriptKeyValues::ScriptSetKeyValueFloat( const char *pszName, float flValue )
-{
-	m_pKeyValues->SetFloat( pszName, flValue );
-}
-
-void CScriptKeyValues::ScriptSetKeyValueString( const char *pszName, const char *pszValue )
-{
-	m_pKeyValues->SetString( pszName, pszValue );
-}
-
-void CScriptKeyValues::ScriptSetKeyValueBool( const char *pszName, bool bValue )
-{
-	m_pKeyValues->SetBool( pszName, bValue );
-}
-
-void CScriptKeyValues::ScriptSetName( const char *pszValue )
-{
-	m_pKeyValues->SetName( pszValue );
-}
-
-void CScriptKeyValues::ScriptSetInt( int iValue )
-{
-	m_pKeyValues->SetInt( NULL, iValue );
-}
-
-void CScriptKeyValues::ScriptSetFloat( float flValue )
-{
-	m_pKeyValues->SetFloat( NULL, flValue );
-}
-
-void CScriptKeyValues::ScriptSetString( const char *pszValue )
-{
-	m_pKeyValues->SetString( NULL, pszValue );
-}
-
-void CScriptKeyValues::ScriptSetBool( bool bValue )
-{
-	m_pKeyValues->SetBool( NULL, bValue );
-}
-#endif
-
 
 // constructors
 CScriptKeyValues::CScriptKeyValues( KeyValues *pKeyValues = NULL )
@@ -332,12 +244,13 @@ CScriptKeyValues::~CScriptKeyValues( )
 	}
 	m_pKeyValues = NULL;
 }
+#endif
 
 #ifdef MAPBASE_VSCRIPT
 #define RETURN_IF_CANNOT_DRAW_OVERLAY\
 	if (engine->IsPaused())\
 	{\
-		DevWarning("debugoverlay: cannot draw while the game is paused!\n");\
+		CGWarning( 1, CON_GROUP_VSCRIPT, "debugoverlay: cannot draw while the game is paused!\n");\
 		return;\
 	}
 class CDebugOverlayScriptHelper
@@ -808,11 +721,21 @@ static void SendToConsole( const char *pszCommand )
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayerOrListenServerHost();
 	if ( !pPlayer )
 	{
+#ifdef MAPBASE
+		CGMsg( 1, CON_GROUP_VSCRIPT, "Cannot execute \"%s\", no player\n", pszCommand );
+#else
 		DevMsg ("Cannot execute \"%s\", no player\n", pszCommand );
+#endif
 		return;
 	}
 
 	engine->ClientCommand( pPlayer->edict(), pszCommand );
+}
+
+static void SendToConsoleServer( const char *pszCommand )
+{
+	// TODO: whitelist for multiplayer
+	engine->ServerCommand( UTIL_VarArgs("%s\n", pszCommand) );
 }
 
 static const char *GetMapName()
@@ -827,7 +750,11 @@ static const char *DoUniqueString( const char *pszBase )
 	return szBuf;
 }
 
+#ifdef MAPBASE_VSCRIPT
+static int  DoEntFire( const char *pszTarget, const char *pszAction, const char *pszValue, float delay, HSCRIPT hActivator, HSCRIPT hCaller )
+#else
 static void DoEntFire( const char *pszTarget, const char *pszAction, const char *pszValue, float delay, HSCRIPT hActivator, HSCRIPT hCaller )
+#endif
 {
 	const char *target = "", *action = "Use";
 	variant_t value;
@@ -841,7 +768,7 @@ static void DoEntFire( const char *pszTarget, const char *pszAction, const char 
 	//    ent_fire point_servercommand command "rcon_password mynewpassword"
 	if ( gpGlobals->maxClients > 1 && V_stricmp( target, "point_servercommand" ) == 0 )
 	{
-		return;
+		return 0;
 	}
 
 	if ( *pszAction )
@@ -857,6 +784,9 @@ static void DoEntFire( const char *pszTarget, const char *pszAction, const char 
 		delay = 0;
 	}
 
+#ifdef MAPBASE_VSCRIPT
+	return
+#endif
 	g_EventQueue.AddEvent( target, action, value, delay, ToEnt(hActivator), ToEnt(hCaller) );
 }
 
@@ -891,7 +821,11 @@ HSCRIPT CreateProp( const char *pszEntityName, const Vector &vOrigin, const char
 //--------------------------------------------------------------------------------------------------
 // Use an entity's script instance to add an entity IO event (used for firing events on unnamed entities from vscript)
 //--------------------------------------------------------------------------------------------------
+#ifdef MAPBASE_VSCRIPT
+static int  DoEntFireByInstanceHandle( HSCRIPT hTarget, const char *pszAction, const char *pszValue, float delay, HSCRIPT hActivator, HSCRIPT hCaller )
+#else
 static void DoEntFireByInstanceHandle( HSCRIPT hTarget, const char *pszAction, const char *pszValue, float delay, HSCRIPT hActivator, HSCRIPT hCaller )
+#endif
 {
 	const char *action = "Use";
 	variant_t value;
@@ -913,10 +847,17 @@ static void DoEntFireByInstanceHandle( HSCRIPT hTarget, const char *pszAction, c
 
 	if ( !pTarget )
 	{
-		Warning( "VScript error: DoEntFire was passed an invalid entity instance.\n" );
+		CGWarning( 0, CON_GROUP_VSCRIPT, "VScript error: DoEntFire was passed an invalid entity instance.\n" );
+#ifdef MAPBASE_VSCRIPT
+		return 0;
+#else
 		return;
+#endif
 	}
 
+#ifdef MAPBASE_VSCRIPT
+	return
+#endif
 	g_EventQueue.AddEvent( pTarget, action, value, delay, ToEnt(hActivator), ToEnt(hCaller) );
 }
 
@@ -937,14 +878,22 @@ static float ScriptTraceLine( const Vector &vecStart, const Vector &vecEnd, HSCR
 }
 
 #ifdef MAPBASE_VSCRIPT
-//-----------------------------------------------------------------------------
-// Simple particle effect dispatch
-//-----------------------------------------------------------------------------
-static void ScriptDispatchParticleEffect(const char *pszParticleName, const Vector &vecOrigin, const QAngle &vecAngles)
+static bool CancelEntityIOEvent( int event )
 {
-	DispatchParticleEffect(pszParticleName, vecOrigin, vecAngles);
+	return g_EventQueue.RemoveEvent(event);
 }
-#endif
+
+static float GetEntityIOEventTimeLeft( int event )
+{
+	return g_EventQueue.GetTimeLeft(event);
+}
+
+// vscript_server.nut adds this to the base CConvars class
+static const char *ScriptGetClientConvarValue( const char *pszConVar, int entindex )
+{
+	return engine->GetClientConVarValue( entindex, pszConVar );
+}
+#endif // MAPBASE_VSCRIPT
 
 bool VScriptServerInit()
 {
@@ -989,7 +938,7 @@ bool VScriptServerInit()
 #endif
 			else
 			{
-				DevWarning("-server_script does not recognize a language named '%s'. virtual machine did NOT start.\n", pszScriptLanguage );
+				CGWarning( 1, CON_GROUP_VSCRIPT, "-server_script does not recognize a language named '%s'. virtual machine did NOT start.\n", pszScriptLanguage );
 				scriptLanguage = SL_NONE;
 			}
 
@@ -1002,12 +951,22 @@ bool VScriptServerInit()
 			if( g_pScriptVM )
 			{
 #ifdef MAPBASE_VSCRIPT
-				Log( "VSCRIPT SERVER: Started VScript virtual machine using script language '%s'\n", g_pScriptVM->GetLanguageName() );
+				CGMsg( 0, CON_GROUP_VSCRIPT, "VSCRIPT SERVER: Started VScript virtual machine using script language '%s'\n", g_pScriptVM->GetLanguageName() );
 #else
 				Log( "VSCRIPT: Started VScript virtual machine using script language '%s'\n", g_pScriptVM->GetLanguageName() );
 #endif
 
+#ifdef MAPBASE_VSCRIPT
+				// MULTIPLAYER
+				// ScriptRegisterFunctionNamed( g_pScriptVM, UTIL_PlayerByIndex, "GetPlayerByIndex", "PlayerInstanceFromIndex" );
+				// ScriptRegisterFunctionNamed( g_pScriptVM, UTIL_PlayerByUserId, "GetPlayerByUserId", "GetPlayerFromUserID" );
+				// ScriptRegisterFunctionNamed( g_pScriptVM, UTIL_PlayerByName, "GetPlayerByName", "" );
+				// ScriptRegisterFunctionNamed( g_pScriptVM, ScriptGetPlayerByNetworkID, "GetPlayerByNetworkID", "" );
+
 				ScriptRegisterFunctionNamed( g_pScriptVM, UTIL_ShowMessageAll, "ShowMessage", "Print a hud message on all clients" );
+#else
+				ScriptRegisterFunctionNamed( g_pScriptVM, UTIL_ShowMessageAll, "ShowMessage", "Print a hud message on all clients" );
+#endif
 
 				ScriptRegisterFunction( g_pScriptVM, SendToConsole, "Send a string to the console as a command" );
 				ScriptRegisterFunction( g_pScriptVM, GetMapName, "Get the name of the map.");
@@ -1016,11 +975,16 @@ bool VScriptServerInit()
 				ScriptRegisterFunction( g_pScriptVM, Time, "Get the current server time" );
 				ScriptRegisterFunction( g_pScriptVM, FrameTime, "Get the time spent on the server in the last frame" );
 #ifdef MAPBASE_VSCRIPT
+				ScriptRegisterFunction( g_pScriptVM, SendToConsoleServer, "Send a string to the server console as a command" );
 				ScriptRegisterFunction( g_pScriptVM, MaxPlayers, "Get the maximum number of players allowed on this server" );
 				ScriptRegisterFunction( g_pScriptVM, IntervalPerTick, "Get the interval used between each tick" );
 				ScriptRegisterFunction( g_pScriptVM, DoEntFire, SCRIPT_ALIAS( "EntFire", "Generate an entity i/o event" ) );
 				ScriptRegisterFunction( g_pScriptVM, DoEntFireByInstanceHandle, SCRIPT_ALIAS( "EntFireByHandle", "Generate an entity i/o event. First parameter is an entity instance." ) );
 				// ScriptRegisterFunction( g_pScriptVM, IsValidEntity, "Returns true if the entity is valid." );
+
+				ScriptRegisterFunction( g_pScriptVM, CancelEntityIOEvent, "Remove entity I/O event." );
+				ScriptRegisterFunction( g_pScriptVM, GetEntityIOEventTimeLeft, "Get time left on entity I/O event." );
+				ScriptRegisterFunction( g_pScriptVM, ScriptGetClientConvarValue, SCRIPT_HIDE );
 #else
 				ScriptRegisterFunction( g_pScriptVM, DoEntFire, SCRIPT_ALIAS( "EntFire", "Generate and entity i/o event" ) );
 				ScriptRegisterFunctionNamed( g_pScriptVM, DoEntFireByInstanceHandle, "EntFireByHandle", "Generate and entity i/o event. First parameter is an entity instance." );
@@ -1033,10 +997,7 @@ bool VScriptServerInit()
 #endif
 				ScriptRegisterFunction( g_pScriptVM, DoIncludeScript, "Execute a script (internal)" );
 				ScriptRegisterFunction( g_pScriptVM, CreateProp, "Create a physics prop" );
-#ifdef MAPBASE_VSCRIPT
-				ScriptRegisterFunctionNamed( g_pScriptVM, ScriptDispatchParticleEffect, "DispatchParticleEffect", "Dispatches a one-off particle system" );
-#endif
-				
+
 				if ( GameRules() )
 				{
 					GameRules()->RegisterScriptFunctions();
@@ -1045,7 +1006,7 @@ bool VScriptServerInit()
 				g_pScriptVM->RegisterInstance( &g_ScriptEntityIterator, "Entities" );
 #ifdef MAPBASE_VSCRIPT
 				g_pScriptVM->RegisterInstance( &g_ScriptDebugOverlay, "debugoverlay" );
-#endif
+#endif // MAPBASE_VSCRIPT
 
 #ifdef MAPBASE_VSCRIPT
 				g_pScriptVM->RegisterAllClasses();
@@ -1076,13 +1037,13 @@ bool VScriptServerInit()
 			}
 			else
 			{
-				DevWarning("VM Did not start!\n");
+				CGWarning( 1, CON_GROUP_VSCRIPT, "VM Did not start!\n" );
 			}
 		}
 	}
 	else
 	{
-		Log( "\nVSCRIPT: Scripting is disabled.\n" );
+		CGMsg( 0, CON_GROUP_VSCRIPT, "\nVSCRIPT: Scripting is disabled.\n" );
 	}
 	g_pScriptVM = NULL;
 	return false;
@@ -1127,13 +1088,13 @@ CON_COMMAND( script_reload_code, "Execute a vscript file, replacing existing fun
 {
 	if ( !*args[1] )
 	{
-		Warning( "No script specified\n" );
+		CGWarning( 0, CON_GROUP_VSCRIPT, "No script specified\n" );
 		return;
 	}
 
 	if ( !g_pScriptVM )
 	{
-		Warning( "Scripting disabled or no server running\n" );
+		CGWarning( 0, CON_GROUP_VSCRIPT, "Scripting disabled or no server running\n" );
 		return;
 	}
 
@@ -1152,7 +1113,7 @@ CON_COMMAND( script_reload_entity_code, "Execute all of this entity's VScripts, 
 
 	if ( !g_pScriptVM )
 	{
-		Warning( "Scripting disabled or no server running\n" );
+		CGWarning( 0, CON_GROUP_VSCRIPT, "Scripting disabled or no server running\n" );
 		return;
 	}
 
@@ -1190,7 +1151,7 @@ CON_COMMAND( script_reload_think, "Execute an activation script, replacing exist
 
 	if ( !g_pScriptVM )
 	{
-		Warning( "Scripting disabled or no server running\n" );
+		CGWarning( 0, CON_GROUP_VSCRIPT, "Scripting disabled or no server running\n" );
 		return;
 	}
 

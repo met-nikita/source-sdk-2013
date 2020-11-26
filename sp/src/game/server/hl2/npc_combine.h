@@ -26,6 +26,7 @@
 #endif
 #ifdef MAPBASE
 #include "mapbase/ai_grenade.h"
+#include "ai_behavior_police.h"
 #endif
 #ifdef EXPANDED_RESPONSE_SYSTEM_USAGE
 #include "mapbase/expandedrs_combine.h"
@@ -92,6 +93,10 @@ public:
 
 	virtual Vector  GetCrouchEyeOffset( void );
 
+#ifdef MAPBASE
+	virtual bool	IsCrouchedActivity( Activity activity );
+#endif
+
 	void Event_Killed( const CTakeDamageInfo &info );
 #ifdef EZ
 	void Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
@@ -117,6 +122,8 @@ public:
 	void InputDropGrenade( inputdata_t &inputdata );
 
 	void InputSetTacticalVariant( inputdata_t &inputdata );
+
+	void InputSetPoliceGoal( inputdata_t &inputdata );
 #endif
 #ifdef EZ
 	void InputSetCommandable( inputdata_t &inputdata );  // New inputs to toggle player commands on / off
@@ -509,6 +516,9 @@ protected:
 	CAI_FuncTankBehavior		m_FuncTankBehavior;
 	CAI_RappelBehavior			m_RappelBehavior;
 	CAI_ActBusyBehavior			m_ActBusyBehavior;
+#endif
+#ifdef MAPBASE
+	CAI_PolicingBehavior		m_PolicingBehavior;
 #endif
 
 public:

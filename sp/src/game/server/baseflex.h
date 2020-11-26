@@ -138,7 +138,7 @@ public:
 
 	virtual int			GetSpecialDSP( void ) { return 0; }
 
-#ifdef EZ2
+#ifdef MAPBASE
 	virtual bool		GetGameTextSpeechParams( hudtextparms_t &params );
 #endif
 

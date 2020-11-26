@@ -1,10 +1,15 @@
 //========= Mapbase - https://github.com/mapbase-source/source-sdk-2013 ============//
 //
-// Purpose: Due to this being a custom integration of VScript based on the Alien Swarm SDK, we don't have access to
-//			some of the code normally available in games like L4D2 or Valve's original VScript DLL.
-//			Instead, that code is recreated here, shared between server and client.
+// Purpose: This file contains general shared VScript bindings which Mapbase adds onto
+//			what was ported from Alien Swarm instead of cluttering the existing files.
 //
-//			It also contains other functions unique to Mapbase.
+//			This includes various functions, classes, etc. which were either created from
+//			scratch or were based on/inspired by things documented in APIs from L4D2 or even
+//			Source 2 games like Dota 2 or Half-Life: Alyx.
+//
+//			Other VScript bindings can be found in files like vscript_singletons.cpp and
+//			things not exclusive to the game DLLs are embedded/recreated in the library itself
+//			via vscript_bindings_base.cpp.
 //
 // $NoKeywords: $
 //=============================================================================//
@@ -12,356 +17,29 @@
 #include "cbase.h"
 #include "matchers.h"
 #include "takedamageinfo.h"
-#include "ammodef.h"
-#include <vgui_controls/Controls.h> 
-#include <vgui/ILocalize.h>
 
 #ifndef CLIENT_DLL
 #include "globalstate.h"
 #include "vscript_server.h"
-#endif
+#include "soundent.h"
+#endif // !CLIENT_DLL
+
+#include "con_nprint.h"
+#include "particle_parse.h"
 
 #include "vscript_funcs_shared.h"
+#include "vscript_singletons.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-class CScriptNetPropManager
-{
-public:
-
-#ifdef CLIENT_DLL
-	RecvProp *RecurseTable( RecvTable *pTable, const char *pszPropName )
-#else
-	SendProp *RecurseTable( SendTable *pTable, const char *pszPropName )
-#endif
-	{
-#ifdef CLIENT_DLL
-		RecvProp *pProp = NULL;
-#else
-		SendProp *pProp = NULL;
-#endif
-		for (int i = 0; i < pTable->GetNumProps(); i++)
-		{
-			pProp = pTable->GetProp( i );
-			if (pProp->GetType() == DPT_DataTable)
-			{
-				pProp = RecurseTable(pProp->GetDataTable(), pszPropName);
-				if (pProp)
-					return pProp;
-			}
-			else
-			{
-				if (FStrEq( pProp->GetName(), pszPropName ))
-					return pProp;
-			}
-		}
-
-		return NULL;
-	}
-
-#ifdef CLIENT_DLL
-	RecvProp *RecurseNetworkClass( ClientClass *pClass, const char *pszPropName )
-#else
-	SendProp *RecurseNetworkClass( ServerClass *pClass, const char *pszPropName )
-#endif
-	{
-#ifdef CLIENT_DLL
-		RecvProp *pProp = RecurseTable( pClass->m_pRecvTable, pszPropName );
-#else
-		SendProp *pProp = RecurseTable( pClass->m_pTable, pszPropName );
-#endif
-		if (pProp)
-			return pProp;
-
-		if (pClass->m_pNext)
-			return RecurseNetworkClass( pClass->m_pNext, pszPropName );
-		else
-			return NULL;
-	}
-
-#ifdef CLIENT_DLL
-	RecvProp *GetPropByName( CBaseEntity *pEnt, const char *pszPropName )
-	{
-		if (pEnt)
-		{
-			return RecurseNetworkClass( pEnt->GetClientClass(), pszPropName );
-		}
-
-		return NULL;
-	}
-#else
-	SendProp *GetPropByName( CBaseEntity *pEnt, const char *pszPropName )
-	{
-		if (pEnt)
-		{
-			return RecurseNetworkClass( pEnt->GetServerClass(), pszPropName );
-		}
-
-		return NULL;
-	}
-#endif
-
-	int GetPropArraySize( HSCRIPT hEnt, const char *pszPropName )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp)
-		{
-			// TODO: Is this what this function wants?
-			return pProp->GetNumElements();
-		}
-
-		return -1;
-	}
-
-	#define GetPropFunc( name, varType, propType, defaultval ) \
-	varType name( HSCRIPT hEnt, const char *pszPropName ) \
-	{ \
-		CBaseEntity *pEnt = ToEnt( hEnt ); \
-		auto *pProp = GetPropByName( pEnt, pszPropName ); \
-		if (pProp && pProp->GetType() == propType) \
-		{ \
-			return *(varType*)((char *)pEnt + pProp->GetOffset()); \
-		} \
-		return defaultval; \
-	} \
-
-	#define GetPropFuncArray( name, varType, propType, defaultval ) \
-	varType name( HSCRIPT hEnt, const char *pszPropName, int iArrayElement ) \
-	{ \
-		CBaseEntity *pEnt = ToEnt( hEnt ); \
-		auto *pProp = GetPropByName( pEnt, pszPropName ); \
-		if (pProp && pProp->GetType() == propType) \
-		{ \
-			return ((varType*)((char *)pEnt + pProp->GetOffset()))[iArrayElement]; \
-		} \
-		return defaultval; \
-	} \
-
-	GetPropFunc( GetPropFloat, float, DPT_Float, -1 );
-	GetPropFuncArray( GetPropFloatArray, float, DPT_Float, -1 );
-	GetPropFunc( GetPropInt, int, DPT_Int, -1 );
-	GetPropFuncArray( GetPropIntArray, int, DPT_Int, -1 );
-	GetPropFunc( GetPropVector, Vector, DPT_Vector, vec3_invalid );
-	GetPropFuncArray( GetPropVectorArray, Vector, DPT_Vector, vec3_invalid );
-
-	HSCRIPT GetPropEntity( HSCRIPT hEnt, const char *pszPropName )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp && pProp->GetType() == DPT_Int)
-		{
-			return ToHScript( *(CHandle<CBaseEntity>*)((char *)pEnt + pProp->GetOffset()) );
-		}
-
-		return NULL;
-	}
-
-	HSCRIPT GetPropEntityArray( HSCRIPT hEnt, const char *pszPropName, int iArrayElement )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp && pProp->GetType() == DPT_Int)
-		{
-			return ToHScript( ((CHandle<CBaseEntity>*)((char *)pEnt + pProp->GetOffset()))[iArrayElement] );
-		}
-
-		return NULL;
-	}
-
-	const char *GetPropString( HSCRIPT hEnt, const char *pszPropName )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp && pProp->GetType() == DPT_Int)
-		{
-			return (const char*)((char *)pEnt + pProp->GetOffset());
-		}
-
-		return NULL;
-	}
-
-	const char *GetPropStringArray( HSCRIPT hEnt, const char *pszPropName, int iArrayElement )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp && pProp->GetType() == DPT_Int)
-		{
-			return ((const char**)((char *)pEnt + pProp->GetOffset()))[iArrayElement];
-		}
-
-		return NULL;
-	}
-
-	const char *GetPropType( HSCRIPT hEnt, const char *pszPropName )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp)
-		{
-			switch (pProp->GetType())
-			{
-			case DPT_Int:		return "integer";
-			case DPT_Float:		return "float";
-			case DPT_Vector:	return "vector";
-			case DPT_VectorXY:	return "vector2d";
-			case DPT_String:	return "string";
-			case DPT_Array:		return "array";
-			case DPT_DataTable:	return "datatable";
-			}
-		}
-
-		return NULL;
-	}
-
-	bool HasProp( HSCRIPT hEnt, const char *pszPropName )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		return GetPropByName( pEnt, pszPropName ) != NULL;
-	}
-
-	#define SetPropFunc( name, varType, propType ) \
-	void name( HSCRIPT hEnt, const char *pszPropName, varType value ) \
-	{ \
-		CBaseEntity *pEnt = ToEnt( hEnt ); \
-		auto *pProp = GetPropByName( pEnt, pszPropName ); \
-		if (pProp && pProp->GetType() == propType) \
-		{ \
-			*(varType*)((char *)pEnt + pProp->GetOffset()) = value; \
-		} \
-	} \
-
-	#define SetPropFuncArray( name, varType, propType ) \
-	void name( HSCRIPT hEnt, const char *pszPropName, varType value, int iArrayElement ) \
-	{ \
-		CBaseEntity *pEnt = ToEnt( hEnt ); \
-		auto *pProp = GetPropByName( pEnt, pszPropName ); \
-		if (pProp && pProp->GetType() == propType) \
-		{ \
-			((varType*)((char *)pEnt + pProp->GetOffset()))[iArrayElement] = value; \
-		} \
-	} \
-
-	SetPropFunc( SetPropFloat, float, DPT_Float );
-	SetPropFuncArray( SetPropFloatArray, float, DPT_Float );
-	SetPropFunc( SetPropInt, int, DPT_Int );
-	SetPropFuncArray( SetPropIntArray, int, DPT_Int );
-	SetPropFunc( SetPropVector, Vector, DPT_Vector );
-	SetPropFuncArray( SetPropVectorArray, Vector, DPT_Vector );
-	SetPropFunc( SetPropString, const char*, DPT_String );
-	SetPropFuncArray( SetPropStringArray, const char*, DPT_String );
-
-	void SetPropEntity( HSCRIPT hEnt, const char *pszPropName, HSCRIPT value )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp && pProp->GetType() == DPT_Int)
-		{
-			*((CHandle<CBaseEntity>*)((char *)pEnt + pProp->GetOffset())) = ToEnt(value);
-		}
-	}
-
-	HSCRIPT SetPropEntityArray( HSCRIPT hEnt, const char *pszPropName, HSCRIPT value, int iArrayElement )
-	{
-		CBaseEntity *pEnt = ToEnt( hEnt );
-		auto *pProp = GetPropByName( pEnt, pszPropName );
-		if (pProp && pProp->GetType() == DPT_Int)
-		{
-			((CHandle<CBaseEntity>*)((char *)pEnt + pProp->GetOffset()))[iArrayElement] = ToEnt(value);
-		}
-
-		return NULL;
-	}
-
-private:
-} g_ScriptNetPropManager;
-
-BEGIN_SCRIPTDESC_ROOT_NAMED( CScriptNetPropManager, "CNetPropManager", SCRIPT_SINGLETON "Allows reading and updating the network properties of an entity." )
-	DEFINE_SCRIPTFUNC( GetPropArraySize, "Returns the size of an netprop array, or -1." )
-	DEFINE_SCRIPTFUNC( GetPropEntity, "Reads an EHANDLE valued netprop (21 bit integer). Returns the script handle of the entity." )
-	DEFINE_SCRIPTFUNC( GetPropEntityArray, "Reads an EHANDLE valued netprop (21 bit integer) from an array. Returns the script handle of the entity." )
-	DEFINE_SCRIPTFUNC( GetPropFloat, "Reads a float valued netprop." )
-	DEFINE_SCRIPTFUNC( GetPropFloatArray, "Reads a float valued netprop from an array." )
-	DEFINE_SCRIPTFUNC( GetPropInt, "Reads an integer valued netprop." )
-	DEFINE_SCRIPTFUNC( GetPropIntArray, "Reads an integer valued netprop from an array." )
-	DEFINE_SCRIPTFUNC( GetPropString, "Reads a string valued netprop." )
-	DEFINE_SCRIPTFUNC( GetPropStringArray, "Reads a string valued netprop from an array." )
-	DEFINE_SCRIPTFUNC( GetPropVector, "Reads a 3D vector valued netprop." )
-	DEFINE_SCRIPTFUNC( GetPropVectorArray, "Reads a 3D vector valued netprop from an array." )
-	DEFINE_SCRIPTFUNC( GetPropType, "Returns the name of the netprop type as a string." )
-	DEFINE_SCRIPTFUNC( HasProp, "Checks if a netprop exists." )
-	DEFINE_SCRIPTFUNC( SetPropEntity, "Sets an EHANDLE valued netprop (21 bit integer) to reference the specified entity." )
-	DEFINE_SCRIPTFUNC( SetPropEntityArray, "Sets an EHANDLE valued netprop (21 bit integer) from an array to reference the specified entity." )
-	DEFINE_SCRIPTFUNC( SetPropFloat, "Sets a netprop to the specified float." )
-	DEFINE_SCRIPTFUNC( SetPropFloatArray, "Sets a netprop from an array to the specified float." )
-	DEFINE_SCRIPTFUNC( SetPropInt, "Sets a netprop to the specified integer." )
-	DEFINE_SCRIPTFUNC( SetPropIntArray, "Sets a netprop from an array to the specified integer." )
-	DEFINE_SCRIPTFUNC( SetPropString, "Sets a netprop to the specified string." )
-	DEFINE_SCRIPTFUNC( SetPropStringArray, "Sets a netprop from an array to the specified string." )
-	DEFINE_SCRIPTFUNC( SetPropVector, "Sets a netprop to the specified vector." )
-	DEFINE_SCRIPTFUNC( SetPropVectorArray, "Sets a netprop from an array to the specified vector." )
-END_SCRIPTDESC();
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-class CScriptConvarLookup
-{
-public:
-
-#ifndef CLIENT_DLL
-	const char *GetClientConvarValue( const char *pszConVar, int entindex )
-	{
-		return engine->GetClientConVarValue( entindex, pszConVar );
-	}
-#endif
-
-	const char *GetStr( const char *pszConVar )
-	{
-		ConVarRef cvar( pszConVar );
-		return cvar.GetString();
-	}
-
-	float GetFloat( const char *pszConVar )
-	{
-		ConVarRef cvar( pszConVar );
-		return cvar.GetFloat();
-	}
-
-	void SetValue( const char *pszConVar, const char *pszValue )
-	{
-		ConVarRef cvar( pszConVar );
-		if (!cvar.IsValid())
-			return;
-
-		// FCVAR_NOT_CONNECTED can be used to protect specific convars from nefarious interference
-		if (cvar.IsFlagSet(FCVAR_NOT_CONNECTED))
-			return;
-
-		cvar.SetValue( pszValue );
-	}
-
-private:
-} g_ScriptConvarLookup;
-
-BEGIN_SCRIPTDESC_ROOT_NAMED( CScriptConvarLookup, "CConvars", SCRIPT_SINGLETON "Provides an interface for getting and setting convars." )
-#ifndef CLIENT_DLL
-	DEFINE_SCRIPTFUNC( GetClientConvarValue, "Returns the convar value for the entindex as a string. Only works with client convars with the FCVAR_USERINFO flag." )
-#endif
-	DEFINE_SCRIPTFUNC( GetStr, "Returns the convar as a string. May return null if no such convar." )
-	DEFINE_SCRIPTFUNC( GetFloat, "Returns the convar as a float. May return null if no such convar." )
-	DEFINE_SCRIPTFUNC( SetValue, "Sets the value of the convar. Supported types are bool, int, float, string." )
-END_SCRIPTDESC();
+extern IScriptManager *scriptmanager;
 
 #ifndef CLIENT_DLL
 void EmitSoundOn( const char *pszSound, HSCRIPT hEnt )
 {
 	CBaseEntity *pEnt = ToEnt( hEnt );
-	if (!hEnt || !pEnt)
+	if (!pEnt)
 		return;
 
 	pEnt->EmitSound( pszSound );
@@ -371,7 +49,7 @@ void EmitSoundOnClient( const char *pszSound, HSCRIPT hEnt, HSCRIPT hPlayer )
 {
 	CBaseEntity *pEnt = ToEnt( hEnt );
 	CBasePlayer *pPlayer = ToBasePlayer( ToEnt( hPlayer ) );
-	if (!hPlayer || !pEnt || !pPlayer)
+	if (!pEnt || !pPlayer)
 		return;
 
 	CSingleUserRecipientFilter filter( pPlayer );
@@ -391,12 +69,7 @@ void AddThinkToEnt( HSCRIPT entity, const char *pszFuncName )
 	if (!pEntity)
 		return;
 
-	pEntity->ScriptSetThinkFunction(pszFuncName, 0.f);
-}
-
-HSCRIPT EntIndexToHScript( int index )
-{
-	return ToHScript( UTIL_EntityByIndex( index ) );
+	pEntity->ScriptSetThinkFunction(pszFuncName, TICK_INTERVAL);
 }
 
 void ParseScriptTableKeyValues( CBaseEntity *pEntity, HSCRIPT hKV )
@@ -467,21 +140,26 @@ HSCRIPT SpawnEntityFromTable( const char *pszClassname, HSCRIPT hKV )
 }
 #endif
 
+HSCRIPT EntIndexToHScript( int index )
+{
+#ifdef GAME_DLL
+    edict_t *e = INDEXENT(index);
+    if ( e && !e->IsFree() )
+    {
+        return ToHScript( GetContainingEntity( e ) );
+    }
+#else // CLIENT_DLL
+    if ( index < NUM_ENT_ENTRIES )
+    {
+        return ToHScript( CBaseEntity::Instance( index ) );
+    }
+#endif
+    return NULL;
+}
+
 //-----------------------------------------------------------------------------
 // Mapbase-specific functions start here
 //-----------------------------------------------------------------------------
-
-static void ScriptColorPrint( int r, int g, int b, const char *pszMsg )
-{
-	const Color clr(r, g, b, 255);
-	ConColorMsg( clr, "%s", pszMsg );
-}
-
-static void ScriptColorPrintL( int r, int g, int b, const char *pszMsg )
-{
-	const Color clr(r, g, b, 255);
-	ConColorMsg( clr, "%s\n", pszMsg );
-}
 
 #ifndef CLIENT_DLL
 HSCRIPT SpawnEntityFromKeyValues( const char *pszClassname, HSCRIPT hKV )
@@ -501,14 +179,10 @@ HSCRIPT SpawnEntityFromKeyValues( const char *pszClassname, HSCRIPT hKV )
 
 	gEntList.NotifyCreateEntity( pEntity );
 
-	CScriptKeyValues *pScriptKV = hKV ? HScriptToClass<CScriptKeyValues>( hKV ) : NULL;
-	if (pScriptKV)
+	KeyValues *pKV = scriptmanager->GetKeyValuesFromScriptKV( g_pScriptVM, hKV );
+	for (pKV = pKV->GetFirstSubKey(); pKV != NULL; pKV = pKV->GetNextKey())
 	{
-		KeyValues *pKV = pScriptKV->m_pKeyValues;
-		for (pKV = pKV->GetFirstSubKey(); pKV != NULL; pKV = pKV->GetNextKey())
-		{
-			pEntity->KeyValue( pKV->GetName(), pKV->GetString() );
-		}
+		pEntity->KeyValue( pKV->GetName(), pKV->GetString() );
 	}
 
 	DispatchSpawn( pEntity );
@@ -525,45 +199,7 @@ void ScriptDispatchSpawn( HSCRIPT hEntity )
 		DispatchSpawn( pEntity );
 	}
 }
-#endif
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-class CScriptLocalize
-{
-public:
-
-	const char *GetTokenAsUTF8( const char *pszToken )
-	{
-		const char *pText = g_pVGuiLocalize->FindAsUTF8( pszToken );
-		if ( pText )
-		{
-			return pText;
-		}
-
-		return NULL;
-	}
-
-	void AddStringAsUTF8( const char *pszToken, const char *pszString )
-	{
-		wchar_t wpszString[256];
-		g_pVGuiLocalize->ConvertANSIToUnicode( pszString, wpszString, sizeof(wpszString) );
-
-		// TODO: This is a fake file name! Should "fileName" mean anything?
-		g_pVGuiLocalize->AddString( pszToken, wpszString, "resource/vscript_localization.txt" );
-	}
-
-private:
-} g_ScriptLocalize;
-
-BEGIN_SCRIPTDESC_ROOT_NAMED( CScriptLocalize, "CLocalize", SCRIPT_SINGLETON "Accesses functions related to localization strings." )
-
-	DEFINE_SCRIPTFUNC( GetTokenAsUTF8, "Gets the current language's token as a UTF-8 string (not Unicode)." )
-
-	DEFINE_SCRIPTFUNC( AddStringAsUTF8, "Adds a new localized token as a UTF-8 string (not Unicode)." )
-
-END_SCRIPTDESC();
+#endif // !CLIENT_DLL
 
 //-----------------------------------------------------------------------------
 //
@@ -901,8 +537,7 @@ static void SetPhysVelocity( HSCRIPT hPhys, const Vector& vecVelocity, const Vec
 	if (!pPhys)
 		return;
 
-	if (pPhys)
-		pPhys->SetVelocity( &vecVelocity, &vecAngVelocity );
+	pPhys->SetVelocity( &vecVelocity, &vecAngVelocity );
 }
 
 static void AddPhysVelocity( HSCRIPT hPhys, const Vector& vecVelocity, const Vector& vecAngVelocity )
@@ -911,8 +546,7 @@ static void AddPhysVelocity( HSCRIPT hPhys, const Vector& vecVelocity, const Vec
 	if (!pPhys)
 		return;
 
-	if (pPhys)
-		pPhys->AddVelocity( &vecVelocity, &vecAngVelocity );
+	pPhys->AddVelocity( &vecVelocity, &vecAngVelocity );
 }
 
 //=============================================================================
@@ -928,6 +562,14 @@ static void ScriptPrecacheOther( const char *classname )
 	UTIL_PrecacheOther( classname );
 }
 
+#ifndef CLIENT_DLL
+// TODO: Move this?
+static void ScriptInsertSound( int iType, const Vector &vecOrigin, int iVolume, float flDuration, HSCRIPT hOwner, int soundChannelIndex, HSCRIPT hSoundTarget )
+{
+	CSoundEnt::InsertSound( iType, vecOrigin, iVolume, flDuration, ToEnt(hOwner), soundChannelIndex, ToEnt(hSoundTarget) );
+}
+#endif
+
 //=============================================================================
 //=============================================================================
 
@@ -938,7 +580,7 @@ static void ScriptEntitiesInBox( HSCRIPT hTable, int listMax, const Vector &hull
 
 	for ( int i = 0; i < count; i++ )
 	{
-		g_pScriptVM->SetValue( hTable, STRING(list[i]->GetEntityName()), ToHScript( list[i] ) );
+		g_pScriptVM->ArrayAppend( hTable, ToHScript(list[i]) );
 	}
 }
 
@@ -949,7 +591,7 @@ static void ScriptEntitiesAtPoint( HSCRIPT hTable, int listMax, const Vector &po
 
 	for ( int i = 0; i < count; i++ )
 	{
-		g_pScriptVM->SetValue( hTable, STRING(list[i]->GetEntityName()), ToHScript( list[i] ) );
+		g_pScriptVM->ArrayAppend( hTable, ToHScript(list[i]) );
 	}
 }
 
@@ -960,7 +602,7 @@ static void ScriptEntitiesInSphere( HSCRIPT hTable, int listMax, const Vector &c
 
 	for ( int i = 0; i < count; i++ )
 	{
-		g_pScriptVM->SetValue( hTable, STRING(list[i]->GetEntityName()), ToHScript( list[i] ) );
+		g_pScriptVM->ArrayAppend( hTable, ToHScript(list[i]) );
 	}
 }
 
@@ -971,6 +613,23 @@ static void ScriptDecalTrace( HSCRIPT hTrace, const char *decalName )
 	CTraceInfoAccessor *traceInfo = HScriptToClass<CTraceInfoAccessor>(hTrace);
 	UTIL_DecalTrace( &traceInfo->GetTrace(), decalName );
 }
+
+//-----------------------------------------------------------------------------
+// Simple particle effect dispatch
+//-----------------------------------------------------------------------------
+static void ScriptDispatchParticleEffect( const char *pszParticleName, const Vector &vecOrigin, const QAngle &vecAngles, HSCRIPT hEntity )
+{
+	DispatchParticleEffect( pszParticleName, vecOrigin, vecAngles, ToEnt(hEntity) );
+}
+
+#ifndef CLIENT_DLL
+const Vector& ScriptPredictedPosition( HSCRIPT hTarget, float flTimeDelta )
+{
+	static Vector predicted;
+	UTIL_PredictedPosition( ToEnt(hTarget), flTimeDelta, &predicted );
+	return predicted;
+}
+#endif
 
 //=============================================================================
 //=============================================================================
@@ -1006,15 +665,29 @@ bool ScriptIsClient()
 }
 
 // Notification printing on the right edge of the screen
-void NPrint(int pos, const char* fmt)
+void NPrint( int pos, const char* fmt )
 {
 	engine->Con_NPrintf(pos, fmt);
 }
 
-//=============================================================================
-//=============================================================================
+void NXPrint( int pos, int r, int g, int b, bool fixed, float ftime, const char* fmt )
+{
+	static con_nprint_t *info = new con_nprint_t;
 
-extern void RegisterMathScriptFunctions();
+	info->index = pos;
+	info->time_to_live = ftime;
+	info->color[0] = r / 255.f;
+	info->color[1] = g / 255.f;
+	info->color[2] = b / 255.f;
+	info->fixed_width_font = fixed;
+
+	engine->Con_NXPrintf(info, fmt);
+
+	// delete info;
+}
+
+//=============================================================================
+//=============================================================================
 
 void RegisterSharedScriptFunctions()
 {
@@ -1029,26 +702,19 @@ void RegisterSharedScriptFunctions()
 	ScriptRegisterFunction( g_pScriptVM, EmitSoundOnClient, "Play named sound only on the client for the specified player." );
 
 	ScriptRegisterFunction( g_pScriptVM, AddThinkToEnt, "This will put a think function onto an entity, or pass null to remove it. This is NOT chained, so be careful." );
-	ScriptRegisterFunction( g_pScriptVM, EntIndexToHScript, "Returns the script handle for the given entity index." );
 	ScriptRegisterFunction( g_pScriptVM, PrecacheEntityFromTable, "Precache an entity from KeyValues in a table." );
 	ScriptRegisterFunction( g_pScriptVM, SpawnEntityFromTable, "Native function for entity spawning." );
-#endif
-
-	g_pScriptVM->RegisterInstance( &g_ScriptConvarLookup, "Convars" );
-	g_pScriptVM->RegisterInstance( &g_ScriptNetPropManager, "NetProps" );
+#endif // !CLIENT_DLL
+	ScriptRegisterFunction( g_pScriptVM, EntIndexToHScript, "Returns the script handle for the given entity index." );
 
 	//-----------------------------------------------------------------------------
-	// Functions, singletons, etc. unique to Mapbase
+	// Functions, etc. unique to Mapbase
 	//-----------------------------------------------------------------------------
-
-	g_pScriptVM->RegisterInstance( GetAmmoDef(), "AmmoDef" );
-	g_pScriptVM->RegisterInstance( &g_ScriptLocalize, "Localize" );
 
 	//-----------------------------------------------------------------------------
 
-	ScriptRegisterFunction( g_pScriptVM, NPrint, "" );
-	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptColorPrint, "printc", "Version of print() which takes a color before the message." );
-	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptColorPrintL, "printcl", "Version of printl() which takes a color before the message." );
+	ScriptRegisterFunction( g_pScriptVM, NPrint, "Notification print" );
+	ScriptRegisterFunction( g_pScriptVM, NXPrint, "Notification print, customised" );
 
 #ifndef CLIENT_DLL
 	ScriptRegisterFunction( g_pScriptVM, SpawnEntityFromKeyValues, "Spawns an entity with the keyvalues in a CScriptKeyValues handle." );
@@ -1086,17 +752,29 @@ void RegisterSharedScriptFunctions()
 	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptPrecacheOther, "PrecacheOther", "Precaches an entity class for later usage." );
 
 	// 
+	// NPCs
+	// 
+#ifndef CLIENT_DLL
+	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptInsertSound, "InsertAISound", "Inserts an AI sound." );
+#endif
+
+	// 
 	// Misc. Utility
 	// 
-	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptEntitiesInBox, "EntitiesInBox", "Gets all entities which are within a worldspace box." );
-	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptEntitiesAtPoint, "EntitiesAtPoint", "Gets all entities which are intersecting a point in space." );
-	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptEntitiesInSphere, "EntitiesInSphere", "Gets all entities which are within a sphere." );
+	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptEntitiesInBox, "EntitiesInBox", "Gets all entities which are within a worldspace box. This function copies them to an array with a maximum number of elements." );
+	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptEntitiesAtPoint, "EntitiesAtPoint", "Gets all entities which are intersecting a point in space. This function copies them to an array with a maximum number of elements." );
+	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptEntitiesInSphere, "EntitiesInSphere", "Gets all entities which are within a sphere. This function copies them to an array with a maximum number of elements." );
 
 	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptDecalTrace, "DecalTrace", "Creates a dynamic decal based on the given trace info. The trace information can be generated by TraceLineComplex() and the decal name must be from decals_subrect.txt." );
+	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptDispatchParticleEffect, "DoDispatchParticleEffect", SCRIPT_ALIAS( "DispatchParticleEffect", "Dispatches a one-off particle system" ) );
 
 	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptMatcherMatch, "Matcher_Match", "Compares a string to a query using Mapbase's matcher system, supporting wildcards, RS matchers, etc." );
 	ScriptRegisterFunction( g_pScriptVM, Matcher_NamesMatch, "Compares a string to a query using Mapbase's matcher system using wildcards only." );
 	ScriptRegisterFunction( g_pScriptVM, AppearsToBeANumber, "Checks if the given string appears to be a number." );
+
+#ifndef CLIENT_DLL
+	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptPredictedPosition, "PredictedPosition", "Predicts what an entity's position will be in a given amount of time." );
+#endif
 
 #ifndef CLIENT_DLL
 	ScriptRegisterFunction( g_pScriptVM, IsDedicatedServer, "Is this a dedicated server?" );
@@ -1104,7 +782,7 @@ void RegisterSharedScriptFunctions()
 	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptIsServer, "IsServer", "Returns true if the script is being run on the server." );
 	ScriptRegisterFunctionNamed( g_pScriptVM, ScriptIsClient, "IsClient", "Returns true if the script is being run on the client." );
 
-	RegisterMathScriptFunctions();
+	RegisterScriptSingletons();
 
 #ifdef CLIENT_DLL
 	VScriptRunScript( "vscript_client", true );

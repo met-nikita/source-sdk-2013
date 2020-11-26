@@ -561,6 +561,11 @@ public:
 	bool IsFollowingEntity();
 	CBaseEntity *GetFollowedEntity();
 
+#ifdef MAPBASE_VSCRIPT
+	void ScriptFollowEntity( HSCRIPT hBaseEntity, bool bBoneMerge );
+	HSCRIPT ScriptGetFollowedEntity();
+#endif
+
 	// initialization
 	virtual void Spawn( void );
 	virtual void Precache( void ) {}
@@ -588,6 +593,12 @@ public:
 	void ValidateEntityConnections();
 	void FireNamedOutput( const char *pszOutput, variant_t variant, CBaseEntity *pActivator, CBaseEntity *pCaller, float flDelay = 0.0f );
 	CBaseEntityOutput *FindNamedOutput( const char *pszOutput );
+#ifdef MAPBASE_VSCRIPT
+	void ScriptFireOutput( const char *pszOutput, HSCRIPT hActivator, HSCRIPT hCaller, const char *szValue, float flDelay );
+	float GetMaxOutputDelay( const char *pszOutput );
+	void CancelEventsByInput( const char *szInput );
+#endif
+
 
 	// Activate - called for each entity after each load game and level load
 	virtual void Activate( void );
@@ -663,6 +674,9 @@ public:
 	// handles an input (usually caused by outputs)
 	// returns true if the the value in the pass in should be set, false if the input is to be ignored
 	virtual bool AcceptInput( const char *szInputName, CBaseEntity *pActivator, CBaseEntity *pCaller, variant_t Value, int outputID );
+#ifdef MAPBASE_VSCRIPT
+	bool ScriptAcceptInput(const char *szInputName, const char *szValue, HSCRIPT hActivator, HSCRIPT hCaller);
+#endif
 
 	//
 	// Input handlers.
@@ -2090,6 +2104,11 @@ public:
 
 	int ScriptGetMoveType() { return GetMoveType(); }
 	void ScriptSetMoveType( int iMoveType ) { SetMoveType( (MoveType_t)iMoveType ); }
+
+	static ScriptHook_t	g_Hook_UpdateOnRemove;
+	static ScriptHook_t	g_Hook_VPhysicsCollision;
+	static ScriptHook_t	g_Hook_FireBullets;
+	static ScriptHook_t	g_Hook_OnDeath;
 #endif
 
 	string_t		m_iszVScripts;
@@ -2097,7 +2116,11 @@ public:
 	CScriptScope	m_ScriptScope;
 	HSCRIPT			m_hScriptInstance;
 	string_t		m_iszScriptId;
+#ifdef MAPBASE_VSCRIPT
+	HSCRIPT			m_pScriptModelKeyValues;
+#else
 	CScriptKeyValues* m_pScriptModelKeyValues;
+#endif
 };
 
 // Send tables exposed in this module.

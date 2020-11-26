@@ -142,6 +142,8 @@ public:
 	CBaseEntity		*GetSpeechTarget() { return m_hSpeechTarget.Get(); }
 
 	void			InputAnswerConcept( inputdata_t &inputdata );
+	
+	bool			CanAutoSwitchToNextBestWeapon( CBaseCombatWeapon *pWeapon );
 
 	// TODO: Remove instances of OnPickupWeapon()
 	void			Weapon_Equip( CBaseCombatWeapon *pWeapon );

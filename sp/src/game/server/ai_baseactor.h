@@ -194,10 +194,7 @@ public:
 		,
 		SCENE_AI_ADDCONTEXT,
 		SCENE_AI_INPUT,
-#endif
-
-#ifdef EZ2
-		SCENE_AI_GAMETEXT,
+		SCENE_AI_GAMETEXT, // This is handled in CBaseFlex
 #endif
 	};
 

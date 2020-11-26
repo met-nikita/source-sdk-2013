@@ -32,9 +32,6 @@
 #include "gib.h"
 #include "CRagdollMagnet.h"
 #endif
-#ifdef MAPBASE_VSCRIPT
-#include "mapbase/vscript_funcs_math.h"
-#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -305,6 +302,7 @@ BEGIN_ENT_SCRIPTDESC( CBaseAnimating, CBaseEntity, "Animating models" )
 	DEFINE_SCRIPTFUNC( GetSequence, "Gets the current sequence" )
 	DEFINE_SCRIPTFUNC( SetSequence, "Sets the current sequence" )
 	DEFINE_SCRIPTFUNC( SequenceLoops, "Loops the current sequence" )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSequenceDuration, "SequenceDuration", "Get the specified sequence duration" )
 	DEFINE_SCRIPTFUNC( LookupSequence, "Gets the index of the specified sequence name" )
 	DEFINE_SCRIPTFUNC( LookupActivity, "Gets the ID of the specified activity name" )
 	DEFINE_SCRIPTFUNC_NAMED( HasMovement, "SequenceHasMovement", "Checks if the specified sequence has movement" )
@@ -316,6 +314,10 @@ BEGIN_ENT_SCRIPTDESC( CBaseAnimating, CBaseEntity, "Animating models" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptSelectWeightedSequence, "SelectWeightedSequence", "Selects a sequence for the specified activity ID" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptSelectHeaviestSequence, "SelectHeaviestSequence", "Selects the sequence with the heaviest weight for the specified activity ID" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptGetSequenceKeyValues, "GetSequenceKeyValues", "Get a KeyValue class instance on the specified sequence. WARNING: This uses the same KeyValue pointer as GetModelKeyValues!" )
+	DEFINE_SCRIPTFUNC( GetPlaybackRate, "" )
+	DEFINE_SCRIPTFUNC( SetPlaybackRate, "" )
+	DEFINE_SCRIPTFUNC( GetCycle, "" )
+	DEFINE_SCRIPTFUNC( SetCycle, "" )
 	DEFINE_SCRIPTFUNC( GetSkin, "Gets the model's skin" )
 	DEFINE_SCRIPTFUNC( SetSkin, "Sets the model's skin" )
 #endif
@@ -2204,7 +2206,7 @@ HSCRIPT CBaseAnimating::ScriptGetAttachmentMatrix( int iAttachment )
 	static matrix3x4_t matrix;
 
 	CBaseAnimating::GetAttachment( iAttachment, matrix );
-	return ScriptCreateMatrixInstance( matrix );
+	return g_pScriptVM->RegisterInstance( &matrix );
 }
 
 float CBaseAnimating::ScriptGetPoseParameter( const char* szName )
@@ -2232,7 +2234,7 @@ void CBaseAnimating::ScriptGetBoneTransform( int iBone, HSCRIPT hTransform )
 	if (hTransform == NULL)
 		return;
 
-	GetBoneTransform( iBone, *ToMatrix3x4( hTransform ) );
+	GetBoneTransform( iBone, *HScriptToClass<matrix3x4_t>( hTransform ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -2249,12 +2251,9 @@ HSCRIPT CBaseAnimating::ScriptGetSequenceKeyValues( int iSequence )
 	if ( pSeqKeyValues )
 	{
 		// UNDONE: how does destructor get called on this
-		m_pScriptModelKeyValues = new CScriptKeyValues( pSeqKeyValues );
+		m_pScriptModelKeyValues = hScript = scriptmanager->CreateScriptKeyValues( g_pScriptVM, pSeqKeyValues, true );
 
 		// UNDONE: who calls ReleaseInstance on this??? Does name need to be unique???
-
-		// Allow VScript to delete this when the instance is removed.
-		hScript = g_pScriptVM->RegisterInstance( m_pScriptModelKeyValues, true );
 	}
 
 	return hScript;

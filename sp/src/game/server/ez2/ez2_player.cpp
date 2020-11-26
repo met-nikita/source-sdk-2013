@@ -324,6 +324,22 @@ void CEZ2_Player::UpdateOnRemove( void )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::CanAutoSwitchToNextBestWeapon( CBaseCombatWeapon *pWeapon )
+{
+	if (GetNPCComponent())
+	{
+		if ( GetNPCComponent()->GetState() == NPC_STATE_COMBAT )
+		{
+			Msg("EZ2: Not autoswitching to %s because of combat\n", pWeapon->GetDebugName());
+		}
+	}
+	
+	return BaseClass::CanAutoSwitchToNextBestWeapon( pWeapon );
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Event fired upon picking up a new weapon
 //-----------------------------------------------------------------------------
 void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )

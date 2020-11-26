@@ -36,6 +36,10 @@ ConVar rr_debugresponses( "rr_debugresponses", "0", FCVAR_NONE, "Show verbose ma
 ConVar rr_debugrule( "rr_debugrule", "", FCVAR_NONE, "If set to the name of the rule, that rule's score will be shown whenever a concept is passed into the response rules system.");
 ConVar rr_dumpresponses( "rr_dumpresponses", "0", FCVAR_NONE, "Dump all response_rules.txt and rules (requires restart)" );
 
+#ifdef MAPBASE
+ConVar rr_enhanced_saverestore( "rr_enhanced_saverestore", "0", FCVAR_NONE, "Enables enhanced save/restore capabilities for the Response System." );
+#endif
+
 #ifdef EZ2
 ConVar rr_disableemptyrules( "rr_disableemptyrules", "1", FCVAR_NONE, "Disables rules with no remaining responses, e.g. rules which use norepeat responses." );
 #endif
@@ -3311,8 +3315,8 @@ public:
 			Precache();
 		}
 
-#ifdef EZ2
-		if (gpGlobals->eLoadType != MapLoad_Transition)
+#ifdef MAPBASE
+		if (!rr_enhanced_saverestore.GetBool() || gpGlobals->eLoadType != MapLoad_Transition)
 #endif
 		ResetResponseGroups();
 	}
@@ -3727,21 +3731,31 @@ public:
 			pSave->EndBlock();
 		}
 
-#ifdef EZ2
-		// Blixibon - Rule state save/load
-		int count2 = rs.m_Rules.Count();
-		pSave->WriteInt( &count2 );
-		for ( int i = 0; i < count2; ++i )
+#ifdef MAPBASE
+		// Enhanced Response System save/restore
+		int count2 = 0;
+		if (rr_enhanced_saverestore.GetBool())
 		{
-			pSave->StartBlock( "Rule" );
+			// Rule state save/load
+			count2 = rs.m_Rules.Count();
+			pSave->WriteInt( &count2 );
+			for ( int i = 0; i < count2; ++i )
+			{
+				pSave->StartBlock( "Rule" );
 
-			pSave->WriteString( rs.m_Rules.GetElementName( i ) );
-			const Rule *rule = &rs.m_Rules[ i ];
+				pSave->WriteString( rs.m_Rules.GetElementName( i ) );
+				const Rule *rule = &rs.m_Rules[ i ];
 
-			bool bEnabled = rule->m_bEnabled;
-			pSave->WriteBool( &bEnabled );
+				bool bEnabled = rule->m_bEnabled;
+				pSave->WriteBool( &bEnabled );
 
-			pSave->EndBlock();
+				pSave->EndBlock();
+			}
+		}
+		else
+		{
+			// Indicate this isn't using enhanced save/restore
+			pSave->WriteInt( &count2 );
 		}
 #endif
 	}
@@ -3808,8 +3822,8 @@ public:
 			pRestore->EndBlock();
 		}
 
-#ifdef EZ2
-		// Blixibon - Rule state save/load
+#ifdef MAPBASE
+		// Enhanced Response System save/restore
 		count = pRestore->ReadInt();
 		for ( int i = 0; i < count; ++i )
 		{

@@ -694,6 +694,7 @@ bool CAI_Expresser::SpeakDispatchResponse( AIConcept_t concept, AI_Response *res
 					WRITE_FLOAT( textParams.holdTime );
 					WRITE_FLOAT( textParams.fxTime );
 					WRITE_STRING( response );
+					WRITE_STRING( "" ); // No custom font
 					WRITE_BYTE ( Q_strlen( response ) );
 				MessageEnd();
 
