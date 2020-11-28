@@ -1903,6 +1903,13 @@ void CNPC_Advisor::PreHurlClearTheWay( CBaseEntity *pThrowable, const Vector &to
             IPhysicsObject *pPhys = obstruction->VPhysicsGetObject();
 			Assert(pPhys); 
 
+			// If pPhys is NULL, skip
+			if (pPhys == NULL)
+			{
+				DevWarning("WARNING: Advisor attempted to push NULL physics object out of the way of an object.\n");
+				continue;
+			}
+
 			// this is an object we want to push out of the way. Compute a vector perpendicular
 			// to the path of the throwables's travel, and thrust the object along that vector.
 			Vector thrust;
