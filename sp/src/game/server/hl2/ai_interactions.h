@@ -87,6 +87,7 @@ extern int	g_interactionXenGrenadeConsume;
 extern int	g_interactionXenGrenadeRelease;
 extern int	g_interactionXenGrenadeCreate;
 extern int	g_interactionXenGrenadeHop;
+extern int  g_interactionXenGrenadeRagdoll;
 
 // Bad Cop kick
 extern int	g_interactionBadCopKick;

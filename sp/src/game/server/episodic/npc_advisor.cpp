@@ -107,7 +107,10 @@ enum
 {
 	SCHED_ADVISOR_COMBAT = LAST_SHARED_SCHEDULE,
 	SCHED_ADVISOR_IDLE_STAND,
-	SCHED_ADVISOR_TOSS_PLAYER
+	SCHED_ADVISOR_TOSS_PLAYER,
+#ifdef EZ2
+	SCHED_ADVISOR_STAGGER,
+#endif
 };
 
 
@@ -122,6 +125,10 @@ enum
 	TASK_ADVISOR_BARRAGE_OBJECTS,
 
 	TASK_ADVISOR_PIN_PLAYER,
+
+#ifdef EZ2
+	TASK_ADVISOR_STAGGER,
+#endif
 };
 
 //
@@ -131,7 +138,8 @@ enum
 {
 	COND_ADVISOR_PHASE_INTERRUPT = LAST_SHARED_CONDITION,
 #ifdef EZ2
-	COND_ADVISOR_FORCE_PIN
+	COND_ADVISOR_FORCE_PIN,
+	COND_ADVISOR_STAGGER
 #endif
 };
 #endif
@@ -460,6 +468,8 @@ protected:
 	bool m_bAdvisorFlyer;
 	EHANDLE m_hAdvisorFlyer;
 
+	float m_fStaggerUntilTime;
+
 	CSoundPatch *m_pBreathSound;
 #endif
 
@@ -509,6 +519,7 @@ BEGIN_DATADESC( CNPC_Advisor )
 	DEFINE_FIELD( m_hAdvisorFlyer, FIELD_EHANDLE ),
 
 	DEFINE_FIELD( m_bPsychicShieldOn, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_fStaggerUntilTime, FIELD_TIME ),
 #endif
 
 	DEFINE_UTLVECTOR( m_hvStagedEnts, FIELD_EHANDLE ),
@@ -1028,7 +1039,10 @@ void CNPC_Advisor::StartTask( const Task_t *pTask )
 			break;
 			
 		}
-
+#ifdef EZ2
+		case TASK_ADVISOR_STAGGER:
+			break;
+#endif
 		default:
 		{
 			BaseClass::StartTask( pTask );
@@ -1051,6 +1065,9 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 		UpdateAdvisorFacing();
 	}
 #endif
+
+	// Used by TASK_ADVISOR_STAGGER
+	CTakeDamageInfo info( this, this, vec3_origin, GetAbsOrigin(), 20, DMG_BLAST );
 
 	switch ( pTask->iTask )
 	{
@@ -1336,7 +1353,15 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 			break;
 			
 		}
-
+#ifdef EZ2
+		case TASK_ADVISOR_STAGGER:
+			SetCondition( COND_ADVISOR_STAGGER );
+			// Make it look like we're taking damage even though we're taking very little
+			m_iHealth += 19;
+			OnTakeDamage( info );
+			TaskComplete();
+			break;
+#endif
 		default:
 		{
 			BaseClass::RunTask( pTask );
@@ -1377,7 +1402,7 @@ void CNPC_Advisor::Event_Killed(const CTakeDamageInfo &info)
 #ifdef EZ2
 bool CNPC_Advisor::IsShieldOn( void )
 {
-	return m_bThrowBeamShield || m_bPsychicShieldOn;
+	return m_bThrowBeamShield || ( m_bPsychicShieldOn && !HasCondition( COND_ADVISOR_STAGGER ) );
 }
 
 void CNPC_Advisor::ApplyShieldedEffects(  )
@@ -1603,8 +1628,32 @@ bool CNPC_Advisor::HandleInteraction( int interactionType, void *data, CBaseComb
 			StartFlying();
 		}
 
+		CBaseEntity * pAttacker = info->pOwner == NULL ? this : info->pOwner;
+		CTakeDamageInfo damageInfo( pAttacker, pAttacker, vec3_origin, GetAbsOrigin(), 100, DMG_BLAST );
+		OnTakeDamage( damageInfo );
+
+		// Pretend we spawned from a recipe
+		info->pSink->SpawnEffects( this );
+
+		m_fStaggerUntilTime = gpGlobals->curtime + 3.0f;
+
 		SetNextThink( gpGlobals->curtime );
 
+		return true;
+	}
+
+	if ( interactionType == g_interactionXenGrenadePull )
+	{
+		DevMsg( "Advisor being pulled!\n" );
+		m_fStaggerUntilTime = gpGlobals->curtime + 1.0f;
+
+		// Let the advisor be pulled normally
+		return false;
+	}
+
+	if ( interactionType == g_interactionXenGrenadeRagdoll )
+	{
+		// Don't.
 		return true;
 	}
 
@@ -2085,6 +2134,13 @@ int CNPC_Advisor::SelectSchedule()
 #ifndef EZ2
     if ( IsInAScript() )
         return SCHED_ADVISOR_IDLE_STAND;
+#else
+	if ( HasCondition( COND_ADVISOR_STAGGER ) )
+	{
+		Write_AllBeamsOff();
+		ApplyShieldedEffects();
+		return SCHED_ADVISOR_STAGGER;
+	}
 #endif
 
 	// Kick attack?
@@ -2436,6 +2492,39 @@ void CNPC_Advisor::GatherConditions( void )
 	
 	// Retain this
 	m_bWasScripting = bInScript;
+
+#ifdef EZ2
+	if (m_fStaggerUntilTime > gpGlobals->curtime)
+	{
+		// Pause flight
+		if ( m_bAdvisorFlyer && m_hAdvisorFlyer )
+		{
+			StopFlying();
+		}
+
+		// Stop pinning
+		StopPinPlayer( inputdata_t() );
+		CBasePlayer *pLocalPlayer = AI_GetSinglePlayer();
+		if (pLocalPlayer)
+		{
+			pLocalPlayer->SetGravity( 1.0f );
+			pLocalPlayer->SetMoveType( MOVETYPE_WALK );
+			Write_BeamOff( pLocalPlayer );
+			beamonce = 1;
+		}
+
+		SetCondition( COND_ADVISOR_STAGGER );
+	}
+	else
+	{
+		// Resume flight
+		if ( m_bAdvisorFlyer && !m_hAdvisorFlyer )
+		{
+			StartFlying();
+		}
+		ClearCondition( COND_ADVISOR_STAGGER );
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -2575,10 +2664,12 @@ void CNPC_Advisor::StartEye( void )
 
 void CNPC_Advisor::ParticleThink()
 {
-	if ( m_bPsychicShieldOn )
+	if ( m_bPsychicShieldOn && !HasCondition( COND_ADVISOR_STAGGER ) )
 	{
 		DispatchParticleEffect( "Advisor_Psychic_Shield_Idle", PATTACH_ABSORIGIN_FOLLOW, this, 0, false );
 	}
+
+	ApplyShieldedEffects();
 
 	SetNextThink( gpGlobals->curtime + 1.0f, ADVISOR_PARTICLE_THINK );
 }
@@ -2791,12 +2882,17 @@ AI_BEGIN_CUSTOM_NPC( npc_advisor, CNPC_Advisor )
 	DECLARE_CONDITION( COND_ADVISOR_PHASE_INTERRUPT )	// A stage has interrupted us
 #ifdef EZ2
 	DECLARE_CONDITION( COND_ADVISOR_FORCE_PIN )
+	DECLARE_CONDITION( COND_ADVISOR_STAGGER )
 #endif
 
 	DECLARE_TASK( TASK_ADVISOR_STAGE_OBJECTS ) // haul all the objects into the throw-from slots
 	DECLARE_TASK( TASK_ADVISOR_BARRAGE_OBJECTS ) // hurl all the objects in sequence
 
 	DECLARE_TASK( TASK_ADVISOR_PIN_PLAYER ) // pinion the player to a point in space
+
+#ifdef EZ2
+	DECLARE_TASK( TASK_ADVISOR_STAGGER )
+#endif
 	
 #ifndef EZ2
 	//=========================================================
@@ -2860,6 +2956,7 @@ AI_BEGIN_CUSTOM_NPC( npc_advisor, CNPC_Advisor )
 		"		COND_ENEMY_DEAD"
 		"		COND_ADVISOR_FORCE_PIN"
 		"		COND_CAN_MELEE_ATTACK1"
+		"       COND_ADVISOR_STAGGER"
 	)
 
 		//=========================================================
@@ -2888,6 +2985,21 @@ AI_BEGIN_CUSTOM_NPC( npc_advisor, CNPC_Advisor )
 			"	"
 			"	Interrupts"
 			"       COND_ADVISOR_FORCE_PIN"
+			"       COND_ADVISOR_STAGGER"
+		)
+
+		DEFINE_SCHEDULE
+		(
+			SCHED_ADVISOR_STAGGER,
+
+			"	Tasks"
+			"		TASK_ADVISOR_STAGGER	0"
+			"		TASK_BIG_FLINCH			0"
+			"		TASK_WAIT				1"
+			""
+			"	Interrupts"
+			"		COND_ADVISOR_PHASE_INTERRUPT"
+			"		COND_ADVISOR_FORCE_PIN"
 		)
 #endif
 

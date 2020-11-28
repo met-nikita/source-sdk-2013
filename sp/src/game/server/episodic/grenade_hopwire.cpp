@@ -90,6 +90,7 @@ int	g_interactionXenGrenadeConsume		= 0;
 int	g_interactionXenGrenadeRelease		= 0;
 int g_interactionXenGrenadeCreate		= 0;
 int g_interactionXenGrenadeHop			= 0;
+int g_interactionXenGrenadeRagdoll      = 0;
 #endif
 
 #ifdef EZ2
@@ -697,6 +698,13 @@ bool CGravityVortexController::KillNPCInRange( CBaseEntity *pVictim, IPhysicsObj
 		if ( pVictim->DispatchInteraction( g_interactionXenGrenadePull, &info, GetThrower() ) )
 		{
 			// Pull the object in if there was no special handling
+			*pPhysObj = NULL;
+			return false;
+		}
+
+		// See if there is custom handling for ragdolls
+		if (pVictim->DispatchInteraction( g_interactionXenGrenadeRagdoll, &info, GetThrower() ))
+		{
 			*pPhysObj = NULL;
 			return false;
 		}
@@ -1566,7 +1574,19 @@ void CGravityVortexController::PullThink( void )
 			{
 				// Find the pull force
 				vecForce *= (1.0f - (dist2D / m_flRadius)) * m_flStrength;
+
+				// Physics damage info
+				CTakeDamageInfo info( this, this, vecForce, GetAbsOrigin(), m_flStrength, DMG_BLAST );
+
+				// Dispatch interaction. Skip pulling if it returns true
+				if ( pEnts[i]->DispatchInteraction( g_interactionXenGrenadePull, &info, GetThrower() ) )
+				{
+					continue;
+				}
+
+				// Pull
 				pNPC->ApplyAbsVelocityImpulse( vecForce );
+
 				// We already handled this NPC, move on
 				continue;
 			}
@@ -1943,6 +1963,7 @@ void CGrenadeHopwire::Precache( void )
 		g_interactionXenGrenadeRelease = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeCreate = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeHop = CBaseCombatCharacter::GetInteractionID();
+		g_interactionXenGrenadeRagdoll = CBaseCombatCharacter::GetInteractionID();
 	}
 
 	// The recipe manager is needed for save/restore

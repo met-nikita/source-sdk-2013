@@ -28,18 +28,20 @@ public:
 // Displacement info for interactions
 struct DisplacementInfo_t
 {
-	DisplacementInfo_t( CBaseEntity *displacer, CDisplacerSink *sink, const Vector *targetpos, const QAngle *targetang )
+	DisplacementInfo_t( CBaseEntity *displacer, CDisplacerSink *sink, const Vector *targetpos, const QAngle *targetang, CBaseEntity * owner = NULL )
 	{
 		pDisplacer = displacer;
 		pSink = sink;
 		vecTargetPos = targetpos;
 		vecTargetAng = targetang;
+		pOwner = owner;
 	}
 
 	CBaseEntity *pDisplacer;
 	CDisplacerSink *pSink;
 	const Vector *vecTargetPos;
 	const QAngle *vecTargetAng;
+	CBaseEntity *pOwner;
 };
 
 #define SF_VORTEX_CONTROLLER_DONT_REMOVE (1 << 0)
