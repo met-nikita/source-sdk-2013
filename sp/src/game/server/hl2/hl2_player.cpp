@@ -117,7 +117,7 @@ ConVar player_showpredictedposition_timestep( "player_showpredictedposition_time
 
 ConVar player_squad_transient_commands( "player_squad_transient_commands", "1", FCVAR_REPLICATED );
 ConVar player_squad_double_tap_time( "player_squad_double_tap_time", "0.25" );
-#ifdef EZ
+#ifdef EZ1
 ConVar sv_infinite_aux_power( "sv_infinite_aux_power", "1", FCVAR_CHEAT );
 #else
 ConVar sv_infinite_aux_power("sv_infinite_aux_power", "0", FCVAR_CHEAT);
@@ -131,6 +131,8 @@ ConVar autoaim_unlock_target( "autoaim_unlock_target", "0.8666" );
 
 ConVar sv_stickysprint("sv_stickysprint", "0", FCVAR_ARCHIVE | FCVAR_ARCHIVE_XBOX);
 #ifdef EZ2
+ConVar sv_infinite_sprint_power( "sv_infinite_sprint_power", "1", FCVAR_CHEAT );
+ConVar sv_infinite_flashlight_power( "sv_infinite_flashlight_power", "0", FCVAR_CHEAT );
 ConVar sv_player_death_smell( "sv_player_death_smell", "1", FCVAR_REPLICATED );
 ConVar sv_player_kick_attack_enabled( "sv_player_kick_attack_enabled", "1", FCVAR_REPLICATED );
 ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "1", FCVAR_REPLICATED);
@@ -151,13 +153,15 @@ ConVar sk_plr_dmg_kick( "sk_plr_dmg_kick", "5", FCVAR_REPLICATED );
 ConVar sk_suit_maxarmor("sk_suit_maxarmor", "100", FCVAR_REPLICATED);
 #endif
 
+ConVar sk_flashlight_drain_time( "sk_flashlight_drain_time", "1.1111", FCVAR_REPLICATED ); // 100 units / 90 secs
+ConVar sk_flashlight_charge_time( "sk_flashlight_charge_time", "50.0", FCVAR_REPLICATED ); // 100 units / 2 secs
+
 #ifdef MAPBASE
 ConVar player_autoswitch_enabled( "player_autoswitch_enabled", "1", FCVAR_NONE, "This convar was added by Mapbase to toggle whether players automatically switch to their ''best'' weapon upon picking up ammo for it after it was dry." );
 #endif
 
-#define	FLASH_DRAIN_TIME	 1.1111	// 100 units / 90 secs
-#define	FLASH_CHARGE_TIME	 50.0f	// 100 units / 2 secs
-
+#define	FLASH_DRAIN_TIME	 sk_flashlight_drain_time.GetFloat()	
+#define	FLASH_CHARGE_TIME	 sk_flashlight_charge_time.GetFloat()
 
 //==============================================================================================
 // CAPPED PLAYER PHYSICS DAMAGE TABLE
@@ -2618,6 +2622,13 @@ bool CHL2_Player::SuitPower_Drain( float flPower )
 	if ( sv_infinite_aux_power.GetBool() )
 		return true;
 
+#ifdef EZ2
+	// Sprint cheat on?
+	// Why is this separate from sv_infinite_aux_power? So that we can toggle sprint and flashlight separately.
+	if (sv_infinite_sprint_power.GetBool())
+		return true;
+#endif
+
 	m_HL2Local.m_flSuitPower -= flPower;
 
 	if( m_HL2Local.m_flSuitPower < 0.0 )
@@ -4193,7 +4204,12 @@ void CHL2_Player::UpdateClientData( void )
 #ifdef HL2_EPISODIC
 	if ( Flashlight_UseLegacyVersion() == false )
 	{
+#ifndef EZ2
 		if ( FlashlightIsOn() && sv_infinite_aux_power.GetBool() == false )
+#else
+		// EZ2 adds separate settings for flashlight and sprint so that they can be toggled separately
+		if ( FlashlightIsOn() && sv_infinite_aux_power.GetBool() == false && sv_infinite_flashlight_power.GetBool() == false )
+#endif
 		{
 			m_HL2Local.m_flFlashBattery -= FLASH_DRAIN_TIME * gpGlobals->frametime;
 			if ( m_HL2Local.m_flFlashBattery < 0.0f )
