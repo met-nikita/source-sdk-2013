@@ -842,73 +842,16 @@ void CGravityVortexController::CreateXenLife()
 	// Go through each node and find available links.
 	int iTotalHulls = 0;
 
-	for ( int node = 0; node < g_pBigAINet->NumNodes(); node++)
+	iTotalHulls = AddNodesToHullMap( GetAbsOrigin() );
+
+	// If we couldn't find any hulls, jump to the ground
+	if ( iTotalHulls <= 0 )
 	{
-		CAI_Node *pNode = g_pBigAINet->GetNode(node);
+		trace_t tr;
+		CXenGrenadeTraceFilter traceFilter( NULL, COLLISION_GROUP_NONE, this );
+		UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + Vector( 0, 0, -8192 ), MASK_SOLID, &traceFilter, &tr );
 
-		if ((GetAbsOrigin() - pNode->GetOrigin()).LengthSqr() > Square( m_flNodeRadius ))
-			continue;
-
-		// Only use ground nodes
-		if (pNode->GetType() != NODE_GROUND)
-			continue;
-
-		// Only use nodes which we can trace from the vortex
-		if (!FVisible( pNode->GetOrigin(), MASK_SOLID ))
-			continue;
-
-		// Iterate through these hulls to find each space we should care about.
-		// Should be sorted largest to smallest.
-		static Hull_t iTestHulls[] =
-		{
-			HULL_LARGE,
-			HULL_MEDIUM,
-			HULL_WIDE_SHORT,
-			HULL_WIDE_HUMAN,
-			HULL_HUMAN,
-			HULL_TINY,
-		};
-
-		static int iTestHullBits = 0;
-		if (iTestHullBits == 0)
-		{
-			for (int i = 0; i < ARRAYSIZE(iTestHulls); i++)
-				iTestHullBits |= HullToBit(iTestHulls[i]);
-		}
-
-		int hullbits = 0;
-
-		CAI_Link *pLink = NULL;
-		for (int i = 0; i < pNode->NumLinks(); i++)
-		{
-			pLink = pNode->GetLinkByIndex( i );
-			if (pLink)
-			{
-				for (int hull = 0; hull < ARRAYSIZE(iTestHulls); hull++)
-				{
-					Hull_t iHull = iTestHulls[hull];
-					if (pLink->m_iAcceptedMoveTypes[iHull] & bits_CAP_MOVE_GROUND)
-						hullbits |= HullToBit(iHull);
-				}
-
-				// Break early if this link has all of them
-				if (hullbits == iTestHullBits)
-					break;
-			}
-		}
-
-		if (g_debug_hopwire.GetBool())
-			NDebugOverlay::Cross3D( pNode->GetOrigin(), 3.0f, 0, 255, 0, true, 5.0f );
-
-		if (hullbits > 0)
-		{
-			// Add to our hull map
-			m_HullMap.Insert( GetAbsOrigin() - pNode->GetOrigin(), hullbits );
-			iTotalHulls |= hullbits;
-
-			if (m_HullMap.Count() >= (unsigned int)m_HullMap.MaxElement())
-				break;
-		}
+		iTotalHulls = AddNodesToHullMap( tr.endpos );
 	}
 
 	set.AppendCriteria( "available_nodes", CNumStr(m_HullMap.Count()) );
@@ -934,6 +877,86 @@ void CGravityVortexController::CreateXenLife()
 		if (g_hXenGrenadeRecipeManager->ParseRecipe(szRecipe, this))
 			StartSpawning();
 	}
+}
+
+//------------------------------------------------------------------------------
+// Search for nodes near the vortex and add into its hull map for spawns.
+// Returns the total hull count
+//------------------------------------------------------------------------------
+int CGravityVortexController::AddNodesToHullMap( const Vector vecSearchOrigin )
+{
+	int iTotalHulls = 0;
+
+	for (int node = 0; node < g_pBigAINet->NumNodes(); node++)
+	{
+		CAI_Node *pNode = g_pBigAINet->GetNode( node );
+
+		if ( (vecSearchOrigin - pNode->GetOrigin() ).LengthSqr() > Square( m_flNodeRadius ))
+			continue;
+
+		// Only use ground nodes
+		if (pNode->GetType() != NODE_GROUND)
+			continue;
+
+		// Only use nodes which we can trace from the vortex
+		if (!FVisible( pNode->GetOrigin(), MASK_SOLID ))
+			continue;
+
+		// Iterate through these hulls to find each space we should care about.
+		// Should be sorted largest to smallest.
+		static Hull_t iTestHulls[] =
+		{
+			HULL_LARGE,
+			HULL_MEDIUM,
+			HULL_WIDE_SHORT,
+			HULL_WIDE_HUMAN,
+			HULL_HUMAN,
+			HULL_TINY,
+		};
+
+		static int iTestHullBits = 0;
+		if (iTestHullBits == 0)
+		{
+			for (int i = 0; i < ARRAYSIZE( iTestHulls ); i++)
+				iTestHullBits |= HullToBit( iTestHulls[i] );
+		}
+
+		int hullbits = 0;
+
+		CAI_Link *pLink = NULL;
+		for (int i = 0; i < pNode->NumLinks(); i++)
+		{
+			pLink = pNode->GetLinkByIndex( i );
+			if (pLink)
+			{
+				for (int hull = 0; hull < ARRAYSIZE( iTestHulls ); hull++)
+				{
+					Hull_t iHull = iTestHulls[hull];
+					if (pLink->m_iAcceptedMoveTypes[iHull] & bits_CAP_MOVE_GROUND)
+						hullbits |= HullToBit( iHull );
+				}
+
+				// Break early if this link has all of them
+				if (hullbits == iTestHullBits)
+					break;
+			}
+		}
+
+		if (g_debug_hopwire.GetBool())
+			NDebugOverlay::Cross3D( pNode->GetOrigin(), 3.0f, 0, 255, 0, true, 5.0f );
+
+		if (hullbits > 0)
+		{
+			// Add to our hull map
+			m_HullMap.Insert( GetAbsOrigin() - pNode->GetOrigin(), hullbits );
+			iTotalHulls |= hullbits;
+
+			if (m_HullMap.Count() >= (unsigned int)m_HullMap.MaxElement())
+				break;
+		}
+	}
+
+	return iTotalHulls;
 }
 
 void CGravityVortexController::StartSpawning()

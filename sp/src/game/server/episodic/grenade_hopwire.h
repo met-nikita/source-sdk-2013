@@ -60,6 +60,8 @@ public:
 #ifdef EZ2
 	static CGravityVortexController *Create( const Vector &origin, float radius, float strength, float duration, CBaseEntity *pGrenade = NULL );
 
+	int AddNodesToHullMap( const Vector vecSearchOrigin );
+
 	void	StartSpawning();
 	void	SpawnThink();
 	bool	TryCreateRecipeNPC( const char *szClass, const char *szKV );
