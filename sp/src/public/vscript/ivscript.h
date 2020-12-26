@@ -267,6 +267,26 @@ struct ScriptFuncDescriptor_t
 	CUtlVector<ScriptDataType_t> m_Parameters;
 };
 
+#ifdef MAPBASE_VSCRIPT
+//---------------------------------------------------------
+// VScript Member Variables
+// 
+// An odd concept. Because IScriptInstanceHelper now supports
+// get/set metamethods, classes are capable of pretending they
+// have member variables which VScript can get and set.
+// 
+// There's no default way of documenting these variables, so even though
+// these are not actually binding anything, this is here to allow VScript
+// to describe these fake member variables in its documentation.
+//---------------------------------------------------------
+struct ScriptMemberDesc_t
+{
+	const char			*m_pszScriptName;
+	const char			*m_pszDescription;
+	ScriptDataType_t	m_ReturnType;
+};
+#endif
+
 
 //---------------------------------------------------------
 
@@ -338,6 +358,7 @@ struct ScriptClassDesc_t
 
 #ifdef MAPBASE_VSCRIPT
 	CUtlVector<ScriptHook_t*>			m_Hooks;
+	CUtlVector<ScriptMemberDesc_t>		m_Members;
 #endif
 
 	void *(*m_pfnConstruct)();
@@ -744,6 +765,9 @@ struct ScriptEnumDesc_t
 #define END_SCRIPTHOOK() \
 		pDesc->m_Hooks.AddToTail(pHook); \
 	}
+
+#define DEFINE_MEMBERVAR( varName, returnType, description ) \
+	do { ScriptMemberDesc_t *pBinding = &((pDesc)->m_Members[(pDesc)->m_Members.AddToTail()]); pBinding->m_pszScriptName = varName; pBinding->m_pszDescription = description; pBinding->m_ReturnType = returnType; } while (0);
 #endif
 
 template <typename T> ScriptClassDesc_t *GetScriptDesc(T *);
@@ -1579,8 +1603,6 @@ struct ScriptHook_t
 	{
 		extern IScriptVM *g_pScriptVM;
 
-		Assert( ARRAYSIZE(pArgs) == m_desc.m_Parameters.Count() );
-
 		// Make sure we have a function in this scope
 		if (!m_hFunc && !CanRunInScope(hScope))
 			return false;
@@ -1638,6 +1660,7 @@ public:
 		if ( !m_hScriptFunc_##FuncName.IsNull() ) \
 		{ \
 			ScriptVariant_t returnVal; \
+			Assert( N == m_desc.m_Parameters.Count() ); \
 			ScriptStatus_t result = Call( m_hScriptFunc_##FuncName.hFunction, &returnVal, FUNC_CALL_ARGS_##N ); \
 			if ( result != SCRIPT_ERROR ) \
 			{ \
@@ -1662,6 +1685,7 @@ public:
 		\
 		if ( !m_hScriptFunc_##FuncName.IsNull() ) \
 		{ \
+			Assert( N == m_desc.m_Parameters.Count() ); \
 			ScriptStatus_t result = Call( m_hScriptFunc_##FuncName.hFunction, NULL, FUNC_CALL_ARGS_##N ); \
 			if ( result != SCRIPT_ERROR ) \
 			{ \

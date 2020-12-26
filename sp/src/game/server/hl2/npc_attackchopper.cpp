@@ -115,6 +115,9 @@ static const char *s_pChunkModelName[CHOPPER_MAX_CHUNKS] =
 #define SF_HELICOPTER_IGNORE_AVOID_FORCES	0x00080000
 #define SF_HELICOPTER_AGGRESSIVE			0x00100000
 #define SF_HELICOPTER_LONG_SHADOW			0x00200000
+#ifdef MAPBASE
+#define SF_HELICOPTER_AIM_WITH_GUN_OFF		0x00400000
+#endif
 
 #define CHOPPER_SLOW_BOMB_SPEED	250
 
@@ -4856,14 +4859,19 @@ void CNPC_AttackHelicopter::Hunt( void )
 		{
 			BullrushBombs();
 		}
+#ifdef MAPBASE
+		// Some may want the hunter-chopper to aim at different positions searching for its target
+		// without actually firing at anything. Gun aiming is only handled in FireGun(), which is
+		// disabled when the gun is disabled. point_posecontroller doesn't seem to work well for this either,
+		// so a new spawnflag is handled here to allow the chopper to aim at its enemy even when the gun is off.
 #ifdef EZ2
-		// !!!HACKHACK This is another fairly unsavoury hack.
-		// We want the hunter-chopper to aim at different positions searching for its target,
-		// but not actually firing at anything. Gun aiming is only handled in FireGun(),
-		// which is disabled when the gun is disabled. point_posecontroller doesn't seem to work well either.
-		// This may interfere with existing behavior in which the gun will be aiming at its enemy in
-		// situations where it did not aim before, but I'm not very worried about that. -Blixibon
+		// HACKHACK: E:Z2 had already implemented this feature, but without the spawnflag.
+		// As a result, E:Z2's code will not use the spawnflag until all maps which use this feature have
+		// this spawnflag ticked on all of the involved npc_helicopters.
 		else if ( GetEnemy() )
+#else
+		else if ( HasSpawnFlags( SF_HELICOPTER_AIM_WITH_GUN_OFF ) && GetEnemy() )
+#endif
 		{
 			// Get gun attachment points
 			Vector vBasePos;

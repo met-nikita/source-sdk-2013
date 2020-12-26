@@ -1275,6 +1275,12 @@ public:
 
 	int					VScriptGetState();
 
+	void				VScriptWake( HSCRIPT hActivator ) { Wake( ToEnt(hActivator) ); }
+	void				VScriptSleep() { Sleep(); }
+
+	int					VScriptGetSleepState()	{ return (int)GetSleepState(); }
+	void				VScriptSetSleepState( int sleepState ) { SetSleepState( (AI_SleepState_t)sleepState ); }
+
 	const char*			VScriptGetHintGroup() { return STRING( GetHintGroup() ); }
 	HSCRIPT				VScriptGetHintNode();
 
@@ -3007,7 +3013,11 @@ public:
 	derivedClass::AccessClassScheduleIdSpaceDirect().Init( #derivedClass, BaseClass::GetSchedulingSymbols(), &BaseClass::AccessClassScheduleIdSpaceDirect() ); \
 	derivedClass::gm_SquadSlotIdSpace.Init( &CAI_BaseNPC::gm_SquadSlotNamespace, &BaseClass::gm_SquadSlotIdSpace);
 
+#ifdef MAPBASE
+#define ADD_CUSTOM_INTERACTION( interaction )	{ CBaseCombatCharacter::AddInteractionWithString( interaction, #interaction ); }
+#else
 #define	ADD_CUSTOM_INTERACTION( interaction )	{ interaction = CBaseCombatCharacter::GetInteractionID(); }
+#endif
 
 #define ADD_CUSTOM_SQUADSLOT_NAMED(derivedClass,squadSlotName,squadSlotEN)\
 	if ( !derivedClass::gm_SquadSlotIdSpace.AddSymbol( squadSlotName, squadSlotEN, "squadslot", derivedClass::gm_pszErrorClassName ) ) return;
