@@ -1704,6 +1704,11 @@ void CBasePlayer::RemoveAllItems( bool removeSuit )
 		RemoveSuit();
 	}
 
+#ifdef EZ2
+	// Make sure the view model is cleaned up
+	DestroyViewModels();
+#endif
+
 	UpdateClientData();
 }
 
@@ -7779,6 +7784,11 @@ void CBasePlayer::Weapon_DropSlot( int weaponSlot )
 void CBasePlayer::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 {
 	BaseClass::Weapon_Equip( pWeapon );
+
+#ifdef EZ2
+	// Uh oh! What if we destroyed the view model?
+	CreateViewModel( );
+#endif
 
 #ifdef MAPBASE
 	// So, I discovered that BumpWeapon seems to have some deprecated code.
