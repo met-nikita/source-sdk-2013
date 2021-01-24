@@ -526,6 +526,13 @@ void CPropDrivableAPC::UpdateOnRemove( void )
 		UTIL_Remove( m_hLaserDot );
 		m_hLaserDot = NULL;
 	}
+#ifdef EZ
+	if ( m_Spotlight )
+	{
+		UTIL_Remove( m_Spotlight );
+		m_Spotlight = NULL;
+	}
+#endif
 	BaseClass::UpdateOnRemove();
 }
 
