@@ -109,8 +109,8 @@ ConVar	sk_apc_damage_normal( "sk_apc_damage_normal", "0.15" );
 ConVar	sk_apc_damage_blast( "sk_apc_damage_blast", "0.1" );
 ConVar	sk_apc_damage_vort( "sk_apc_damage_vort", "0.75" );
 
-ConVar apc_constraint_force_limit( "apc_constraint_force_limit", "1250", FCVAR_CHEAT );
-ConVar apc_constraint_torque_limit( "apc_constraint_torque_limit", "1500", FCVAR_CHEAT );
+ConVar apc_constraint_force_limit( "apc_constraint_force_limit", "1250", FCVAR_NONE );
+ConVar apc_constraint_torque_limit( "apc_constraint_torque_limit", "1500", FCVAR_NONE );
 
 // APC Interactions
 int	g_interactionAPCConstrain = 0;
@@ -526,6 +526,13 @@ void CPropDrivableAPC::UpdateOnRemove( void )
 		UTIL_Remove( m_hLaserDot );
 		m_hLaserDot = NULL;
 	}
+#ifdef EZ
+	if ( m_Spotlight )
+	{
+		UTIL_Remove( m_Spotlight );
+		m_Spotlight = NULL;
+	}
+#endif
 	BaseClass::UpdateOnRemove();
 }
 

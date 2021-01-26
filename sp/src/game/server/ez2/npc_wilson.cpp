@@ -1102,10 +1102,11 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 		}
 	}
 
-	if ( HasCondition(COND_IN_PVS) )
+	// The player *must* exist in the level (and the current session must be >2 seconds old) for this speech to be possible
+	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+	if (pPlayer && gpGlobals->curtime > 2.0f)
 	{
-		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
-		if (pPlayer)
+		if ( HasCondition(COND_IN_PVS) )
 		{
 			if ( HasCondition( COND_TALKER_PLAYER_DEAD ) && FInViewCone(pPlayer) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
 			{
@@ -1120,9 +1121,9 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 					return true;
 			}
 		}
+		else if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
+			return true;
 	}
-	else if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
-		return true;
 
 	return false;
 }

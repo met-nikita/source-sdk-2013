@@ -696,8 +696,8 @@ bool CNPC_Barnacle::CanPickup( CBaseCombatCharacter *pBCC )
 #ifdef EZ2
 	if ( pBCC->IsNPC() && pBCC->GetSolid() == SOLID_VPHYSICS )
 	{
-		// Don't pickup turrets
-		if( FClassnameIs( pBCC, "npc_turret_floor" ) )
+		// Don't pickup turrets (the * is for Arbeit turrets)
+		if( FClassnameIs( pBCC, "npc*turret_floor" ) )
 			return false;
 
 		// This turret's different, but don't pick him up either
