@@ -1231,12 +1231,12 @@ void CAI_Expresser::ClearSpokeConcept( AIConcept_t concept )
 AIConcept_t CAI_Expresser::GetLastSpokeConcept()
 {
 	int iLastSpokenIndex = m_ConceptHistories.InvalidIndex();
-	float flLast = FLT_MAX;
+	float flLast = 0.0f;
 	for ( int i = m_ConceptHistories.First(); i != m_ConceptHistories.InvalidIndex(); i = m_ConceptHistories.Next(i ) )
 	{
 		ConceptHistory_t *h = &m_ConceptHistories[ i ];
 
-		if ( gpGlobals->curtime - h->timeSpoken <= flLast )
+		if ( h->timeSpoken >= flLast )
 		{
 			iLastSpokenIndex = i;
 			flLast = h->timeSpoken;
