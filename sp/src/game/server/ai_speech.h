@@ -203,7 +203,7 @@ public:
 
 #ifdef EZ2
 	// Blixibon - Needed so Bad Cop doesn't respond to certain trivial concepts spoken by the enemy.
-	AIConcept_t GetLastSpokeConcept();
+	AIConcept_t GetLastSpokeConcept( AIConcept_t excludeConcept = NULL );
 #endif
 	
 	// --------------------------------
