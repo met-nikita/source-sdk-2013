@@ -63,6 +63,7 @@ CNPC_CloneCop::CNPC_CloneCop()
 	m_ArmorValue = 200;
 	m_bThrowXenGrenades = true;
 	SetDisplacementImpossible( true );
+	m_SquadName = MAKE_STRING( IsBadCop() ? "bc_squad" : "cc_squad" );
 }
 
 //-----------------------------------------------------------------------------
@@ -87,11 +88,6 @@ void CNPC_CloneCop::Spawn( void )
 	CapabilitiesAdd( bits_CAP_DOORS_GROUP );
 
 	BaseClass::Spawn();
-
-	if ( !GetSquad() )
-	{
-		AddToSquad( MAKE_STRING( IsBadCop() ? "bc_squad" : "cc_squad" ) );
-	}
 }
 
 //-----------------------------------------------------------------------------
