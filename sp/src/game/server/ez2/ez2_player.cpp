@@ -727,8 +727,9 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 
 	// Find the last spoken concept.
 	AIConcept_t lastSpokeConcept = GetExpresser()->GetLastSpokeConcept( "TLK_WOUND" );
+	float lastSpokeTime = MAX( GetTimeSpokeConcept( lastSpokeConcept ), LastTimePlayerTalked() );
+	criteriaSet.AppendCriteria( "last_spoke", UTIL_VarArgs( "%f", gpGlobals->curtime - lastSpokeTime ) );
 
-	criteriaSet.AppendCriteria( "last_spoke", UTIL_VarArgs( "%f", gpGlobals->curtime - GetTimeSpokeConcept( lastSpokeConcept ) ) );
 	BaseClass::ModifyOrAppendCriteria(criteriaSet);
 }
 

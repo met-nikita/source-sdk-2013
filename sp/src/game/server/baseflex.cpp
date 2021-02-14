@@ -778,6 +778,15 @@ bool CBaseFlex::StartSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CCh
 		return true;
 
 	case CChoreoEvent::SPEAK:
+#ifdef EZ2
+		// TODO - Let's move this into CEZ2_Player if possible
+		if (IsPlayer())
+		{
+			CBasePlayer * pPlayer = static_cast<CBasePlayer*>(this);
+			if (pPlayer)
+				pPlayer->NotePlayerTalked();
+		}
+#endif
 		return true;
 	
 	case CChoreoEvent::EXPRESSION: // These are handled client-side
