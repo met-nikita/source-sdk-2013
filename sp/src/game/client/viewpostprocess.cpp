@@ -83,6 +83,10 @@ ConVar mat_non_hdr_bloom_scalefactor("mat_non_hdr_bloom_scalefactor",".3");
 // Apply addition scale to the final bloom scale
 static ConVar mat_bloom_scalefactor_scalar( "mat_bloom_scalefactor_scalar", "1.0" );
 
+#ifdef EZ2
+ConVar r_nvg_bloom_scale( "r_nvg_bloom_scale", "15.0" );
+#endif
+
 //ConVar mat_exposure_center_region_x( "mat_exposure_center_region_x","0.75", FCVAR_CHEAT );
 //ConVar mat_exposure_center_region_y( "mat_exposure_center_region_y","0.80", FCVAR_CHEAT );
 //ConVar mat_exposure_center_region_x_flashlight( "mat_exposure_center_region_x_flashlight","0.33", FCVAR_CHEAT );
@@ -1602,6 +1606,12 @@ static float GetBloomAmount( void )
 		bBloomEnabled = false;
 	if ( mat_force_bloom.GetInt() )
 		bBloomEnabled = true;
+#ifdef EZ2
+	// NVG enables an exaggerated bloom to discourage usage in bright areas
+	bool bNVG = (C_BasePlayer::GetLocalPlayer() && C_BasePlayer::GetLocalPlayer()->IsEffectActive( EF_DIMLIGHT ));
+	if ( bNVG )
+		bBloomEnabled = true;
+#endif
 	if ( mat_disable_bloom.GetInt() )
 		bBloomEnabled = false;
 	if ( building_cubemaps.GetBool() )
@@ -1631,6 +1641,14 @@ static float GetBloomAmount( void )
 	{
 		flBloomAmount *= mat_non_hdr_bloom_scalefactor.GetFloat();
 	}
+
+#ifdef EZ2
+	if (bNVG)
+	{
+		// NVG bloom scale test
+		flBloomAmount *= r_nvg_bloom_scale.GetFloat();
+	}
+#endif
 
 	flBloomAmount *= mat_bloom_scalefactor_scalar.GetFloat();
 
