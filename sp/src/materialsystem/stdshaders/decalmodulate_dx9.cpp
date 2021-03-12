@@ -9,13 +9,13 @@
 #include "BaseVSShader.h"
 #include "cpp_shader_constant_register_map.h"
 
-#include "sdk_decalmodulate_vs20.inc"
-#include "sdk_decalmodulate_ps20.inc"
-#include "sdk_decalmodulate_ps20b.inc"
+#include "SDK_decalmodulate_vs20.inc"
+#include "SDK_decalmodulate_ps20.inc"
+#include "SDK_decalmodulate_ps20b.inc"
 
 #ifndef _X360
-#include "sdk_decalmodulate_vs30.inc"
-#include "sdk_decalmodulate_ps30.inc"
+#include "SDK_decalmodulate_vs30.inc"
+#include "SDK_decalmodulate_ps30.inc"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -225,7 +225,7 @@ BEGIN_VS_SHADER( SDK_DecalModulate_dx9,
 
 				SetFlashLightColorFromState( state, pShaderAPI, 28 );
 
-				Assert( info.m_nFlashlightTexture >= 0 && info.m_nFlashlightTextureFrame >= 0 );
+				Assert( state.m_pSpotlightTexture >= 0 && state.m_nSpotlightTextureFrame >= 0 );
 				BindTexture( SHADER_SAMPLER7, state.m_pSpotlightTexture, state.m_nSpotlightTextureFrame );
 
 				float atten_pos[8];

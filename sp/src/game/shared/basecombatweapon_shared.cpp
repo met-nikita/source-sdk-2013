@@ -242,7 +242,13 @@ void CBaseCombatWeapon::Precache( void )
 
 	// Add this weapon to the weapon registry, and get our index into it
 	// Get weapon data from script file
+#ifdef MAPBASE
+	// Allow custom scripts to be loaded on a map-by-map basis
+	if ( ReadCustomWeaponDataFromFileForSlot( filesystem, GetWeaponScriptName(), &m_hWeaponFileInfo, GetEncryptionKey() ) || 
+		ReadWeaponDataFromFileForSlot( filesystem, GetWeaponScriptName(), &m_hWeaponFileInfo, GetEncryptionKey() ) )
+#else
 	if ( ReadWeaponDataFromFileForSlot( filesystem, GetClassname(), &m_hWeaponFileInfo, GetEncryptionKey() ) )
+#endif
 	{
 		// Get the ammo indexes for the ammo's specified in the data file
 		if ( GetWpnData().szAmmo1[0] )
@@ -822,6 +828,10 @@ void CBaseCombatWeapon::OnPickedUp( CBaseCombatCharacter *pNewOwner )
 		// Robin: We don't want to delete weapons the player has picked up, so 
 		// clear the name of the weapon. This prevents wildcards that are meant 
 		// to find NPCs finding weapons dropped by the NPCs as well.
+#ifdef MAPBASE
+		// Level designers might want some weapons to preserve their original names, however.
+		if ( !HasSpawnFlags(SF_WEAPON_PRESERVE_NAME) )
+#endif
 		SetName( NULL_STRING );
 	}
 	else
@@ -2292,15 +2302,6 @@ bool CBaseCombatWeapon::DefaultReload( int iClipSize1, int iClipSize2, int iActi
 #endif
 	SendWeaponAnim( iActivity );
 
-#ifdef MAPBASE
-	// TEMPTEMP
-#ifdef CLIENT_DLL
-	//DevMsg("Client SF from primary attack: %i\n", m_spawnflags);
-#else
-	//DevMsg("Server SF from primary attack: %i\n", m_spawnflags);
-#endif
-#endif
-
 	// Play the player's reload animation
 	if ( pOwner->IsPlayer() )
 	{
@@ -2741,6 +2742,24 @@ Activity CBaseCombatWeapon::ActivityOverride( Activity baseAct, bool *pRequired 
 	return baseAct;
 }
 
+#ifdef MAPBASE_VSCRIPT
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+HSCRIPT CBaseCombatWeapon::ScriptGetOwner()
+{
+	return ToHScript( GetOwner() );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void CBaseCombatWeapon::ScriptSetOwner( HSCRIPT owner )
+{
+	return SetOwner( ToEnt( owner ) ? ToEnt( owner )->MyCombatCharacterPointer() : NULL );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -2874,6 +2893,92 @@ END_PREDICTION_DATA()
 
 // Special hack since we're aliasing the name C_BaseCombatWeapon with a macro on the client
 IMPLEMENT_NETWORKCLASS_ALIASED( BaseCombatWeapon, DT_BaseCombatWeapon )
+
+#ifdef MAPBASE_VSCRIPT
+BEGIN_ENT_SCRIPTDESC( CBaseCombatWeapon, CBaseAnimating, "The base class for all equippable weapons." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetOwner, "GetOwner", "Get the weapon's owner." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSetOwner, "SetOwner", "Set the weapon's owner." )
+
+	DEFINE_SCRIPTFUNC( Clip1, "Get the weapon's current primary ammo." )
+	DEFINE_SCRIPTFUNC( Clip2, "Get the weapon's current secondary ammo." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSetClip1, "SetClip1", "Set the weapon's current primary ammo." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSetClip2, "SetClip2", "Set the weapon's current secondary ammo." )
+	DEFINE_SCRIPTFUNC( GetMaxClip1, "Get the weapon's maximum primary ammo." )
+	DEFINE_SCRIPTFUNC( GetMaxClip2, "Get the weapon's maximum secondary ammo." )
+	DEFINE_SCRIPTFUNC( GetDefaultClip1, "Get the weapon's default primary ammo." )
+	DEFINE_SCRIPTFUNC( GetDefaultClip2, "Get the weapon's default secondary ammo." )
+
+	DEFINE_SCRIPTFUNC( HasAnyAmmo, "Check if the weapon currently has ammo or doesn't need ammo." )
+	DEFINE_SCRIPTFUNC( HasPrimaryAmmo, "Check if the weapon currently has ammo or doesn't need primary ammo." )
+	DEFINE_SCRIPTFUNC( HasSecondaryAmmo, "Check if the weapon currently has ammo or doesn't need secondary ammo." )
+	DEFINE_SCRIPTFUNC( UsesPrimaryAmmo, "Check if the weapon uses primary ammo." )
+	DEFINE_SCRIPTFUNC( UsesSecondaryAmmo, "Check if the weapon uses secondary ammo." )
+	DEFINE_SCRIPTFUNC( GiveDefaultAmmo, "Fill the weapon back up to default ammo." )
+
+	DEFINE_SCRIPTFUNC( UsesClipsForAmmo1, "Check if the weapon uses clips for primary ammo." )
+	DEFINE_SCRIPTFUNC( UsesClipsForAmmo2, "Check if the weapon uses clips for secondary ammo." )
+
+#ifndef CLIENT_DLL
+	DEFINE_SCRIPTFUNC( GetPrimaryAmmoType, "Get the weapon's primary ammo type." )
+	DEFINE_SCRIPTFUNC( GetSecondaryAmmoType, "Get the weapon's secondary ammo type." )
+#endif
+
+	DEFINE_SCRIPTFUNC( GetSubType, "Get the weapon's subtype." )
+	DEFINE_SCRIPTFUNC( SetSubType, "Set the weapon's subtype." )
+
+	DEFINE_SCRIPTFUNC( GetFireRate, "Get the weapon's firing rate." )
+	DEFINE_SCRIPTFUNC( AddViewKick, "Applies the weapon's view kick." )
+
+	DEFINE_SCRIPTFUNC( GetWorldModel, "Get the weapon's world model." )
+	DEFINE_SCRIPTFUNC( GetViewModel, "Get the weapon's view model." )
+
+	DEFINE_SCRIPTFUNC( GetWeight, "Get the weapon's weight." )
+
+	DEFINE_SCRIPTFUNC( CanBePickedUpByNPCs, "Check if the weapon can be picked up by NPCs." )
+
+#ifndef CLIENT_DLL
+	DEFINE_SCRIPTFUNC( CapabilitiesGet, "Get the capabilities the weapon currently possesses." )
+#endif
+
+	DEFINE_SCRIPTFUNC( HasWeaponIdleTimeElapsed, "Returns true if the idle time has elapsed." )
+	DEFINE_SCRIPTFUNC( GetWeaponIdleTime, "Returns the next time WeaponIdle() will run." )
+	DEFINE_SCRIPTFUNC( SetWeaponIdleTime, "Sets the next time WeaponIdle() will run." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptWeaponClassify, "WeaponClassify", "Returns the weapon's classify class from the WEPCLASS_ constant group" )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptWeaponSound, "WeaponSound", "Plays one of the weapon's sounds." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetBulletSpread, "GetBulletSpread", "Returns the weapon's default bullet spread." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetBulletSpreadForProficiency, "GetBulletSpreadForProficiency", "Returns the weapon's bullet spread for the specified proficiency level." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetPrimaryAttackActivity, "GetPrimaryAttackActivity", "Returns the weapon's primary attack activity." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetSecondaryAttackActivity, "GetSecondaryAttackActivity", "Returns the weapon's secondary attack activity." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetDrawActivity, "GetDrawActivity", "Returns the weapon's draw activity." )
+	DEFINE_SCRIPTFUNC( GetDefaultAnimSpeed, "Returns the weapon's default animation speed." )
+	DEFINE_SCRIPTFUNC( SendWeaponAnim, "Sends a weapon animation." )
+	DEFINE_SCRIPTFUNC( GetViewModelSequenceDuration, "Gets the sequence duration of the current view model animation." )
+	DEFINE_SCRIPTFUNC( IsViewModelSequenceFinished, "Returns true if the current view model animation is finished." )
+
+	DEFINE_SCRIPTFUNC( FiresUnderwater, "Returns true if this weapon can fire underwater." )
+	DEFINE_SCRIPTFUNC( SetFiresUnderwater, "Sets whether this weapon can fire underwater." )
+	DEFINE_SCRIPTFUNC( AltFiresUnderwater, "Returns true if this weapon can alt-fire underwater." )
+	DEFINE_SCRIPTFUNC( SetAltFiresUnderwater, "Sets whether this weapon can alt-fire underwater." )
+	DEFINE_SCRIPTFUNC( MinRange1, "Returns the closest this weapon can be used." )
+	DEFINE_SCRIPTFUNC( SetMinRange1, "Sets the closest this weapon can be used." )
+	DEFINE_SCRIPTFUNC( MinRange2, "Returns the closest this weapon can be used." )
+	DEFINE_SCRIPTFUNC( SetMinRange2, "Sets the closest this weapon can be used." )
+	DEFINE_SCRIPTFUNC( ReloadsSingly, "Returns true if this weapon reloads 1 round at a time." )
+	DEFINE_SCRIPTFUNC( SetReloadsSingly, "Sets whether this weapon reloads 1 round at a time." )
+	DEFINE_SCRIPTFUNC( FireDuration, "Returns the amount of time that the weapon has sustained firing." )
+	DEFINE_SCRIPTFUNC( SetFireDuration, "Sets the amount of time that the weapon has sustained firing." )
+
+	DEFINE_SCRIPTFUNC( NextPrimaryAttack, "Returns the next time PrimaryAttack() will run when the player is pressing +ATTACK." )
+	DEFINE_SCRIPTFUNC( SetNextPrimaryAttack, "Sets the next time PrimaryAttack() will run when the player is pressing +ATTACK." )
+	DEFINE_SCRIPTFUNC( NextSecondaryAttack, "Returns the next time SecondaryAttack() will run when the player is pressing +ATTACK2." )
+	DEFINE_SCRIPTFUNC( SetNextSecondaryAttack, "Sets the next time SecondaryAttack() will run when the player is pressing +ATTACK2." )
+
+END_SCRIPTDESC();
+#endif
 
 #if !defined( CLIENT_DLL )
 //-----------------------------------------------------------------------------

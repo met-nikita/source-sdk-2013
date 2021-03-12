@@ -132,6 +132,15 @@ void Hack_FixEscapeChars( char *str )
 
 #ifdef MAPBASE
 static const ConVar *pHostTimescale;
+
+static float GetSoundPitchScale()
+{
+	static ConVarRef sv_cheats( "sv_cheats" );
+	if (sv_cheats.GetBool())
+		return pHostTimescale->GetFloat();
+
+	return 1.0f;
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -534,7 +543,7 @@ public:
 			(soundlevel_t)params.soundlevel,
 			ep.m_nFlags,
 #ifdef MAPBASE
-			pHostTimescale->GetFloat() != 0.0f ? params.pitch * pHostTimescale->GetFloat() : params.pitch,
+			params.pitch * GetSoundPitchScale(),
 #else
 			params.pitch,
 #endif
@@ -617,7 +626,7 @@ public:
 				ep.m_SoundLevel, 
 				ep.m_nFlags, 
 #ifdef MAPBASE
-				pHostTimescale->GetFloat() != 0.0f ? ep.m_nPitch * pHostTimescale->GetFloat() : ep.m_nPitch,
+				ep.m_nPitch * GetSoundPitchScale(),
 #else
 				ep.m_nPitch, 
 #endif
@@ -843,10 +852,7 @@ public:
 		}
 
 #ifdef MAPBASE
-		if ( pHostTimescale->GetFloat() != 0.0f )
-		{
-			params.pitch *= pHostTimescale->GetFloat();
-		}
+		params.pitch *= GetSoundPitchScale();
 #endif
 
 #if defined( CLIENT_DLL )
@@ -978,10 +984,7 @@ public:
 		if ( pSample && ( Q_stristr( pSample, ".wav" ) || Q_stristr( pSample, ".mp3" )) )
 		{
 #ifdef MAPBASE
-			if ( pHostTimescale->GetFloat() != 0.0f )
-			{
-				pitch *= pHostTimescale->GetFloat();
-			}
+			pitch *= GetSoundPitchScale();
 #endif
 
 #if defined( CLIENT_DLL )
@@ -1216,6 +1219,19 @@ void CBaseEntity::EmitSound( const char *soundname, HSOUNDSCRIPTHANDLE& handle, 
 
 	EmitSound( filter, entindex(), params, handle );
 }
+
+#if !defined ( CLIENT_DLL ) || defined( MAPBASE_VSCRIPT )
+void CBaseEntity::ScriptEmitSound( const char *soundname )
+{
+	EmitSound( soundname );
+}
+
+float CBaseEntity::ScriptSoundDuration( const char *soundname, const char *actormodel )
+{
+	float duration = CBaseEntity::GetSoundDuration( soundname, actormodel );
+	return duration;
+}
+#endif // !CLIENT
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -1485,6 +1501,14 @@ HSOUNDSCRIPTHANDLE CBaseEntity::PrecacheScriptSound( const char *soundname )
 	return soundemitterbase->GetSoundIndex( soundname );
 #endif
 }
+
+#if !defined ( CLIENT_DLL ) || defined( MAPBASE_VSCRIPT )
+// Same as server version of above, but signiture changed so it can be deduced by the macros
+void CBaseEntity::VScriptPrecacheScriptSound(const char* soundname)
+{
+	g_SoundEmitterSystem.PrecacheScriptSound(soundname);
+}
+#endif // !CLIENT_DLL
 
 void CBaseEntity::PrefetchScriptSound( const char *soundname )
 {

@@ -133,6 +133,16 @@ void RecvProxy_LocalVelocityZ( const CRecvProxyData *pData, void *pStruct, void 
 void RecvProxy_ObserverTarget( const CRecvProxyData *pData, void *pStruct, void *pOut );
 void RecvProxy_ObserverMode  ( const CRecvProxyData *pData, void *pStruct, void *pOut );
 
+#ifdef MAPBASE
+// Needs to shift bits back
+void RecvProxy_ShiftPlayerSpawnflags( const CRecvProxyData *pData, void *pStruct, void *pOut )
+{
+	C_BasePlayer *pPlayer = (C_BasePlayer *)pStruct;
+
+	pPlayer->m_spawnflags = (pData->m_Value.m_Int) << 16;
+}
+#endif
+
 // -------------------------------------------------------------------------------- //
 // RecvTable for CPlayerState.
 // -------------------------------------------------------------------------------- //
@@ -182,6 +192,7 @@ BEGIN_RECV_TABLE_NOBASE( CPlayerLocalData, DT_Local )
 	RecvPropVector(RECVINFO(m_skybox3d.origin)),
 #ifdef MAPBASE
 	RecvPropVector(RECVINFO(m_skybox3d.angles)),
+	RecvPropEHandle(RECVINFO(m_skybox3d.skycamera)),
 	RecvPropInt( RECVINFO( m_skybox3d.skycolor ), 0, RecvProxy_IntToColor32 ),
 #endif
 	RecvPropInt(RECVINFO(m_skybox3d.area)),
@@ -214,6 +225,14 @@ BEGIN_RECV_TABLE_NOBASE( CPlayerLocalData, DT_Local )
 	RecvPropInt( RECVINFO( m_audio.soundscapeIndex ) ),
 	RecvPropInt( RECVINFO( m_audio.localBits ) ),
 	RecvPropEHandle( RECVINFO( m_audio.ent ) ),
+
+	//Tony; tonemap stuff! -- TODO! Optimize this with bit sizes from env_tonemap_controller.
+	RecvPropFloat ( RECVINFO( m_TonemapParams.m_flTonemapScale ) ),
+	RecvPropFloat ( RECVINFO( m_TonemapParams.m_flTonemapRate ) ),
+	RecvPropFloat ( RECVINFO( m_TonemapParams.m_flBloomScale ) ),
+
+	RecvPropFloat ( RECVINFO( m_TonemapParams.m_flAutoExposureMin ) ),
+	RecvPropFloat ( RECVINFO( m_TonemapParams.m_flAutoExposureMax ) ),
 END_RECV_TABLE()
 
 // -------------------------------------------------------------------------------- //
@@ -259,7 +278,7 @@ END_RECV_TABLE()
 #ifdef MAPBASE
 		// Transmitted from the server for internal player spawnflags.
 		// See baseplayer_shared.h for more details.
-		RecvPropInt			( RECVINFO( m_spawnflags ) ),
+		RecvPropInt			( RECVINFO( m_spawnflags ), 0, RecvProxy_ShiftPlayerSpawnflags ),
 
 		RecvPropBool		( RECVINFO( m_bDrawPlayerModelExternally ) ),
 #endif
@@ -311,6 +330,8 @@ END_RECV_TABLE()
 		
 
 		RecvPropString( RECVINFO(m_szLastPlaceName) ),
+
+		RecvPropEHandle(RECVINFO(m_hPostProcessCtrl)),		// Send to everybody - for spectating
 
 #if defined USES_ECON_ITEMS
 		RecvPropUtlVector( RECVINFO_UTLVECTOR( m_hMyWearables ), MAX_WEARABLES_SENT_FROM_SERVER,	RecvPropEHandle(NULL, 0, 0) ),
@@ -415,7 +436,10 @@ BEGIN_PREDICTION_DATA( C_BasePlayer )
 
 END_PREDICTION_DATA()
 
+// link this in each derived player class, like the server!!
+#if 0
 LINK_ENTITY_TO_CLASS( player, C_BasePlayer );
+#endif
 
 // -------------------------------------------------------------------------------- //
 // Functions.
@@ -468,6 +492,13 @@ C_BasePlayer::~C_BasePlayer()
 	if ( this == s_pLocalPlayer )
 	{
 		s_pLocalPlayer = NULL;
+
+#ifdef MAPBASE_VSCRIPT
+		if ( g_pScriptVM )
+		{
+			g_pScriptVM->SetValue( "player", SCRIPT_VARIANT_NULL );
+		}
+#endif
 	}
 
 	delete m_pFlashlight;
@@ -824,6 +855,14 @@ void C_BasePlayer::PostDataUpdate( DataUpdateType_t updateType )
 			// changed level, which would cause the snd_soundmixer to be left modified.
 			ConVar *pVar = (ConVar *)cvar->FindVar( "snd_soundmixer" );
 			pVar->Revert();
+
+#ifdef MAPBASE_VSCRIPT
+			// Moved here from LevelInitPostEntity, which is executed before local player is spawned.
+			if ( g_pScriptVM )
+			{
+				g_pScriptVM->SetValue( "player", GetScriptInstance() );
+			}
+#endif
 		}
 	}
 
@@ -964,6 +1003,16 @@ void C_BasePlayer::OnRestore()
 		input->ClearInputButton( IN_ATTACK | IN_ATTACK2 );
 		// GetButtonBits() has to be called for the above to take effect
 		input->GetButtonBits( 0 );
+
+#ifdef MAPBASE_VSCRIPT
+		// HACK: (03/25/09) Then the player goes across a transition it doesn't spawn and register
+		// it's instance. We're hacking around this for now, but this will go away when we get around to 
+		// having entities cross transitions and keep their script state.
+		if ( g_pScriptVM )
+		{
+			g_pScriptVM->SetValue( "player", GetScriptInstance() );
+		}
+#endif
 	}
 
 	// For ammo history icons to current value so they don't flash on level transtions
@@ -1586,7 +1635,14 @@ void C_BasePlayer::CalcChaseCamView(Vector& eyeOrigin, QAngle& eyeAngles, float&
 		}
 	}
 
-	if ( target && !target->IsPlayer() && target->IsNextBot() )
+	// SDK TODO
+	if ( target && target->IsBaseTrain() )
+	{
+		// if this is a train, we want to be back a little further so we can see more of it
+		flMaxDistance *= 2.5f;
+		m_flObserverChaseDistance = flMaxDistance;
+	}
+	else if ( target && !target->IsPlayer() && target->IsNextBot() )
 	{
 		// if this is a boss, we want to be back a little further so we can see more of it
 		flMaxDistance *= 2.5f;
@@ -1918,6 +1974,12 @@ void C_BasePlayer::ThirdPersonSwitch( bool bThirdperson )
 				}
 			}
 		}
+	}
+	else
+	{
+		CBaseCombatWeapon *pWeapon = GetActiveWeapon();
+		if ( pWeapon )
+			pWeapon->ThirdPersonSwitch( bThirdperson );
 	}
 }
 
@@ -2858,6 +2920,14 @@ void C_BasePlayer::UpdateFogBlend( void )
 				
 		}
 	}
+}
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+C_PostProcessController* C_BasePlayer::GetActivePostProcessController() const
+{
+	return m_hPostProcessCtrl.Get();
 }
 
 //-----------------------------------------------------------------------------

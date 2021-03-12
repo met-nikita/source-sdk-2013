@@ -156,6 +156,10 @@ public:
 
 	void			InputDisableSwarm( inputdata_t &inputdata );
 	void			InputUnpack( inputdata_t &inputdata );
+#ifdef MAPBASE
+	void			InputEnableSprites( inputdata_t &inputdata );
+	void			InputDisableSprites( inputdata_t &inputdata );
+#endif
 
 	// 	CDefaultPlayerPickupVPhysics
 	virtual void	OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t reason );
@@ -276,6 +280,8 @@ private:
 	CHandle<SmokeTrail>	m_hSmokeTrail;
 #ifdef MAPBASE
 	EHANDLE			m_hPrevOwner;
+
+	bool			m_bNoSprites;
 #endif
 
 	int				m_iPanel1;

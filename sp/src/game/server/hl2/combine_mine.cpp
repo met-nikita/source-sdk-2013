@@ -89,6 +89,8 @@ BEGIN_DATADESC( CBounceBomb )
 	DEFINE_KEYFIELD( m_bDisarmed, FIELD_BOOLEAN, "StartDisarmed" ),
 #ifdef MAPBASE
 	DEFINE_KEYFIELD( m_iInitialState, FIELD_INTEGER, "InitialState" ),
+	DEFINE_KEYFIELD( m_bCheapWarnSound, FIELD_BOOLEAN, "CheapWarnSound" ),
+	DEFINE_KEYFIELD( m_iLOSMask, FIELD_INTEGER, "LOSMask" ),
 #endif
 	DEFINE_KEYFIELD( m_iModification, FIELD_INTEGER, "Modification" ),
 
@@ -306,8 +308,12 @@ void CBounceBomb::SetMineState( int iState )
 	{
 	case MINE_STATE_DORMANT:
 		{
+#ifdef MAPBASE
+			SilenceWarnSound( 0.1 );
+#else
 			CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
 			controller.SoundChangeVolume( m_pWarnSound, 0.0, 0.1 );
+#endif
 			UpdateLight( false, 0, 0, 0, 0 );
 			SetThink( NULL );
 		}
@@ -315,8 +321,12 @@ void CBounceBomb::SetMineState( int iState )
 
 	case MINE_STATE_CAPTIVE:
 		{
+#ifdef MAPBASE
+			SilenceWarnSound( 0.2 );
+#else
 			CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
 			controller.SoundChangeVolume( m_pWarnSound, 0.0, 0.2 );
+#endif
 
 			// Unhook
 			unsigned int flags = VPhysicsGetObject()->GetCallbackFlags();
@@ -359,8 +369,12 @@ void CBounceBomb::SetMineState( int iState )
 			// Scare NPC's
 			CSoundEnt::InsertSound( SOUND_DANGER, GetAbsOrigin(), 300, 1.0f, this );
 
+#ifdef MAPBASE
+			SilenceWarnSound( 0.2 );
+#else
 			CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
 			controller.SoundChangeVolume( m_pWarnSound, 0.0, 0.2 );
+#endif
 
 			SetTouch( &CBounceBomb::ExplodeTouch );
 			unsigned int flags = VPhysicsGetObject()->GetCallbackFlags();
@@ -822,7 +836,11 @@ void CBounceBomb::Wake( bool bAwake )
 
 	CReliableBroadcastRecipientFilter filter;
 	
+#ifdef MAPBASE
+	if( !m_pWarnSound && !m_bCheapWarnSound )
+#else
 	if( !m_pWarnSound )
+#endif
 	{
 		m_pWarnSound = controller.SoundCreate( filter, entindex(), "NPC_CombineMine.ActiveLoop" );
 		controller.Play( m_pWarnSound, 1.0, PITCH_NORM  );
@@ -834,7 +852,11 @@ void CBounceBomb::Wake( bool bAwake )
 		if( m_bFoeNearest )
 		{
 			EmitSound( "NPC_CombineMine.TurnOn" );
+#ifdef MAPBASE
+			UpdateWarnSound( 1.0, 0.1 );
+#else
 			controller.SoundChangeVolume( m_pWarnSound, 1.0, 0.1 );
+#endif
 		}
 
 		unsigned char r, g, b;
@@ -860,7 +882,11 @@ void CBounceBomb::Wake( bool bAwake )
 		}
 
 		SetNearestNPC( NULL );
+#ifdef MAPBASE
+		SilenceWarnSound( 0.1 );
+#else
 		controller.SoundChangeVolume( m_pWarnSound, 0.0, 0.1 );
+#endif
 		UpdateLight( false, 0, 0, 0, 0 );
 	}
 
@@ -937,7 +963,11 @@ float CBounceBomb::FindNearestNPC()
 			if( flDist < flNearest )
 			{
 				// Now do a visibility test.
+#ifdef MAPBASE
+				if( FVisible( pNPC, m_iLOSMask ) )
+#else
 				if( FVisible( pNPC, MASK_SOLID_BRUSHONLY ) )
+#endif
 				{
 					flNearest = flDist;
 					SetNearestNPC( pNPC );
@@ -954,7 +984,7 @@ float CBounceBomb::FindNearestNPC()
 		{
 			float flDist = (pPlayer->GetAbsOrigin() - GetAbsOrigin() ).LengthSqr();
 
-			if( flDist < flNearest && FVisible( pPlayer, MASK_SOLID_BRUSHONLY ) )
+			if( flDist < flNearest && FVisible( pPlayer, m_iLOSMask ) )
 			{
 				flNearest = flDist;
 				SetNearestNPC( pPlayer );
@@ -985,7 +1015,7 @@ float CBounceBomb::FindNearestNPC()
 		float flDist = (pPlayer->GetAbsOrigin() - GetAbsOrigin() ).LengthSqr();
 
 #ifdef MAPBASE
-		if( flDist < flNearest && FVisible( pPlayer, MASK_SOLID_BRUSHONLY ) && bPassesFilter )
+		if( flDist < flNearest && FVisible( pPlayer, m_iLOSMask ) && bPassesFilter )
 #else
 		if( flDist < flNearest && FVisible( pPlayer, MASK_SOLID_BRUSHONLY ) )
 #endif
@@ -1282,6 +1312,82 @@ void CBounceBomb::CloseHooks()
 	AddEffects( EF_NOSHADOW );
 #endif
 }
+
+#ifdef MAPBASE
+extern int g_interactionBarnacleVictimBite;
+extern int g_interactionBarnacleVictimFinalBite;
+extern int ACT_BARNACLE_BITE_SMALL_THINGS;
+//-----------------------------------------------------------------------------
+// Purpose:  Uses the new CBaseEntity interaction implementation and
+//			 replaces the dynamic_casting from npc_barnacle
+// Input  :  The type of interaction, extra info pointer, and who started it
+// Output :	 true  - if sub-class has a response for the interaction
+//			 false - if sub-class has no response
+//-----------------------------------------------------------------------------
+bool CBounceBomb::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
+{
+	// This was originally done in npc_barnacle itself, but
+	// we've transitioned to interactions so we could extend special behavior to others
+	// without just adding more casting.
+	if ( interactionType == g_interactionBarnacleVictimBite )
+	{
+		Assert( sourceEnt && sourceEnt->IsNPC() );
+		sourceEnt->MyNPCPointer()->SetActivity( (Activity)ACT_BARNACLE_BITE_SMALL_THINGS );
+		return true;
+	}
+	else if ( interactionType == g_interactionBarnacleVictimFinalBite )
+	{
+		ExplodeThink();
+		return true;
+	}
+
+	return BaseClass::HandleInteraction(interactionType, data, sourceEnt);
+}
+
+//-----------------------------------------------------------------------------
+void CBounceBomb::UpdateWarnSound( float flVolume, float flDelta )
+{
+	CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
+	if (m_bCheapWarnSound && !m_pWarnSound)
+	{
+		CReliableBroadcastRecipientFilter filter;
+		//m_pWarnSound = controller.SoundCreate( filter, entindex(), "NPC_CombineMine.ActiveLoop" );
+		//controller.Play( m_pWarnSound, flVolume, PITCH_NORM );
+
+		EmitSound_t params;
+		params.m_pSoundName = "NPC_CombineMine.ActiveLoop";
+		params.m_flVolume = flVolume;
+		params.m_nPitch = PITCH_NORM;
+
+		EmitSound( filter, entindex(), params );
+	}
+	else
+	{
+		controller.SoundChangeVolume( m_pWarnSound, flVolume, flDelta );
+	}
+}
+
+void CBounceBomb::SilenceWarnSound( float flDelta )
+{
+	CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
+	if (m_bCheapWarnSound)
+	{
+		//if ( m_pWarnSound )
+		//{
+		//	controller.SoundDestroy( m_pWarnSound );
+		//}
+
+		StopSound( "NPC_CombineMine.ActiveLoop" );
+	}
+	else
+	{
+		if ( m_pWarnSound )
+		{
+			controller.SoundChangeVolume( m_pWarnSound, 0.0, flDelta );
+		}
+	}
+}
+#endif
 
 //---------------------------------------------------------
 //---------------------------------------------------------

@@ -420,6 +420,10 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_INPUTFUNC( FIELD_VOID,   "ThrowHealthKit", InputForceHealthKitToss ),
 #endif
 
+#ifdef MAPBASE
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetPoliceGoal", InputSetPoliceGoal ),
+#endif
+
 	DEFINE_USEFUNC( CommanderUse ),
 	DEFINE_USEFUNC( SimpleUse ),
 
@@ -439,6 +443,7 @@ bool CNPC_Citizen::CreateBehaviors()
 	AddBehavior( &m_FuncTankBehavior );
 #ifdef MAPBASE
 	AddBehavior( &m_RappelBehavior );
+	AddBehavior( &m_PolicingBehavior );
 #endif
 	
 	return true;
@@ -4348,6 +4353,11 @@ void CNPC_Citizen::Heal()
 
 	CBaseEntity *pTarget = GetTarget();
 
+#ifdef MAPBASE
+	if ( !pTarget )
+		return;
+#endif
+
 	Vector target = pTarget->GetAbsOrigin() - GetAbsOrigin();
 	if ( target.Length() > HEAL_TARGET_RANGE * 2 )
 		return;
@@ -4619,6 +4629,39 @@ void CNPC_Citizen::InputSpeakIdleResponse( inputdata_t &inputdata )
 {
 	SpeakIfAllowed( TLK_ANSWER, NULL, true );
 }
+
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : &inputdata - 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::InputSetPoliceGoal( inputdata_t &inputdata )
+{
+	if (/*!inputdata.value.String() ||*/ inputdata.value.String()[0] == 0)
+	{
+		m_PolicingBehavior.Disable();
+		return;
+	}
+
+	CBaseEntity *pGoal = gEntList.FindEntityByName( NULL, inputdata.value.String() );
+
+	if ( pGoal == NULL )
+	{
+		DevMsg( "SetPoliceGoal: %s (%s) unable to find ai_goal_police: %s\n", GetClassname(), GetDebugName(), inputdata.value.String() );
+		return;
+	}
+
+	CAI_PoliceGoal *pPoliceGoal = dynamic_cast<CAI_PoliceGoal *>(pGoal);
+
+	if ( pPoliceGoal == NULL )
+	{
+		DevMsg( "SetPoliceGoal: %s (%s)'s target %s is not an ai_goal_police entity!\n", GetClassname(), GetDebugName(), inputdata.value.String() );
+		return;
+	}
+
+	m_PolicingBehavior.Enable( pPoliceGoal );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

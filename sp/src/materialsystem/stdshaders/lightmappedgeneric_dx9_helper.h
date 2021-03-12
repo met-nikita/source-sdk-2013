@@ -11,11 +11,6 @@
 #include <string.h>
 #include "BaseVSShader.h"
 
-#ifdef MAPBASE
-// This requires custom compilers, but anyone ahead of us on that should be able to use this anyway
-#define PARALLAX_CORRECTED_CUBEMAPS 1
-#endif
-
 //-----------------------------------------------------------------------------
 // Forward declarations
 //-----------------------------------------------------------------------------
@@ -101,7 +96,7 @@ struct LightmappedGeneric_DX9_Vars_t
 
 #ifdef PARALLAX_CORRECTED_CUBEMAPS
 	// Parallax cubemaps
-	int m_nEnvmapParallax;
+	int m_nEnvmapParallax; // Needed for editor
 	int m_nEnvmapParallaxObb1;
 	int m_nEnvmapParallaxObb2;
 	int m_nEnvmapParallaxObb3;

@@ -26,6 +26,7 @@
 #endif
 #ifdef MAPBASE
 #include "mapbase/ai_grenade.h"
+#include "ai_behavior_police.h"
 #endif
 #ifdef EXPANDED_RESPONSE_SYSTEM_USAGE
 #include "mapbase/expandedrs_combine.h"
@@ -90,6 +91,10 @@ public:
 
 	virtual Vector  GetCrouchEyeOffset( void );
 
+#ifdef MAPBASE
+	virtual bool	IsCrouchedActivity( Activity activity );
+#endif
+
 	void Event_Killed( const CTakeDamageInfo &info );
 #ifdef EZ
 	void Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
@@ -115,6 +120,8 @@ public:
 	void InputDropGrenade( inputdata_t &inputdata );
 
 	void InputSetTacticalVariant( inputdata_t &inputdata );
+
+	void InputSetPoliceGoal( inputdata_t &inputdata );
 #endif
 #ifdef EZ
 	void InputSetCommandable( inputdata_t &inputdata );  // New inputs to toggle player commands on / off
@@ -166,13 +173,12 @@ public:
 	void			Activate();
 
 	Class_T			Classify( void );
+	bool			IsElite() { return m_fIsElite; }
 #ifdef MAPBASE
-	bool			IsElite();
 	bool			IsAltFireCapable();
 	bool			IsGrenadeCapable();
 	const char*		GetGrenadeAttachment() { return "lefthand"; }
 #else
-	bool			IsElite() { return m_fIsElite; }
 #endif
 #ifndef MAPBASE
 	void			DelayAltFireAttack( float flDelay );
@@ -275,7 +281,10 @@ public:
 	// Speaking
 	void			SpeakSentence( int sentType );
 #ifdef COMBINE_SOLDIER_USES_RESPONSE_SYSTEM
-	bool			SpeakIfAllowed( const char *concept, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD );
+	bool			SpeakIfAllowed( const char *concept, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD )
+	{
+		return SpeakIfAllowed( concept, NULL, sentencepriority, sentencecriteria );
+	}
 	bool			SpeakIfAllowed( const char *concept, const char *modifiers, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD );
 	bool			SpeakIfAllowed( const char *concept, AI_CriteriaSet& modifiers, SentencePriority_t sentencepriority = SENTENCE_PRIORITY_NORMAL, SentenceCriteria_t sentencecriteria = SENTENCE_CRITERIA_IN_SQUAD );
 	void			ModifyOrAppendCriteria( AI_CriteriaSet& set );
@@ -477,6 +486,9 @@ protected:
 	CAI_FuncTankBehavior		m_FuncTankBehavior;
 	CAI_RappelBehavior			m_RappelBehavior;
 	CAI_ActBusyBehavior			m_ActBusyBehavior;
+#endif
+#ifdef MAPBASE
+	CAI_PolicingBehavior		m_PolicingBehavior;
 #endif
 
 public:

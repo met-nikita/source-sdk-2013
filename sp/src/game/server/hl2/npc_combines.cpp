@@ -96,7 +96,12 @@ void CNPC_CombineS::Precache()
 {
 	const char *pModelName = STRING( GetModelName() );
 
+#ifdef MAPBASE
+	// Need to do this for dirt variant
+	if( !Q_strnicmp( pModelName, "models/combine_super_sold", 25 ) )
+#else
 	if( !Q_stricmp( pModelName, "models/combine_super_soldier.mdl" ) )
+#endif
 	{
 		m_fIsElite = true;
 	}
@@ -136,6 +141,7 @@ void CNPC_CombineS::DeathSound( const CTakeDamageInfo &info )
 }
 
 
+#ifndef MAPBASE // Moved to CAI_GrenadeUser
 //-----------------------------------------------------------------------------
 // Purpose: Soldiers use CAN_RANGE_ATTACK2 to indicate whether they can throw
 //			a grenade. Because they check only every half-second or so, this
@@ -157,6 +163,7 @@ void CNPC_CombineS::ClearAttackConditions( )
 		SetCondition( COND_CAN_RANGE_ATTACK2 );
 	}
 }
+#endif
 
 void CNPC_CombineS::PrescheduleThink( void )
 {

@@ -383,6 +383,10 @@ int CAI_BaseNPC::TranslateSchedule( int scheduleType )
 	return scheduleType;
 }
 
+#ifdef MAPBASE
+extern ScriptHook_t	g_Hook_TranslateSchedule;
+#endif
+
 //=========================================================
 // GetScheduleOfType - returns a pointer to one of the
 // NPC's available schedules of the indicated type.
@@ -394,6 +398,35 @@ CAI_Schedule *CAI_BaseNPC::GetScheduleOfType( int scheduleType )
 	AI_PROFILE_SCOPE_BEGIN(CAI_BaseNPC_TranslateSchedule);
 	scheduleType = TranslateSchedule( scheduleType );
 	AI_PROFILE_SCOPE_END();
+
+#ifdef MAPBASE_VSCRIPT
+	if ( m_ScriptScope.IsInitialized() && g_Hook_TranslateSchedule.CanRunInScope(m_ScriptScope) )
+	{
+		int newSchedule = scheduleType;
+		if ( AI_IdIsLocal( newSchedule ) )
+		{
+			newSchedule = GetClassScheduleIdSpace()->ScheduleLocalToGlobal(newSchedule);
+		}
+
+		// schedule, schedule_id (local ID)
+		ScriptVariant_t functionReturn;
+		ScriptVariant_t args[] = { GetSchedulingSymbols()->ScheduleIdToSymbol( newSchedule ), scheduleType };
+		if (g_Hook_TranslateSchedule.Call( m_ScriptScope, &functionReturn, args ))
+		{
+			if (functionReturn.m_type == FIELD_INTEGER)
+			{
+				newSchedule = functionReturn.m_int;
+			}
+			else
+			{
+				newSchedule = GetScheduleID( functionReturn.m_pszString );
+			}
+
+			if (newSchedule != scheduleType && newSchedule > -1)
+				scheduleType = newSchedule;
+		}
+	}
+#endif
 
 	// Get a pointer to that schedule
 	CAI_Schedule *schedule = GetSchedule(scheduleType);

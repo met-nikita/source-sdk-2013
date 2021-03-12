@@ -82,7 +82,12 @@
 #include "weapon_physcannon.h"
 #ifdef MAPBASE
 #include "mapbase/GlobalStrings.h"
+#include "mapbase/matchers.h"
 #endif
+#endif
+
+#ifdef MAPBASE_VSCRIPT
+#include "mapbase/vscript_funcs_shared.h"
 #endif
 
 ConVar autoaim_max_dist( "autoaim_max_dist", "2160" ); // 2160 = 180 feet
@@ -193,6 +198,10 @@ ConVar  sv_player_net_suppress_usercommands( "sv_player_net_suppress_usercommand
 ConVar  sv_player_display_usercommand_errors( "sv_player_display_usercommand_errors", "0", FCVAR_CHEAT, "1 = Display warning when command values are out-of-range. 2 = Spew invalid ranges." );
 
 ConVar  player_debug_print_damage( "player_debug_print_damage", "0", FCVAR_CHEAT, "When true, print amount and type of all damage received by player to console." );
+
+#ifdef MAPBASE
+ConVar	player_use_visibility_cache( "player_use_visibility_cache", "0", FCVAR_NONE, "Allows the player to use the visibility cache." );
+#endif
 
 
 void CC_GiveCurrentAmmo( void )
@@ -451,6 +460,7 @@ BEGIN_DATADESC( CBasePlayer )
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetHealth", InputSetHealth ),
 	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetHUDVisibility", InputSetHUDVisibility ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetFogController", InputSetFogController ),
+	DEFINE_INPUTFUNC( FIELD_INPUT, "SetPostProcessController", InputSetPostProcessController ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "HandleMapEvent", InputHandleMapEvent ),
 #ifdef MAPBASE
 	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetSuppressAttacks", InputSetSuppressAttacks ),
@@ -464,6 +474,8 @@ BEGIN_DATADESC( CBasePlayer )
 
 	DEFINE_FIELD( m_nNumCrateHudHints, FIELD_INTEGER ),
 
+	DEFINE_FIELD( m_hPostProcessCtrl, FIELD_EHANDLE ),
+
 
 
 	// DEFINE_FIELD( m_nBodyPitchPoseParam, FIELD_INTEGER ),
@@ -472,6 +484,76 @@ BEGIN_DATADESC( CBasePlayer )
 	// DEFINE_UTLVECTOR( m_vecPlayerCmdInfo ),
 	// DEFINE_UTLVECTOR( m_vecPlayerSimInfo ),
 END_DATADESC()
+
+#ifdef MAPBASE_VSCRIPT
+// TODO: Better placement?
+ScriptHook_t	g_Hook_PlayerRunCommand;
+
+BEGIN_ENT_SCRIPTDESC( CBasePlayer, CBaseCombatCharacter, "The player entity." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptIsPlayerNoclipping, "IsNoclipping", "Returns true if the player is in noclip mode." ) 
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetExpresser, "GetExpresser", "Gets a handle for this player's expresser." )
+
+	DEFINE_SCRIPTFUNC( GetPlayerName, "Gets the player's name." )
+	DEFINE_SCRIPTFUNC( GetUserID, "Gets the player's user ID." )
+	DEFINE_SCRIPTFUNC_NAMED( GetUserID, "GetPlayerUserId", SCRIPT_HIDE )
+	DEFINE_SCRIPTFUNC( GetNetworkIDString, "Gets the player's network (i.e. Steam) ID." )
+
+	DEFINE_SCRIPTFUNC( FragCount, "Gets the number of frags (kills) this player has in a multiplayer game." )
+	DEFINE_SCRIPTFUNC( DeathCount, "Gets the number of deaths this player has had in a multiplayer game." )
+	DEFINE_SCRIPTFUNC( IsConnected, "Returns true if this player is connected." )
+	DEFINE_SCRIPTFUNC( IsDisconnecting, "Returns true if this player is disconnecting." )
+	DEFINE_SCRIPTFUNC( IsSuitEquipped, "Returns true if this player had the HEV suit equipped." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ArmorValue, "GetArmor", "Gets the player's armor." )
+	DEFINE_SCRIPTFUNC_NAMED( SetArmorValue, "SetArmor", "Sets the player's armor." )
+
+	DEFINE_SCRIPTFUNC( FlashlightIsOn, "Returns true if the flashlight is on." )
+	DEFINE_SCRIPTFUNC( FlashlightTurnOn, "Turns on the flashlight." )
+	DEFINE_SCRIPTFUNC( FlashlightTurnOff, "Turns off the flashlight." )
+
+	DEFINE_SCRIPTFUNC( DisableButtons, "Disables the specified button mask." )
+	DEFINE_SCRIPTFUNC( EnableButtons, "Enables the specified button mask if it was disabled before." )
+	DEFINE_SCRIPTFUNC( ForceButtons, "Forces the specified button mask." )
+	DEFINE_SCRIPTFUNC( UnforceButtons, "Unforces the specified button mask if it was forced before." )
+
+	DEFINE_SCRIPTFUNC( GetButtons, "Gets the player's active buttons." )
+	DEFINE_SCRIPTFUNC( GetButtonPressed, "Gets the player's currently pressed buttons." )
+	DEFINE_SCRIPTFUNC( GetButtonReleased, "Gets the player's just-released buttons." )
+	DEFINE_SCRIPTFUNC( GetButtonLast, "Gets the player's previously active buttons." )
+	DEFINE_SCRIPTFUNC( GetButtonDisabled, "Gets the player's currently unusable buttons." )
+	DEFINE_SCRIPTFUNC( GetButtonForced, "Gets the player's currently forced buttons." )
+
+	DEFINE_SCRIPTFUNC( GetFOV, "" )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetFOVOwner, "GetFOVOwner", "" )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSetFOV, "SetFOV", "" )
+
+	DEFINE_SCRIPTFUNC( ViewPunch, "Punches the player's view with the specified vector." )
+	DEFINE_SCRIPTFUNC( SetMuzzleFlashTime, "Sets the player's muzzle flash time for AI." )
+	DEFINE_SCRIPTFUNC( SetSuitUpdate, "Sets an update for the player's HEV suit." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetAutoaimVector, "GetAutoaimVector", "Gets the player's autoaim shooting direction with the specified scale." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetAutoaimVectorCustomMaxDist, "GetAutoaimVectorCustomMaxDist", "Gets the player's autoaim shooting direction with the specified scale and a custom max distance." )
+	DEFINE_SCRIPTFUNC( ShouldAutoaim, "Returns true if the player should be autoaiming." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetEyeForward, "GetEyeForward", "Gets the player's forward eye vector." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetEyeRight, "GetEyeRight", "Gets the player's right eye vector." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetEyeUp, "GetEyeUp", "Gets the player's up eye vector." )
+
+	// 
+	// Hooks
+	// 
+	BEGIN_SCRIPTHOOK( g_Hook_PlayerRunCommand, "PlayerRunCommand", FIELD_VOID, "Called when running a player command on the server." )
+		DEFINE_SCRIPTHOOK_PARAM( "command", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+
+END_SCRIPTDESC();
+#else
+BEGIN_ENT_SCRIPTDESC( CBasePlayer, CBaseAnimating, "The player entity." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptIsPlayerNoclipping, "IsNoclipping", "Returns true if the player is in noclip mode." ) 
+END_SCRIPTDESC();
+#endif
 
 int giPrecacheGrunt = 0;
 
@@ -671,6 +753,8 @@ CBasePlayer::CBasePlayer( )
 
 	m_flLastUserCommandTime = 0.f;
 	m_flMovementTimeForUserCmdProcessingRemaining = 0.0f;
+
+	m_hPostProcessCtrl.Set( NULL );
 }
 
 CBasePlayer::~CBasePlayer( )
@@ -685,6 +769,11 @@ CBasePlayer::~CBasePlayer( )
 //-----------------------------------------------------------------------------
 void CBasePlayer::UpdateOnRemove( void )
 {
+	if ( !g_pGameRules->IsMultiplayer() && g_pScriptVM )
+	{
+		g_pScriptVM->SetValue( "player", SCRIPT_VARIANT_NULL );
+	}
+
 	VPhysicsDestroyObject();
 
 	// Remove him from his current team
@@ -763,9 +852,13 @@ int CBasePlayer::ShouldTransmit( const CCheckTransmitInfo *pInfo )
 
 bool CBasePlayer::WantsLagCompensationOnEntity( const CBasePlayer *pPlayer, const CUserCmd *pCmd, const CBitVec<MAX_EDICTS> *pEntityTransmitBits ) const
 {
-	// Team members shouldn't be adjusted unless friendly fire is on.
-	if ( !friendlyfire.GetInt() && pPlayer->GetTeamNumber() == GetTeamNumber() )
-		return false;
+	//Tony; only check teams in teamplay
+	if ( gpGlobals->teamplay )
+	{
+		// Team members shouldn't be adjusted unless friendly fire is on.
+		if ( !friendlyfire.GetInt() && pPlayer->GetTeamNumber() == GetTeamNumber() )
+			return false;
+	}
 
 	// If this entity hasn't been transmitted to us and acked, then don't bother lag compensating it.
 	if ( pEntityTransmitBits && !pEntityTransmitBits->Get( pPlayer->entindex() ) )
@@ -943,7 +1036,7 @@ void CBasePlayer::TraceAttack( const CTakeDamageInfo &inputInfo, const Vector &v
 			// --------------------------------------------------
 			CAI_BaseNPC *pNPC = info.GetAttacker()->MyNPCPointer();
 #ifdef MAPBASE
-			if ( pNPC && (pNPC->CapabilitiesGet() & bits_CAP_NO_HIT_PLAYER) && pNPC->IRelationType( this ) <= D_FR )
+			if ( pNPC && (pNPC->CapabilitiesGet() & bits_CAP_NO_HIT_PLAYER) && pNPC->IRelationType( this ) > D_FR )
 #else
 			if ( pNPC && (pNPC->CapabilitiesGet() & bits_CAP_NO_HIT_PLAYER) && pNPC->IRelationType( this ) != D_HT )
 #endif
@@ -1612,9 +1705,10 @@ void CBasePlayer::RemoveAllItems( bool removeSuit )
 	UpdateClientData();
 }
 
+//Tony; correct this for base code so that IsDead will be correct accross all games.
 bool CBasePlayer::IsDead() const
 {
-	return m_lifeState == LIFE_DEAD;
+	return m_lifeState != LIFE_ALIVE;
 }
 
 static float DamageForce( const Vector &size, float damage )
@@ -2915,6 +3009,10 @@ float CBasePlayer::GetHeldObjectMass( IPhysicsObject *pHeldObject )
 	return 0;
 }
 
+CBaseEntity	*CBasePlayer::GetHeldObject( void )
+{
+	return NULL;
+}
 
 //-----------------------------------------------------------------------------
 // Purpose:	Server side of jumping rules.  Most jumping logic is already
@@ -3728,6 +3826,20 @@ void CBasePlayer::PlayerRunCommand(CUserCmd *ucmd, IMoveHelper *moveHelper)
 			}
 		}
 	}
+
+#ifdef MAPBASE_VSCRIPT
+	// Movement hook for VScript
+	if (m_ScriptScope.IsInitialized() && g_Hook_PlayerRunCommand.CanRunInScope(m_ScriptScope))
+	{
+		HSCRIPT hCmd = g_pScriptVM->RegisterInstance( ucmd );
+
+		// command
+		ScriptVariant_t args[] = { hCmd };
+		g_Hook_PlayerRunCommand.Call( m_ScriptScope, NULL, args );
+
+		g_pScriptVM->RemoveInstance( hCmd );
+	}
+#endif
 	
 	PlayerMove()->RunCommand(this, ucmd, moveHelper);
 }
@@ -4940,6 +5052,55 @@ void CBasePlayer::InitialSpawn( void )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: clear our m_Local.m_TonemapParams to -1.
+//-----------------------------------------------------------------------------
+void CBasePlayer::ClearTonemapParams( void )
+{
+	//Tony; clear all the variables to -1.0
+	m_Local.m_TonemapParams.m_flAutoExposureMin = -1.0f;
+	m_Local.m_TonemapParams.m_flAutoExposureMax = -1.0f;
+	m_Local.m_TonemapParams.m_flTonemapScale = -1.0f;
+	m_Local.m_TonemapParams.m_flBloomScale = -1.0f;
+	m_Local.m_TonemapParams.m_flTonemapRate = -1.0f;
+}
+void CBasePlayer::InputSetTonemapScale( inputdata_t &inputdata )
+{
+	m_Local.m_TonemapParams.m_flTonemapScale = inputdata.value.Float();
+}
+
+void CBasePlayer::InputSetTonemapRate( inputdata_t &inputdata )
+{
+	m_Local.m_TonemapParams.m_flTonemapRate = inputdata.value.Float();
+}
+void CBasePlayer::InputSetAutoExposureMin( inputdata_t &inputdata )
+{
+	m_Local.m_TonemapParams.m_flAutoExposureMin = inputdata.value.Float();
+}
+
+void CBasePlayer::InputSetAutoExposureMax( inputdata_t &inputdata )
+{
+	m_Local.m_TonemapParams.m_flAutoExposureMax = inputdata.value.Float();
+}
+
+void CBasePlayer::InputSetBloomScale( inputdata_t &inputdata )
+{
+	m_Local.m_TonemapParams.m_flBloomScale = inputdata.value.Float();
+}
+
+//Tony; restore defaults (set min/max to -1.0 so nothing gets overridden)
+void CBasePlayer::InputUseDefaultAutoExposure( inputdata_t &inputdata )
+{
+	m_Local.m_TonemapParams.m_flAutoExposureMin = -1.0f;
+	m_Local.m_TonemapParams.m_flAutoExposureMax = -1.0f;
+	m_Local.m_TonemapParams.m_flTonemapRate = -1.0f;
+}
+void CBasePlayer::InputUseDefaultBloomScale( inputdata_t &inputdata )
+{
+	m_Local.m_TonemapParams.m_flBloomScale = -1.0f;
+}
+//	void	InputSetBloomScaleRange( inputdata_t &inputdata );
+
+//-----------------------------------------------------------------------------
 // Purpose: Called everytime the player respawns
 //-----------------------------------------------------------------------------
 void CBasePlayer::Spawn( void )
@@ -4949,6 +5110,9 @@ void CBasePlayer::Spawn( void )
 	{
 		Hints()->ResetHints();
 	}
+
+	//Tony; make sure tonemap params is cleared.
+	ClearTonemapParams();
 
 	SetClassname( "player" );
 
@@ -4987,6 +5151,7 @@ void CBasePlayer::Spawn( void )
 
 	// Initialize the fog and postprocess controllers.
 	InitFogController();
+	InitPostProcessController();
 
 	m_DmgTake		= 0;
 	m_DmgSave		= 0;
@@ -5011,7 +5176,12 @@ void CBasePlayer::Spawn( void )
 	if ( !m_fGameHUDInitialized )
 		g_pGameRules->SetDefaultPlayerTeam( this );
 
+#ifdef MAPBASE
+	CBaseEntity *pSpawnPoint = g_pGameRules->GetPlayerSpawnSpot( this );
+	SpawnedAtPoint( pSpawnPoint );
+#else
 	g_pGameRules->GetPlayerSpawnSpot( this );
+#endif
 
 	m_Local.m_bDucked = false;// This will persist over round restart if you hold duck otherwise. 
 	m_Local.m_bDucking = false;
@@ -5105,6 +5275,11 @@ void CBasePlayer::Spawn( void )
 	UpdateLastKnownArea();
 
 	m_weaponFiredTimer.Invalidate();
+
+	if ( !g_pGameRules->IsMultiplayer() && g_pScriptVM )
+	{
+		g_pScriptVM->SetValue( "player", GetScriptInstance() );
+	}
 }
 
 void CBasePlayer::Activate( void )
@@ -5295,6 +5470,14 @@ void CBasePlayer::OnRestore( void )
 	m_nVehicleViewSavedFrame = 0;
 
 	m_nBodyPitchPoseParam = LookupPoseParameter( "body_pitch" );
+
+	// HACK: (03/25/09) Then the player goes across a transition it doesn't spawn and register
+	// it's instance. We're hacking around this for now, but this will go away when we get around to 
+	// having entities cross transitions and keep their script state.
+	if ( !g_pGameRules->IsMultiplayer() && g_pScriptVM && (gpGlobals->eLoadType == MapLoad_Transition) )
+	{
+		g_pScriptVM->SetValue( "player", GetScriptInstance() );
+	}
 }
 
 /* void CBasePlayer::SetTeamName( const char *pTeamName )
@@ -5758,6 +5941,25 @@ CBaseEntity	*CBasePlayer::GiveNamedItem( const char *pszName, int iSubType )
 
 	DispatchSpawn( pent );
 
+#ifdef MAPBASE
+	if ( pWeapon )
+	{
+		for (int i=0;i<MAX_WEAPONS;i++) 
+		{
+			if ( m_hMyWeapons[i].Get() && m_hMyWeapons[i]->GetSlot() == pWeapon->GetSlot() && m_hMyWeapons[i]->GetPosition() == pWeapon->GetPosition() )
+			{
+				// Make sure it matches the subtype
+				if ( m_hMyWeapons[i]->GetSubType() == iSubType )
+				{
+					// Don't use this weapon if the slot is already occupied
+					UTIL_Remove( pWeapon );
+					return NULL;
+				}
+			}
+		}
+	}
+#endif
+
 	if ( pent != NULL && !(pent->IsMarkedForDeletion()) ) 
 	{
 		pent->Touch( this );
@@ -6098,8 +6300,9 @@ static void CreateJeep( CBasePlayer *pPlayer )
 	// Cheat to create a jeep in front of the player
 	Vector vecForward;
 	AngleVectors( pPlayer->EyeAngles(), &vecForward );
-#if defined(HL2_EPISODIC) && defined(MAPBASE)
-	CBaseEntity *pJeep = (CBaseEntity *)CreateEntityByName( "prop_vehicle_jeep_old" );
+	//Tony; in sp sdk, we have prop_vehicle_hl2buggy; because episode 2 modified the jeep code to turn it into the jalopy instead of the regular buggy
+#if defined ( HL2_EPISODIC )
+	CBaseEntity *pJeep = (CBaseEntity *)CreateEntityByName( "prop_vehicle_hl2buggy" );
 #else
 	CBaseEntity *pJeep = (CBaseEntity *)CreateEntityByName( "prop_vehicle_jeep" );
 #endif
@@ -6111,7 +6314,11 @@ static void CreateJeep( CBasePlayer *pPlayer )
 		pJeep->SetAbsAngles( vecAngles );
 		pJeep->KeyValue( "model", "models/buggy.mdl" );
 		pJeep->KeyValue( "solid", "6" );
+#if defined ( HL2_EPISODIC )
+		pJeep->KeyValue( "targetname", "hl2buggy" );
+#else
 		pJeep->KeyValue( "targetname", "jeep" );
+#endif
 		pJeep->KeyValue( "vehiclescript", "scripts/vehicles/jeep_test.txt" );
 		DispatchSpawn( pJeep );
 		pJeep->Activate();
@@ -6707,7 +6914,11 @@ bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon )
 	else
 	{
 		// Don't let the player fetch weapons through walls (use MASK_SOLID so that you can't pickup through windows)
+#ifdef MAPBASE
+		if( (pWeapon->FVisible( this, MASK_SOLID ) == false && !(GetFlags() & FL_NOTARGET)) && !HasSpawnFlags(SF_WEAPON_ALWAYS_TOUCHABLE) )
+#else
 		if( pWeapon->FVisible( this, MASK_SOLID ) == false && !(GetFlags() & FL_NOTARGET) )
+#endif
 			return false;
 	}
 	
@@ -6870,6 +7081,30 @@ void CBasePlayer::ShowCrosshair( bool bShow )
 		m_Local.m_iHideHUD |= HIDEHUD_CROSSHAIR;
 	}
 }
+
+//-----------------------------------------------------------------------------
+// Used by vscript to determine if the player is noclipping
+//-----------------------------------------------------------------------------
+bool CBasePlayer::ScriptIsPlayerNoclipping(void)
+{
+	return (GetMoveType() == MOVETYPE_NOCLIP);
+}
+
+#ifdef MAPBASE_VSCRIPT
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT CBasePlayer::VScriptGetExpresser()
+{
+	HSCRIPT hScript = NULL;
+	CAI_Expresser *pExpresser = GetExpresser();
+	if (pExpresser)
+	{
+		hScript = g_pScriptVM->RegisterInstance( pExpresser );
+	}
+
+	return hScript;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -7681,6 +7916,23 @@ void CBasePlayer::PlayWearableAnimsForPlaybackEvent( wearableanimplayback_t iPla
 }
 #endif // USES_ECON_ITEMS
 
+#ifdef MAPBASE
+bool CBasePlayer::ShouldUseVisibilityCache( CBaseEntity *pEntity )
+{
+	// In CBaseEntity::FVisible(), players are allowed to see through CONTENTS_BLOCKLOS, which is used for
+	// nodraw, block LOS brushes, etc. This is so some code doesn't erronesouly assume the player can't see
+	// an entity (when the player can, in fact, see it) and therefore do something the player is not supposed to see.
+	// 
+	// However, to reduce the number of traces FVisible() runs, CBaseCombatCharacter uses a "visibility cache" shared
+	// by all entities derived from it. The player is normally a part of this visibility cache, so when it runs a trace
+	// through a CONTENTS_BLOCKLOS surface, the visibility cache assumes entities can now see through it and therefore
+	// NPCs to see through the brush which should normally block their LOS.
+	// 
+	// This solution stops the player from using the visibility cache altogether, toggled by a convar.
+	return player_use_visibility_cache.GetBool();
+}
+#endif
+
 //================================================================================
 // TEAM HANDLING
 //================================================================================
@@ -8017,10 +8269,16 @@ public:
 #ifdef MAPBASE
 	void InputEnable(inputdata_t &data);
 	void InputDisable(inputdata_t &data);
+
+	void InputSetAdditionalButtons(inputdata_t &data);
 #endif
 
 private:
 	int GetDisabledButtonMask( void );
+
+#ifdef MAPBASE
+	int m_iAdditionalButtons;
+#endif
 
 	DECLARE_DATADESC();
 };
@@ -8032,6 +8290,9 @@ BEGIN_DATADESC( CMovementSpeedMod )
 #ifdef MAPBASE
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
+
+	DEFINE_KEYFIELD( m_iAdditionalButtons, FIELD_INTEGER, "AdditionalButtons" ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetAdditionalButtons", InputSetAdditionalButtons ),
 #endif
 END_DATADESC()
 	
@@ -8068,6 +8329,13 @@ int CMovementSpeedMod::GetDisabledButtonMask( void )
 	{
 		nMask |= IN_ZOOM;
 	}
+
+#ifdef MAPBASE
+	if ( m_iAdditionalButtons != 0 )
+	{
+		nMask |= m_iAdditionalButtons;
+	}
+#endif
 
 	return nMask;
 }
@@ -8137,8 +8405,15 @@ void CMovementSpeedMod::InputSpeedMod(inputdata_t &data)
 				}
 			}
 
+#ifdef MAPBASE
+			if ( !HasSpawnFlags( SF_SPEED_MOD_DONT_SUPPRESS_FLASHLIGHT ) )
+			{
+#endif
 			// Allow the flashlight again
 			pPlayer->SetFlashlightEnabled( true );
+#ifdef MAPBASE
+			}
+#endif
 			pPlayer->EnableButtons( GetDisabledButtonMask() );
 
 			// Restore the HUD
@@ -8235,6 +8510,120 @@ void CMovementSpeedMod::InputDisable(inputdata_t &data)
 		}
 	}
 }
+
+void CMovementSpeedMod::InputSetAdditionalButtons(inputdata_t &data)
+{
+	CBasePlayer *pPlayer = NULL;
+
+	if ( data.pActivator && data.pActivator->IsPlayer() )
+	{
+		pPlayer = (CBasePlayer *)data.pActivator;
+	}
+	else if ( !g_pGameRules->IsDeathmatch() )
+	{
+		pPlayer = UTIL_GetLocalPlayer();
+	}
+
+	bool bAlreadyDisabled = false;
+	if ( pPlayer )
+	{
+		bAlreadyDisabled = (pPlayer->m_afButtonDisabled & GetDisabledButtonMask()) != 0;
+	}
+
+	m_iAdditionalButtons = data.value.Int();
+
+	// If we were already disabling buttons, re-disable them
+	if ( bAlreadyDisabled )
+	{
+		// We should probably do something better than this.
+		pPlayer->m_afButtonForced = GetDisabledButtonMask();
+	}
+}
+#endif
+
+#ifdef MAPBASE
+class CLogicPlayerInfo : public CPointEntity
+{
+	DECLARE_CLASS( CLogicPlayerInfo, CPointEntity );
+public:
+	void InputGetPlayerInfo( inputdata_t &inputdata );
+	void InputGetPlayerByID( inputdata_t &inputdata );
+	void InputGetPlayerByName( inputdata_t &inputdata );
+
+	void GetPlayerInfo( CBasePlayer *pPlayer );
+
+	COutputInt m_OutUserID;
+	COutputString m_OutPlayerName;
+	COutputEHANDLE m_OutPlayerEntity;
+
+	DECLARE_DATADESC();
+};
+
+LINK_ENTITY_TO_CLASS( logic_playerinfo, CLogicPlayerInfo );
+
+BEGIN_DATADESC( CLogicPlayerInfo )
+	DEFINE_INPUTFUNC( FIELD_EHANDLE, "GetPlayerInfo", InputGetPlayerInfo ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "GetPlayerByID", InputGetPlayerByID ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "GetPlayerByName", InputGetPlayerByName ),
+
+	DEFINE_OUTPUT( m_OutUserID, "OutUserID" ),
+	DEFINE_OUTPUT( m_OutPlayerName, "OutPlayerName" ),
+	DEFINE_OUTPUT( m_OutPlayerEntity, "OutPlayerEntity" ),
+END_DATADESC()
+	
+
+void CLogicPlayerInfo::InputGetPlayerInfo( inputdata_t &inputdata )
+{
+	CBasePlayer *pPlayer = ToBasePlayer(inputdata.value.Entity());
+
+	// If there was no entity to begin with, try the local player
+	if (!pPlayer && !inputdata.value.Entity())
+		pPlayer = UTIL_GetLocalPlayer();
+
+	if (pPlayer)
+		GetPlayerInfo( pPlayer );
+}
+
+void CLogicPlayerInfo::InputGetPlayerByID( inputdata_t &inputdata )
+{
+	for (int i = 1; i < gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *pPlayer = UTIL_PlayerByIndex( i );
+		if (pPlayer)
+		{
+			if (Matcher_NamesMatch( inputdata.value.String(), UTIL_VarArgs("%i", pPlayer->GetUserID()) ))
+			{
+				GetPlayerInfo( pPlayer );
+				return;
+			}
+		}
+	}
+}
+
+void CLogicPlayerInfo::InputGetPlayerByName( inputdata_t &inputdata )
+{
+	for (int i = 1; i < gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *pPlayer = UTIL_PlayerByIndex( i );
+		if (pPlayer)
+		{
+			if (Matcher_NamesMatch( inputdata.value.String(), pPlayer->GetPlayerName() ))
+			{
+				GetPlayerInfo( pPlayer );
+				return;
+			}
+		}
+	}
+}
+
+void CLogicPlayerInfo::GetPlayerInfo( CBasePlayer *pPlayer )
+{
+	m_OutUserID.Set( pPlayer->GetUserID(), pPlayer, this );
+
+	m_OutPlayerName.Set( AllocPooledString(pPlayer->GetPlayerName()), pPlayer, this );
+
+	m_OutPlayerEntity.Set( pPlayer, pPlayer, this );
+}
 #endif
 
 
@@ -8245,6 +8634,17 @@ void SendProxy_CropFlagsToPlayerFlagBitsLength( const SendProp *pProp, const voi
 
 	pOut->m_Int = ( data & mask );
 }
+
+#ifdef MAPBASE
+// Needs to shift bits since network table only sends the player ones
+void SendProxy_ShiftPlayerSpawnflags( const SendProp *pProp, const void *pStruct, const void *pVarData, DVariant *pOut, int iElement, int objectID )
+{
+	int *pInt = (int *)pVarData;
+
+	pOut->m_Int = (*pInt) >> 16;
+}
+#endif
+
 // -------------------------------------------------------------------------------- //
 // SendTable for CPlayerState.
 // -------------------------------------------------------------------------------- //
@@ -8304,7 +8704,7 @@ void SendProxy_CropFlagsToPlayerFlagBitsLength( const SendProp *pProp, const voi
 #ifdef MAPBASE
 		// Transmitted from the server for internal player spawnflags.
 		// See baseplayer_shared.h for more details.
-		SendPropInt			( SENDINFO( m_spawnflags ), 3, SPROP_UNSIGNED ),
+		SendPropInt			( SENDINFO( m_spawnflags ), 3, SPROP_UNSIGNED, SendProxy_ShiftPlayerSpawnflags ),
 
 		SendPropBool		( SENDINFO( m_bDrawPlayerModelExternally ) ),
 #endif
@@ -8345,6 +8745,9 @@ void SendProxy_CropFlagsToPlayerFlagBitsLength( const SendProp *pProp, const voi
 		SendPropEHandle	(SENDINFO(m_hZoomOwner) ),
 		SendPropArray	( SendPropEHandle( SENDINFO_ARRAY( m_hViewModel ) ), m_hViewModel ),
 		SendPropString	(SENDINFO(m_szLastPlaceName) ),
+
+		// Postprocess data
+		SendPropEHandle( SENDINFO( m_hPostProcessCtrl ) ),
 
 #if defined USES_ECON_ITEMS
 		SendPropUtlVector( SENDINFO_UTLVECTOR( m_hMyWearables ), MAX_WEARABLES_SENT_FROM_SERVER, SendPropEHandle( NULL, 0 ) ),
@@ -8837,6 +9240,18 @@ void CBasePlayer::SetDefaultFOV( int FOV )
 	m_iDefaultFOV = ( FOV == 0 ) ? g_pGameRules->DefaultFOV() : FOV;
 }
 
+#ifdef MAPBASE_VSCRIPT
+void CBasePlayer::ScriptSetFOV(int iFOV, float flRate)
+{
+	m_iFOVStart = GetFOV();
+
+	m_flFOVTime = gpGlobals->curtime;
+	m_iFOV = iFOV;
+
+	m_Local.m_flFOVRate = flRate;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: // static func
 // Input  : set - 
@@ -9065,6 +9480,37 @@ void CBasePlayer::InitFogController( void )
 }
 
 //-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+void CBasePlayer::InitPostProcessController( void )
+{
+	// Setup with the default master controller.
+	m_hPostProcessCtrl = PostProcessSystem()->GetMasterPostProcessController();
+}
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+void CBasePlayer::InputSetPostProcessController( inputdata_t& inputdata )
+{
+	// Find the postprocess controller with the given name.
+	CPostProcessController* pController = NULL;
+	if (inputdata.value.FieldType() == FIELD_EHANDLE)
+	{
+		pController = dynamic_cast<CPostProcessController*>(inputdata.value.Entity().Get());
+	}
+	else
+	{
+		pController = dynamic_cast<CPostProcessController*>(gEntList.FindEntityByName( NULL, inputdata.value.String() ));
+	}
+
+	if (pController)
+	{
+		m_hPostProcessCtrl.Set( pController );
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : *pEntity - 
 //-----------------------------------------------------------------------------
@@ -9201,6 +9647,14 @@ bool CBasePlayer::HandleVoteCommands( const CCommand &args )
 //-----------------------------------------------------------------------------
 const char *CBasePlayer::GetNetworkIDString()
 {
+	//Tony; bots don't have network id's, and this can potentially crash, especially with plugins creating them.
+	if (IsBot())
+		return "__BOT__";
+
+	//Tony; if networkidstring is null for any reason, the strncpy will crash!
+	if (!m_szNetworkIDString)
+		return "NULLID";
+
 	const char *pStr = engine->GetPlayerNetworkIDString( edict() );
 	Q_strncpy( m_szNetworkIDString, pStr ? pStr : "", sizeof(m_szNetworkIDString) );
 	return m_szNetworkIDString; 

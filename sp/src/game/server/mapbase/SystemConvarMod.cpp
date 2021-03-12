@@ -1,4 +1,4 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//========= Mapbase - https://github.com/mapbase-source/source-sdk-2013 ============//
 //
 // Purpose: Mostly just Mapbase's convar mod code.
 //
@@ -8,7 +8,9 @@
 #include "cbase.h"
 #include "saverestore_utlvector.h"
 #include "SystemConvarMod.h"
+#include "fmtstr.h"
 
+ConVar g_debug_convarmod( "g_debug_convarmod", "0" );
 
 BEGIN_SIMPLE_DATADESC( modifiedconvars_t )
 	DEFINE_ARRAY( pszConvar, FIELD_CHARACTER, MAX_MODIFIED_CONVAR_STRING ),
@@ -70,7 +72,7 @@ void CV_GlobalChange_Mapbase( IConVar *var, const char *pOldString, float flOldV
 //-----------------------------------------------------------------------------
 void CC_MapbaseNotChangingCVars( void )
 {
-	SetChangingCVars( false );
+	SetChangingCVars( NULL );
 }
 static ConCommand mapbase_cvarsnotchanging("mapbase_cvarsnotchanging", CC_MapbaseNotChangingCVars, "An internal command used for ConVar modification.", FCVAR_HIDDEN);
 
@@ -89,22 +91,21 @@ void CV_InitMod()
 
 void CVEnt_Precache(CMapbaseCVarModEntity *modent)
 {
-	if (Q_strstr(STRING(modent->m_target), "sv_allow_logic_convar"))
-		return;
+	// Now protected by FCVAR_NOT_CONNECTED
+	//if (Q_strstr(STRING(modent->m_target), "sv_allow_logic_convar"))
+	//	return;
+
+#ifdef MAPBASE_MP
+	if (gpGlobals->maxClients > 1 && !modent->m_bUseServer)
+	{
+		Warning("WARNING: %s is using the local player in a multiplayer game and will not function.\n", modent->GetDebugName());
+	}
+#endif
 
 	CV_InitMod();
 }
-void CVEnt_Activate(CMapbaseCVarModEntity *modent, CBaseEntity *pActivator = UTIL_GetLocalPlayer())
+void CVEnt_Activate(CMapbaseCVarModEntity *modent)
 {
-	edict_t *edict = pActivator ? pActivator->edict() : NULL;
-	if (!edict)
-		return;
-
-	SetChangingCVars( modent );
-
-	if (m_ModEntities.Find(modent) == m_ModEntities.InvalidIndex())
-		m_ModEntities.AddToTail(modent);
-
 	const char *pszCommands = STRING( modent->m_target );
 	if ( Q_strnchr(pszCommands, '^', MAX_CONVARMOD_STRING_SIZE) )
 	{
@@ -123,8 +124,34 @@ void CVEnt_Activate(CMapbaseCVarModEntity *modent, CBaseEntity *pActivator = UTI
 		pszCommands = szTmp;
 	}
 
-	engine->ClientCommand( edict, pszCommands );
-	engine->ClientCommand( edict, "mapbase_cvarsnotchanging\n" );
+	CV_InitMod();
+
+	if (m_ModEntities.Find(modent) == m_ModEntities.InvalidIndex())
+		m_ModEntities.AddToTail( modent );
+
+	if (modent->m_bUseServer)
+	{
+		SetChangingCVars( modent );
+
+		engine->ServerCommand( CFmtStr("%s\n", pszCommands) );
+		engine->ServerCommand( "mapbase_cvarsnotchanging\n" );
+	}
+	else
+	{
+		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+		edict_t *edict = pPlayer ? pPlayer->edict() : NULL;
+		if (edict)
+		{
+			SetChangingCVars( modent );
+
+			engine->ClientCommand( edict, pszCommands );
+			engine->ClientCommand( edict, "mapbase_cvarsnotchanging" );
+		}
+		else
+		{
+			Warning("%s unable to find local player edict\n", modent->GetDebugName());
+		}
+	}
 }
 void CVEnt_Deactivate(CMapbaseCVarModEntity *modent)
 {
@@ -140,6 +167,8 @@ void CVEnt_Deactivate(CMapbaseCVarModEntity *modent)
 			pConVar->SetValue( modent->m_ModifiedConvars[i].pszOrgValue );
 		}
 	}
+
+	modent->m_ModifiedConvars.Purge();
 
 	if (m_bModActive)
 	{
@@ -173,10 +202,13 @@ LINK_ENTITY_TO_CLASS( mapbase_convar_mod, CMapbaseCVarModEntity );
 BEGIN_DATADESC( CMapbaseCVarModEntity )
 
 	DEFINE_UTLVECTOR( m_ModifiedConvars, FIELD_EMBEDDED ),
+	DEFINE_KEYFIELD( m_bUseServer, FIELD_BOOLEAN, "UseServer" ),
 
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Activate", InputActivate ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Deactivate", InputDeactivate ),
+
+	DEFINE_THINKFUNC( CvarModActivate ),
 
 END_DATADESC()
 
@@ -210,7 +242,28 @@ void CMapbaseCVarModEntity::Spawn( void )
 
 	if (HasSpawnFlags(SF_CVARMOD_START_ACTIVATED))
 	{
-		CVEnt_Activate(this);
+		if (!m_bUseServer && !UTIL_GetLocalPlayer())
+		{
+			// The local player doesn't exist yet, so we should wait until they do
+			SetThink( &CMapbaseCVarModEntity::CvarModActivate );
+			SetNextThink( gpGlobals->curtime + TICK_INTERVAL );
+		}
+		else
+		{
+			CVEnt_Activate( this );
+		}
+	}
+}
+
+void CMapbaseCVarModEntity::CvarModActivate()
+{
+	if (UTIL_GetLocalPlayer())
+	{
+		CVEnt_Activate( this );
+	}
+	else
+	{
+		SetNextThink( gpGlobals->curtime + TICK_INTERVAL );
 	}
 }
 
@@ -226,7 +279,8 @@ void CMapbaseCVarModEntity::OnRestore( void )
 			ConVar *pConVar = (ConVar *)cvar->FindVar( m_ModifiedConvars[i].pszConvar );
 			if ( pConVar )
 			{
-				//Msg("    %s Restoring Convar %s: value %s (org %s)\n", GetDebugName(), m_ModifiedConvars[i].pszConvar, m_ModifiedConvars[i].pszCurrentValue, m_ModifiedConvars[i].pszOrgValue );
+				if (g_debug_convarmod.GetBool())
+					Msg("    %s Restoring Convar %s: value %s (org %s)\n", GetDebugName(), m_ModifiedConvars[i].pszConvar, m_ModifiedConvars[i].pszCurrentValue, m_ModifiedConvars[i].pszOrgValue );
 				pConVar->SetValue( m_ModifiedConvars[i].pszCurrentValue );
 			}
 		}
@@ -256,14 +310,16 @@ bool CMapbaseCVarModEntity::NewCVar( ConVarRef *var, const char *pOldString, CBa
 			if (modent == this)
 			{
 				Q_strncpy( modvar.pszCurrentValue, var->GetString(), MAX_MODIFIED_CONVAR_STRING );
-				//Msg("    %s Updating Convar %s: value %s (org %s)\n", GetDebugName(), modvar.pszConvar, modvar.pszCurrentValue, modvar.pszOrgValue );
+				if (g_debug_convarmod.GetBool())
+					Msg("    %s Updating Convar %s: value %s (org %s)\n", GetDebugName(), modvar.pszConvar, modvar.pszCurrentValue, modvar.pszOrgValue );
 				return true;
 			}
 			else
 			{
 				// A different entity is using this CVar now, remove ours
 				m_ModifiedConvars.Remove(i);
-				//Msg("    %s Removing Convar %s: value %s (org %s)\n", GetDebugName(), modvar.pszConvar, modvar.pszCurrentValue, modvar.pszOrgValue );
+				if (g_debug_convarmod.GetBool())
+					Msg("    %s Removing Convar %s: value %s (org %s)\n", GetDebugName(), modvar.pszConvar, modvar.pszCurrentValue, modvar.pszOrgValue );
 				return false;
 			}
 		}
@@ -279,14 +335,15 @@ bool CMapbaseCVarModEntity::NewCVar( ConVarRef *var, const char *pOldString, CBa
 		Q_strncpy( newConvar.pszOrgValue, pOldString, MAX_MODIFIED_CONVAR_STRING );
 		m_ModifiedConvars.AddToTail( newConvar );
 
-		/*
-		Msg(" %s changed '%s' to '%s' (was '%s')\n", GetDebugName(), var->GetName(), var->GetString(), pOldString );
-		Msg(" Convars stored: %d\n", m_ModifiedConvars.Count() );
-		for ( int i = 0; i < m_ModifiedConvars.Count(); i++ )
+		if (g_debug_convarmod.GetBool())
 		{
-			Msg("    Convar %d: %s, value %s (org %s)\n", i, m_ModifiedConvars[i].pszConvar, m_ModifiedConvars[i].pszCurrentValue, m_ModifiedConvars[i].pszOrgValue );
+			Msg(" %s changed '%s' to '%s' (was '%s')\n", GetDebugName(), var->GetName(), var->GetString(), pOldString );
+			Msg(" Convars stored: %d\n", m_ModifiedConvars.Count() );
+			for ( int i = 0; i < m_ModifiedConvars.Count(); i++ )
+			{
+				Msg("    Convar %d: %s, value %s (org %s)\n", i, m_ModifiedConvars[i].pszConvar, m_ModifiedConvars[i].pszCurrentValue, m_ModifiedConvars[i].pszOrgValue );
+			}
 		}
-		*/
 
 		return true;
 	}

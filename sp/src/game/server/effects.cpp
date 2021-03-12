@@ -1504,12 +1504,6 @@ void CItemSoda::CanTouch ( CBaseEntity *pOther )
 // technology demo
 //=========================================================
 
-#ifdef MAPBASE
-// I would leave this on the client, but it sems as if I could only precache the particle system on the server for some reason.
-// That desn't sound right...look into this further later.
-ConVar r_RainParticle( "r_RainParticle", "Rain_01_impact", FCVAR_CHEAT | FCVAR_REPLICATED );
-#endif
-
 class CPrecipitation : public CBaseEntity
 {
 public:
@@ -1518,6 +1512,7 @@ public:
 	DECLARE_SERVERCLASS();
 
 	CPrecipitation();
+	int UpdateTransmitState();
 	void	Spawn( void );
 
 	CNetworkVar( PrecipitationType_t, m_nPrecipType );
@@ -1531,7 +1526,10 @@ END_DATADESC()
 
 // Just send the normal entity crap
 IMPLEMENT_SERVERCLASS_ST( CPrecipitation, DT_Precipitation)
-	SendPropInt( SENDINFO( m_nPrecipType ), Q_log2( NUM_PRECIPITATION_TYPES ) + 1, SPROP_UNSIGNED )
+	SendPropInt( SENDINFO( m_nPrecipType ), Q_log2( NUM_PRECIPITATION_TYPES ) + 1, SPROP_UNSIGNED ),
+#ifdef MAPBASE
+	SendPropInt( SENDINFO( m_spawnflags ), 2, SPROP_UNSIGNED ),
+#endif
 END_SEND_TABLE()
 
 
@@ -1540,20 +1538,35 @@ CPrecipitation::CPrecipitation()
 	m_nPrecipType = PRECIPITATION_TYPE_RAIN; // default to rain.
 }
 
+int CPrecipitation::UpdateTransmitState()
+{
+	return SetTransmitState( FL_EDICT_ALWAYS );
+}
+
 void CPrecipitation::Spawn( void )
 {
+	//SetTransmitState( FL_EDICT_ALWAYS );
+	SetTransmitState( FL_EDICT_PVSCHECK );
+
 	PrecacheMaterial( "effects/fleck_ash1" );
 	PrecacheMaterial( "effects/fleck_ash2" );
 	PrecacheMaterial( "effects/fleck_ash3" );
 	PrecacheMaterial( "effects/ember_swirling001" );
-#ifdef MAPBASE
-	PrecacheParticleSystem( r_RainParticle.GetString() );
-#endif
 
 	Precache();
-	SetSolid( SOLID_NONE );							// Remove model & collisions
 	SetMoveType( MOVETYPE_NONE );
 	SetModel( STRING( GetModelName() ) );		// Set size
+	if ( IsParticleRainType( m_nPrecipType ) )
+	{
+		SetSolid( SOLID_VPHYSICS );
+		AddSolidFlags( FSOLID_NOT_SOLID );
+		AddSolidFlags( FSOLID_FORCE_WORLD_ALIGNED );
+		VPhysicsInitStatic();
+	}
+	else
+	{
+		SetSolid( SOLID_NONE );							// Remove model & collisions
+	}
 
 	// Default to rain.
 	if ( m_nPrecipType < 0 || m_nPrecipType > NUM_PRECIPITATION_TYPES )
@@ -1603,6 +1616,7 @@ BEGIN_DATADESC( CEnvWind )
 #ifdef MAPBASE
 	DEFINE_KEYFIELD( m_EnvWindShared.m_windRadius, FIELD_FLOAT, "windradius" ),
 	DEFINE_KEYFIELD( m_EnvWindShared.m_windRadiusInner, FIELD_FLOAT, "windradiusinner" ),
+	DEFINE_KEYFIELD( m_EnvWindShared.m_flTreeSwayScale, FIELD_FLOAT, "treeswayscale" ),
 #endif
 
 // Just here to quiet down classcheck
@@ -1610,6 +1624,20 @@ BEGIN_DATADESC( CEnvWind )
 
 	DEFINE_FIELD( m_EnvWindShared.m_iWindDir, FIELD_INTEGER ),
 	DEFINE_FIELD( m_EnvWindShared.m_flWindSpeed, FIELD_FLOAT ),
+
+#ifdef MAPBASE
+	DEFINE_INPUT( m_EnvWindShared.m_iMinWind, FIELD_INTEGER, "SetMinWind" ),
+	DEFINE_INPUT( m_EnvWindShared.m_iMaxWind, FIELD_INTEGER, "SetMaxWind" ),
+	DEFINE_INPUT( m_EnvWindShared.m_iMinGust, FIELD_INTEGER, "SetMinGust" ),
+	DEFINE_INPUT( m_EnvWindShared.m_iMaxGust, FIELD_INTEGER, "SetMaxGust" ),
+	DEFINE_INPUT( m_EnvWindShared.m_flMinGustDelay, FIELD_FLOAT, "SetMinGustDelay" ),
+	DEFINE_INPUT( m_EnvWindShared.m_flMaxGustDelay, FIELD_FLOAT, "SetMaxGustDelay" ),
+	DEFINE_INPUT( m_EnvWindShared.m_iGustDirChange, FIELD_INTEGER, "SetGustDirChange" ),
+	DEFINE_INPUT( m_EnvWindShared.m_flGustDuration, FIELD_FLOAT, "SetGustDuration" ),
+	DEFINE_INPUT( m_EnvWindShared.m_windRadius, FIELD_FLOAT, "SetWindRadius" ),
+	DEFINE_INPUT( m_EnvWindShared.m_windRadiusInner, FIELD_FLOAT, "SetWindRadiusInner" ),
+	DEFINE_INPUT( m_EnvWindShared.m_flTreeSwayScale, FIELD_FLOAT, "SetTreeSwayScale" ),
+#endif
 
 	DEFINE_OUTPUT( m_EnvWindShared.m_OnGustStart, "OnGustStart" ),
 	DEFINE_OUTPUT( m_EnvWindShared.m_OnGustEnd,	"OnGustEnd" ),
@@ -1643,6 +1671,7 @@ BEGIN_SEND_TABLE_NOBASE(CEnvWindShared, DT_EnvWindShared)
 	SendPropFloat	(SENDINFO(m_windRadius), 0, SPROP_NOSCALE),
 	SendPropFloat	(SENDINFO(m_windRadiusInner), 0, SPROP_NOSCALE),
 	SendPropVector	(SENDINFO(m_location), -1, SPROP_COORD),
+	SendPropFloat	(SENDINFO(m_flTreeSwayScale), 0, SPROP_NOSCALE),
 #endif
 END_SEND_TABLE()
 

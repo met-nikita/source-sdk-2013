@@ -44,6 +44,18 @@ BEGIN_DATADESC( CBaseFilter )
 
 END_DATADESC()
 
+#ifdef MAPBASE_VSCRIPT
+BEGIN_ENT_SCRIPTDESC( CBaseFilter, CBaseEntity, "All entities which could be used as filters." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptPassesFilter, "PassesFilter", "Check if the given caller and entity pass the filter. The caller is the one who requests the filter result; For example, the entity being damaged when using this as a damage filter." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptPassesDamageFilter, "PassesDamageFilter", "Check if the given caller and damage info pass the damage filter, with the second parameter being a CTakeDamageInfo instance. The caller is the one who requests the filter result; For example, the entity being damaged when using this as a damage filter." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptPassesFinalDamageFilter, "PassesFinalDamageFilter", "Used by filter_damage_redirect to distinguish between standalone filter calls and actually damaging an entity. Returns true if there's no unique behavior. Parameters are identical to PassesDamageFilter." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptBloodAllowed, "BloodAllowed", "Check if the given caller and damage info allow for the production of blood." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptDamageMod, "DamageMod", "Mods the damage info with the given caller." )
+
+END_SCRIPTDESC();
+#endif
+
 //-----------------------------------------------------------------------------
 
 bool CBaseFilter::PassesFilterImpl( CBaseEntity *pCaller, CBaseEntity *pEntity )
@@ -142,6 +154,14 @@ void CBaseFilter::InputSetField( inputdata_t& inputdata )
 }
 #endif
 
+#ifdef MAPBASE_VSCRIPT
+bool CBaseFilter::ScriptPassesFilter( HSCRIPT pCaller, HSCRIPT pEntity ) { return PassesFilter( ToEnt(pCaller), ToEnt(pEntity) ); }
+bool CBaseFilter::ScriptPassesDamageFilter( HSCRIPT pCaller, HSCRIPT pInfo ) { return (pInfo) ? PassesDamageFilter( ToEnt( pCaller ), *const_cast<const CTakeDamageInfo*>(HScriptToClass<CTakeDamageInfo>( pInfo )) ) : NULL; }
+bool CBaseFilter::ScriptPassesFinalDamageFilter( HSCRIPT pCaller, HSCRIPT pInfo ) { return (pInfo) ? PassesFinalDamageFilter( ToEnt( pCaller ), *const_cast<const CTakeDamageInfo*>(HScriptToClass<CTakeDamageInfo>( pInfo )) ) : NULL; }
+bool CBaseFilter::ScriptBloodAllowed( HSCRIPT pCaller, HSCRIPT pInfo ) { return (pInfo) ? BloodAllowed( ToEnt( pCaller ), *const_cast<const CTakeDamageInfo*>(HScriptToClass<CTakeDamageInfo>( pInfo )) ) : NULL; }
+bool CBaseFilter::ScriptDamageMod( HSCRIPT pCaller, HSCRIPT pInfo ) { return (pInfo) ? DamageMod( ToEnt( pCaller ), *HScriptToClass<CTakeDamageInfo>( pInfo ) ) : NULL; }
+#endif
+
 
 // ###################################################################
 //	> FilterMultiple
@@ -171,6 +191,12 @@ class CFilterMultiple : public CBaseFilter
 	bool PassesDamageFilterImpl(const CTakeDamageInfo &info);
 #endif
 	void Activate(void);
+
+#ifdef MAPBASE
+	bool BloodAllowed( CBaseEntity *pCaller, const CTakeDamageInfo &info );
+	bool PassesFinalDamageFilter( CBaseEntity *pCaller, const CTakeDamageInfo &info );
+	bool DamageMod( CBaseEntity *pCaller, CTakeDamageInfo &info );
+#endif
 };
 
 LINK_ENTITY_TO_CLASS(filter_multi, CFilterMultiple);
@@ -217,6 +243,13 @@ void CFilterMultiple::Activate( void )
 				Warning("filter_multi: Tried to add entity (%s) which is not a filter entity!\n", STRING( m_iFilterName[i] ) );
 				continue;
 			}
+#ifdef MAPBASE
+			else if ( pFilter == this )
+			{
+				Warning("filter_multi: Tried to add itself!\n");
+				continue;
+			}
+#endif
 
 			// Take this entity and increment out array pointer
 			m_hFilter[nNextFilter] = pFilter;
@@ -304,9 +337,9 @@ bool CFilterMultiple::PassesDamageFilterImpl(const CTakeDamageInfo &info)
 			{
 				CBaseFilter* pFilter = (CBaseFilter *)(m_hFilter[i].Get());
 #ifdef MAPBASE
-				if (!pFilter->PassesDamageFilter(pCaller, info))
+				if (pFilter->PassesDamageFilter(pCaller, info))
 #else
-				if (!pFilter->PassesDamageFilter(info))
+				if (pFilter->PassesDamageFilter(info))
 #endif
 				{
 					return true;
@@ -316,6 +349,125 @@ bool CFilterMultiple::PassesDamageFilterImpl(const CTakeDamageInfo &info)
 		return false;
 	}
 }
+
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// Purpose: Returns true if blood should be allowed, false if not.
+// Input  : pEntity - Entity to test.
+//-----------------------------------------------------------------------------
+bool CFilterMultiple::BloodAllowed( CBaseEntity *pCaller, const CTakeDamageInfo &info )
+{
+	// Test against each filter
+	if (m_nFilterType == FILTER_AND)
+	{
+		for (int i=0;i<MAX_FILTERS;i++)
+		{
+			if (m_hFilter[i] != NULL)
+			{
+				CBaseFilter* pFilter = (CBaseFilter *)(m_hFilter[i].Get());
+				if (!pFilter->BloodAllowed(pCaller, info))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+	else  // m_nFilterType == FILTER_OR
+	{
+		for (int i=0;i<MAX_FILTERS;i++)
+		{
+			if (m_hFilter[i] != NULL)
+			{
+				CBaseFilter* pFilter = (CBaseFilter *)(m_hFilter[i].Get());
+				if (pFilter->BloodAllowed(pCaller, info))
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns true if the entity passes our filter, false if not.
+// Input  : pEntity - Entity to test.
+//-----------------------------------------------------------------------------
+bool CFilterMultiple::PassesFinalDamageFilter( CBaseEntity *pCaller, const CTakeDamageInfo &info )
+{
+	// Test against each filter
+	if (m_nFilterType == FILTER_AND)
+	{
+		for (int i=0;i<MAX_FILTERS;i++)
+		{
+			if (m_hFilter[i] != NULL)
+			{
+				CBaseFilter* pFilter = (CBaseFilter *)(m_hFilter[i].Get());
+				if (!pFilter->PassesFinalDamageFilter(pCaller, info))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+	else  // m_nFilterType == FILTER_OR
+	{
+		for (int i=0;i<MAX_FILTERS;i++)
+		{
+			if (m_hFilter[i] != NULL)
+			{
+				CBaseFilter* pFilter = (CBaseFilter *)(m_hFilter[i].Get());
+				if (pFilter->PassesFinalDamageFilter(pCaller, info))
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns true if damage should be modded, false if not.
+// Input  : pEntity - Entity to test.
+//-----------------------------------------------------------------------------
+bool CFilterMultiple::DamageMod( CBaseEntity *pCaller, CTakeDamageInfo &info )
+{
+	// Test against each filter
+	if (m_nFilterType == FILTER_AND)
+	{
+		for (int i=0;i<MAX_FILTERS;i++)
+		{
+			if (m_hFilter[i] != NULL)
+			{
+				CBaseFilter* pFilter = (CBaseFilter *)(m_hFilter[i].Get());
+				if (!pFilter->DamageMod(pCaller, info))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+	else  // m_nFilterType == FILTER_OR
+	{
+		for (int i=0;i<MAX_FILTERS;i++)
+		{
+			if (m_hFilter[i] != NULL)
+			{
+				CBaseFilter* pFilter = (CBaseFilter *)(m_hFilter[i].Get());
+				if (pFilter->DamageMod(pCaller, info))
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+}
+#endif
 
 
 // ###################################################################
@@ -1309,7 +1461,7 @@ public:
 			return TestEntityTriggerIntersection_Accurate(pVolume, pTarget);
 		else
 		{
-			Msg("%s cannot find target entity %s, returning false\n", STRING(m_iszVolumeTester));
+			Msg("%s cannot find target entity %s, returning false\n", GetDebugName(), STRING(m_iszVolumeTester));
 			return false;
 		}
 	}
@@ -1774,6 +1926,14 @@ public:
 		return true;
 	}
 
+	bool PassesDamageFilterImpl( CBaseEntity *pCaller, const CTakeDamageInfo &info )
+	{
+		if (GetTargetFilter() && m_iSecondaryFilterMode == REDIRECT_MUST_PASS_TO_DAMAGE_CALLER)
+			return RedirectToDamageFilter( pCaller, info );
+
+		return true;
+	}
+
 	bool DamageMod( CBaseEntity *pCaller, CTakeDamageInfo &info )
 	{
 		if (GetTargetFilter())
@@ -1783,17 +1943,24 @@ public:
 			switch (m_iSecondaryFilterMode)
 			{
 				case REDIRECT_MUST_PASS_TO_DAMAGE_CALLER:
-				case REDIRECT_MUST_PASS_TO_ACT:				bPass = (RedirectToDamageFilter(pCaller, info));
+				case REDIRECT_MUST_PASS_TO_ACT:				bPass = (RedirectToDamageFilter( pCaller, info )); break;
 
-				case REDIRECT_MUST_PASS_ACTIVATORS:			bPass = (info.GetAttacker() && RedirectToFilter(pCaller, info.GetAttacker()));
+				case REDIRECT_MUST_PASS_ACTIVATORS:			bPass = (info.GetAttacker() && RedirectToFilter(pCaller, info.GetAttacker())); break;
 			}
 
 			if (!bPass)
 				return false;
 		}
 
-		info.ScaleDamage(m_flDamageMultiplier);
-		info.AddDamage(m_flDamageAddend);
+		if (m_flDamageMultiplier != 1.0f)
+			info.ScaleDamage(m_flDamageMultiplier);
+		if (m_flDamageAddend != 0.0f)
+			info.AddDamage(m_flDamageAddend);
+
+		if (m_iDamageBitsAdded != 0)
+			info.AddDamageType(m_iDamageBitsAdded);
+		if (m_iDamageBitsRemoved != 0)
+			info.AddDamageType(~m_iDamageBitsRemoved);
 
 		if (m_iszNewAttacker != NULL_STRING)
 		{
@@ -1823,6 +1990,8 @@ public:
 
 	float m_flDamageMultiplier	= 1.0f;
 	float m_flDamageAddend;
+	int m_iDamageBitsAdded;
+	int m_iDamageBitsRemoved;
 
 	string_t m_iszNewAttacker;		EHANDLE m_hNewAttacker;
 	string_t m_iszNewInflictor;		EHANDLE m_hNewInflictor;
@@ -1845,6 +2014,8 @@ BEGIN_DATADESC( CFilterDamageMod )
 
 	DEFINE_INPUT( m_flDamageMultiplier,	FIELD_FLOAT, "SetDamageMultiplier" ),
 	DEFINE_INPUT( m_flDamageAddend,		FIELD_FLOAT, "SetDamageAddend" ),
+	DEFINE_INPUT( m_iDamageBitsAdded,	FIELD_INTEGER, "SetDamageBitsAdded" ),
+	DEFINE_INPUT( m_iDamageBitsRemoved,	FIELD_INTEGER, "SetDamageBitsRemoved" ),
 
 	DEFINE_KEYFIELD( m_iSecondaryFilterMode,	FIELD_INTEGER, "SecondaryFilterMode" ),
 
@@ -1964,4 +2135,179 @@ BEGIN_DATADESC( CFilterDamageLogic )
 	DEFINE_OUTPUT( m_OutForceFriendlyFire, "OutForceFriendlyFire" ),
 
 END_DATADESC()
+#endif
+
+#ifdef MAPBASE_VSCRIPT
+ScriptHook_t	g_Hook_PassesFilter;
+ScriptHook_t	g_Hook_PassesDamageFilter;
+ScriptHook_t	g_Hook_PassesFinalDamageFilter;
+ScriptHook_t	g_Hook_BloodAllowed;
+ScriptHook_t	g_Hook_DamageMod;
+
+// ###################################################################
+//	> CFilterScript
+// ###################################################################
+class CFilterScript : public CBaseFilter
+{
+	DECLARE_CLASS( CFilterScript, CBaseFilter );
+	DECLARE_DATADESC();
+	DECLARE_ENT_SCRIPTDESC();
+
+public:
+	bool PassesFilterImpl( CBaseEntity *pCaller, CBaseEntity *pEntity )
+	{
+		if (m_ScriptScope.IsInitialized())
+		{
+			// caller, activator
+			ScriptVariant_t functionReturn;
+			ScriptVariant_t args[] = { ToHScript( pCaller ), ToHScript( pEntity ) };
+			if ( !g_Hook_PassesFilter.Call( m_ScriptScope, &functionReturn, args ) )
+			{
+				Warning( "%s: No PassesFilter function\n", GetDebugName() );
+			}
+
+			return functionReturn.m_bool;
+		}
+
+		Warning("%s: No script scope, cannot filter\n", GetDebugName());
+		return false;
+	}
+
+	bool PassesDamageFilterImpl( CBaseEntity *pCaller, const CTakeDamageInfo &info )
+	{
+		if (m_ScriptScope.IsInitialized())
+		{
+			HSCRIPT pInfo = g_pScriptVM->RegisterInstance( const_cast<CTakeDamageInfo*>(&info) );
+
+			// caller, info
+			ScriptVariant_t functionReturn;
+			ScriptVariant_t args[] = { ToHScript( pCaller ), pInfo };
+			if ( !g_Hook_PassesDamageFilter.Call( m_ScriptScope, &functionReturn, args ) )
+			{
+				// Fall back to main filter function
+				g_pScriptVM->RemoveInstance( pInfo );
+				return PassesFilterImpl( pCaller, info.GetAttacker() );
+			}
+
+			g_pScriptVM->RemoveInstance( pInfo );
+
+			return functionReturn.m_bool;
+		}
+
+		Warning("%s: No script scope, cannot filter\n", GetDebugName());
+		return false;
+	}
+
+	bool PassesFinalDamageFilter( CBaseEntity *pCaller, const CTakeDamageInfo &info )
+	{
+		if (m_ScriptScope.IsInitialized())
+		{
+			HSCRIPT pInfo = g_pScriptVM->RegisterInstance( const_cast<CTakeDamageInfo*>(&info) );
+
+			// caller, info
+			ScriptVariant_t functionReturn;
+			ScriptVariant_t args[] = { ToHScript( pCaller ), pInfo };
+			if ( !g_Hook_PassesFinalDamageFilter.Call( m_ScriptScope, &functionReturn, args ) )
+			{
+				g_pScriptVM->RemoveInstance( pInfo );
+				return BaseClass::PassesFinalDamageFilter( pCaller, info );
+			}
+
+			g_pScriptVM->RemoveInstance( pInfo );
+
+			return functionReturn.m_bool;
+		}
+
+		Warning("%s: No script scope, cannot filter\n", GetDebugName());
+		return false;
+	}
+
+	bool BloodAllowed( CBaseEntity *pCaller, const CTakeDamageInfo &info )
+	{
+		if (m_ScriptScope.IsInitialized())
+		{
+			HSCRIPT pInfo = g_pScriptVM->RegisterInstance( const_cast<CTakeDamageInfo*>(&info) );
+
+			// caller, info
+			ScriptVariant_t functionReturn;
+			ScriptVariant_t args[] = { ToHScript( pCaller ), pInfo };
+			if ( !g_Hook_BloodAllowed.Call( m_ScriptScope, &functionReturn, args ) )
+			{
+				g_pScriptVM->RemoveInstance( pInfo );
+				return BaseClass::BloodAllowed( pCaller, info );
+			}
+
+			g_pScriptVM->RemoveInstance( pInfo );
+
+			return functionReturn.m_bool;
+		}
+
+		Warning("%s: No script scope, cannot filter\n", GetDebugName());
+		return false;
+	}
+
+	bool DamageMod( CBaseEntity *pCaller, CTakeDamageInfo &info )
+	{
+		if (m_ScriptScope.IsInitialized())
+		{
+			HSCRIPT pInfo = g_pScriptVM->RegisterInstance( &info );
+
+			// caller, info
+			ScriptVariant_t functionReturn;
+			ScriptVariant_t args[] = { ToHScript( pCaller ), pInfo };
+			if ( !g_Hook_DamageMod.Call( m_ScriptScope, &functionReturn, args ) )
+			{
+				g_pScriptVM->RemoveInstance( pInfo );
+				return BaseClass::DamageMod( pCaller, info );
+			}
+
+			g_pScriptVM->RemoveInstance( pInfo );
+
+			return functionReturn.m_bool;
+		}
+
+		Warning("%s: No script scope, cannot filter\n", GetDebugName());
+		return false;
+	}
+};
+
+LINK_ENTITY_TO_CLASS( filter_script, CFilterScript );
+
+BEGIN_DATADESC( CFilterScript )
+END_DATADESC()
+
+BEGIN_ENT_SCRIPTDESC( CFilterScript, CBaseFilter, "The filter_script entity which allows VScript functions to hook onto filter methods." )
+
+	// 
+	// Hooks
+	// 
+
+	// The CFilterScript class is visible in the help string, so "A hook used by filter_script" is redundant, but these names are also
+	// used for functions in CBaseFilter. In order to reduce confusion, the description emphasizes that these are hooks.
+	BEGIN_SCRIPTHOOK( g_Hook_PassesFilter, "PassesFilter", FIELD_BOOLEAN, "A hook used by filter_script to determine what entities should pass it. Return true if the entity should pass or false if it should not. This hook is required for regular filtering." )
+		DEFINE_SCRIPTHOOK_PARAM( "caller", FIELD_HSCRIPT )
+		DEFINE_SCRIPTHOOK_PARAM( "activator", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+
+	BEGIN_SCRIPTHOOK( g_Hook_PassesDamageFilter, "PassesDamageFilter", FIELD_BOOLEAN, "A hook used by filter_script to determine what damage should pass it when it's being used as a damage filter. Return true if the info should pass or false if it should not. If this hook is not defined in a filter_script, damage filter requests will instead check PassesFilter with the attacker as the activator." )
+		DEFINE_SCRIPTHOOK_PARAM( "caller", FIELD_HSCRIPT )
+		DEFINE_SCRIPTHOOK_PARAM( "info", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+
+	BEGIN_SCRIPTHOOK( g_Hook_PassesFinalDamageFilter, "PassesFinalDamageFilter", FIELD_BOOLEAN, "A completely optional hook used by filter_script which only runs when the entity will take damage. This is different from PassesDamageFilter, which is sometimes used in cases where damage is not actually about to be taken. This also runs after a regular PassesDamageFilter check. Return true if the info should pass or false if it should not. If this hook is not defined, it will always return true." )
+		DEFINE_SCRIPTHOOK_PARAM( "caller", FIELD_HSCRIPT )
+		DEFINE_SCRIPTHOOK_PARAM( "info", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+
+	BEGIN_SCRIPTHOOK( g_Hook_BloodAllowed, "BloodAllowed", FIELD_BOOLEAN, "A completely optional hook used by filter_script to determine if a caller is allowed to emit blood after taking damage. Return true if blood should be allowed or false if it should not. If this hook is not defined, it will always return true." )
+		DEFINE_SCRIPTHOOK_PARAM( "caller", FIELD_HSCRIPT )
+		DEFINE_SCRIPTHOOK_PARAM( "info", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+
+	BEGIN_SCRIPTHOOK( g_Hook_DamageMod, "DamageMod", FIELD_BOOLEAN, "A completely optional hook used by filter_script to modify damage being taken by an entity. You are free to use CTakeDamageInfo functions on the damage info handle and it will change how the caller is damaged. Returning true or false currently has no effect on vanilla code, but you should generally return true if the damage info has been modified by your code and false if it was not. If this hook is not defined, it will always return false." )
+		DEFINE_SCRIPTHOOK_PARAM( "caller", FIELD_HSCRIPT )
+		DEFINE_SCRIPTHOOK_PARAM( "info", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+
+END_SCRIPTDESC()
 #endif

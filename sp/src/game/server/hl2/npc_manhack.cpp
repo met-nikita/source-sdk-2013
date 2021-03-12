@@ -169,6 +169,7 @@ BEGIN_DATADESC( CNPC_Manhack )
 	DEFINE_FIELD( m_hSmokeTrail,				FIELD_EHANDLE),
 #ifdef MAPBASE
 	DEFINE_FIELD( m_hPrevOwner,					FIELD_EHANDLE ),
+	DEFINE_KEYFIELD( m_bNoSprites,			FIELD_BOOLEAN,	"NoSprites" ),
 #endif
 
 	// DEFINE_FIELD( m_pLightGlow,				FIELD_CLASSPTR ),
@@ -198,6 +199,10 @@ BEGIN_DATADESC( CNPC_Manhack )
 	// Function Pointers
 	DEFINE_INPUTFUNC( FIELD_VOID,	"DisableSwarm", InputDisableSwarm ),
 	DEFINE_INPUTFUNC( FIELD_VOID,   "Unpack",		InputUnpack ),
+#ifdef MAPBASE
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSprites", InputEnableSprites ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableSprites", InputDisableSprites ),
+#endif
 
 	DEFINE_ENTITYFUNC( CrashTouch ),
 
@@ -2596,6 +2601,11 @@ EyeGlow_t * CNPC_Manhack::GetEyeGlowData(int index)
 //-----------------------------------------------------------------------------
 void CNPC_Manhack::StartEye( void )
 {
+#ifdef MAPBASE
+	if (m_bNoSprites)
+		return;
+#endif
+
 	//Create our Eye sprite
 	if ( m_pEyeGlow == NULL )
 	{
@@ -3132,6 +3142,26 @@ void CNPC_Manhack::InputUnpack( inputdata_t &inputdata )
 	SetCondition( COND_LIGHT_DAMAGE );
 }
 
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// Purpose: Creates the sprite if it has been destroyed
+//-----------------------------------------------------------------------------
+void CNPC_Manhack::InputEnableSprites( inputdata_t &inputdata )
+{
+	m_bNoSprites = false;
+	StartEye();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Destroys the sprite
+//-----------------------------------------------------------------------------
+void CNPC_Manhack::InputDisableSprites( inputdata_t &inputdata )
+{
+	KillSprites( 0.0 );
+	m_bNoSprites = true;
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : *pPhysGunUser - 
@@ -3404,7 +3434,6 @@ void CNPC_Manhack::SetEyeState( int state )
 			{
 				//Toggle our state
 #ifdef MAPBASE
-				// Something from Half-Laugh.
 				// Makes it easier to distinguish between hostile and friendly manhacks.
 				if( m_bHackedByAlyx )
 				{

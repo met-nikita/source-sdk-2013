@@ -1,4 +1,4 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//========= Mapbase - https://github.com/mapbase-source/source-sdk-2013 ============//
 //
 // Purpose: The flimsy MapEdit system that was
 //			heavily inspired by Synergy's MapEdit, completely based on the Commentary System
@@ -39,7 +39,7 @@ inline void DebugMsg(const tchar *pMsg, ...)
 {
 	if (mapedit_debug.GetBool() == true)
 	{
-		Msg(pMsg);
+		Msg("%s", pMsg);
 	}
 }
 
@@ -544,7 +544,7 @@ public:
 		else
 		{
 			DebugMsg("MapEdit Debug: File not NULL, loading %s\n", pFile);
-			Q_snprintf(szFullName,sizeof(szFullName), pFile);
+			Q_strncpy(szFullName, pFile, sizeof(szFullName));
 		}
 		KeyValues *pkvFile = new KeyValues( "MapEdit" );
 		if ( pkvFile->LoadFromFile( filesystem, szFullName, "MOD" ) )

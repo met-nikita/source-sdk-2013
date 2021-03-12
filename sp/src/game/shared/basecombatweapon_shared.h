@@ -52,20 +52,18 @@ class CUserCmd;
 // I really, REALLY hope no weapon uses their own spawnflags.
 // If you want yours to use spawnflags, start at 16 just to be safe.
 
-// Prevents NPCs from picking up the weapon.
-#define SF_WEAPON_NO_NPC_PICKUP	(1<<3)
-// Prevents the weapon from filling up to max automatically
-// when picked up by the player or dropped.
-#define SF_WEAPON_PRESERVE_AMMO (1<<4)
+#define SF_WEAPON_NO_NPC_PICKUP	(1<<3) // Prevents NPCs from picking up the weapon.
+#define SF_WEAPON_PRESERVE_AMMO (1<<4) // Prevents the weapon from filling up to max automatically when dropped or picked up by players.
+#define SF_WEAPON_PRESERVE_NAME	(1<<5) // Prevents the weapon's name from being cleared upon being picked up by a player.
+#define SF_WEAPON_ALWAYS_TOUCHABLE	(1<<6) // Makes a weapon always touchable/pickupable, even through walls.
 
 // ----------------------------------------------
-// Internal Spawnflags
-// 
-// For all of the weapons that show up in-game, I personally feel like
-// this beats adding new variables by at least a long shot.
+// These spawnflags are not supposed to be used by level designers.
+// They're just my way of trying to avoid adding new variables
+// that have to stay in memory and save/load.
 // ----------------------------------------------
-#define SF_WEAPON_NO_AUTO_SWITCH_WHEN_EMPTY (1<<5) // So weapons with ammo preserved at 0 don't switch.
-#define SF_WEAPON_USED (1<<6) // Weapon is being +USE'd, not bumped
+#define SF_WEAPON_NO_AUTO_SWITCH_WHEN_EMPTY (1<<6) // So weapons with ammo preserved at 0 don't switch.
+#define SF_WEAPON_USED (1<<7) // Weapon is being +USE'd, not bumped
 #endif
 
 //Percent
@@ -198,6 +196,9 @@ public:
 	DECLARE_CLASS( CBaseCombatWeapon, BASECOMBATWEAPON_DERIVED_FROM );
 	DECLARE_NETWORKCLASS();
 	DECLARE_PREDICTABLE();
+#ifdef MAPBASE_VSCRIPT
+	DECLARE_ENT_SCRIPTDESC();
+#endif
 
 							CBaseCombatWeapon();
 	virtual 				~CBaseCombatWeapon();
@@ -449,6 +450,52 @@ public:
 	virtual void			Activate( void );
 
 	virtual bool ShouldUseLargeViewModelVROverride() { return false; }
+
+#ifdef MAPBASE
+	// Gets the weapon script name to load.
+	virtual const char*		GetWeaponScriptName() { return GetClassname(); }
+#endif
+
+#ifdef MAPBASE_VSCRIPT
+	void				ScriptSetClip1( int ammo ) { m_iClip1 = ammo; }
+	void				ScriptSetClip2( int ammo ) { m_iClip2 = ammo; }
+
+	HSCRIPT				ScriptGetOwner();
+	void				ScriptSetOwner( HSCRIPT owner );
+
+	int					ScriptWeaponClassify() { return WeaponClassify(); }
+	void				ScriptWeaponSound( int sound_type, float soundtime = 0.0f ) { WeaponSound( (WeaponSound_t)sound_type, soundtime ); }
+
+	const Vector&		ScriptGetBulletSpread( void ) { return GetBulletSpread(); }
+	Vector				ScriptGetBulletSpreadForProficiency( int proficiency ) { return GetBulletSpread( (WeaponProficiency_t)proficiency ); }
+
+	int					ScriptGetPrimaryAttackActivity( void ) { return GetPrimaryAttackActivity(); }
+	int					ScriptGetSecondaryAttackActivity( void ) { return GetSecondaryAttackActivity(); }
+	int					ScriptGetDrawActivity( void ) { return GetDrawActivity(); }
+
+	bool				FiresUnderwater() { return m_bFiresUnderwater; }
+	void				SetFiresUnderwater( bool bVal ) { m_bFiresUnderwater = bVal; }
+	bool				AltFiresUnderwater() { return m_bAltFiresUnderwater; }
+	void				SetAltFiresUnderwater( bool bVal ) { m_bAltFiresUnderwater = bVal; }
+	float				MinRange1() { return m_fMinRange1; }
+	void				SetMinRange1( float flVal ) { m_fMinRange1 = flVal; }
+	float				MinRange2() { return m_fMinRange2; }
+	void				SetMinRange2( float flVal ) { m_fMinRange2 = flVal; }
+	float				MaxRange1() { return m_fMaxRange1; }
+	void				SetMaxRange1( float flVal ) { m_fMaxRange1 = flVal; }
+	float				MaxRange2() { return m_fMaxRange2; }
+	void				SetMaxRange2( float flVal ) { m_fMaxRange2 = flVal; }
+	//bool				ReloadsSingly() { return m_bReloadsSingly; }
+	void				SetReloadsSingly( bool bVal ) { m_bReloadsSingly = bVal; }
+	float				FireDuration() { return m_fFireDuration; }
+	void				SetFireDuration( float flVal ) { m_fFireDuration = flVal; }
+
+	float				NextPrimaryAttack() { return m_flNextPrimaryAttack; }
+	void				SetNextPrimaryAttack( float flVal ) { m_flNextPrimaryAttack = flVal; }
+	float				NextSecondaryAttack() { return m_flNextSecondaryAttack; }
+	void				SetNextSecondaryAttack( float flVal ) { m_flNextSecondaryAttack = flVal; }
+#endif
+
 public:
 // Server Only Methods
 #if !defined( CLIENT_DLL )
@@ -570,6 +617,7 @@ public:
 	virtual int				GetWorldModelIndex( void );
 
 	virtual void			GetToolRecordingState( KeyValues *msg );
+	void					EnsureCorrectRenderingModel();
 
 	virtual void			GetWeaponCrosshairScale( float &flScale ) { flScale = 1.f; }
 
@@ -581,6 +629,9 @@ public:
 	virtual int				DrawOverriddenViewmodel( C_BaseViewModel *pViewmodel, int flags ) { return 0; };
 	bool					WantsToOverrideViewmodelAttachments( void ) { return false; }
 #endif
+
+	//Tony; notifications of any third person switches.
+	virtual void			ThirdPersonSwitch( bool bThirdPerson ) {};
 
 #endif // End client-only methods
 

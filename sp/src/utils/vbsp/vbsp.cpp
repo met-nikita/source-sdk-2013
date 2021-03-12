@@ -20,6 +20,11 @@
 #include "byteswap.h"
 #include "worldvertextransitionfixup.h"
 
+#ifdef MAPBASE_VSCRIPT
+#include "vscript/ivscript.h"
+#include "vscript_vbsp.h"
+#endif
+
 extern float		g_maxLightmapDimension;
 
 char		source[1024];
@@ -43,7 +48,11 @@ qboolean	noshare;
 qboolean	nosubdiv;
 qboolean	notjunc;
 qboolean	noopt;
+#ifdef MAPBASE
+qboolean	noleaktest;
+#else
 qboolean	leaktest;
+#endif
 qboolean	verboseentities;
 qboolean	dumpcollide = false;
 qboolean	g_bLowPriority = false;
@@ -56,8 +65,14 @@ bool		g_NodrawTriggers = false;
 bool		g_DisableWaterLighting = false;
 bool		g_bAllowDetailCracks = false;
 bool		g_bNoVirtualMesh = false;
+bool		g_bNoHiddenManifestMaps = false;
 #ifdef MAPBASE
-bool		g_bNoDefaultCubemaps = false;
+bool		g_bNoDefaultCubemaps = true;
+bool		g_bSkyboxCubemaps = false;
+int			g_iDefaultCubemapSize = 32;
+#endif
+#ifdef MAPBASE_VSCRIPT
+ScriptLanguage_t	g_iScripting = SL_NONE;
 #endif
 
 float		g_defaultLuxelSize = DEFAULT_LUXEL_SIZE;
@@ -84,182 +99,6 @@ int			entity_num;
 
 
 node_t		*block_nodes[BLOCKS_SPACE+2][BLOCKS_SPACE+2];
-
-#ifdef MAPBASE
-//-----------------------------------------------------------------------------
-// Manifest stuff
-//-----------------------------------------------------------------------------
-CUtlVector<const char *> g_szManifestFiles;
-bool g_bManifestVerbose = true; // Change to false when testing is over
-
-#define ManifestMsg(msg, ...) g_bManifestVerbose ? Msg(msg, __VA_ARGS__) : NULL
-#define ManifestWarning(msg, ...) g_bManifestVerbose ? Warning(msg, __VA_ARGS__) : NULL
-
-void SetManifestFile(char const *file)
-{
-	if (g_pFileSystem->FileExists( file ))
-	{
-		Msg("Manifest file: %s\n", file);
-		g_szManifestFiles.AddToTail(file);
-	}
-}
-
-void ZipDirectory(const char *dir, const char *relative, IZip *package, int *filecount)
-{
-	ManifestMsg("	MANIFEST: Mounting directory \"%s\"\n", dir);
-
-	FileFindHandle_t handle = NULL;
-	const char *file = g_pFullFileSystem->FindFirst(dir, &handle);
-
-	// Prevents us from packaging the folder itself
-	//if (file)
-	//	file = g_pFullFileSystem->FindNext(handle);
-
-	while (file)
-	{
-		// Don't use hidden files/folders
-		if (file[0] != '.')
-		{
-			char subdir[MAX_PATH];
-			Q_strncpy(subdir, dir, strlen(dir) - 1); // Remove wildcard
-			Q_ComposeFileName(subdir, file, subdir, sizeof(subdir));
-
-			char subrelative[MAX_PATH];
-			Q_strncpy(subrelative, relative, sizeof(subrelative));
-			Q_ComposeFileName(subrelative, file, subrelative, sizeof(subrelative));
-
-			if (g_pFullFileSystem->FindIsDirectory(handle))
-			{
-				// Append wildcard
-				Q_ComposeFileName(subdir, "*", subdir, sizeof(subdir));
-
-				// Mount subdirectory
-				ZipDirectory(subdir, subrelative, package, filecount);
-			}
-			else
-			{
-				// Mount file
-				ManifestMsg("		MANIFEST: File \"%s\" packed into BSP at \"%s\"\n", subdir, subrelative);
-				*filecount++;
-				AddFileToPak(package, subrelative, subdir);
-			}
-		}
-
-		file = g_pFullFileSystem->FindNext(handle);
-	}
-	g_pFullFileSystem->FindClose(handle);
-}
-
-void ParseManifestFile()
-{
-	if (g_szManifestFiles.Count() == 0)
-		return;
-
-	Msg("Starting pack manifest with %i files\n", g_szManifestFiles.Count());
-
-	int totalfilecount = 0;
-
-	for (int i = 0; i < g_szManifestFiles.Count(); i++)
-	{
-		FileHandle_t manifestfile = g_pFileSystem->Open( g_szManifestFiles[i], "rb" );
-		if (!manifestfile)
-		{
-			Warning("Manifest file \"%s\" cannot be read!\n", g_szManifestFiles[i]);
-			continue;
-		}
-
-		//FileHandle_t curfile;
-		bool curfile;
-		char buf[1024];
-		char *scan;
-		int filecount = 0;
-		bool fullpath = false;
-		while ( CmdLib_FGets( buf, sizeof( buf ), manifestfile ) )
-		{
-			scan = buf;
-
-			// Check if it's an actual path or just relative
-			fullpath = (scan[0] == '#');
-			if (fullpath)
-				scan += 1;
-			else
-			{
-				char file[128];
-				Q_strncpy(file, scan, sizeof(file));
-				char path[_MAX_PATH];
-				Q_ExtractFilePath(source, path, sizeof(path));
-				sprintf(scan, "%s%s", path, file);
-			}
-
-			bool inquotes = (scan[0] == '"');
-			int namelength;
-			if (inquotes)
-			{
-				scan += 1;
-				namelength = strcspn( scan, "\"" );
-			}
-			else
-			{
-				namelength = strcspn( scan, " \t" );
-			}
-
-			char filename[FILENAME_MAX];
-			Q_strncpy(filename, scan, namelength + 1);
-
-			scan += (namelength + inquotes);
-			scan += strspn(scan, " \t");
-
-			// Remove any quotes in the internal path.
-			// The fact they're actually optional in the second path is irrelevant.
-			if (scan[0] == '"')
-			{
-				scan[0] = '\0';
-				if (scan[strlen(scan) - 1] == '"')
-					scan[strlen(scan) - 1] = '\0';
-			}
-
-			curfile = g_pFileSystem->FileExists(filename);
-			if (curfile)
-			{
-				// Assume internal file is a directory if no extension
-				if (Q_GetFileExtension(scan) == NULL)
-					Q_ComposeFileName(scan, filename, scan, sizeof(filename));
-
-				ManifestMsg("	MANIFEST: File \"%s\" packed into BSP at \"%s\"\n", filename, scan);
-				filecount++;
-				AddFileToPak(GetPakFile(), scan, filename);
-			}
-			else if (g_pFullFileSystem->IsDirectory(filename))
-			{
-				// Append wildcard
-				if (!Q_strstr(filename, "*"))
-					Q_ComposeFileName(filename, "*", filename, sizeof(filename));
-
-				// Internal path must be a directory
-				if (scan[0] == NULL || Q_GetFileExtension(scan) == NULL)
-					ZipDirectory(filename, scan, GetPakFile(), &filecount);
-				else
-					Warning("\n	MANIFEST WARNING: Directory \"%s\" tried to pack to a file!\nIf you are not trying to package a directory to the BSP, add an extension to \"%s\".\nIf you are trying to package a directory, remove the extension from \"%s\".\n\n", filename, filename, scan);
-			}
-			else
-			{
-				Warning("	MANIFEST WARNING: File \"%s\" does not exist!\n", filename);
-			}
-		}
-
-		if (filecount > 0)
-			ManifestMsg("%i file(s) packed from manifest %s\n", filecount, g_szManifestFiles[i]);
-		else
-			ManifestWarning("*** No files zipped from manifest %s!\n ***", g_szManifestFiles[i]);
-
-		totalfilecount += filecount;
-
-		g_pFileSystem->Close( manifestfile );
-	}
-
-	Msg("%i total file(s) packed from manifests\n", totalfilecount);
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // Assign occluder areas (must happen *after* the world model is processed)
@@ -473,7 +312,11 @@ void ProcessWorldModel (void)
 			Warning( ("**** leaked ****\n") );
 			leaked = true;
 			LeakFile (tree);
+#ifdef MAPBASE
+			if (!noleaktest)
+#else
 			if (leaktest)
+#endif
 			{
 				Warning( ("--- MAP LEAKED ---\n") );
 				exit (0);
@@ -1178,11 +1021,19 @@ int RunVBSP( int argc, char **argv )
 			Msg ("microvolume = %f\n", microvolume);
 			i++;
 		}
+#ifdef MAPBASE
+		else if (!Q_stricmp(argv[i], "-noleaktest"))
+		{
+			Msg ("noleaktest = true\n");
+			noleaktest = true;
+		}
+#else
 		else if (!Q_stricmp(argv[i], "-leaktest"))
 		{
 			Msg ("leaktest = true\n");
 			leaktest = true;
 		}
+#endif
 		else if (!Q_stricmp(argv[i], "-verboseentities"))
 		{
 			Msg ("verboseentities = true\n");
@@ -1315,19 +1166,98 @@ int RunVBSP( int argc, char **argv )
 		{
 			EnableFullMinidumps( true );
 		}
-#ifdef MAPBASE
-		else if ( !Q_stricmp( argv[i], "-deletecubemaps" ) )
+		else if ( !Q_stricmp( argv[i], "-nohiddenmaps" ) )
 		{
-			g_bNoDefaultCubemaps = true;
+			g_bNoHiddenManifestMaps = true;
 		}
-		else if ( !Q_stricmp( argv[i], "-manifest" ) )
+#ifdef MAPBASE
+		// Thanks to Mapbase's shader changes, default all-black cubemaps are no longer needed.
+		// The command has been switched from "-nodefaultcubemap" to "-defaultcubemap",
+		// meaning maps are compiled without them by default.
+		else if ( !Q_stricmp( argv[i], "-defaultcubemap" ) )
 		{
-			SetManifestFile(argv[i+1]);
+			g_bNoDefaultCubemaps = false;
+		}
+		// Default cubemaps are supposed to show the sky texture, but Valve disabled this
+		// because they didn't get it working for HDR cubemaps. As a result, all default
+		// cubemaps appear as all-black textures. However, this parameter has been added to
+		// re-enable skybox cubemaps for LDR cubemaps. (HDR skybox cubemaps are not supported)
+		else if ( !Q_stricmp( argv[i], "-skyboxcubemap" ) )
+		{
+			g_bNoDefaultCubemaps = false;
+			g_bSkyboxCubemaps = true;
+		}
+		else if ( !Q_stricmp( argv[i], "-defaultcubemapres" ) )
+		{
+			g_iDefaultCubemapSize = atoi( argv[i + 1] );
+			Msg( "Default cubemap size = %i\n", g_iDefaultCubemapSize );
 			i++;
 		}
-		else if ( !Q_stricmp( argv[i], "-manifest_verbose" ) )
+#endif
+#ifdef MAPBASE_VSCRIPT
+		else if ( !Q_stricmp( argv[i], "-scripting" ) )
 		{
-			g_bManifestVerbose = true;
+			const char *pszScriptLanguage = argv[i + 1];
+			if( pszScriptLanguage[0] == '-')
+			{
+				// It's another command. Just use default
+				g_iScripting = SL_DEFAULT;
+			}
+			else
+			{
+				// Use a specific language
+				if( !Q_stricmp(pszScriptLanguage, "gamemonkey") )
+				{
+					g_iScripting = SL_GAMEMONKEY;
+				}
+				else if( !Q_stricmp(pszScriptLanguage, "squirrel") )
+				{
+					g_iScripting = SL_SQUIRREL;
+				}
+				else if( !Q_stricmp(pszScriptLanguage, "python") )
+				{
+					g_iScripting = SL_PYTHON;
+				}
+				else if( !Q_stricmp(pszScriptLanguage, "lua") )
+				{
+					g_iScripting = SL_LUA;
+				}
+				else
+				{
+					DevWarning("-server_script does not recognize a language named '%s'. virtual machine did NOT start.\n", pszScriptLanguage );
+					g_iScripting = SL_NONE;
+				}
+				i++;
+			}
+		}
+		else if ( !Q_stricmp( argv[i], "-doc" ) )
+		{
+			// Only print the documentation
+
+			if (g_iScripting)
+			{
+				scriptmanager = (IScriptManager*)Sys_GetFactoryThis()(VSCRIPT_INTERFACE_VERSION, NULL);
+				VScriptVBSPInit();
+
+				const char *pszArg1 = argv[i + 1];
+				if (pszArg1[0] == '-')
+				{
+					// It's another command. Just use *
+					pszArg1 = "*";
+				}
+
+				char szCommand[512];
+				_snprintf( szCommand, sizeof( szCommand ), "PrintHelp( \"%s\" );", pszArg1 );
+				g_pScriptVM->Run( szCommand );
+			}
+			else
+			{
+				Warning("Cannot print documentation without scripting enabled!\n");
+			}
+
+			DeleteCmdLine( argc, argv );
+			CmdLib_Cleanup();
+			CmdLib_Exit( 1 );
 		}
 #endif
 		else if (argv[i][0] == '-')
@@ -1413,6 +1343,7 @@ int RunVBSP( int argc, char **argv )
 				"  -nox360		   : Disable generation Xbox360 version of vsp (default)\n"
 				"  -replacematerials : Substitute materials according to materialsub.txt in content\\maps\n"
 				"  -FullMinidumps  : Write large minidumps on crash.\n"
+				"  -nohiddenmaps   : Exclude manifest maps if they are currently hidden.\n"
 				);
 			}
 
@@ -1445,13 +1376,6 @@ int RunVBSP( int argc, char **argv )
 	ThreadSetDefault ();
 	numthreads = 1;		// multiple threads aren't helping...
 
-#ifdef MAPBASE
-	// Any additional files to pack?
-	char ManifestFile[512];
-	_snprintf( ManifestFile, sizeof(ManifestFile), "%s_zipmanifest.txt", source );
-	SetManifestFile(ManifestFile);
-#endif
-
 	// Setup the logfile.
 	char logFile[512];
 	_snprintf( logFile, sizeof(logFile), "%s.log", source );
@@ -1469,6 +1393,15 @@ int RunVBSP( int argc, char **argv )
 	sprintf( materialPath, "%smaterials", gamedir );
 	InitMaterialSystem( materialPath, CmdLib_GetFileSystemFactory() );
 	Msg( "materialPath: %s\n", materialPath );
+
+#ifdef MAPBASE_VSCRIPT
+	if (g_iScripting)
+	{
+		scriptmanager = (IScriptManager*)Sys_GetFactoryThis()(VSCRIPT_INTERFACE_VERSION, NULL);
+
+		VScriptVBSPInit();
+	}
+#endif
 	
 	// delete portal and line files
 	sprintf (path, "%s.prt", source);
@@ -1568,11 +1501,6 @@ int RunVBSP( int argc, char **argv )
 			AddBufferToPak( GetPakFile(), "stale.txt", "stale", strlen( "stale" ) + 1, false );
 		}
 
-#ifdef MAPBASE
-		// Is this a good place for this?
-		ParseManifestFile();
-#endif
-
 		LoadMapFile (name);
 		WorldVertexTransitionFixup();
 		if( ( g_nDXLevel == 0 ) || ( g_nDXLevel >= 70 ) )
@@ -1597,6 +1525,9 @@ int RunVBSP( int argc, char **argv )
 	ReleasePakFileLumps();
 	DeleteMaterialReplacementKeys();
 	ShutdownMaterialSystem();
+#ifdef MAPBASE_VSCRIPT
+	VScriptVBSPTerm();
+#endif
 	CmdLib_Cleanup();
 	return 0;
 }

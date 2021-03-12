@@ -588,6 +588,9 @@ public:
 	
 	DECLARE_DATADESC();
 	DECLARE_SERVERCLASS();
+#ifdef MAPBASE_VSCRIPT
+	DECLARE_ENT_SCRIPTDESC();
+#endif
 
 	virtual int			Save( ISave &save ); 
 	virtual int			Restore( IRestore &restore );
@@ -1082,6 +1085,10 @@ public:
 	const CAI_Senses *	GetSenses() const	{ return m_pSenses; }
 	
 	void				SetDistLook( float flDistLook );
+#ifdef MAPBASE
+	void				InputSetDistLook( inputdata_t &inputdata );
+	void				InputSetDistTooFar( inputdata_t &inputdata );
+#endif
 
 	virtual bool		QueryHearSound( CSound *pSound );
 	virtual bool		QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNPC = false );
@@ -1152,6 +1159,9 @@ public:
 	CBaseEntity *GetEnemyOccluder(void);
 
 	virtual void		StartTargetHandling( CBaseEntity *pTargetEnt );
+#ifdef MAPBASE
+	void				InputSetTarget( inputdata_t &inputdata );
+#endif
 
 	//---------------------------------
 	
@@ -1243,6 +1253,51 @@ public:
 	virtual Vector		GetAltFireTarget() { return GetEnemy() ? GetEnemy()->BodyTarget(Weapon_ShootPosition()) : vec3_origin; }
 	virtual void		DelayGrenadeCheck(float delay) { ; }
 	virtual void		AddGrenades( int inc, CBaseEntity *pLastGrenade = NULL ) { ; }
+#endif
+
+#ifdef MAPBASE_VSCRIPT
+	// VScript stuff uses "VScript" instead of just "Script" to avoid
+	// confusion with NPC_STATE_SCRIPT or StartScripting
+	HSCRIPT				VScriptGetEnemy();
+	void				VScriptSetEnemy( HSCRIPT pEnemy );
+	Vector				VScriptGetEnemyLKP();
+
+	HSCRIPT				VScriptFindEnemyMemory( HSCRIPT pEnemy );
+
+	int					VScriptGetState();
+
+	void				VScriptWake( HSCRIPT hActivator ) { Wake( ToEnt(hActivator) ); }
+	void				VScriptSleep() { Sleep(); }
+
+	int					VScriptGetSleepState()	{ return (int)GetSleepState(); }
+	void				VScriptSetSleepState( int sleepState ) { SetSleepState( (AI_SleepState_t)sleepState ); }
+
+	const char*			VScriptGetHintGroup() { return STRING( GetHintGroup() ); }
+	HSCRIPT				VScriptGetHintNode();
+
+	const char*			ScriptGetActivity() { return GetActivityName( GetActivity() ); }
+	int					ScriptGetActivityID() { return GetActivity(); }
+	void				ScriptSetActivity( const char *szActivity ) { SetActivity( (Activity)GetActivityID( szActivity ) ); }
+	void				ScriptSetActivityID( int iActivity ) { SetActivity((Activity)iActivity); }
+
+	const char*			VScriptGetSchedule();
+	int					VScriptGetScheduleID();
+	void				VScriptSetSchedule( const char *szSchedule );
+	void				VScriptSetScheduleID( int iSched ) { SetSchedule( iSched ); }
+	const char*			VScriptGetTask();
+	int					VScriptGetTaskID();
+
+	bool				VScriptHasCondition( const char *szCondition ) { return HasCondition( GetConditionID( szCondition ) ); }
+	bool				VScriptHasConditionID( int iCondition ) { return HasCondition( iCondition ); }
+	void				VScriptSetCondition( const char *szCondition ) { SetCondition( GetConditionID( szCondition ) ); }
+	void				VScriptClearCondition( const char *szCondition ) { ClearCondition( GetConditionID( szCondition ) ); }
+
+	HSCRIPT				VScriptGetExpresser();
+
+	HSCRIPT				VScriptGetCine();
+	int					GetScriptState() { return m_scriptState; }
+
+	HSCRIPT				VScriptGetSquad();
 #endif
 
 	//-----------------------------------------------------
@@ -1716,7 +1771,7 @@ public:
 	virtual bool		DoHolster(void);
 	virtual bool		DoUnholster(void);
 
-	virtual bool		ShouldUnholsterWeapon() { return GetState() == NPC_STATE_COMBAT && CanUnholsterWeapon(); }
+	virtual bool		ShouldUnholsterWeapon() { return GetState() == NPC_STATE_COMBAT; }
 	virtual bool		CanUnholsterWeapon() { return IsWeaponHolstered(); }
 
 	void				InputGiveWeaponHolstered( inputdata_t &inputdata );
@@ -2334,6 +2389,15 @@ public:
 	void				InputSetSpeedModifierRadius( inputdata_t &inputdata );
 	void				InputSetSpeedModifierSpeed( inputdata_t &inputdata );
 
+#ifdef MAPBASE
+	// Hammer input to change the speed of the NPC (based on 1upD's npc_shadow_walker code)
+	// Not to be confused with the inputs above
+	virtual float		GetSequenceGroundSpeed( CStudioHdr *pStudioHdr, int iSequence );
+	inline float		GetSequenceGroundSpeed( int iSequence ) { return GetSequenceGroundSpeed( GetModelPtr(), iSequence ); }
+	void				InputSetSpeedModifier( inputdata_t &inputdata );
+	float				m_flSpeedModifier;
+#endif
+
 	virtual bool		ShouldProbeCollideAgainstEntity( CBaseEntity *pEntity );
 
 	bool				m_bPlayerAvoidState;
@@ -2907,7 +2971,11 @@ public:
 	derivedClass::AccessClassScheduleIdSpaceDirect().Init( #derivedClass, BaseClass::GetSchedulingSymbols(), &BaseClass::AccessClassScheduleIdSpaceDirect() ); \
 	derivedClass::gm_SquadSlotIdSpace.Init( &CAI_BaseNPC::gm_SquadSlotNamespace, &BaseClass::gm_SquadSlotIdSpace);
 
+#ifdef MAPBASE
+#define ADD_CUSTOM_INTERACTION( interaction )	{ CBaseCombatCharacter::AddInteractionWithString( interaction, #interaction ); }
+#else
 #define	ADD_CUSTOM_INTERACTION( interaction )	{ interaction = CBaseCombatCharacter::GetInteractionID(); }
+#endif
 
 #define ADD_CUSTOM_SQUADSLOT_NAMED(derivedClass,squadSlotName,squadSlotEN)\
 	if ( !derivedClass::gm_SquadSlotIdSpace.AddSymbol( squadSlotName, squadSlotEN, "squadslot", derivedClass::gm_pszErrorClassName ) ) return;

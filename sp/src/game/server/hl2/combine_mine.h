@@ -34,7 +34,7 @@ class CBounceBomb : public CBaseAnimating, public CDefaultPlayerPickupVPhysics
 
 public:
 #ifdef MAPBASE
-	CBounceBomb() { m_pWarnSound = NULL; m_bPlacedByPlayer = false; m_flExplosionDelay = 0.5f; }
+	CBounceBomb() { m_pWarnSound = NULL; m_bPlacedByPlayer = false; m_flExplosionDelay = 0.5f; m_iLOSMask = MASK_SOLID_BRUSHONLY; }
 #else
 	CBounceBomb() { m_pWarnSound = NULL; m_bPlacedByPlayer = false; }
 #endif
@@ -83,6 +83,14 @@ public:
 	void OpenHooks( bool bSilent = false );
 	void CloseHooks();
 
+#ifdef MAPBASE
+	// Uses the new CBaseEntity interaction implementation and replaces the dynamic_casting from npc_barnacle
+	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+
+	void	UpdateWarnSound( float flVolume, float flDelta );
+	void	SilenceWarnSound( float flDelta );
+#endif
+
 	DECLARE_DATADESC();
 
 	static string_t gm_iszFloorTurretClassname;
@@ -113,6 +121,10 @@ private:
 	bool	m_bDisarmed;
 #ifdef MAPBASE
 	int		m_iInitialState;
+	bool	m_bCheapWarnSound;
+
+	// Allows control over the mask used in LOS
+	int		m_iLOSMask;
 #endif
 
 	bool	m_bPlacedByPlayer;

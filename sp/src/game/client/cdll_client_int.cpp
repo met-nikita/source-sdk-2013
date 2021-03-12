@@ -147,9 +147,8 @@
 #include "fbxsystem/fbxsystem.h"
 #endif
 
-#ifdef DISCORD_RPC
-#include "discord_rpc.h"
-#include <time.h>
+#ifdef MAPBASE_VSCRIPT
+#include "vscript_client.h"
 #endif
 
 extern vgui::IInputInternal *g_InputInternal;
@@ -222,6 +221,8 @@ IReplaySystem *g_pReplay = NULL;
 #ifdef MAPBASE
 IVEngineServer	*serverengine = NULL;
 #endif
+
+IScriptManager *scriptmanager = NULL;
 
 IHaptics* haptics = NULL;// NVNT haptics system interface singleton
 
@@ -964,6 +965,16 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	if (!g_pMatSystemSurface)
 		return false;
 
+	if ( !CommandLine()->CheckParm( "-noscripting") )
+	{
+		scriptmanager = (IScriptManager *)appSystemFactory( VSCRIPT_INTERFACE_VERSION, NULL );
+
+		if (scriptmanager == nullptr)
+		{
+			scriptmanager = (IScriptManager*)Sys_GetFactoryThis()(VSCRIPT_INTERFACE_VERSION, NULL);
+		}
+	}
+
 #ifdef WORKSHOP_IMPORT_ENABLED
 	if ( !ConnectDataModel( appSystemFactory ) )
 		return false;
@@ -1097,6 +1108,9 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetEntitySaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetPhysSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetViewEffectsRestoreBlockHandler() );
+#ifdef MAPBASE_VSCRIPT
+	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetVScriptSaveRestoreBlockHandler() );
+#endif
 
 	ClientWorldFactoryInit();
 
@@ -1112,6 +1126,10 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 
 #ifdef MAPBASE_RPC
 	MapbaseRPC_Init();
+#endif
+
+#ifdef MAPBASE
+	CommandLine()->AppendParm( "+r_hunkalloclightmaps", "0" );
 #endif
 
 	return true;
@@ -1205,6 +1223,9 @@ void CHLClient::Shutdown( void )
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetViewEffectsRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetPhysSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetEntitySaveRestoreBlockHandler() );
+#ifdef MAPBASE_VSCRIPT
+	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetVScriptSaveRestoreBlockHandler() );
+#endif
 
 	ClientVoiceMgr_Shutdown();
 
@@ -1623,6 +1644,10 @@ void CHLClient::LevelInitPreEntity( char const* pMapName )
 	view->LevelInit();
 	tempents->LevelInit();
 	ResetToneMapping(1.0);
+
+#ifdef MAPBASE
+	GetClientWorldEntity()->ParseWorldMapData( engine->GetMapEntitiesString() );
+#endif
 
 	IGameSystem::LevelInitPreEntityAllSystems(pMapName);
 

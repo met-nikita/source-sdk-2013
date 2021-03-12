@@ -1494,7 +1494,8 @@ void CClientShadowMgr::InitDepthTextureShadows()
 #else
 #if defined(MAPBASE) //&& !defined(ASW_PROJECTED_TEXTURES)
 			// SAUL: we want to create a *DEPTH TEXTURE* of specific size, so use RT_SIZE_NO_CHANGE and MATERIAL_RT_DEPTH_ONLY
-			depthTex.InitRenderTarget( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_NO_CHANGE, dstFormat, MATERIAL_RT_DEPTH_ONLY, false, strRTName );
+			// However, MATERIAL_RT_DEPTH_ONLY forces point filtering to be enabled which negatively affect PCF, so the standard MATERIAL_RT_DEPTH_NONE works better.
+			depthTex.InitRenderTarget( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_NO_CHANGE, dstFormat, MATERIAL_RT_DEPTH_NONE, false, strRTName );
 #else
 			depthTex.InitRenderTarget( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_OFFSCREEN, dstFormat, MATERIAL_RT_DEPTH_NONE, false, strRTName );
 #endif
@@ -2136,7 +2137,7 @@ ClientShadowHandle_t CClientShadowMgr::CreateProjectedTexture( ClientEntityHandl
 	{
 		pShadowMaterial = NULL;		// these materials aren't used for shadow depth texture shadows.
 		pShadowModelMaterial = NULL;
-		pShadowProxyData = (void*)h;
+		pShadowProxyData = (void*)(uintp)h;
 	}
 #else
 	if( flags & SHADOW_FLAGS_USE_DEPTH_TEXTURE )
@@ -3235,7 +3236,8 @@ void CClientShadowMgr::PreRender()
 {
 #ifdef ASW_PROJECTED_TEXTURES
 	// only update shadows once per frame
-	Assert( gpGlobals->framecount != m_nPrevFrameCount );
+	if( gpGlobals->framecount == m_nPrevFrameCount ) 
+		return;
 	m_nPrevFrameCount = gpGlobals->framecount;
 #endif
 

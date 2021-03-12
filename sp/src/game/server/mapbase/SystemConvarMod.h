@@ -1,4 +1,4 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//========= Mapbase - https://github.com/mapbase-source/source-sdk-2013 ============//
 //
 // Purpose: modifiedconvarts_t from CommentarySystem.cpp moved to a header file so Mapbase can use it.
 //
@@ -33,6 +33,7 @@ public:
 	void Precache( void );
 
 	void Spawn( void );
+	void CvarModActivate();
 
 	void OnRestore( void );
 
@@ -42,6 +43,7 @@ public:
 	bool NewCVar( ConVarRef *var, const char *pOldString, CBaseEntity *modent );
 
 	CUtlVector< modifiedconvars_t > m_ModifiedConvars;
+	bool m_bUseServer;
 
 	DECLARE_DATADESC();
 };

@@ -19,6 +19,7 @@
 #include "ammodef.h"
 #ifdef MAPBASE
 #include "AI_ResponseSystem.h"
+#include "ai_speech.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -1175,7 +1176,7 @@ bool CZombie::IsSquashed( const CTakeDamageInfo &info )
 		return false;
 	}
 
-	if( info.GetDamageType() & DMG_CRUSH )
+	if( info.GetDamageType() & DMG_CRUSH && info.GetInflictor() ) // Mapbase - Fixes a crash with inflictor-less crush damage
 	{
 		IPhysicsObject *pCrusher = info.GetInflictor()->VPhysicsGetObject();
 		if( pCrusher && pCrusher->GetMass() >= ZOMBIE_SQUASH_MASS && info.GetInflictor()->WorldSpaceCenter().z > EyePosition().z )
@@ -1296,10 +1297,10 @@ AI_END_CUSTOM_NPC()
 //=============================================================================
 
 #ifdef MAPBASE
-class CZombieCustom : public CZombie
+class CZombieCustom : public CAI_ExpresserHost<CZombie>
 {
 	DECLARE_DATADESC();
-	DECLARE_CLASS( CZombieCustom, CZombie );
+	DECLARE_CLASS( CZombieCustom, CAI_ExpresserHost<CZombie> );
 
 public:
 	CZombieCustom();
@@ -1307,10 +1308,11 @@ public:
 	void Spawn( void );
 	void Precache( void );
 
-#ifdef EXPANDED_RESPONSE_SYSTEM_USAGE
-	DeclareResponseSystem()
-	void SpeakIfAllowed(const char *concept);
+	void SpeakIfAllowed( const char *concept, AI_CriteriaSet *modifiers = NULL );
 	void ModifyOrAppendCriteria( AI_CriteriaSet& set );
+	virtual CAI_Expresser *CreateExpresser( void );
+	virtual CAI_Expresser *GetExpresser() { return m_pExpresser; }
+	virtual void		PostConstructor( const char *szClassname );
 
 	void PainSound( const CTakeDamageInfo &info );
 	void DeathSound( const CTakeDamageInfo &info );
@@ -1319,7 +1321,6 @@ public:
 	void AttackSound( void );
 
 	const char *GetMoanSound( int nSound );
-#endif
 
 	void SetZombieModel( void );
 
@@ -1332,6 +1333,8 @@ public:
 	string_t m_iszTorsoModel;
 	string_t m_iszHeadcrabClassname;
 	string_t m_iszHeadcrabModel;
+
+	CAI_Expresser *m_pExpresser;
 };
 
 BEGIN_DATADESC( CZombieCustom )
@@ -1434,20 +1437,24 @@ void CZombieCustom::SetZombieModel( void )
 	}
 }
 
-#ifdef EXPANDED_RESPONSE_SYSTEM_USAGE
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void CZombieCustom::PainSound( const CTakeDamageInfo &info )
 {
-	SpeakIfAllowed( TLK_ZOMBIE_PAIN );
+	AI_CriteriaSet modifiers;
+	ModifyOrAppendDamageCriteria( modifiers, info );
+	SpeakIfAllowed( TLK_ZOMBIE_PAIN, &modifiers );
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: 
 //-----------------------------------------------------------------------------
 void CZombieCustom::DeathSound( const CTakeDamageInfo &info ) 
 {
-	SpeakIfAllowed( TLK_ZOMBIE_DEATH );
+	AI_CriteriaSet modifiers;
+	ModifyOrAppendDamageCriteria( modifiers, info );
+	SpeakIfAllowed( TLK_ZOMBIE_DEATH, &modifiers );
 }
 
 //-----------------------------------------------------------------------------
@@ -1466,64 +1473,21 @@ void CZombieCustom::AlertSound( void )
 //-----------------------------------------------------------------------------
 const char *CZombieCustom::GetMoanSound( int nSound )
 {
-	// This whole thing is really complicated and largely a copy-paste of CBaseEntity::DispatchResponse().
+	AI_CriteriaSet modifiers;
 
-	AddContext( "moansound", UTIL_VarArgs("%i", nSound & 4), 5.0f );
+	// We could probably do this through the response system alone now, but whatever.
+	modifiers.AppendCriteria( "moansound", UTIL_VarArgs("%i", nSound & 4) );
 
-	IResponseSystem *rs = GetResponseSystem();
-	if ( !rs )
+	AI_Response *response = SpeakFindResponse(TLK_ZOMBIE_MOAN, modifiers);
+
+	if ( !response )
 		return "NPC_BaseZombie.Moan1";
 
-	AI_CriteriaSet set;
-	set.AppendCriteria( "concept", TLK_ZOMBIE_MOAN, CONCEPT_WEIGHT );
-	ModifyOrAppendCriteria( set );
-	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
-	if( pPlayer )
-		pPlayer->ModifyOrAppendPlayerCriteria( set );
-	ReAppendContextCriteria( set );
+	// Must be static so it could be returned
+	static char szSound[128];
+	response->GetName(szSound, sizeof(szSound));
 
-	AI_Response result;
-	rs->FindBestResponse(set, result);
-
-	// Get the response and turn it into something we can use
-	char response[256];
-	result.GetResponse(response, sizeof(response));
-	switch (result.GetType())
-	{
-		case RESPONSE_SENTENCE:
-			{
-				if (response[0] != '!')
-				{
-					SENTENCEG_PlayRndSz( edict(), response, 1, result.GetSoundLevel(), 0, PITCH_NORM );
-					break;
-				}
-				int sentenceIndex = SENTENCEG_Lookup( response );
-				if( sentenceIndex == -1 )
-				{
-					// sentence not found
-					break;
-				}
-
-				// Not sure how else to get around this
-				CPASAttenuationFilter filter( this );
-				CBaseEntity::EmitSentenceByIndex( filter, entindex(), CHAN_VOICE, sentenceIndex, 1, result.GetSoundLevel(), 0, PITCH_NORM );
-				return "AI_BaseNPC.SentenceStop";
-			}
-			break;
-		case RESPONSE_SCENE:
-			{
-				extern const char *GetFirstSoundInScene(const char *pszScene);
-
-				// Expand gender string
-				GenderExpandString( response, response, sizeof( response ) );
-
-				// Trust that it's been precached
-				Q_strncpy(response, GetFirstSoundInScene(response), sizeof(response));
-			}
-			break;
-	}
-
-	const char *szSound = response;
+	delete response;
 	return szSound;
 }
 
@@ -1553,9 +1517,9 @@ void CZombieCustom::AttackSound( void )
 //-----------------------------------------------------------------------------
 // Purpose: Speak concept
 //-----------------------------------------------------------------------------
-void CZombieCustom::SpeakIfAllowed(const char *concept)
+void CZombieCustom::SpeakIfAllowed(const char *concept, AI_CriteriaSet *modifiers)
 {
-	DispatchResponse(concept);
+	Speak( concept, modifiers ? *modifiers : AI_CriteriaSet() );
 }
 
 //-----------------------------------------------------------------------------
@@ -1573,5 +1537,26 @@ void CZombieCustom::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 	// This can be overridden with response contexts.
 	set.AppendCriteria( "classname", "npc_zombie" );
 }
-#endif
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CAI_Expresser *CZombieCustom::CreateExpresser( void )
+{
+	m_pExpresser = new CAI_Expresser(this);
+	if (!m_pExpresser)
+		return NULL;
+
+	m_pExpresser->Connect(this);
+	return m_pExpresser;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CZombieCustom::PostConstructor(const char *szClassname)
+{
+	BaseClass::PostConstructor(szClassname);
+	CreateExpresser();
+}
 #endif

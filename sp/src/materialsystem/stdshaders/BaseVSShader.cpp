@@ -20,30 +20,30 @@
 #endif
 
 #if SUPPORT_DX8
-#include "sdk_lightmappedgeneric_flashlight_vs11.inc"
-#include "sdk_flashlight_ps11.inc"
+#include "SDK_lightmappedgeneric_flashlight_vs11.inc"
+#include "SDK_flashlight_ps11.inc"
 #endif
 
 #ifdef STDSHADER_DX9_DLL_EXPORT
-#include "sdk_lightmappedgeneric_flashlight_vs20.inc"
-#include "sdk_lightmappedgeneric_flashlight_vs30.inc"
+#include "SDK_lightmappedgeneric_flashlight_vs20.inc"
+#include "SDK_lightmappedgeneric_flashlight_vs30.inc"
 #endif
 #ifdef STDSHADER_DX9_DLL_EXPORT
-#include "sdk_flashlight_ps20.inc"
-#include "sdk_flashlight_ps20b.inc"
-#include "sdk_flashlight_ps30.inc"
+#include "SDK_flashlight_ps20.inc"
+#include "SDK_flashlight_ps20b.inc"
+#include "SDK_flashlight_ps30.inc"
 #endif
-#include "sdk_unlitgeneric_vs11.inc"
-#include "sdk_VertexLitGeneric_EnvmappedBumpmap_NoLighting_ps14.inc"
-#include "sdk_VertexLitGeneric_EnvmappedBumpmap_NoLighting.inc"
-#include "sdk_vertexlitgeneric_flashlight_vs11.inc"
-#include "sdk_LightmappedGeneric_BaseTexture.inc"
-#include "sdk_LightmappedGeneric_BumpmappedLightmap_Base_ps14.inc"
-#include "sdk_LightmappedGeneric_BumpmappedLightmap_Blend_ps14.inc"
-#include "sdk_lightmappedgeneric_bumpmappedenvmap_ps14.inc"
-#include "sdk_lightmappedgeneric_bumpmappedenvmap.inc"
-#include "sdk_lightmappedgeneric_basetextureblend.inc"
-#include "sdk_lightmappedgeneric_bumpmappedlightmap.inc"
+#include "SDK_unlitgeneric_vs11.inc"
+#include "SDK_VertexLitGeneric_EnvmappedBumpmap_NoLighting_ps14.inc"
+#include "SDK_VertexLitGeneric_EnvmappedBumpmap_NoLighting.inc"
+#include "SDK_vertexlitgeneric_flashlight_vs11.inc"
+#include "SDK_LightmappedGeneric_BaseTexture.inc"
+#include "SDK_LightmappedGeneric_BumpmappedLightmap_Base_ps14.inc"
+#include "SDK_LightmappedGeneric_BumpmappedLightmap_Blend_ps14.inc"
+#include "SDK_lightmappedgeneric_bumpmappedenvmap_ps14.inc"
+#include "SDK_lightmappedgeneric_bumpmappedenvmap.inc"
+#include "SDK_lightmappedgeneric_basetextureblend.inc"
+#include "SDK_lightmappedgeneric_bumpmappedlightmap.inc"
 #endif // GAME_SHADER_DLL
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -53,6 +53,10 @@ static ConVar mat_fullbright( "mat_fullbright","0", FCVAR_CHEAT );
 
 // NOTE: This is externed in BaseVSShader.h so it needs to be here
 ConVar r_flashlightbrightness( "r_flashlightbrightness", "0.25", FCVAR_CHEAT );
+
+#ifdef MAPBASE
+ConVar mat_specular_disable_on_missing( "mat_specular_disable_on_missing", "1", FCVAR_ARCHIVE, "Disables specular reflections on a material when the envmap cannot be found." );
+#endif
 
 // These functions are to be called from the shaders.
 

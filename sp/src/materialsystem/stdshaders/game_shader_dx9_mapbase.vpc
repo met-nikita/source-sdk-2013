@@ -4,6 +4,15 @@
 //	Project Script for Mapbase shader changes
 //-----------------------------------------------------------------------------
 
+$Configuration
+{
+	$Compiler
+	{
+		// https://developer.valvesoftware.com/wiki/Parallax_Corrected_Cubemaps
+		$PreprocessorDefinitions		"$BASE;PARALLAX_CORRECTED_CUBEMAPS"
+	}
+}
+
 $Project
 {
 	$Folder	"Source Files"
@@ -50,6 +59,11 @@ $Project
 		
 		$File	"unlittwotexture_dx9.cpp"
 		$File	"MonitorScreen_dx9.cpp"
+		$File	"shatteredglass.cpp"
+		$File	"windowimposter_dx90.cpp"
+		
+		$File	"engine_post_dx9.cpp"
+		$File	"depthoffield_dx9.cpp"
 	}
 
 	//$Shaders	"mapbase_dx9_20b.txt"

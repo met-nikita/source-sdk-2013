@@ -119,6 +119,9 @@ public:
 	DECLARE_SERVERCLASS();
 	DECLARE_DATADESC();
 	DECLARE_PREDICTABLE();
+#ifdef MAPBASE_VSCRIPT
+	DECLARE_ENT_SCRIPTDESC();
+#endif
 
 public:
 
@@ -135,6 +138,10 @@ public:
 	virtual	bool		FVisible ( CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL ); // true iff the parameter can be seen by me.
 	virtual bool		FVisible( const Vector &vecTarget, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL )	{ return BaseClass::FVisible( vecTarget, traceMask, ppBlocker ); }
 	static void			ResetVisibilityCache( CBaseCombatCharacter *pBCC = NULL );
+
+#ifdef MAPBASE
+	virtual bool		ShouldUseVisibilityCache( CBaseEntity *pEntity );
+#endif
 
 #ifdef PORTAL
 	virtual	bool		FVisibleThroughPortal( const CProp_Portal *pPortal, CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL );
@@ -154,8 +161,10 @@ public:
 	virtual bool		ShouldShootMissTarget( CBaseCombatCharacter *pAttacker );
 	virtual CBaseEntity *FindMissTarget( void );
 
+#ifndef MAPBASE // This function now exists in CBaseEntity
 	// Do not call HandleInteraction directly, use DispatchInteraction
 	bool				DispatchInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )	{ return ( interactionType > 0 ) ? HandleInteraction( interactionType, data, sourceEnt ) : false; }
+#endif
 	virtual bool		HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
 
 	virtual QAngle		BodyAngles();
@@ -333,6 +342,12 @@ public:
 
 	virtual bool			BecomeRagdollBoogie( CBaseEntity *pKiller, const Vector &forceVector, float duration, int flags );
 
+#ifdef MAPBASE
+	// A version of BecomeRagdollBoogie() that allows the color to change and returns the entity itself instead.
+	// In order to avoid breaking anything, it doesn't change the original function.
+	virtual CBaseEntity		*BecomeRagdollBoogie( CBaseEntity *pKiller, const Vector &forceVector, float duration, int flags, const Vector *vecColor );
+#endif
+
 	CBaseEntity				*FindHealthItem( const Vector &vecPosition, const Vector &range );
 
 
@@ -386,16 +401,51 @@ public:
 	CBaseCombatWeapon*	GetWeapon( int i ) const;
 	bool				RemoveWeapon( CBaseCombatWeapon *pWeapon );
 	virtual void		RemoveAllWeapons();
+	WeaponProficiency_t GetCurrentWeaponProficiency()
+	{
 #ifdef MAPBASE
-	WeaponProficiency_t GetCurrentWeaponProficiency();
+		// Mapbase adds proficiency override
+		return (m_ProficiencyOverride > WEAPON_PROFICIENCY_INVALID) ? m_ProficiencyOverride : m_CurrentWeaponProficiency;
 #else
-	WeaponProficiency_t GetCurrentWeaponProficiency() { return m_CurrentWeaponProficiency; }
+		return m_CurrentWeaponProficiency;
 #endif
+	}
 	void				SetCurrentWeaponProficiency( WeaponProficiency_t iProficiency ) { m_CurrentWeaponProficiency = iProficiency; }
 	virtual WeaponProficiency_t CalcWeaponProficiency( CBaseCombatWeapon *pWeapon );
 	virtual	Vector		GetAttackSpread( CBaseCombatWeapon *pWeapon, CBaseEntity *pTarget = NULL );
 	virtual	float		GetSpreadBias(  CBaseCombatWeapon *pWeapon, CBaseEntity *pTarget );
 	virtual void		DoMuzzleFlash();
+
+#ifdef MAPBASE_VSCRIPT
+	HSCRIPT				GetScriptActiveWeapon();
+	HSCRIPT				GetScriptWeaponIndex( int i );
+	HSCRIPT				GetScriptWeaponByType( const char *pszWeapon, int iSubType = 0 );
+	void				GetScriptAllWeapons( HSCRIPT hTable );
+	int					ScriptGetCurrentWeaponProficiency() { return GetCurrentWeaponProficiency(); }
+
+	void				ScriptDropWeapon( HSCRIPT hWeapon );
+	void				ScriptEquipWeapon( HSCRIPT hWeapon );
+
+	int					ScriptGetAmmoCount( int iType ) const;
+	void				ScriptSetAmmoCount( int iType, int iCount );
+
+	const Vector&		ScriptGetAttackSpread( HSCRIPT hWeapon, HSCRIPT hTarget );
+	float				ScriptGetSpreadBias( HSCRIPT hWeapon, HSCRIPT hTarget );
+
+	int					ScriptRelationType( HSCRIPT pTarget );
+	int					ScriptRelationPriority( HSCRIPT pTarget );
+	void				ScriptSetRelationship( HSCRIPT pTarget, int disposition, int priority );
+
+	HSCRIPT				GetScriptVehicleEntity();
+
+	bool				ScriptInViewCone( const Vector &vecSpot ) { return FInViewCone( vecSpot ); }
+	bool				ScriptEntInViewCone( HSCRIPT pEntity ) { return FInViewCone( ToEnt( pEntity ) ); }
+
+	bool				ScriptInAimCone( const Vector &vecSpot ) { return FInAimCone( vecSpot ); }
+	bool				ScriptEntInAimCone( HSCRIPT pEntity ) { return FInAimCone( ToEnt( pEntity ) ); }
+
+	const Vector&		ScriptBodyAngles( void ) { static Vector vec; QAngle qa = BodyAngles(); vec.x = qa.x; vec.y = qa.y; vec.z = qa.z; return vec; }
+#endif
 
 	// Interactions
 	static void			InitInteractionSystem();
@@ -535,6 +585,11 @@ protected:
 
 public:
 	static int					GetInteractionID();	// Returns the next interaction #
+
+#ifdef MAPBASE
+	// Mapbase's new method for adding interactions which allows them to be handled with their names, currently for VScript
+	static void					AddInteractionWithString( int &interaction, const char *szName );
+#endif
 
 protected:
 	// Visibility-related stuff

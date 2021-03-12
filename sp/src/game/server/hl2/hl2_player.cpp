@@ -137,6 +137,10 @@ ConVar sk_suit_maxarmor("sk_suit_maxarmor", "200", FCVAR_REPLICATED);
 ConVar sk_suit_maxarmor("sk_suit_maxarmor", "100", FCVAR_REPLICATED);
 #endif
 
+#ifdef MAPBASE
+ConVar player_autoswitch_enabled( "player_autoswitch_enabled", "1", FCVAR_NONE, "This convar was added by Mapbase to toggle whether players automatically switch to their ''best'' weapon upon picking up ammo for it after it was dry." );
+#endif
+
 #define	FLASH_DRAIN_TIME	 1.1111	// 100 units / 90 secs
 #define	FLASH_CHARGE_TIME	 50.0f	// 100 units / 2 secs
 
@@ -255,6 +259,8 @@ public:
 	COutputInt m_RequestedPlayerArmor;
 	COutputFloat m_RequestedPlayerAuxPower;
 	COutputFloat m_RequestedPlayerFlashBattery;
+
+	COutputEvent m_OnPlayerSpawn;
 #endif
 
 	void InputRequestPlayerHealth( inputdata_t &inputdata );
@@ -277,6 +283,7 @@ public:
 	void InputGetAmmoOnWeapon( inputdata_t &inputdata );
 
 	void InputSetHandModel( inputdata_t &inputdata );
+	void InputSetHandModelSkin( inputdata_t &inputdata );
 
 	void InputSetPlayerModel( inputdata_t &inputdata );
 	void InputSetPlayerDrawExternally( inputdata_t &inputdata );
@@ -322,7 +329,7 @@ public:
 
 	~CCommandRedirect()
 	{
-		g_pCommandRedirects.AddToTail(this);
+		g_pCommandRedirects.FindAndRemove(this);
 		/*
 		for (int i = 0; i < g_pCommandRedirects.Count(); i++)
 		{
@@ -618,6 +625,23 @@ BEGIN_DATADESC( CHL2_Player )
 
 END_DATADESC()
 
+#ifdef MAPBASE_VSCRIPT
+BEGIN_ENT_SCRIPTDESC( CHL2_Player, CBasePlayer, "The HL2 player entity." )
+
+	DEFINE_SCRIPTFUNC_NAMED( SuitPower_Drain, "RemoveAuxPower", "Removes from the player's available aux power." )
+	DEFINE_SCRIPTFUNC_NAMED( SuitPower_Charge, "AddAuxPower", "Adds to the player's available aux power." )
+	DEFINE_SCRIPTFUNC_NAMED( SuitPower_SetCharge, "SetAuxPower", "Sets the player's available aux power." )
+	DEFINE_SCRIPTFUNC_NAMED( SuitPower_GetCurrentPercentage, "GetAuxPower", "Gets the player's available aux power." )
+	DEFINE_SCRIPTFUNC( GetFlashlightBattery, "Gets the energy available in the player's flashlight. If the legacy (aux power-based) flashlight is enabled, this returns the aux power." )
+
+	DEFINE_SCRIPTFUNC( InitCustomSuitDevice, "Initializes a custom suit device. (just sets drain rate for now)" )
+	DEFINE_SCRIPTFUNC( AddCustomSuitDevice, "Adds a custom suit device ID. (1-3)" )
+	DEFINE_SCRIPTFUNC( RemoveCustomSuitDevice, "Removes a custom suit device ID. (1-3)" )
+	DEFINE_SCRIPTFUNC( IsCustomSuitDeviceActive, "Checks if a custom suit device is active." )
+
+END_SCRIPTDESC();
+#endif
+
 CHL2_Player::CHL2_Player()
 {
 	m_nNumMissPositions	= 0;
@@ -645,6 +669,16 @@ CHL2_Player::CHL2_Player()
 	CSuitPowerDevice SuitDeviceFlashlight( bits_SUIT_DEVICE_FLASHLIGHT, 2.222 );	// 100 units in 45 second
 #endif
 CSuitPowerDevice SuitDeviceBreather( bits_SUIT_DEVICE_BREATHER, 6.7f );		// 100 units in 15 seconds (plus three padded seconds)
+
+#ifdef MAPBASE
+// Default: 100 units in 8 seconds
+CSuitPowerDevice SuitDeviceCustom[] =
+{
+	{ bits_SUIT_DEVICE_CUSTOM0, 12.5f },
+	{ bits_SUIT_DEVICE_CUSTOM1, 12.5f },
+	{ bits_SUIT_DEVICE_CUSTOM2, 12.5f },
+};
+#endif
 
 
 IMPLEMENT_SERVERCLASS_ST(CHL2_Player, DT_HL2_Player)
@@ -1338,6 +1372,13 @@ void CHL2_Player::PlayerRunCommand(CUserCmd *ucmd, IMoveHelper *moveHelper)
 }
 
 #ifdef MAPBASE
+void CHL2_Player::SpawnedAtPoint( CBaseEntity *pSpawnPoint )
+{
+	FirePlayerProxyOutput( "OnPlayerSpawn", variant_t(), this, pSpawnPoint );
+}
+
+//-----------------------------------------------------------------------------
+
 ConVar hl2_use_hl2dm_anims( "hl2_use_hl2dm_anims", "0", FCVAR_NONE, "Allows SP HL2 players to use HL2:DM animations (for custom player models)" );
 
 void CHL2_Player::ResetAnimation( void )
@@ -1363,7 +1404,10 @@ void CHL2_Player::ResetAnimation( void )
 void CHL2_Player::SetAnimation( PLAYER_ANIM playerAnim )
 {
 	if (!hl2_use_hl2dm_anims.GetBool())
+	{
+		BaseClass::SetAnimation( playerAnim );
 		return;
+	}
 
 	int animDesired;
 
@@ -1537,6 +1581,17 @@ void CHL2_Player::Spawn(void)
 #endif
 
 	BaseClass::Spawn();
+
+#ifdef MAPBASE
+	// Ported from CHL2MP_Player. Fixes issues with respawning players in SP
+	if ( !IsObserver() )
+	{
+		pl.deadflag = false;
+		RemoveSolidFlags( FSOLID_NOT_SOLID );
+
+		RemoveEffects( EF_NODRAW );
+	}
+#endif
 
 	//
 	// Our player movement speed is set once here. This will override the cl_xxxx
@@ -1818,7 +1873,16 @@ bool CHL2_Player::CommanderFindGoal( commandgoal_t *pGoal )
 	
 	//---------------------------------
 	// MASK_SHOT on purpose! So that you don't hit the invisible hulls of the NPCs.
+#ifdef MAPBASE
+	// Get either our +USE entity or the gravity gun entity
+	CBaseEntity *pHeldEntity = GetPlayerHeldEntity(this);
+	if ( !pHeldEntity )
+		PhysCannonGetHeldEntity( GetActiveWeapon() );
+
+	CTraceFilterSkipTwoEntities filter( this, pHeldEntity, COLLISION_GROUP_INTERACTIVE_DEBRIS );
+#else
 	CTraceFilterSkipTwoEntities filter( this, PhysCannonGetHeldEntity( GetActiveWeapon() ), COLLISION_GROUP_INTERACTIVE_DEBRIS );
+#endif
 
 	UTIL_TraceLine( EyePosition(), EyePosition() + forward * MAX_COORD_RANGE, MASK_SHOT, &filter, &tr );
 
@@ -2241,7 +2305,7 @@ void CHL2_Player::InputSquadForceGoTo( inputdata_t &inputdata )
 	}
 	else
 	{
-		goal.m_pGoalEntity = var.FieldType() == FIELD_EHANDLE ? var.Entity() : gEntList.FindEntityByNameNearest(var.String(), pPlayerSquadLeader->GetAbsOrigin(), 0, this, inputdata.pActivator, inputdata.pCaller);
+		goal.m_pGoalEntity = var.FieldType() == FIELD_EHANDLE ? var.Entity().Get() : gEntList.FindEntityByNameNearest(var.String(), pPlayerSquadLeader->GetAbsOrigin(), 0, this, inputdata.pActivator, inputdata.pCaller);
 		goal.m_vecGoalLocation = vec3_invalid;
 	}
 
@@ -3167,6 +3231,14 @@ void CHL2_Player::Event_Killed( const CTakeDamageInfo &info )
 
 #ifdef MAPBASE
 	FirePlayerProxyOutput( "PlayerDied", variant_t(), info.GetAttacker(), this );
+
+	if (IsSuitEquipped())
+	{
+		// Make sure all devices are deactivated (for respawn)
+		m_HL2Local.m_bitsActiveDevices = 0x00000000;
+		m_flSuitPowerLoad = 0;
+		m_flTimeAllSuitDevicesOff = gpGlobals->curtime;
+	}
 #else
 	FirePlayerProxyOutput( "PlayerDied", variant_t(), this, this );
 #endif
@@ -3283,6 +3355,15 @@ bool CHL2_Player::ShouldKeepLockedAutoaimTarget( EHANDLE hLockedTarget )
 	return true;
 }
 
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+bool CHL2_Player::CanAutoSwitchToNextBestWeapon( CBaseCombatWeapon *pWeapon )
+{
+	return player_autoswitch_enabled.GetBool();
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : iCount - 
@@ -3324,6 +3405,9 @@ int CHL2_Player::GiveAmmo( int nCount, int nAmmoIndex, bool bSuppressSound)
 
 		if ( pWeapon && pWeapon->GetPrimaryAmmoType() == nAmmoIndex )
 		{
+#ifdef MAPBASE
+			if (CanAutoSwitchToNextBestWeapon(pWeapon))
+#endif
 			SwitchToNextBestWeapon(GetActiveWeapon());
 		}
 	}
@@ -3893,6 +3977,11 @@ float CHL2_Player::GetHeldObjectMass( IPhysicsObject *pHeldObject )
 	return mass;
 }
 
+CBaseEntity	*CHL2_Player::GetHeldObject( void )
+{
+	return PhysCannonGetHeldEntity( GetActiveWeapon() );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Force the player to drop any physics objects he's carrying
 //-----------------------------------------------------------------------------
@@ -4405,6 +4494,64 @@ void CHL2_Player::DisplayLadderHudHint()
 #endif//CLIENT_DLL
 }
 
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// 
+//-----------------------------------------------------------------------------
+void CHL2_Player::InitCustomSuitDevice( int iDeviceID, float flDrainRate )
+{
+	if (iDeviceID < 0 || iDeviceID > 2)
+	{
+		Warning("InitCustomSuitDevice : \"%i\" is not a valid custom device slot\n", iDeviceID);
+		return;
+	}
+
+	SuitDeviceCustom[iDeviceID].SetDeviceDrainRate( flDrainRate );
+}
+
+//-----------------------------------------------------------------------------
+// 
+//-----------------------------------------------------------------------------
+void CHL2_Player::AddCustomSuitDevice( int iDeviceID )
+{
+	if (iDeviceID < 0 || iDeviceID > 2)
+	{
+		Warning("AddCustomSuitDevice : \"%i\" is not a valid custom device slot\n", iDeviceID);
+		return;
+	}
+
+	SuitPower_AddDevice( SuitDeviceCustom[iDeviceID] );
+}
+
+//-----------------------------------------------------------------------------
+// 
+//-----------------------------------------------------------------------------
+void CHL2_Player::RemoveCustomSuitDevice( int iDeviceID )
+{
+	if (iDeviceID < 0 || iDeviceID > 2)
+	{
+		Warning("AddCustomSuitDevice : \"%i\" is not a valid custom device slot\n", iDeviceID);
+		return;
+	}
+
+	SuitPower_RemoveDevice( SuitDeviceCustom[iDeviceID] );
+}
+
+//-----------------------------------------------------------------------------
+// 
+//-----------------------------------------------------------------------------
+bool CHL2_Player::IsCustomSuitDeviceActive( int iDeviceID )
+{
+	if (iDeviceID < 0 || iDeviceID > 2)
+	{
+		Warning("IsCustomSuitDeviceActive : \"%i\" is not a valid custom device slot\n", iDeviceID);
+		return false;
+	}
+
+	return SuitPower_IsDeviceActive( SuitDeviceCustom[iDeviceID] );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Shuts down sounds
 //-----------------------------------------------------------------------------
@@ -4439,10 +4586,14 @@ void CHL2_Player::ModifyOrAppendPlayerCriteria( AI_CriteriaSet& set )
 #ifdef MAPBASE
 const char *CHL2_Player::GetOverrideStepSound( const char *pszBaseStepSoundName )
 {
-	const char *szSound = GetContextValue(FindContextByName("footsteps"));
-	if (szSound[0] != '\0')
+	int idx = FindContextByName("footsteps");
+	if (idx != -1)
 	{
-		return szSound;
+		const char *szSound = GetContextValue(idx);
+		if (szSound[0] != '\0')
+		{
+			return szSound;
+		}
 	}
 	return pszBaseStepSoundName;
 }
@@ -4539,6 +4690,7 @@ BEGIN_DATADESC( CLogicPlayerProxy )
 	DEFINE_OUTPUT( m_RequestedPlayerArmor, "PlayerArmor" ),
 	DEFINE_OUTPUT( m_RequestedPlayerAuxPower, "PlayerAuxPower" ),
 	DEFINE_OUTPUT( m_RequestedPlayerFlashBattery, "PlayerFlashBattery" ),
+	DEFINE_OUTPUT( m_OnPlayerSpawn, "OnPlayerSpawn" ),
 #endif
 	DEFINE_INPUTFUNC( FIELD_VOID,	"RequestPlayerHealth",	InputRequestPlayerHealth ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"SetFlashlightSlowDrain",	InputSetFlashlightSlowDrain ),
@@ -4558,6 +4710,7 @@ BEGIN_DATADESC( CLogicPlayerProxy )
 	DEFINE_INPUTFUNC( FIELD_VOID,	"RequestPlayerFlashBattery",		InputRequestPlayerFlashBattery ),
 	DEFINE_INPUTFUNC( FIELD_STRING,	"GetAmmoOnWeapon", InputGetAmmoOnWeapon ),
 	DEFINE_INPUTFUNC( FIELD_STRING,	"SetHandModel", InputSetHandModel ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetHandModelSkin", InputSetHandModelSkin ),
 	DEFINE_INPUTFUNC( FIELD_STRING,	"SetPlayerModel", InputSetPlayerModel ),
 	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetPlayerDrawExternally", InputSetPlayerDrawExternally ),
 	DEFINE_INPUT( m_MaxArmor, FIELD_INTEGER, "SetMaxInputArmor" ),
@@ -4768,7 +4921,7 @@ void CLogicPlayerProxy::InputRequestPlayerFlashBattery( inputdata_t &inputdata )
 
 // If it's the EP2 flashlight, it returns the flashlight battery. If it's the legacy flashlight, it returns the aux power.
 // Note that this is on CHL2_Player, not CLogicPlayerProxy.
-inline float CHL2_Player::GetFlashlightBattery()
+float CHL2_Player::GetFlashlightBattery()
 {
 #ifdef HL2_EPISODIC
 	return Flashlight_UseLegacyVersion() ? SuitPower_GetCurrentPercentage() : m_HL2Local.m_flFlashBattery;
@@ -4988,6 +5141,17 @@ void CLogicPlayerProxy::InputSetHandModel( inputdata_t &inputdata )
 	CBaseViewModel *vm = pPlayer->GetViewModel(1);
 	if (vm)
 		vm->SetModel(STRING(iszModel));
+}
+
+void CLogicPlayerProxy::InputSetHandModelSkin( inputdata_t &inputdata )
+{
+	if (!m_hPlayer)
+		return;
+
+	CBasePlayer *pPlayer = static_cast<CBasePlayer*>( m_hPlayer.Get() );
+	CBaseViewModel *vm = pPlayer->GetViewModel(1);
+	if (vm)
+		vm->m_nSkin = inputdata.value.Int();
 }
 
 void CLogicPlayerProxy::InputSetPlayerModel( inputdata_t &inputdata )
