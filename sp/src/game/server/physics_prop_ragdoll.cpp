@@ -473,6 +473,7 @@ void CRagdollProp::ModifyOrAppendCriteria( AI_CriteriaSet& set )
 
 #ifdef EZ2
 extern int g_interactionXenGrenadeCreate;
+extern int g_interactionBarnacleVictimFinalBite;
 //-----------------------------------------------------------------------------
 // Purpose:  Uses the new CBaseEntity interaction implementation
 // Input  :  The type of interaction, extra info pointer, and who started it
@@ -486,6 +487,14 @@ bool CRagdollProp::HandleInteraction( int interactionType, void *data, CBaseComb
 		AddSpawnFlags( SF_RAGDOLLPROP_DEBRIS );
 		return true;
 	}
+#ifdef EZ2
+	// Barnacle final bite gib
+	if ( interactionType == g_interactionBarnacleVictimFinalBite )
+	{
+		CTakeDamageInfo info( this, this, 1000, DMG_CRUSH | DMG_ALWAYSGIB );
+		TakeDamage( info );
+	}
+#endif
 
 	return BaseClass::HandleInteraction(interactionType, data, sourceEnt);
 }
