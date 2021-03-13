@@ -80,6 +80,8 @@ void CNPC_PitDrone::Spawn()
 	m_fCanThreatDisplay	= TRUE;
 	m_flNextSpitTime = gpGlobals->curtime;
 
+	BaseClass::Spawn();
+
 	NPCInit();
 
 	m_flDistTooFar		= 784;

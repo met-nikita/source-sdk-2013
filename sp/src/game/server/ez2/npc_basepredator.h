@@ -102,8 +102,14 @@ class CNPC_BasePredator : public CAI_BehaviorHost<CAI_BaseNPC>
 
 public:
 	CNPC_BasePredator();
-	void Precache( void );
-	void Activate( void );
+	virtual void Precache( void );
+	virtual void Spawn();
+
+	virtual void Activate( void );
+	
+	void OnRestore();
+
+	virtual void	SetupGlobalModelData();
 
 	Class_T	Classify( void );
 

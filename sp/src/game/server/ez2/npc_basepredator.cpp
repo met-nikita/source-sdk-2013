@@ -105,12 +105,35 @@ void CNPC_BasePredator::Precache()
 	BaseClass::Precache();
 }
 
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_BasePredator::Spawn()
+{
+	// Almost all of the Spawn() code is handled by child classes
+	SetupGlobalModelData();
+	BaseClass::Spawn();
+}
 void CNPC_BasePredator::Activate( void )
 {
 	BaseClass::Activate();
 
+	SetupGlobalModelData();
+
 	m_hMate = gEntList.FindEntityByName( NULL, m_iszMate );
 	m_iszMate = NULL_STRING;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_BasePredator::OnRestore()
+{
+	BaseClass::OnRestore();
+	SetupGlobalModelData();
+}
+
+void CNPC_BasePredator::SetupGlobalModelData()
+{
+	CollisionProp()->SetSurroundingBoundsType( USE_HITBOXES );
 }
 
 //-----------------------------------------------------------------------------

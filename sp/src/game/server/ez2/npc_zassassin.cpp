@@ -313,6 +313,8 @@ void CNPC_Gonome::Spawn()
 	m_fCanThreatDisplay	= TRUE;
 	m_flNextSpitTime = gpGlobals->curtime;
 
+	BaseClass::Spawn();
+
 	NPCInit();
 
 	m_flDistTooFar		= MAX_SPIT_DISTANCE;
