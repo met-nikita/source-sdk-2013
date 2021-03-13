@@ -59,6 +59,10 @@
 #include "mapbase/GlobalStrings.h"
 #endif
 
+#ifdef EZ2
+#include "ai_interactions.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -1867,6 +1871,15 @@ bool CNPC_Strider::HandleInteraction( int interactionType, void *data, CBaseComb
 		m_hPlayersMissile = sourceEnt;
 		return true;
 	}
+
+#ifdef EZ2
+	// Cancel all Xen grenade interactions
+	if  ( interactionType == g_interactionXenGrenadePull || interactionType == g_interactionXenGrenadePull)
+	{
+		// TODO - Maybe we should try to flinch or stun or something?
+		return true;
+	}
+#endif
 
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
