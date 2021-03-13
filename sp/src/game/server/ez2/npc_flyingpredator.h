@@ -69,6 +69,8 @@ public:
 
 	virtual bool	QueryHearSound( CSound *pSound );
 
+	virtual bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+
 // Flight
 public:
 	void SetFlyingState( FlyState_t eState );

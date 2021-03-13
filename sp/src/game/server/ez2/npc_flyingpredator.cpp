@@ -11,6 +11,7 @@
 #include "npcevent.h"
 #include "npc_flyingpredator.h"
 #include "particle_parse.h"
+#include "ai_interactions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -57,7 +58,8 @@ enum
 enum
 {
 	COND_FORCED_FLY	= NEXT_CONDITION + 1,
-	COND_CAN_LAND
+	COND_CAN_LAND,
+	COND_FORCED_FALL
 };
 
 //---------------------------------------------------------
@@ -424,6 +426,9 @@ int CNPC_FlyingPredator::TranslateSchedule( int scheduleType )
 //=========================================================
 int CNPC_FlyingPredator::SelectSchedule( void )
 {
+	// Force clear the falling condition to make sure it doesn't interrupt again
+	ClearCondition( COND_FORCED_FALL );
+
 	if ( HasCondition( COND_FORCED_FLY ) )
 	{
 		return SCHED_TAKEOFF;
@@ -672,6 +677,39 @@ bool CNPC_FlyingPredator::QueryHearSound( CSound *pSound )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose:  This is a generic function (to be implemented by sub-classes) to
+//			 handle specific interactions between different types of characters
+//			 (For example the barnacle grabbing an NPC)
+// Input  :  Constant for the type of interaction
+// Output :	 true  - if sub-class has a response for the interaction
+//			 false - if sub-class has no response
+//-----------------------------------------------------------------------------
+bool CNPC_FlyingPredator::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
+{
+	if ( interactionType == g_interactionXenGrenadePull )
+	{
+		CTakeDamageInfo* damageInfo = (CTakeDamageInfo *)data;
+
+		if ( damageInfo != NULL )
+		{
+			ApplyAbsVelocityImpulse( damageInfo->GetDamageForce() );
+		}
+
+		// Set flying state to "falling"
+		if ( m_tFlyState != FlyState_Landing && m_tFlyState != FlyState_Walking )
+		{
+			SetFlyingState( FlyState_Falling );
+			SetCondition( COND_FORCED_FALL );
+		}
+
+		// Already handled pulling the stukabat
+		return true;
+	}
+
+	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Switches between flying mode and ground mode.
 //-----------------------------------------------------------------------------
 void CNPC_FlyingPredator::SetFlyingState( FlyState_t eState )
@@ -839,6 +877,7 @@ AI_BEGIN_CUSTOM_NPC( NPC_FlyingPredator, CNPC_FlyingPredator )
 
 	DECLARE_CONDITION( COND_FORCED_FLY );
 	DECLARE_CONDITION( COND_CAN_LAND );
+	DECLARE_CONDITION( COND_FORCED_FALL );
 
 	DECLARE_TASK( TASK_TAKEOFF )
 	DECLARE_TASK( TASK_FLY_DIVE_BOMB )
@@ -860,7 +899,7 @@ AI_BEGIN_CUSTOM_NPC( NPC_FlyingPredator, CNPC_FlyingPredator )
 		"		TASK_START_FLYING		0"
 		"		"
 		"	Interrupts"
-		"		"
+		"		COND_FORCED_FALL"
 	)
 
 	DEFINE_SCHEDULE
@@ -875,7 +914,7 @@ AI_BEGIN_CUSTOM_NPC( NPC_FlyingPredator, CNPC_FlyingPredator )
 		"		TASK_SET_ACTIVITY		ACTIVITY:ACT_HOVER"
 		"		"
 		"	Interrupts"
-		"		"
+		"		COND_FORCED_FALL"
 	)
 
 	DEFINE_SCHEDULE
@@ -891,6 +930,7 @@ AI_BEGIN_CUSTOM_NPC( NPC_FlyingPredator, CNPC_FlyingPredator )
 		"	Interrupts"
 		"		COND_HEAVY_DAMAGE"
 		"		COND_CAN_LAND"
+		"		COND_FORCED_FALL"
 	)
 
 	DEFINE_SCHEDULE
