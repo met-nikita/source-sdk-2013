@@ -75,7 +75,7 @@ ConVar ez2_load_custom_xen_recipes( "ez2_load_custom_xen_recipes", "1", FCVAR_AR
 
 #ifdef GAME_DLL
 // This cvar should change with each Mapbase update
-ConVar mapbase_version( "mapbase_version", "6.1", FCVAR_NONE, "The version of Mapbase currently being used in this mod." );
+ConVar mapbase_version( "mapbase_version", "6.3", FCVAR_NONE, "The version of Mapbase currently being used in this mod." );
 
 extern void MapbaseGameLog_Init();
 
@@ -193,7 +193,7 @@ public:
 #ifdef GAME_DLL
 		if (g_bMapContainsCustomTalker && mapbase_flush_talker.GetBool())
 		{
-			CGMsg( 1, "Mapbase Misc.", "Mapbase: Reloading response system to flush custom talker\n" );
+			CGMsg( 1, CON_GROUP_MAPBASE_MISC, "Mapbase: Reloading response system to flush custom talker\n" );
 			ReloadResponseSystem();
 			g_bMapContainsCustomTalker = false;
 		}
@@ -203,7 +203,7 @@ public:
 	virtual void LevelInitPreEntity()
 	{
 #ifdef GAME_DLL
-		CGMsg( 0, "Mapbase Misc.", "Mapbase system loaded\n" );
+		CGMsg( 0, CON_GROUP_MAPBASE_MISC, "Mapbase system loaded\n" );
 #endif
 
 		// Checks gameinfo.txt for Mapbase-specific options
@@ -227,8 +227,11 @@ public:
 
 		RefreshMapName();
 
-		// Shared Mapbase localization file
+		// Shared Mapbase scripts to avoid overwriting mod files
 		g_pVGuiLocalize->AddFile( "resource/mapbase_%language%.txt" );
+#ifdef CLIENT_DLL
+		PanelMetaClassMgr()->LoadMetaClassDefinitionFile( "scripts/vgui_screens_mapbase.txt" );
+#endif
 	}
 
 	virtual void OnRestore()
@@ -367,11 +370,11 @@ public:
 			return;
 		}
 
-		CGMsg( 1, "Mapbase Misc.", "===== Mapbase Manifest: Loading manifest file %s =====\n", file );
+		CGMsg( 1, CON_GROUP_MAPBASE_MISC, "===== Mapbase Manifest: Loading manifest file %s =====\n", file );
 
 		AddManifestFile(pKV, false);
 
-		CGMsg( 1, "Mapbase Misc.", "==============================================================================\n" );
+		CGMsg( 1, CON_GROUP_MAPBASE_MISC, "==============================================================================\n" );
 
 		pKV->deleteThis();
 	}
@@ -571,6 +574,11 @@ CUtlVector<MODCHAPTER> *Mapbase_GetChapterList()
 	return &g_MapbaseChapterList;
 }
 
+int Mapbase_GetChapterCount()
+{
+	return g_MapbaseChapterList.Count();
+}
+
 ThreeState_t Flashlight_GetLegacyVersionKey()
 {
 	KeyValues *gameinfo = new KeyValues( "GameInfo" );
@@ -609,7 +617,7 @@ public:
 		const char *scriptfile = STRING(m_target);
 		if ( filesystem->FileExists( scriptfile, "MOD" ) )
 		{
-			CGMsg(0, "Mapbase Misc.", "Mapbase: Adding manifest file \"%s\"\n", scriptfile);
+			CGMsg(0, CON_GROUP_MAPBASE_MISC, "Mapbase: Adding manifest file \"%s\"\n", scriptfile);
 			g_MapbaseSystem.AddManifestFile(scriptfile);
 		}
 		else

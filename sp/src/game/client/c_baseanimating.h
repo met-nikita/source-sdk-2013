@@ -164,6 +164,10 @@ public:
 	virtual void FireObsoleteEvent( const Vector& origin, const QAngle& angles, int event, const char *options );
 	virtual const char* ModifyEventParticles( const char* token ) { return token; }
 
+#ifdef MAPBASE_VSCRIPT
+	bool ScriptHookFireEvent( const Vector& origin, const QAngle& angles, int event, const char *options );
+#endif
+
 #if defined ( SDK_DLL ) || defined ( HL2MP )
 	virtual void ResetEventsParity() { m_nPrevResetEventsParity = -1; } // used to force animation events to function on players so the muzzleflashes and other events occur
 																		// so new functions don't have to be made to parse the models like CSS does in ProcessMuzzleFlashEvent
@@ -454,6 +458,7 @@ public:
 	virtual bool					IsViewModel() const;
 
 #ifdef MAPBASE_VSCRIPT
+	int		ScriptLookupAttachment( const char *pAttachmentName ) { return LookupAttachment( pAttachmentName ); }
 	const Vector& ScriptGetAttachmentOrigin(int iAttachment);
 	const Vector& ScriptGetAttachmentAngles(int iAttachment);
 	HSCRIPT ScriptGetAttachmentMatrix(int iAttachment);
@@ -465,6 +470,7 @@ public:
 	int		ScriptSelectWeightedSequence( int activity ) { return SelectWeightedSequence( (Activity)activity ); }
 
 	// For VScript
+	int		ScriptGetSkin() { return GetSkin(); }
 	void	SetSkin( int iSkin ) { m_nSkin = iSkin; }
 
 	int		GetForceBone()				{ return m_nForceBone; }
@@ -475,6 +481,7 @@ public:
 	HSCRIPT			ScriptBecomeRagdollOnClient();
 
 	static ScriptHook_t	g_Hook_OnClientRagdoll;
+	static ScriptHook_t	g_Hook_FireEvent;
 
 	float							ScriptGetPoseParameter(const char* szName);
 #endif
