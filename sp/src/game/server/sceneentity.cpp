@@ -3517,7 +3517,10 @@ void CSceneEntity::StartEvent( float currenttime, CChoreoScene *scene, CChoreoEv
 			if ( IsMultiplayer() )
 				break;
 
-			DispatchStartPermitResponses( scene, pActor, event );
+			if ( pActor )
+			{
+				DispatchStartPermitResponses( scene, pActor, event );
+			}
 		}
 		break;
 	default:
@@ -3675,7 +3678,10 @@ void CSceneEntity::EndEvent( float currenttime, CChoreoScene *scene, CChoreoEven
 			if ( IsMultiplayer() )
 				break;
 
-			DispatchEndPermitResponses( scene, pActor, event );
+			if ( pActor )
+			{
+				DispatchEndPermitResponses( scene, pActor, event );
+			}
 		}
 		break;
 	default:

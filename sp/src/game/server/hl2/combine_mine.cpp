@@ -91,6 +91,7 @@ BEGIN_DATADESC( CBounceBomb )
 	DEFINE_KEYFIELD( m_iInitialState, FIELD_INTEGER, "InitialState" ),
 	DEFINE_KEYFIELD( m_bCheapWarnSound, FIELD_BOOLEAN, "CheapWarnSound" ),
 	DEFINE_KEYFIELD( m_iLOSMask, FIELD_INTEGER, "LOSMask" ),
+	DEFINE_INPUT( m_bUnavoidable, FIELD_BOOLEAN, "SetUnavoidable" ),
 #endif
 	DEFINE_KEYFIELD( m_iModification, FIELD_INTEGER, "Modification" ),
 
@@ -1601,6 +1602,23 @@ CBasePlayer *CBounceBomb::HasPhysicsAttacker( float dt )
 		return m_hPhysicsAttacker;
 	}
 	return NULL;
+}
+
+//---------------------------------------------------------
+//---------------------------------------------------------
+bool CBounceBomb::ShouldBeAvoidedByCompanions()
+{
+#ifdef MAPBASE
+	if (m_bUnavoidable)
+		return false;
+#endif
+
+#ifdef EZ2
+	// IsPlayerPlaced() is handled in CNPC_PlayerCompanion
+	return IsAwake();
+#else
+	return !IsPlayerPlaced() && IsAwake();
+#endif
 }
 
 //---------------------------------------------------------

@@ -293,6 +293,7 @@ BEGIN_ENT_SCRIPTDESC( C_ClientRagdoll, C_BaseAnimating, "Client-side ragdolls" )
 END_SCRIPTDESC();
 
 ScriptHook_t	C_BaseAnimating::g_Hook_OnClientRagdoll;
+ScriptHook_t	C_BaseAnimating::g_Hook_FireEvent;
 #endif
 
 BEGIN_ENT_SCRIPTDESC( C_BaseAnimating, C_BaseEntity, "Animating models client-side" )
@@ -302,7 +303,7 @@ BEGIN_ENT_SCRIPTDESC( C_BaseAnimating, C_BaseEntity, "Animating models client-si
 	DEFINE_SCRIPTFUNC_NAMED( ScriptSetPoseParameter, "SetPoseParameter", "Set the specified pose parameter to the specified value"  )
 	DEFINE_SCRIPTFUNC( IsSequenceFinished, "Ask whether the main sequence is done playing" )
 #ifdef MAPBASE_VSCRIPT
-	DEFINE_SCRIPTFUNC( LookupAttachment, "Get the named attachement id" )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptLookupAttachment, "LookupAttachment", "Get the named attachement id" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptGetAttachmentOrigin, "GetAttachmentOrigin", "Get the attachement id's origin vector" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptGetAttachmentAngles, "GetAttachmentAngles", "Get the attachement id's angles as a p,y,r vector" )
 	DEFINE_SCRIPTFUNC_NAMED( ScriptGetAttachmentMatrix, "GetAttachmentMatrix", "Get the attachement id's matrix transform" )
@@ -332,7 +333,7 @@ BEGIN_ENT_SCRIPTDESC( C_BaseAnimating, C_BaseEntity, "Animating models client-si
 	DEFINE_SCRIPTFUNC( SetPlaybackRate, "" )
 	DEFINE_SCRIPTFUNC( GetCycle, "" )
 	DEFINE_SCRIPTFUNC( SetCycle, "" )
-	DEFINE_SCRIPTFUNC( GetSkin, "Gets the model's skin" )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetSkin, "GetSkin", "Gets the model's skin" )
 	DEFINE_SCRIPTFUNC( SetSkin, "Sets the model's skin" )
 
 	DEFINE_SCRIPTFUNC( GetForceBone, "Gets the entity's force bone, which is used to determine which bone a ragdoll should apply its force to." )
@@ -345,6 +346,13 @@ BEGIN_ENT_SCRIPTDESC( C_BaseAnimating, C_BaseEntity, "Animating models client-si
 
 	BEGIN_SCRIPTHOOK( C_BaseAnimating::g_Hook_OnClientRagdoll, "OnClientRagdoll", FIELD_VOID, "Called when this entity turns into a client-side ragdoll." )
 		DEFINE_SCRIPTHOOK_PARAM( "ragdoll", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+
+	BEGIN_SCRIPTHOOK( C_BaseAnimating::g_Hook_FireEvent, "FireEvent", FIELD_BOOLEAN, "Called when handling animation events. Return false to cancel base handling." )
+		DEFINE_SCRIPTHOOK_PARAM( "origin", FIELD_VECTOR )
+		DEFINE_SCRIPTHOOK_PARAM( "angles", FIELD_VECTOR )
+		DEFINE_SCRIPTHOOK_PARAM( "event", FIELD_INTEGER )
+		DEFINE_SCRIPTHOOK_PARAM( "options", FIELD_CSTRING )
 	END_SCRIPTHOOK()
 #endif
 END_SCRIPTDESC();
@@ -3668,7 +3676,11 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 					flEventCycle,
 					gpGlobals->curtime );
 			}
-				
+
+#ifdef MAPBASE_VSCRIPT
+			if (ScriptHookFireEvent( GetAbsOrigin(), GetAbsAngles(), pevent[ i ].event, pevent[ i ].pszOptions() ) == false)
+				continue;
+#endif
 				
 			FireEvent( GetAbsOrigin(), GetAbsAngles(), pevent[ i ].event, pevent[ i ].pszOptions() );
 		}
@@ -3701,12 +3713,37 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 					gpGlobals->curtime );
 			}
 
+#ifdef MAPBASE_VSCRIPT
+			if (ScriptHookFireEvent( GetAbsOrigin(), GetAbsAngles(), pevent[ i ].event, pevent[ i ].pszOptions() ) == false)
+				continue;
+#endif
+
 			FireEvent( GetAbsOrigin(), GetAbsAngles(), pevent[ i ].event, pevent[ i ].pszOptions() );
 		}
 	}
 
 	m_flPrevEventCycle = flEventCycle;
 }
+
+#ifdef MAPBASE_VSCRIPT
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool C_BaseAnimating::ScriptHookFireEvent( const Vector& origin, const QAngle& angles, int event, const char *options )
+{
+	if (m_ScriptScope.IsInitialized() && g_Hook_FireEvent.CanRunInScope(m_ScriptScope))
+	{
+		// origin, angles, event, options
+		ScriptVariant_t args[] = { origin, angles, event, options };
+		ScriptVariant_t returnValue = true;
+		g_Hook_FireEvent.Call( m_ScriptScope, &returnValue, args );
+
+		return returnValue.m_bool;
+	}
+
+	return true;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Parses a muzzle effect event and sends it out for drawing

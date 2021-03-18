@@ -76,6 +76,9 @@ public:
 
 	bool IsPlayerPlaced() { return m_bPlacedByPlayer; }
 
+	// Determines whether companions should treat the mine as a navigation obstacle and avoid it
+	bool ShouldBeAvoidedByCompanions();
+
 	bool CreateVPhysics()
 	{
 		VPhysicsInitNormal( SOLID_VPHYSICS, 0, false );
@@ -138,6 +141,8 @@ private:
 
 	// Allows control over the mask used in LOS
 	int		m_iLOSMask;
+
+	bool	m_bUnavoidable;
 #endif
 
 	bool	m_bPlacedByPlayer;

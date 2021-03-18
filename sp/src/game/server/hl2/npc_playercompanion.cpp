@@ -3578,13 +3578,13 @@ bool CNPC_PlayerCompanion::OverrideMove( float flInterval )
 				// On the other hand, soldiers avoid mines bearing Resistance imagery, but not their own mines, even if "their own mines" are hostile.
 				// This is consistent with their behavior in HL2, where they didn't avoid hostile hopper mines.
 				bool bAppearsToBeResistance = (pBomb->m_nSkin != 0);
-				if ( pBomb && pBomb->IsAwake() &&
+				if ( pBomb && pBomb->ShouldBeAvoidedByCompanions() &&
 					(IsCombine() ?
 					bAppearsToBeResistance :
 					(!bAppearsToBeResistance && FInViewCone(pBomb)))
 					&& !pBomb->IsFriend(this) )
 #else
-				if ( pBomb && !pBomb->IsPlayerPlaced() && pBomb->IsAwake() )
+				if ( pBomb && pBomb->ShouldBeAvoidedByCompanions() )
 #endif
 				{
 					UTIL_TraceLine( WorldSpaceCenter(), pEntity->WorldSpaceCenter(), MASK_BLOCKLOS, pEntity, COLLISION_GROUP_NONE, &tr );
