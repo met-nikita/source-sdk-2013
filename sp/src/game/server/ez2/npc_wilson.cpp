@@ -971,7 +971,7 @@ Disposition_t CNPC_Wilson::IRelationType( CBaseEntity *pTarget )
 		{
 			// Get the player's disposition
 			CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
-			if (pPlayer)
+			if (pPlayer && pTarget != pPlayer)
 				base = pPlayer->IRelationType(pTarget);
 		}
 		else if (!GetSquad()->IsLeader(this))
