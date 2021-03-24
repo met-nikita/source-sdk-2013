@@ -703,6 +703,11 @@ bool CNPC_Barnacle::CanPickup( CBaseCombatCharacter *pBCC )
 		// This turret's different, but don't pick him up either
 		if( FClassnameIs( pBCC, "npc_wilson" ) )
 			return false;
+
+		// Don't pick up eggs.
+		// TODO - Eventually, we would like barnacles to eat eggs. This is only disabled to prevent crashes.
+		if (FClassnameIs( pBCC, "npc_egg" ))
+			return false;
 	}
 #else
 	// Don't pickup turrets
