@@ -15,6 +15,9 @@
 #include "particle_parse.h"
 #include "ai_behavior_beast.h"
 
+// Use this for kick info struct
+#include "ez2/ez2_player.h"
+
 enum BossState
 {
 	BOSS_STATE_NORMAL,

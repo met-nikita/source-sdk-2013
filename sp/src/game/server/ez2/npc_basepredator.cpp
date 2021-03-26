@@ -1073,6 +1073,7 @@ bool CNPC_BasePredator::OverrideMove( float flInterval )
 
 #ifdef EZ2
 extern int g_interactionXenGrenadeCreate;
+extern int g_interactionBadCopKick;
 //-----------------------------------------------------------------------------
 // Purpose:  
 // Input  :  The type of interaction, extra info pointer, and who started it
@@ -1094,6 +1095,20 @@ bool CNPC_BasePredator::HandleInteraction( int interactionType, void *data, CBas
 			SetHungryTime( gpGlobals->curtime ); // Be ready to eat as soon as we come through
 			SetTimesFed( 2 ); // Twins!
 		}
+		return true;
+	}
+
+	// YEET
+	if ( interactionType == g_interactionBadCopKick && m_bIsBaby)
+	{
+		KickInfo_t * pInfo = static_cast< KickInfo_t *>(data);
+		CTakeDamageInfo * pDamageInfo = pInfo->dmgInfo;
+		pDamageInfo->SetDamage( GetMaxHealth() ); // Instant-kill
+		pDamageInfo->ScaleDamageForce( 100 );
+		ApplyAbsVelocityImpulse( (pInfo->tr->endpos - pInfo->tr->startpos) * 100 );
+		DispatchTraceAttack( *pDamageInfo, pDamageInfo->GetDamageForce(), pInfo->tr );
+
+		// Already handled the kick
 		return true;
 	}
 

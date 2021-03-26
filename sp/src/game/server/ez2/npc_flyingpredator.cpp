@@ -698,6 +698,13 @@ bool CNPC_FlyingPredator::HandleInteraction( int interactionType, void *data, CB
 {
 	if ( interactionType == g_interactionXenGrenadePull )
 	{
+		// Set flying state to "falling"
+		if (m_tFlyState != FlyState_Landing && m_tFlyState != FlyState_Walking)
+		{
+			SetFlyingState( FlyState_Falling );
+			SetCondition( COND_FORCED_FALL );
+		}
+
 		CTakeDamageInfo* damageInfo = (CTakeDamageInfo *)data;
 
 		if ( damageInfo != NULL )
@@ -705,14 +712,26 @@ bool CNPC_FlyingPredator::HandleInteraction( int interactionType, void *data, CB
 			ApplyAbsVelocityImpulse( damageInfo->GetDamageForce() );
 		}
 
-		// Set flying state to "falling"
-		if ( m_tFlyState != FlyState_Landing && m_tFlyState != FlyState_Walking )
-		{
-			SetFlyingState( FlyState_Falling );
-			SetCondition( COND_FORCED_FALL );
-		}
-
 		// Already handled pulling the stukabat
+		return true;
+	}
+
+	// YEET - Similar to how base predator handles baby predator kicks, but for all stukabats
+	if ( interactionType == g_interactionBadCopKick )
+	{
+		// Set the stukabat into falling mode
+		// MAKE SURE the stukabat enters falling mode before any forces are applied, as falling mode resets velocity
+		SetFlyingState( FlyState_Falling );
+		SetCondition( COND_FORCED_FALL );
+
+		KickInfo_t * pInfo = static_cast< KickInfo_t *>(data);
+		CTakeDamageInfo * pDamageInfo = pInfo->dmgInfo;
+		pDamageInfo->ScaleDamageForce( 500 );
+		DispatchTraceAttack( *pDamageInfo, pDamageInfo->GetDamageForce(), pInfo->tr );
+	 
+		ApplyAbsVelocityImpulse( (pInfo->tr->endpos - pInfo->tr->startpos) * 500 );
+
+		// Already handled the kick
 		return true;
 	}
 
@@ -724,8 +743,6 @@ bool CNPC_FlyingPredator::HandleInteraction( int interactionType, void *data, CB
 //-----------------------------------------------------------------------------
 void CNPC_FlyingPredator::SetFlyingState( FlyState_t eState )
 {
-	m_tFlyState = eState;
-
 	if (eState == FlyState_Flying || eState == FlyState_Dive )
 	{
 		// Flying
@@ -768,6 +785,8 @@ void CNPC_FlyingPredator::SetFlyingState( FlyState_t eState )
 		CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_JUMP );
 		SetMoveType( MOVETYPE_STEP );
 	}
+
+	m_tFlyState = eState;
 }
 
 //-----------------------------------------------------------------------------
@@ -845,12 +864,30 @@ void CNPC_FlyingPredator::StartTouch( CBaseEntity *pOther )
 	switch ( m_tFlyState )
 	{
 	case FlyState_Dive:
-		SetFlyingState( CanLand() ? FlyState_Walking : FlyState_Falling );
+	case FlyState_Falling:
+		// If traveling faster than 100 units / second, crash into things!
+		// TODO - Really, falling / dive bombing stukabats should be using vPhysics instead
+		if ( m_tFlyState == FlyState_Falling && GetAbsVelocity().IsLengthLessThan(200) )
+		{
+			break;
+		}
+		
 		// If I fear or hate this entity, do damage!
 		if ( IRelationType( pOther ) != D_LI )
 		{
 			CTakeDamageInfo info( this, this, sk_flyingpredator_dmg_dive.GetFloat(), DMG_CLUB | DMG_ALWAYSGIB );
 			pOther->TakeDamage( info );
+
+			if ( m_tFlyState == FlyState_Falling )
+			{
+				// If being flung, take self damage as well!
+				TakeDamage( info );
+			}
+		}
+
+		if (m_tFlyState != FlyState_Falling)
+		{
+			SetFlyingState( CanLand() ? FlyState_Walking : FlyState_Falling );
 		}
 		break;
 	}

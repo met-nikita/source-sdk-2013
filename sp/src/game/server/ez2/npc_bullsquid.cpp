@@ -1132,7 +1132,7 @@ bool CNPC_Bullsquid::ShouldGib( const CTakeDamageInfo &info )
 		return true;
 
 	// Babysquids gib if crushed, exploded, or overkilled
-	if ( m_bIsBaby && ( info.GetDamage() >= GetMaxHealth() || info.GetDamageType() & DMG_CRUSH || info.GetDamageType() & DMG_BLAST ) )
+	if ( m_bIsBaby && ( info.GetDamage() > GetMaxHealth() || info.GetDamageType() & DMG_CRUSH || info.GetDamageType() & DMG_BLAST ) )
 	{
 		return true;
 	}
