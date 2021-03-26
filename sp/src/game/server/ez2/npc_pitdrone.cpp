@@ -84,7 +84,15 @@ void CNPC_PitDrone::Spawn()
 
 	NPCInit();
 
-	m_flDistTooFar		= 784;
+	// If pit drones have the "long range" spawnflag set, let them snipe from any distance
+	if (HasSpawnFlags( SF_NPC_LONG_RANGE ))
+	{
+		m_flDistTooFar = 1e9f;
+	}
+	else
+	{
+		m_flDistTooFar = 784;
+	}
 
 	UpdateAmmoBodyGroups();
 }
