@@ -122,7 +122,7 @@ void CNPC_FlyingPredator::Spawn()
 	CapabilitiesClear();
 	// For the purposes of melee attack conditions triggering attacks, we are treating the flying predator as though it has two melee attacks like the bullsquid.
 	// In reality, the melee attack schedules will be translated to SCHED_RANGE_ATTACK_1.
-	CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK2 | bits_CAP_SQUAD );
+	CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK2 | bits_CAP_SQUAD | bits_CAP_MOVE_JUMP );
 
 	m_fCanThreatDisplay	= TRUE;
 	m_flNextSpitTime = gpGlobals->curtime;
@@ -363,6 +363,14 @@ Activity CNPC_FlyingPredator::NPC_TranslateActivity( Activity eNewActivity )
 		else if ( eNewActivity == ACT_EXCITED )
 		{
 			return (Activity) ACT_DETECT_SCENT;
+		}
+		else if ( eNewActivity == ACT_JUMP )
+		{
+			return ACT_LEAP;
+		}
+		else if ( eNewActivity == ACT_GLIDE )
+		{
+			return ACT_HOVER;
 		}
 	}
 
@@ -724,7 +732,7 @@ void CNPC_FlyingPredator::SetFlyingState( FlyState_t eState )
 		SetGroundEntity( NULL );
 		AddFlag( FL_FLY );
 		SetNavType( NAV_FLY );
-		CapabilitiesRemove( bits_CAP_MOVE_GROUND );
+		CapabilitiesRemove( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_JUMP );
 		CapabilitiesAdd( bits_CAP_MOVE_FLY );
 		SetMoveType( MOVETYPE_STEP );
 	}
@@ -734,7 +742,7 @@ void CNPC_FlyingPredator::SetFlyingState( FlyState_t eState )
 		SetGroundEntity( NULL );
 		AddFlag( FL_FLY );
 		SetNavType( NAV_FLY );
-		CapabilitiesRemove( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_FLY );
+		CapabilitiesRemove( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_FLY | bits_CAP_MOVE_JUMP );
 		SetMoveType( MOVETYPE_STEP );
 	}
 	else if (eState == FlyState_Walking)
@@ -748,7 +756,7 @@ void CNPC_FlyingPredator::SetFlyingState( FlyState_t eState )
 		RemoveFlag( FL_FLY );
 		SetNavType( NAV_GROUND );
 		CapabilitiesRemove( bits_CAP_MOVE_FLY );
-		CapabilitiesAdd( bits_CAP_MOVE_GROUND );
+		CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_JUMP );
 		SetMoveType( MOVETYPE_STEP );
 	}
 	else
@@ -757,7 +765,7 @@ void CNPC_FlyingPredator::SetFlyingState( FlyState_t eState )
 		RemoveFlag( FL_FLY );
 		SetNavType( NAV_GROUND );
 		CapabilitiesRemove( bits_CAP_MOVE_FLY );
-		CapabilitiesAdd( bits_CAP_MOVE_GROUND );
+		CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_JUMP );
 		SetMoveType( MOVETYPE_STEP );
 	}
 }

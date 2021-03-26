@@ -61,6 +61,9 @@ public:
 	void StartTask ( const Task_t *pTask );
 	void RunTask( const Task_t * pTask );
 
+	// No fly. Jump good!
+	bool IsJumpLegal( const Vector & startPos, const Vector & apex, const Vector & endPos ) const { return true; }
+
 	bool		ShouldGib( const CTakeDamageInfo &info ) { return true; };
 	bool		CorpseGib( const CTakeDamageInfo &info );
 	void		ExplosionEffect( void );
