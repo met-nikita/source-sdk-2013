@@ -445,6 +445,10 @@ int CNPC_PitDrone::TranslateSchedule( int scheduleType )
 		{
 			return SCHED_HIDE_AND_RELOAD;
 		}
+		else if ( m_iClip > 0 && scheduleType == SCHED_CHASE_ENEMY )
+		{
+			return SCHED_ESTABLISH_LINE_OF_FIRE;
+		}
 		break;
 	}
 
