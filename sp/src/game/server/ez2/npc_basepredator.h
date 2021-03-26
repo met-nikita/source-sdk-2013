@@ -176,6 +176,7 @@ public:
 	virtual void OnListened ( void );
 
 	virtual int SelectSchedule( void );
+	virtual int SelectFailSchedule( int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode );
 	virtual int SelectBossSchedule( void );
 	virtual int TranslateSchedule( int scheduleType );
 
