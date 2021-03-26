@@ -804,7 +804,7 @@ bool CBreakableProp::HandleInteraction( int interactionType, void *data, CBaseCo
 		KickInfo_t * info = static_cast< KickInfo_t *>( data );
 
 		// If we're an item crate, explode violently!
-		if (FClassnameIs( this, "item_item_crate" ))
+		if ( FClassnameIs( this, "item_item_crate" ) || m_bBreakOnPlayerKick )
 		{
 			info->dmgInfo->SetDamage( 500 );
 			info->dmgInfo->ScaleDamageForce( 0.1f );
@@ -907,6 +907,10 @@ BEGIN_DATADESC( CBreakableProp )
 	DEFINE_FIELD( m_bUsePuntSound, FIELD_BOOLEAN ),
 	// DEFINE_FIELD( m_mpBreakMode, mp_break_t ),
 
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_bBreakOnPlayerKick, FIELD_BOOLEAN, "BreakOnPlayerKick" ),
+#endif
+
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Break", InputBreak ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetHealth", InputSetHealth ),
@@ -921,6 +925,11 @@ BEGIN_DATADESC( CBreakableProp )
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisablePhyscannonPickup", InputDisablePhyscannonPickup ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnablePuntSound", InputEnablePuntSound ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisablePuntSound", InputDisablePuntSound ),
+
+#ifdef EZ2
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableBreakOnPlayerKick", InputEnableBreakOnPlayerKick ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableBreakOnPlayerKick", InputDisableBreakOnPlayerKick ),
+#endif
 
 	// Outputs
 	DEFINE_OUTPUT( m_OnBreak, "OnBreak" ),

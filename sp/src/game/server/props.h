@@ -209,6 +209,9 @@ protected:
 	float			m_explodeDamage;
 	float			m_explodeRadius;
 	string_t		m_iszBreakModelMessage;
+#ifdef EZ2
+	bool            m_bBreakOnPlayerKick;
+#endif
 
 	// Count of how many pieces we'll break into, custom or generic
 	int				m_iNumBreakableChunks;
@@ -243,6 +246,11 @@ private:
 
 	void InputEnablePuntSound( inputdata_t &inputdata ) { m_bUsePuntSound = true; }
 	void InputDisablePuntSound( inputdata_t &inputdata ) { m_bUsePuntSound = false; }
+
+#ifdef EZ2
+	void InputEnableBreakOnPlayerKick( inputdata_t &inputdata ) { m_bBreakOnPlayerKick = true; }
+	void InputDisableBreakOnPlayerKick( inputdata_t &inputdata ) { m_bBreakOnPlayerKick = false; }
+#endif
 
 	// Prevents fade scale from happening
 	void ForceFadeScaleToAlwaysVisible();
