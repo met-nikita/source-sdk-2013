@@ -84,7 +84,15 @@ void CNPC_PitDrone::Spawn()
 
 	NPCInit();
 
-	m_flDistTooFar		= 784;
+	// If pit drones have the "long range" spawnflag set, let them snipe from any distance
+	if (HasSpawnFlags( SF_NPC_LONG_RANGE ))
+	{
+		m_flDistTooFar = 1e9f;
+	}
+	else
+	{
+		m_flDistTooFar = 784;
+	}
 
 	UpdateAmmoBodyGroups();
 }
@@ -436,6 +444,10 @@ int CNPC_PitDrone::TranslateSchedule( int scheduleType )
 		if ( m_iClip <= 0 && m_iAmmo > 0 )
 		{
 			return SCHED_HIDE_AND_RELOAD;
+		}
+		else if ( m_iClip > 0 && scheduleType == SCHED_CHASE_ENEMY )
+		{
+			return SCHED_ESTABLISH_LINE_OF_FIRE;
 		}
 		break;
 	}

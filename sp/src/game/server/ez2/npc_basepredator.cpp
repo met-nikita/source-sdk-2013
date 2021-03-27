@@ -953,6 +953,26 @@ int CNPC_BasePredator::SelectSchedule( void )
 	return BaseClass::SelectSchedule();
 }
 
+int CNPC_BasePredator::SelectFailSchedule( int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode )
+{
+	// Need special case handling for when predators smell food they can't navigate too
+	switch (failedSchedule)
+	{
+	case SCHED_PREDATOR_EAT:
+	case SCHED_PREDATOR_RUN_EAT:
+	case SCHED_PRED_SNIFF_AND_EAT:
+	case SCHED_PREDATOR_SPAWN:
+	case SCHED_PREDATOR_WALLOW:
+		ClearCondition( COND_SMELL );
+		ClearCondition( COND_PREDATOR_SMELL_FOOD );
+		// Retry schedule selection with conditions removed
+		return SelectSchedule();
+		// fall through
+	default:
+		return BaseClass::SelectFailSchedule( failedSchedule, failedTask, taskFailCode );
+	}
+}
+
 //=========================================================
 // GetIdealState - Overridden for predators to deal with
 // the feature that makes them lose interest in prey for 
