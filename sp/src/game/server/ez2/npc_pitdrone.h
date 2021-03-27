@@ -25,15 +25,7 @@ public:
 	void Precache( void );
 	Class_T	Classify( void );
 	
-	void IdleSound( void );
-	void PainSound( const CTakeDamageInfo &info );
-	void AlertSound( void );
-	void DeathSound( const CTakeDamageInfo &info );
-	void FoundEnemySound( void );
-	void AttackSound( void );
-	void GrowlSound( void );
-	void BiteSound( void );
-	void EatSound( void );
+	virtual const char * GetSoundscriptClassname() { return "NPC_PitDrone"; }
 
 	float MaxYawSpeed ( void );
 
@@ -62,7 +54,6 @@ public:
 	DEFINE_CUSTOM_AI;
 
 private:	
-	float m_nextSoundTime;
 	int m_iClip;
 	int m_iAmmo;
 };

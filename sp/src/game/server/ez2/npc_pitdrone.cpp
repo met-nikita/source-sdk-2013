@@ -28,7 +28,6 @@ LINK_ENTITY_TO_CLASS( npc_pitdrone, CNPC_PitDrone );
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_PitDrone )
 
-	DEFINE_FIELD( m_nextSoundTime,	FIELD_TIME ),
 	DEFINE_FIELD( m_iClip,			FIELD_INTEGER ),
 
 	DEFINE_KEYFIELD( m_iAmmo, FIELD_INTEGER, "ammo" )
@@ -156,86 +155,6 @@ Class_T	CNPC_PitDrone::Classify( void )
 }
 
 //=========================================================
-// IdleSound 
-//=========================================================
-void CNPC_PitDrone::IdleSound( void )
-{
-	EmitSound( "NPC_PitDrone.Idle" );
-}
-
-//=========================================================
-// PainSound 
-//=========================================================
-void CNPC_PitDrone::PainSound( const CTakeDamageInfo &info )
-{
-	EmitSound( "NPC_PitDrone.Pain" );
-}
-
-//=========================================================
-// AlertSound
-//=========================================================
-void CNPC_PitDrone::AlertSound( void )
-{
-	EmitSound( "NPC_PitDrone.Alert" );
-}
-
-//=========================================================
-// DeathSound
-//=========================================================
-void CNPC_PitDrone::DeathSound( const CTakeDamageInfo &info )
-{
-	EmitSound( "NPC_PitDrone.Death" );
-}
-
-//=========================================================
-// AttackSound
-//=========================================================
-void CNPC_PitDrone::AttackSound( void )
-{
-	EmitSound( "NPC_PitDrone.Attack1" );
-}
-
-//=========================================================
-// FoundEnemySound
-//=========================================================
-void CNPC_PitDrone::FoundEnemySound( void )
-{
-	if (gpGlobals->curtime >= m_nextSoundTime)
-	{
-		EmitSound( "NPC_PitDrone.FoundEnemy" );
-		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
-	}
-}
-
-//=========================================================
-// GrowlSound
-//=========================================================
-void CNPC_PitDrone::GrowlSound( void )
-{
-	if (gpGlobals->curtime >= m_nextSoundTime)
-	{
-		EmitSound( "NPC_PitDrone.Growl" );
-		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt(1.5,3.0);
-	}
-}
-
-//=========================================================
-// BiteSound
-//=========================================================
-void CNPC_PitDrone::BiteSound( void )
-{
-	EmitSound( "NPC_PitDrone.Bite" );
-}
-
-//=========================================================
-// EatSound
-//=========================================================
-void CNPC_PitDrone::EatSound( void )
-{
-	EmitSound( "NPC_PitDrone.Eat" );
-}
-
-//=========================================================
 // SetYawSpeed - allows each sequence to have a different
 // turn rate associated with it.
 //=========================================================
@@ -263,7 +182,7 @@ float CNPC_PitDrone::MaxYawSpeed( void )
 //=========================================================
 bool CNPC_PitDrone::ShouldEatInCombat()
 {
-	return ( m_iClip <= 0 || m_iMaxHealth > m_iHealth ) && HasCondition( COND_PREDATOR_SMELL_FOOD ) && !IsSameSpecies( GetEnemy() ) && ( !IsInSquad() || OccupyStrategySlot( SQUAD_SLOT_FEED ) );;
+	return ( m_iClip <= 0 || m_iMaxHealth > m_iHealth ) && HasCondition( COND_PREDATOR_SMELL_FOOD ) && ( !IsInSquad() || OccupyStrategySlot( SQUAD_SLOT_FEED ) );
 }
 
 //=========================================================

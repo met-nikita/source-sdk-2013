@@ -57,6 +57,9 @@ BEGIN_DATADESC( CNPC_BasePredator )
 
 	DEFINE_KEYFIELD( m_bIsBoss, FIELD_BOOLEAN, "IsBoss" ),
 	DEFINE_KEYFIELD( m_tWanderState, FIELD_INTEGER, "WanderStrategy" ),
+
+	DEFINE_FIELD( m_nextSoundTime, FIELD_TIME ),
+
 	DEFINE_OUTPUT( m_OnBossHealthReset, "OnBossHealthReset" ),
 	DEFINE_OUTPUT( m_OnFed, "OnFed" ),
 	DEFINE_OUTPUT( m_OnSpawnNPC, "OnSpawnNPC" ),
@@ -145,6 +148,101 @@ Class_T	CNPC_BasePredator::Classify( void )
 	return CLASS_ALIEN_PREDATOR;
 }
 
+//=========================================================
+// IdleSound 
+//=========================================================
+void CNPC_BasePredator::IdleSound( void )
+{
+	EmitSound( UTIL_VarArgs( "%s.Idle", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// PainSound 
+//=========================================================
+void CNPC_BasePredator::PainSound( const CTakeDamageInfo &info )
+{
+	EmitSound( UTIL_VarArgs( "%s.Pain", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// AlertSound
+//=========================================================
+void CNPC_BasePredator::AlertSound( void )
+{
+	EmitSound( UTIL_VarArgs( "%s.Alert", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// DeathSound
+//=========================================================
+void CNPC_BasePredator::DeathSound( const CTakeDamageInfo &info )
+{
+	EmitSound( UTIL_VarArgs( "%s.Death", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// AttackSound
+//=========================================================
+void CNPC_BasePredator::AttackSound( void )
+{
+	EmitSound( UTIL_VarArgs( "%s.Attack1", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// FoundEnemySound
+//=========================================================
+void CNPC_BasePredator::FoundEnemySound( void )
+{
+	if (gpGlobals->curtime >= m_nextSoundTime)
+	{
+		EmitSound( UTIL_VarArgs( "%s.FoundEnemy", GetSoundscriptClassname() ) );
+		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
+	}
+}
+
+//=========================================================
+// GrowlSound
+//=========================================================
+void CNPC_BasePredator::GrowlSound( void )
+{
+	if (gpGlobals->curtime >= m_nextSoundTime)
+	{
+		EmitSound( UTIL_VarArgs( "%s.Growl", GetSoundscriptClassname() ) );
+		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
+	}
+}
+
+//=========================================================
+// BiteSound
+//=========================================================
+void CNPC_BasePredator::BiteSound( void )
+{
+	EmitSound( UTIL_VarArgs( "%s.Bite", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// EatSound
+//=========================================================
+void CNPC_BasePredator::EatSound( void )
+{
+	EmitSound( UTIL_VarArgs( "%s.Eat", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// BeginSpawnSound
+//=========================================================
+void CNPC_BasePredator::BeginSpawnSound( void )
+{
+	EmitSound( UTIL_VarArgs( "%s.BeginSpawn", GetSoundscriptClassname() ) );
+}
+
+//=========================================================
+// EndSpawnSound
+//=========================================================
+void CNPC_BasePredator::EndSpawnSound( void )
+{
+	EmitSound( UTIL_VarArgs( "%s.EndSpawn", GetSoundscriptClassname() ) );
+}
 
 int CNPC_BasePredator::TranslateSchedule( int scheduleType )
 {
@@ -177,6 +275,38 @@ int CNPC_BasePredator::TranslateSchedule( int scheduleType )
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
+}
+
+void CNPC_BasePredator::GatherConditions( void )
+{
+	// Baby creature growth conditions
+	// COND_PREDATOR_CAN_GROW and COND_BABYSQUID_GROWTH_INVALID are separate conditions so that
+	// COND_PREDATOR_GROWTH_INVALID can interrupt the schedule for growth if the baby creature is not
+	// in a physical space that would support it.
+	if ( m_bIsBaby && m_iTimesFed >= 2 )
+	{
+		SetCondition( COND_PREDATOR_CAN_GROW );
+
+		Vector	vUpBit = GetAbsOrigin();
+		vUpBit.z += 1;
+
+		trace_t tr;
+		AI_TraceHull( GetAbsOrigin(), vUpBit, Vector( -16, -16, 0 ), Vector( 16, 16, 32 ), MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &tr );
+		if (tr.startsolid || (tr.fraction < 1.0))
+		{
+			SetCondition( COND_PREDATOR_GROWTH_INVALID );
+		}
+		else
+		{
+			ClearCondition( COND_PREDATOR_GROWTH_INVALID );
+		}
+	}
+	else
+	{
+		ClearCondition( COND_PREDATOR_CAN_GROW );
+	}
+
+	BaseClass::GatherConditions();
 }
 
 //=========================================================
@@ -801,6 +931,16 @@ void CNPC_BasePredator::RunTask ( const Task_t *pTask )
 		}
 		break;
 	}
+	case TASK_PREDATOR_SPAWN:
+	case TASK_PREDATOR_GROW:
+	{
+		// If we fall in this case, end the task when the activity ends
+		if (IsActivityFinished())
+		{
+			TaskComplete();
+		}
+		break;
+	}
 	default:
 	{
 		BaseClass::RunTask( pTask );
@@ -1251,9 +1391,12 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 	DECLARE_TASK( TASK_PREDATOR_PLAY_INSPECT_ACT )
 	DECLARE_TASK( TASK_PREDATOR_SPAWN )
 	DECLARE_TASK( TASK_PREDATOR_SPAWN_SOUND )
+	DECLARE_TASK( TASK_PREDATOR_GROW )
 
 	DECLARE_CONDITION( COND_PREDATOR_SMELL_FOOD )
 	DECLARE_CONDITION( COND_NEW_BOSS_STATE )
+	DECLARE_CONDITION( COND_PREDATOR_CAN_GROW )
+	DECLARE_CONDITION( COND_PREDATOR_GROWTH_INVALID )
 
 	DECLARE_SQUADSLOT( SQUAD_SLOT_FEED )
 	DECLARE_SQUADSLOT( SQUAD_SLOT_THREAT_DISPLAY )
@@ -1466,6 +1609,29 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 		"		TASK_PREDATOR_SPAWN			0"
 		"	"
 		"	Interrupts"
+	)
+
+	//=========================================================
+	// > SCHED_PREDATOR_GROW
+	//=========================================================
+	DEFINE_SCHEDULE
+	(
+		SCHED_PREDATOR_GROW,
+
+		"	Tasks"
+		"		TASK_STOP_MOVING					0"
+		"		TASK_PREDATOR_EAT					10"
+		"		TASK_PREDATOR_PLAY_SNIFF_ACT		0"
+		"		TASK_PREDATOR_GROW					0"
+		"		TASK_SET_ACTIVITY		ACTIVITY:ACT_IDLE"
+		"		TASK_WAIT							1"
+		"	"
+		"	Interrupts"
+		"		COND_LIGHT_DAMAGE"
+		"		COND_HEAVY_DAMAGE"
+		"		COND_CAN_MELEE_ATTACK1"
+		"		COND_CAN_MELEE_ATTACK2"
+		"       COND_PREDATOR_GROWTH_INVALID"
 	)
 
 AI_END_CUSTOM_NPC()

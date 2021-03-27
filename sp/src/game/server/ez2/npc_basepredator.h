@@ -47,6 +47,7 @@ enum
 	TASK_PREDATOR_PLAY_INSPECT_ACT,
 	TASK_PREDATOR_SPAWN,
 	TASK_PREDATOR_SPAWN_SOUND,
+	TASK_PREDATOR_GROW,
 	LAST_SHARED_PREDATOR_TASK
 };
 
@@ -63,6 +64,7 @@ enum
 	SCHED_PREDATOR_WALLOW,
 	SCHED_PREDATOR_WANDER, // Similar to SCHED_PATROL_WALK, but with more interrupts for the [REDACTED]
 	SCHED_PREDATOR_SPAWN,
+	SCHED_PREDATOR_GROW,
 	LAST_SHARED_SCHEDULE_PREDATOR
 };
 
@@ -73,6 +75,8 @@ enum
 {
 	COND_PREDATOR_SMELL_FOOD	= LAST_SHARED_CONDITION + 1,
 	COND_NEW_BOSS_STATE,
+	COND_PREDATOR_CAN_GROW,
+	COND_PREDATOR_GROWTH_INVALID,
 	NEXT_CONDITION
 };
 
@@ -118,12 +122,20 @@ public:
 
 	virtual bool IsBoss( void ) { return m_bIsBoss; } // Method returns whether or not this monster is a boss enemy
 
-	virtual void EatSound( void ) {};
-	virtual void GrowlSound( void ) {};
+	virtual const char * GetSoundscriptClassname() { return GetClassname(); }
+	virtual void IdleSound( void );
+	virtual void PainSound( const CTakeDamageInfo &info );
+	virtual void AlertSound( void );
+	virtual void DeathSound( const CTakeDamageInfo &info );
+	virtual void FoundEnemySound( void );
+	virtual void AttackSound( void );
+	virtual void BiteSound( void );
+	virtual void EatSound( void );
+	virtual void GrowlSound( void );
 	virtual void RetreatModeSound( void ) {};
 	virtual void BerserkModeSound( void ) {};
-	virtual void BeginSpawnSound( void ) {};
-	virtual void EndSpawnSound( void ) {};
+	virtual void BeginSpawnSound( void );
+	virtual void EndSpawnSound( void );
 
 	virtual void HealEffects( void );
 
@@ -182,6 +194,8 @@ public:
 	virtual int SelectFailSchedule( int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode );
 	virtual int SelectBossSchedule( void );
 	virtual int TranslateSchedule( int scheduleType );
+
+	virtual void	GatherConditions( void );
 
 	bool ShouldAlwaysThink(); // Overriding for boss behavior
 	bool FInViewCone ( Vector pOrigin );
@@ -248,6 +262,9 @@ protected:
 	COutputEvent m_OnSpawnNPC; // Output when a predator completes spawning offspring
 
 	WanderState m_tWanderState; // How should this NPC wander?
+
+private:
+	float m_nextSoundTime;
 };
 
 #endif // NPC_BASEPREDATOR_H

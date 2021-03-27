@@ -74,7 +74,6 @@ int ACT_LAND_CEILING;
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_FlyingPredator )
 
-	DEFINE_FIELD( m_nextSoundTime,	FIELD_TIME ),
 	DEFINE_KEYFIELD( m_tFlyState, FIELD_INTEGER, "FlyState"),
 
 	DEFINE_FIELD( m_vecDiveBombDirection, FIELD_VECTOR ),
@@ -94,7 +93,18 @@ void CNPC_FlyingPredator::Spawn()
 
 	SetModel( STRING( GetModelName() ) );
 
-	SetHullType( HULL_WIDE_SHORT );
+	if (m_bIsBaby)
+	{
+		// TODO - Need a unique model for stukapups
+		SetModelScale( 0.5 );
+		SetHullType( HULL_TINY );
+	}
+	else
+	{
+		SetHullType( HULL_WIDE_SHORT );
+	}
+
+
 	SetHullSizeNormal();
 
 	SetSolid( SOLID_BBOX );
@@ -111,8 +121,8 @@ void CNPC_FlyingPredator::Spawn()
 	}
 	
 	SetRenderColor( 255, 255, 255, 255 );
-	
-	m_iMaxHealth		= sk_flyingpredator_health.GetFloat();
+
+	m_iMaxHealth		= m_bIsBaby ? sk_flyingpredator_health.GetFloat() / 4 : sk_flyingpredator_health.GetFloat();
 	m_iHealth			= m_iMaxHealth;
 	m_flFieldOfView		= 0.75;	// indicates the width of this monster's forward view cone ( as a dotproduct result )
 								// Stukabats have a wider FOV because in testing they tended to have too much tunnel vision.
@@ -123,6 +133,12 @@ void CNPC_FlyingPredator::Spawn()
 	// For the purposes of melee attack conditions triggering attacks, we are treating the flying predator as though it has two melee attacks like the bullsquid.
 	// In reality, the melee attack schedules will be translated to SCHED_RANGE_ATTACK_1.
 	CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK2 | bits_CAP_SQUAD | bits_CAP_MOVE_JUMP );
+
+	// Baby stukas are docile
+	if (m_bIsBaby)
+	{
+		CapabilitiesRemove( bits_CAP_INNATE_MELEE_ATTACK1 | bits_CAP_INNATE_RANGE_ATTACK1 );
+	}
 
 	m_fCanThreatDisplay	= TRUE;
 	m_flNextSpitTime = gpGlobals->curtime;
@@ -177,86 +193,6 @@ void CNPC_FlyingPredator::Precache()
 }
 
 //=========================================================
-// IdleSound 
-//=========================================================
-void CNPC_FlyingPredator::IdleSound( void )
-{
-	EmitSound( "NPC_FlyingPredator.Idle" );
-}
-
-//=========================================================
-// PainSound 
-//=========================================================
-void CNPC_FlyingPredator::PainSound( const CTakeDamageInfo &info )
-{
-	EmitSound( "NPC_FlyingPredator.Pain" );
-}
-
-//=========================================================
-// AlertSound
-//=========================================================
-void CNPC_FlyingPredator::AlertSound( void )
-{
-	EmitSound( "NPC_FlyingPredator.Alert" );
-}
-
-//=========================================================
-// DeathSound
-//=========================================================
-void CNPC_FlyingPredator::DeathSound( const CTakeDamageInfo &info )
-{
-	EmitSound( "NPC_FlyingPredator.Death" );
-}
-
-//=========================================================
-// AttackSound
-//=========================================================
-void CNPC_FlyingPredator::AttackSound( void )
-{
-	EmitSound( "NPC_FlyingPredator.Attack1" );
-}
-
-//=========================================================
-// FoundEnemySound
-//=========================================================
-void CNPC_FlyingPredator::FoundEnemySound( void )
-{
-	if (gpGlobals->curtime >= m_nextSoundTime)
-	{
-		EmitSound( "NPC_FlyingPredator.FoundEnemy" );
-		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
-	}
-}
-
-//=========================================================
-// GrowlSound
-//=========================================================
-void CNPC_FlyingPredator::GrowlSound( void )
-{
-	if (gpGlobals->curtime >= m_nextSoundTime)
-	{
-		EmitSound( "NPC_FlyingPredator.Growl" );
-		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt(1.5,3.0);
-	}
-}
-
-//=========================================================
-// BiteSound
-//=========================================================
-void CNPC_FlyingPredator::BiteSound( void )
-{
-	EmitSound( "NPC_FlyingPredator.Bite" );
-}
-
-//=========================================================
-// EatSound
-//=========================================================
-void CNPC_FlyingPredator::EatSound( void )
-{
-	EmitSound( "NPC_FlyingPredator.Eat" );
-}
-
-//=========================================================
 // SetYawSpeed - allows each sequence to have a different
 // turn rate associated with it.
 //=========================================================
@@ -282,6 +218,22 @@ float CNPC_FlyingPredator::GetMaxSpitWaitTime( void )
 float CNPC_FlyingPredator::GetMinSpitWaitTime( void )
 {
 	return sk_flyingpredator_spit_max_wait.GetFloat();
+}
+
+//=========================================================
+// Overridden to make Stuka pups fearful
+//=========================================================
+Disposition_t CNPC_FlyingPredator::IRelationType( CBaseEntity *pTarget )
+{
+	Disposition_t disposition = BaseClass::IRelationType( pTarget );;
+
+	// If this stuka hates the enemy and is a pup, run away!
+	if ( disposition == D_HT && m_bIsBaby )
+	{
+		return D_FR;
+	}
+
+	return disposition;
 }
 
 //=========================================================
@@ -439,14 +391,20 @@ int CNPC_FlyingPredator::SelectSchedule( void )
 	// Force clear the falling condition to make sure it doesn't interrupt again
 	ClearCondition( COND_FORCED_FALL );
 
-	if ( HasCondition( COND_FORCED_FLY ) )
+	if (HasCondition( COND_FORCED_FLY ))
 	{
 		return SCHED_TAKEOFF;
 	}
 
-	if ( HasCondition( COND_CAN_LAND ) )
+	if (HasCondition( COND_CAN_LAND ))
 	{
 		return SCHED_LAND;
+	}
+
+	// Make sure the stukabat is in midair before spawning a baby bat
+	if ( m_tFlyState != FlyState_Flying && m_bReadyToSpawn )
+	{
+		return SCHED_TAKEOFF;
 	}
 
 	switch (m_tFlyState)
@@ -462,12 +420,24 @@ int CNPC_FlyingPredator::SelectSchedule( void )
 		return SCHED_FALL;
 	case FlyState_Ceiling:
 		// If anything 'disturbs' the stukabat, fall from this perch
-		if ( ( GetEnemy() != NULL && EnemyDistance( GetEnemy() ) <= 512.0f ) || HasCondition( COND_HEAR_BULLET_IMPACT ) || HasCondition( COND_HEAR_DANGER ) || HasCondition( COND_HEAR_COMBAT ) || HasCondition( COND_PREDATOR_SMELL_FOOD ) || HasCondition( COND_SMELL ))
+		if ( ( GetEnemy() != NULL && EnemyDistance( GetEnemy() ) <= 512.0f ) || HasCondition( COND_HEAR_BULLET_IMPACT ) || HasCondition( COND_HEAR_DANGER ) || HasCondition( COND_HEAR_COMBAT ) || HasCondition( COND_PREDATOR_SMELL_FOOD ) || HasCondition( COND_SMELL ) || HasCondition( COND_PREDATOR_CAN_GROW ) )
 		{
 			return SCHED_FALL;
 		}
 
 		return SCHED_IDLE_STAND;
+	case FlyState_Walking:
+		if ( HasCondition( COND_PREDATOR_CAN_GROW ) && !HasCondition( COND_PREDATOR_GROWTH_INVALID ) )
+		{
+			if ( GetState() == NPC_STATE_COMBAT && GetEnemy() && !HasMemory( bits_MEMORY_INCOVER ) )
+			{
+				PredMsg( "Baby stuka '%s' wants to grow, but is in combat. Take cover! \n" );
+				return SCHED_TAKE_COVER_FROM_ENEMY;
+			}
+
+			return SCHED_PREDATOR_GROW;
+		}
+		break;
 	}
 
 	return BaseClass::SelectSchedule();
@@ -482,6 +452,8 @@ int CNPC_FlyingPredator::SelectSchedule( void )
 //=========================================================
 void CNPC_FlyingPredator::StartTask( const Task_t *pTask )
 {
+	Vector vSpitPos;
+
 	switch (pTask->iTask)
 	{
 	case TASK_TAKEOFF:
@@ -492,7 +464,17 @@ void CNPC_FlyingPredator::StartTask( const Task_t *pTask )
 		break;
 	case TASK_PREDATOR_SPAWN:
 		m_flNextSpawnTime = gpGlobals->curtime + sk_flyingpredator_spawn_time.GetFloat();
-		SetIdealActivity( (Activity) ACT_RANGE_ATTACK1 );
+
+		GetAttachment( "Mouth", vSpitPos );
+		vSpitPos -= Vector( 0, 0, 32 );
+		if ( SpawnNPC( vSpitPos, true ) )
+		{
+			TaskComplete();
+		}
+		else
+		{
+			TaskFail( FAIL_BAD_POSITION );
+		}
 		break;
 	case TASK_FLY_DIVE_BOMB:
 	{
@@ -544,6 +526,25 @@ void CNPC_FlyingPredator::StartTask( const Task_t *pTask )
 		}
 		TaskComplete();
 		break;
+	case TASK_PREDATOR_GROW:
+		// Temporarily become non-solid so the new NPC can spawn
+		SetSolid( SOLID_NONE );
+
+		// Spawn an adult squid
+		if ( !SpawnNPC( GetAbsOrigin() + Vector( 0, 0, 32 ), false ) )
+		{
+			TaskFail( FAIL_BAD_POSITION );
+			break;
+		}
+
+		SetSolid( SOLID_BBOX );
+
+		// Delete baby squid
+		SUB_Remove();
+
+		// Task should end after scale is applied
+		TaskComplete();
+		break;
 	default:
 	{
 		BaseClass::StartTask( pTask );
@@ -590,6 +591,16 @@ void CNPC_FlyingPredator::RunTask ( const Task_t *pTask )
 	}
 }
 
+// Override OnFed() to set this stukabat ready to spawn after eating
+void CNPC_FlyingPredator::OnFed() 
+{
+	BaseClass::OnFed(); 
+	if ( !m_bIsBaby && m_bSpawningEnabled )
+	{
+		m_bReadyToSpawn = true;
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Output : Returns true on success, false on failure.
@@ -604,30 +615,38 @@ bool CNPC_FlyingPredator::CorpseGib( const CTakeDamageInfo &info )
 
 void CNPC_FlyingPredator::ExplosionEffect( void )
 {
-	DispatchParticleEffect( "bullsquid_explode", WorldSpaceCenter(), GetAbsAngles() );
+	// Babies don't explode
+	if ( m_bIsBaby )
+	{
+		// TODO - Replace this with a non-explosive particle
+		DispatchParticleEffect( "bullsquid_explode", WorldSpaceCenter(), GetAbsAngles() );
+	}
+	else
+	{
+		// TODO - Replace this with a unique particle
+		DispatchParticleEffect( "bullsquid_explode", WorldSpaceCenter(), GetAbsAngles() );
 
-	CTakeDamageInfo info( this, this, sk_flyingpredator_dmg_explode.GetFloat(), DMG_BLAST_SURFACE | DMG_ACID | DMG_ALWAYSGIB );
+		CTakeDamageInfo info( this, this, sk_flyingpredator_dmg_explode.GetFloat(), DMG_BLAST_SURFACE | DMG_ACID | DMG_ALWAYSGIB );
 
-	RadiusDamage( info, GetAbsOrigin(), sk_flyingpredator_radius_explode.GetFloat(), CLASS_NONE, this );
-	EmitSound( "NPC_FlyingPredator.Explode" );
+		RadiusDamage( info, GetAbsOrigin(), sk_flyingpredator_radius_explode.GetFloat(), CLASS_NONE, this );
+		EmitSound( "NPC_FlyingPredator.Explode" );
+	}
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Create a new flying predator / stukabat
 // Output : True if the new offspring is created
-//
-// TODO Stukabats should lay eggs
 //-----------------------------------------------------------------------------
-bool CNPC_FlyingPredator::SpawnNPC( const Vector position )
+bool CNPC_FlyingPredator::SpawnNPC( const Vector position, bool isBaby )
 {
 	// Try to create entity
-	CNPC_FlyingPredator *pChild = dynamic_cast< CNPC_FlyingPredator * >(CreateEntityByName( "NPC_FlyingPredator" ));
+	CNPC_FlyingPredator *pChild = dynamic_cast< CNPC_FlyingPredator * >(CreateEntityByName(GetClassname()));
 	if ( pChild )
 	{
-		pChild->m_bIsBaby = true;
+		pChild->m_bIsBaby = isBaby;
 		pChild->m_tEzVariant = this->m_tEzVariant;
 		pChild->m_tWanderState = this->m_tWanderState;
-		pChild->m_bSpawningEnabled = true;
+		pChild->m_bSpawningEnabled = this->m_bSpawningEnabled;
 		pChild->SetModelName( this->GetModelName() );
 		pChild->m_nSkin = this->m_nSkin;
 		pChild->Precache();
@@ -654,6 +673,17 @@ bool CNPC_FlyingPredator::SpawnNPC( const Vector position )
 
 		pChild->SetSquad( this->GetSquad() );
 		pChild->Activate();
+
+		// Stukabat babies start falling
+		if (isBaby)
+		{
+			pChild->SetFlyingState( FlyState_Falling );
+		}
+
+		// Gib!
+		// TODO - Should have unique effects for growing!
+		DispatchParticleEffect( "bullsquid_explode", pChild->WorldSpaceCenter(), pChild->GetAbsAngles() );
+		EmitSound( "NPC_FlyingPredator.Explode" );
 
 		// Decrement feeding counter
 		m_iTimesFed--;
@@ -875,7 +905,7 @@ void CNPC_FlyingPredator::StartTouch( CBaseEntity *pOther )
 		// If I fear or hate this entity, do damage!
 		if ( IRelationType( pOther ) != D_LI )
 		{
-			CTakeDamageInfo info( this, this, sk_flyingpredator_dmg_dive.GetFloat(), DMG_CLUB | DMG_ALWAYSGIB );
+			CTakeDamageInfo info( this, this, m_bIsBaby ? sk_flyingpredator_dmg_dive.GetFloat() / 3.0f : sk_flyingpredator_dmg_dive.GetFloat(), DMG_CLUB | DMG_ALWAYSGIB );
 			pOther->TakeDamage( info );
 
 			if ( m_tFlyState == FlyState_Falling )

@@ -28,17 +28,7 @@ public:
 	void Precache( void );
 	Class_T	Classify( void );
 	
-	void IdleSound( void );
-	void PainSound( const CTakeDamageInfo &info );
-	void AlertSound( void );
-	void DeathSound( const CTakeDamageInfo &info );
-	void FoundEnemySound( void );
-	void AttackSound( void );
-	void GrowlSound( void );
-	void BiteSound( void );
-	void EatSound( void );
-	void BeginSpawnSound( void );
-	void EndSpawnSound( void );
+	virtual const char * GetSoundscriptClassname() { return m_bIsBaby ? "NPC_Babysquid" : "NPC_Bullsquid"; }
 
 	float MaxYawSpeed ( void );
 
@@ -65,12 +55,9 @@ public:
 	void RunAI ( void );
 
 	void StartTask ( const Task_t *pTask );
-	void RunTask( const Task_t * pTask );
 
 	int				SelectSchedule( void );
 	int 			TranslateSchedule( int scheduleType );
-
-	virtual void	GatherConditions( void );
 
 	virtual Activity NPC_TranslateActivity( Activity eNewActivity );
 
@@ -86,7 +73,6 @@ public:
 
 private:	
 	int   m_nSquidSpitSprite;
-	float m_nextSquidSoundTime;
 
 	// Consider moving these to BasePredator if other predators need them
 	string_t		m_EggModelName;

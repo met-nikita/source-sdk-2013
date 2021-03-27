@@ -33,15 +33,7 @@ public:
 	void Spawn( void );
 	void Precache( void );
 	
-	void IdleSound( void );
-	void PainSound( const CTakeDamageInfo &info );
-	void AlertSound( void );
-	void DeathSound( const CTakeDamageInfo &info );
-	void FoundEnemySound( void );
-	void AttackSound( void );
-	void GrowlSound( void );
-	void BiteSound( void );
-	void EatSound( void );
+	virtual const char * GetSoundscriptClassname() { return m_bIsBaby ? "NPC_Stukapup" : "NPC_FlyingPredator"; }
 
 	virtual int RangeAttack1Conditions( float flDot, float flDist );
 
@@ -50,6 +42,8 @@ public:
 
 	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_EARTH_FAUNA || pTarget->Classify() == CLASS_ALIEN_FAUNA; }
 	virtual bool IsSameSpecies( CBaseEntity* pTarget ) { return pTarget ? ClassMatches( pTarget->GetClassname() ) : false; } // Is this NPC the same species as me?
+
+	Disposition_t IRelationType( CBaseEntity *pTarget );
 
 	virtual void	GatherConditions( void );
 	bool CanLand();
@@ -61,14 +55,19 @@ public:
 	void StartTask ( const Task_t *pTask );
 	void RunTask( const Task_t * pTask );
 
+	// Override OnFed() to set this stukabat ready to spawn after eating
+	virtual void OnFed();
+	virtual bool ShouldEatInCombat() { return m_bIsBaby || BaseClass::ShouldEatInCombat(); }
+
 	// No fly. Jump good!
 	bool IsJumpLegal( const Vector & startPos, const Vector & apex, const Vector & endPos ) const { return true; }
+
 
 	bool		ShouldGib( const CTakeDamageInfo &info ) { return true; };
 	bool		CorpseGib( const CTakeDamageInfo &info );
 	void		ExplosionEffect( void );
 
-	bool SpawnNPC( const Vector position );
+	bool SpawnNPC( const Vector position, bool isBaby );
 
 	virtual bool	QueryHearSound( CSound *pSound );
 
@@ -95,8 +94,5 @@ protected:
 	float m_flDiveBombRollForce;
 
 	DEFINE_CUSTOM_AI;
-
-private:	
-	float m_nextSoundTime;
 };
 #endif // NPC_FLYINGPREDATOR_H

@@ -30,6 +30,7 @@ public:
 
 	bool	CreateBehaviors();
 	
+	virtual const char * GetSoundscriptClassname() { return "Gonome"; }
 	void IdleSound( void );
 	void PainSound( const CTakeDamageInfo &info );
 	void AlertSound( void );

@@ -42,38 +42,10 @@ int ACT_SQUID_EAT;
 int ACT_SQUID_DETECT_SCENT;
 int ACT_SQUID_INSPECT_FLOOR;
 
-//=========================================================
-// monster-specific schedule types
-//=========================================================
-enum
-{
-	SCHED_BULLSQUID_GROW = 	LAST_SHARED_SCHEDULE_PREDATOR+ 1,
-};
-
-//=========================================================
-// monster-specific tasks
-//=========================================================
-enum
-{
-	TASK_SQUID_GROW = LAST_SHARED_PREDATOR_TASK + 1,
-};
-
-//-----------------------------------------------------------------------------
-// monster-specific conditions
-//-----------------------------------------------------------------------------
-enum
-{
-	COND_BABYSQUID_CAN_GROW	= NEXT_CONDITION + 1,
-	COND_BABYSQUID_GROWTH_INVALID,
-	LAST_BULLSQUID_CONDITION
-};
-
 //---------------------------------------------------------
 // Save/Restore
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_Bullsquid )
-
-	DEFINE_FIELD( m_nextSquidSoundTime,	FIELD_TIME ),
 
 	DEFINE_KEYFIELD( m_AdultModelName, FIELD_MODELNAME, "adultmodel" ),
 	DEFINE_KEYFIELD( m_BabyModelName, FIELD_MODELNAME, "babymodel" ),
@@ -268,103 +240,6 @@ void CNPC_Bullsquid::Precache()
 Class_T	CNPC_Bullsquid::Classify( void )
 {
 	return CLASS_BULLSQUID; 
-}
-
-//=========================================================
-// IdleSound 
-//=========================================================
-#define SQUID_ATTN_IDLE	(float)1.5
-void CNPC_Bullsquid::IdleSound( void )
-{
-	EmitSound( m_bIsBaby ? "NPC_Babysquid.Idle" : "NPC_Bullsquid.Idle" );
-}
-
-//=========================================================
-// PainSound 
-//=========================================================
-void CNPC_Bullsquid::PainSound( const CTakeDamageInfo &info )
-{
-	EmitSound( m_bIsBaby ? "NPC_Babysquid.Pain" : "NPC_Bullsquid.Pain" );
-}
-
-//=========================================================
-// AlertSound
-//=========================================================
-void CNPC_Bullsquid::AlertSound( void )
-{
-	EmitSound( m_bIsBaby ? "NPC_Babysquid.Alert" : "NPC_Bullsquid.Alert" );
-}
-
-//=========================================================
-// DeathSound
-//=========================================================
-void CNPC_Bullsquid::DeathSound( const CTakeDamageInfo &info )
-{
-	EmitSound( m_bIsBaby ? "NPC_Babysquid.Death" : "NPC_Bullsquid.Death" );
-}
-
-//=========================================================
-// AttackSound
-//=========================================================
-void CNPC_Bullsquid::AttackSound( void )
-{
-	EmitSound( m_bIsBaby ? "NPC_Babysquid.Attack1" : "NPC_Bullsquid.Attack1" );
-}
-
-//=========================================================
-// FoundEnemySound
-//=========================================================
-void CNPC_Bullsquid::FoundEnemySound( void )
-{
-	if (gpGlobals->curtime >= m_nextSquidSoundTime)
-	{
-		EmitSound( m_bIsBaby ? "NPC_Babysquid.FoundEnemy" : "NPC_Bullsquid.FoundEnemy" );
-		m_nextSquidSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
-	}
-}
-
-//=========================================================
-// GrowlSound
-//=========================================================
-void CNPC_Bullsquid::GrowlSound( void )
-{
-	if (gpGlobals->curtime >= m_nextSquidSoundTime)
-	{
-		EmitSound( m_bIsBaby ? "NPC_Babysquid.Growl" : "NPC_Bullsquid.Growl" );
-		m_nextSquidSoundTime	= gpGlobals->curtime + random->RandomInt(1.5,3.0);
-	}
-}
-
-//=========================================================
-// BiteSound
-//=========================================================
-void CNPC_Bullsquid::BiteSound( void )
-{
-	EmitSound( m_bIsBaby ? "NPC_Babysquid.Bite" : "NPC_Bullsquid.Bite" );
-}
-
-//=========================================================
-// EatSound
-//=========================================================
-void CNPC_Bullsquid::EatSound( void )
-{
-	EmitSound( m_bIsBaby ? "NPC_Babysquid.Eat" : "NPC_Bullsquid.Eat" );
-}
-
-//=========================================================
-// BeginSpawnSound
-//=========================================================
-void CNPC_Bullsquid::BeginSpawnSound( void )
-{
-	EmitSound( "NPC_Bullsquid.BeginSpawn" );
-}
-
-//=========================================================
-// EndSpawnSound
-//=========================================================
-void CNPC_Bullsquid::EndSpawnSound( void )
-{
-	EmitSound( "NPC_Bullsquid.EndSpawn" );
 }
 
 //=========================================================
@@ -961,7 +836,7 @@ void CNPC_Bullsquid::StartTask( const Task_t *pTask )
 	case TASK_PREDATOR_PLAY_INSPECT_ACT:
 		SetIdealActivity( (Activity)ACT_SQUID_INSPECT_FLOOR );
 		break;
-	case TASK_SQUID_GROW:
+	case TASK_PREDATOR_GROW:
 		// Temporarily become non-solid so the new NPC can spawn
 		SetSolid( SOLID_NONE );
 
@@ -1002,36 +877,11 @@ void CNPC_Bullsquid::StartTask( const Task_t *pTask )
 }
 
 //=========================================================
-// RunTask
-//=========================================================
-void CNPC_Bullsquid::RunTask ( const Task_t *pTask )
-{
-	switch (pTask->iTask)
-	{
-	case TASK_PREDATOR_SPAWN:
-	case TASK_SQUID_GROW:
-	{
-		// If we fall in this case, end the task when the activity ends
-		if (IsActivityFinished())
-		{
-			TaskComplete();
-		}
-		break;
-	}
-	default:
-	{
-		BaseClass::RunTask( pTask );
-		break;
-	}
-	}
-}
-
-//=========================================================
 // GetSchedule 
 //=========================================================
 int CNPC_Bullsquid::SelectSchedule( void )
 {
-	if( HasCondition( COND_BABYSQUID_CAN_GROW ) && !HasCondition( COND_BABYSQUID_GROWTH_INVALID ) )
+	if( HasCondition( COND_PREDATOR_CAN_GROW ) && !HasCondition( COND_PREDATOR_GROWTH_INVALID ) )
 	{	
 		if ( GetState() == NPC_STATE_COMBAT && GetEnemy() && !HasMemory( bits_MEMORY_INCOVER ) )
 		{
@@ -1039,7 +889,7 @@ int CNPC_Bullsquid::SelectSchedule( void )
 			return SCHED_TAKE_COVER_FROM_ENEMY;
 		}
 
-		return SCHED_BULLSQUID_GROW;
+		return SCHED_PREDATOR_GROW;
 	}
 
 	return BaseClass::SelectSchedule();
@@ -1054,38 +904,6 @@ int CNPC_Bullsquid::TranslateSchedule( int scheduleType )
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
-}
-
-void CNPC_Bullsquid::GatherConditions( void )
-{
-	// Baby squid growth conditions
-	// COND_BABYSQUID_CAN_GROW and COND_BABYSQUID_GROWTH_INVALID are separate conditions so that
-	// COND_BABYSQUID_GROWTH_INVALID can interrupt the schedule for growth if the babysquid is not
-	// in a physical space that would support it.
-	if ( m_bIsBaby && m_iTimesFed >= 2 )
-	{
-		SetCondition( COND_BABYSQUID_CAN_GROW );
-
-		Vector	vUpBit = GetAbsOrigin();
-		vUpBit.z += 1;
-
-		trace_t tr;
-		AI_TraceHull( GetAbsOrigin(), vUpBit, Vector( -16, -16, 0 ), Vector( 16, 16, 32 ), MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &tr );
-		if ( tr.startsolid || ( tr.fraction < 1.0 ) )
-		{
-			SetCondition( COND_BABYSQUID_GROWTH_INVALID );
-		}
-		else
-		{
-			ClearCondition( COND_BABYSQUID_GROWTH_INVALID );
-		}
-	}
-	else
-	{
-		ClearCondition( COND_BABYSQUID_CAN_GROW );
-	}
-
-	BaseClass::GatherConditions();
 }
 
 // Shared activities from base predator
@@ -1307,40 +1125,12 @@ CNPC_Bullsquid * CNPC_Bullsquid::SpawnLive( const Vector position, bool isBaby )
 
 AI_BEGIN_CUSTOM_NPC( npc_bullsquid, CNPC_Bullsquid )
 
-	DECLARE_TASK( TASK_SQUID_GROW )
-
 	DECLARE_ACTIVITY( ACT_SQUID_EAT )
 	DECLARE_ACTIVITY( ACT_SQUID_EXCITED )
 	DECLARE_ACTIVITY( ACT_SQUID_DETECT_SCENT )
 	DECLARE_ACTIVITY( ACT_SQUID_INSPECT_FLOOR )
 
-	DECLARE_CONDITION( COND_BABYSQUID_CAN_GROW )
-	DECLARE_CONDITION( COND_BABYSQUID_GROWTH_INVALID )
-
 	DECLARE_INTERACTION( g_interactionBullsquidThrow )
 	DECLARE_INTERACTION( g_interactionBullsquidMonch )
-
-	//=========================================================
-	// > SCHED_SQUID_SNIFF_AND_EAT
-	//=========================================================
-	DEFINE_SCHEDULE
-	(
-		SCHED_BULLSQUID_GROW,
-
-		"	Tasks"
-		"		TASK_STOP_MOVING					0"
-		"		TASK_PREDATOR_EAT					10"
-		"		TASK_PREDATOR_PLAY_SNIFF_ACT		0"
-		"		TASK_SQUID_GROW						0"
-		"		TASK_SET_ACTIVITY		ACTIVITY:ACT_IDLE"
-		"		TASK_WAIT							1"
-		"	"
-		"	Interrupts"
-		"		COND_LIGHT_DAMAGE"
-		"		COND_HEAVY_DAMAGE"
-		"		COND_CAN_MELEE_ATTACK1"
-		"		COND_CAN_MELEE_ATTACK2"
-		"       COND_BABYSQUID_GROWTH_INVALID"
-	)
 
 AI_END_CUSTOM_NPC()
