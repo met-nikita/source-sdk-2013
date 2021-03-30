@@ -57,6 +57,11 @@ BEGIN_DATADESC( CNPC_VehicleDriver )
 	//DEFINE_KEYFIELD( m_flInitialSpeed,	FIELD_FLOAT ),
 	DEFINE_FIELD( m_flSteering,			FIELD_FLOAT ),
 
+#ifdef MAPBASE
+	DEFINE_KEYFIELD( m_bUseAINodes, FIELD_BOOLEAN, "UseAINodes" ),
+	DEFINE_KEYFIELD( m_bUseCombatAI, FIELD_BOOLEAN, "UseCombatAI" ),
+#endif
+
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetDriversMaxSpeed", InputSetDriversMaxSpeed ),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetDriversMinSpeed", InputSetDriversMinSpeed ),
@@ -66,6 +71,11 @@ BEGIN_DATADESC( CNPC_VehicleDriver )
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartFiring", InputStartFiring ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopFiring", InputStopFiring ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "GotoPathCorner", InputGotoPathCorner ),
+
+#ifdef MAPBASE
+	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetUseAINodes", InputSetUseAINodes ),
+	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetUseCombatAI", InputSetUseCombatAI ),
+#endif
 
 END_DATADESC()
 
@@ -129,7 +139,11 @@ void CNPC_VehicleDriver::Spawn( void )
 	m_flDistanceAlongSpline = 0.2;
 	m_pCurrentWaypoint = m_pNextWaypoint = NULL;
 
+#ifdef MAPBASE
+	GetNavigator()->SetPathcornerPathfinding( m_bUseAINodes );
+#else
 	GetNavigator()->SetPathcornerPathfinding( false );
+#endif
 
 	NPCInit();
 
@@ -277,6 +291,12 @@ int CNPC_VehicleDriver::SelectSchedule( void )
 
 	case NPC_STATE_COMBAT:
 		{
+#ifdef MAPBASE
+			// Don't use vehicle schedules if we're allowed to use any combat AI
+			if (m_bUseCombatAI)
+				break;
+#endif
+
 			if ( HasCondition(COND_NEW_ENEMY) || HasCondition( COND_ENEMY_DEAD ) )
 				return BaseClass::SelectSchedule();
 
@@ -378,6 +398,15 @@ int CNPC_VehicleDriver::TranslateSchedule( int scheduleType )
 			return SCHED_FAIL;
 		}
 		break;
+
+#ifdef MAPBASE
+	case SCHED_TAKE_COVER_FROM_ENEMY:
+		{
+			if (m_bUseCombatAI)
+				return SCHED_VEHICLEDRIVER_COMBAT_WAIT;
+		}
+		break;
+#endif
 	}
 
 	return BaseClass::TranslateSchedule(scheduleType);
@@ -722,8 +751,8 @@ bool CNPC_VehicleDriver::OverridePathMove( float flInterval )
 	// Have we reached our target? See if we've passed the current waypoint's plane.
 	Vector vecAbsMins, vecAbsMaxs;
 #ifdef MAPBASE
-	vecAbsMins = m_hVehicleEntity->CollisionProp()->OBBMins();
-	vecAbsMaxs = m_hVehicleEntity->CollisionProp()->OBBMaxs();
+	//vecAbsMins = m_hVehicleEntity->CollisionProp()->OBBMins();
+	//vecAbsMaxs = m_hVehicleEntity->CollisionProp()->OBBMaxs();
 	m_hVehicleEntity->CollisionProp()->WorldSpaceAABB( &vecAbsMins, &vecAbsMaxs );
 #else
 	CollisionProp()->WorldSpaceAABB( &vecAbsMins, &vecAbsMaxs );
@@ -1138,6 +1167,26 @@ void CNPC_VehicleDriver::InputGotoPathCorner( inputdata_t &inputdata )
 		InputStartForward( inputdata );
 	}
 }
+
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_VehicleDriver::InputSetUseAINodes( inputdata_t &inputdata )
+{
+	m_bUseAINodes = inputdata.value.Bool();
+	GetNavigator()->SetPathcornerPathfinding( m_bUseAINodes );
+	m_bUseAINodes ? CapabilitiesAdd( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_SHOOT ) : CapabilitiesRemove( bits_CAP_MOVE_GROUND | bits_CAP_MOVE_SHOOT );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_VehicleDriver::InputSetUseCombatAI( inputdata_t &inputdata )
+{
+	m_bUseCombatAI = inputdata.value.Bool();
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //
