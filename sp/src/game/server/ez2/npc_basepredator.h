@@ -189,6 +189,7 @@ public:
 	int GetSoundInterests ( void );
 	void RunAI ( void );
 	virtual void OnListened ( void );
+	virtual bool QueryHearSound( CSound *pSound );
 
 	virtual int SelectSchedule( void );
 	virtual int SelectFailSchedule( int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode );
@@ -255,6 +256,7 @@ public:
 	void			InputEnterBerserkMode(inputdata_t &inputdata);
 
 protected:
+	bool m_bDormant;
 	bool  m_bIsBoss = true; // Key value to set whether or not this monster should act like the 'boss' enemy 
 	BossState m_tBossState = BOSS_STATE_NORMAL; // State of the boss
 	COutputEvent m_OnBossHealthReset; // Output for when the boss loses all of his health - allows you to script boss fight through Hammer!

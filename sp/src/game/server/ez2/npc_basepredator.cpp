@@ -57,6 +57,7 @@ BEGIN_DATADESC( CNPC_BasePredator )
 
 	DEFINE_KEYFIELD( m_bIsBoss, FIELD_BOOLEAN, "IsBoss" ),
 	DEFINE_KEYFIELD( m_tWanderState, FIELD_INTEGER, "WanderStrategy" ),
+	DEFINE_KEYFIELD( m_bDormant, FIELD_BOOLEAN, "Dormant" ),
 
 	DEFINE_FIELD( m_nextSoundTime, FIELD_TIME ),
 
@@ -145,6 +146,10 @@ void CNPC_BasePredator::SetupGlobalModelData()
 //-----------------------------------------------------------------------------
 Class_T	CNPC_BasePredator::Classify( void )
 {
+	// Don't notice any other NPCs or be noticed while dormant
+	if (m_bDormant)
+		return CLASS_NONE;
+
 	return CLASS_ALIEN_PREDATOR;
 }
 
@@ -579,6 +584,9 @@ bool CNPC_BasePredator::JustStartedFearing( CBaseEntity *pTarget )
 //=========================================================
 int CNPC_BasePredator::OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo )
 {
+	// No longer dormant
+	m_bDormant = false;
+
 	if ( m_tBossState == BOSS_STATE_BERSERK ) {
 		// Berserk predators take no damage!
 		return 0;
@@ -757,6 +765,19 @@ void CNPC_BasePredator::OnListened( void )
 	}
 
 	BaseClass::OnListened();
+}
+
+bool CNPC_BasePredator::QueryHearSound( CSound * pSound )
+{
+	// Don't smell while dormant
+	if (pSound->FIsScent() && m_bDormant)
+		return false;
+
+	// While dormant, only hear sounds within a laterial distance of 384 units
+	if (m_bDormant &&  GetAbsOrigin().AsVector2D().DistTo( pSound->GetSoundOrigin().AsVector2D()) > 384 )
+		return false;
+
+	return BaseClass::QueryHearSound( pSound );
 }
 
 //========================================================
@@ -990,6 +1011,9 @@ int CNPC_BasePredator::SelectSchedule( void )
 	{
 	case NPC_STATE_ALERT:
 	{
+		// No longer dormant
+		m_bDormant = false;
+
 		if ( HasCondition( COND_LIGHT_DAMAGE ) || HasCondition( COND_HEAVY_DAMAGE ) )
 		{
 			return SCHED_PREDATOR_HURTHOP;
