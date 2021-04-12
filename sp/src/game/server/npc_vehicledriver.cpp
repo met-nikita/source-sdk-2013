@@ -278,8 +278,11 @@ int CNPC_VehicleDriver::SelectSchedule( void )
 		return SCHED_VEHICLEDRIVER_INACTIVE;
 	}
 
+	// In EZ2, we don't want to follow the goal path until after checking combat schedules
+#ifndef EZ2
 	if ( GetGoalEnt() )
 		return SCHED_VEHICLEDRIVER_DRIVE_PATH;
+#endif
 
 	switch ( m_NPCState )
 	{
@@ -294,7 +297,11 @@ int CNPC_VehicleDriver::SelectSchedule( void )
 #ifdef MAPBASE
 			// Don't use vehicle schedules if we're allowed to use any combat AI
 			if (m_bUseCombatAI)
+#ifndef EZ2
 				break;
+#else
+				return BaseClass::SelectSchedule();
+#endif
 #endif
 
 			if ( HasCondition(COND_NEW_ENEMY) || HasCondition( COND_ENEMY_DEAD ) )
@@ -318,6 +325,11 @@ int CNPC_VehicleDriver::SelectSchedule( void )
 		}
 		break;
 	}
+
+#ifdef EZ2
+	if ( GetGoalEnt() )
+		return SCHED_VEHICLEDRIVER_DRIVE_PATH;
+#endif
 
 	return BaseClass::SelectSchedule();
 }
@@ -403,7 +415,14 @@ int CNPC_VehicleDriver::TranslateSchedule( int scheduleType )
 	case SCHED_TAKE_COVER_FROM_ENEMY:
 		{
 			if (m_bUseCombatAI)
+#ifndef EZ2
 				return SCHED_VEHICLEDRIVER_COMBAT_WAIT;
+#else
+				// Drive towards enemies instead of away, as jeeps tend to back themselves into corners
+				// TODO - I'm not happy with my approach here. Should look into the conditions which select SCHED_TAKE_COVER_FROM_ENEMY
+				// and see if jeeps could be made more aggressive so they choose SCHED_CHASE_ENEMY instead.
+				return SCHED_CHASE_ENEMY;
+#endif
 		}
 		break;
 #endif
