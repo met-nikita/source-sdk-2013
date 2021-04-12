@@ -3097,7 +3097,7 @@ void CNPC_Citizen::Event_Killed( const CTakeDamageInfo &info )
 				pGib->AddSpawnFlags( SF_PHYSPROP_DEBRIS | SF_PHYSPROP_IS_GIB );
 				DispatchSpawn( pGib );
 
-				if (pGib->VPhysicsGetObject())
+				if (VPhysicsGetObject() && pGib->VPhysicsGetObject())
 				{
 					Vector velocity = info.GetDamageForce() * VPhysicsGetObject()->GetInvMass();
 

@@ -6386,6 +6386,60 @@ void CC_CH_CreateAirboat( void )
 static ConCommand ch_createairboat( "ch_createairboat", CC_CH_CreateAirboat, "Spawn airboat in front of the player.", FCVAR_CHEAT );
 
 
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+static void CreateAIAPC( CBasePlayer *pPlayer )
+{
+	// Cheat to create a jeep in front of the player
+	Vector vecForward;
+	AngleVectors( pPlayer->EyeAngles(), &vecForward );
+	CBaseEntity *pAPC = (CBaseEntity *)CreateEntityByName( "prop_vehicle_apc" );
+	if (pAPC)
+	{
+		Vector vecOrigin = pPlayer->GetAbsOrigin() + vecForward * 256 + Vector(0,0,64);
+		QAngle vecAngles( 0, pPlayer->GetAbsAngles().y - 90, 0 );
+		pAPC->SetAbsOrigin( vecOrigin );
+		pAPC->SetAbsAngles( vecAngles );
+		pAPC->KeyValue( "model", "models/combine_apc.mdl" );
+		pAPC->KeyValue( "solid", "6" );
+		pAPC->KeyValue( "targetname", "apc" ); // TODO: Unique identifier
+		pAPC->KeyValue( "vehiclescript", "scripts/vehicles/apc_npc.txt" );
+		DispatchSpawn( pAPC );
+		pAPC->Activate();
+		pAPC->Teleport( &vecOrigin, &vecAngles, NULL );
+	}
+
+	CAI_BaseNPC *pDriver = (CAI_BaseNPC *)CreateEntityByName( "npc_apcdriver" );
+	if (pDriver)
+	{
+		Vector vecOrigin = pAPC->GetAbsOrigin();
+		QAngle vecAngles( 0, pPlayer->GetAbsAngles().y - 90, 0 );
+		pDriver->SetAbsOrigin( pAPC->GetAbsOrigin() );
+		pDriver->SetAbsAngles( pAPC->GetAbsAngles() );
+		pDriver->KeyValue( "targetname", "apc_driver" ); // TODO: Unique identifier
+		pDriver->KeyValue( "vehicle", "apc" ); // TODO: Unique identifier
+		pDriver->KeyValue( "driverminspeed", "0" );
+		pDriver->KeyValue( "drivermaxspeed", "1" );
+		DispatchSpawn( pDriver );
+		pDriver->Activate();
+		pDriver->Teleport( &vecOrigin, &vecAngles, NULL );
+	}
+}
+
+void CC_CH_CreateAIAPC( void )
+{
+	CBasePlayer *pPlayer = UTIL_GetCommandClient();
+	if ( !pPlayer )
+		return;
+	CreateAIAPC( pPlayer );
+}
+
+static ConCommand ch_createaiapc( "ch_createaiapc", CC_CH_CreateAIAPC, "Spawn AI-controlled APC in front of the player.", FCVAR_CHEAT );
+#endif
+
+
 #ifdef EZ2
 //-----------------------------------------------------------------------------
 // Purpose: 
