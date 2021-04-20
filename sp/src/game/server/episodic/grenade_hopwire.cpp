@@ -393,6 +393,10 @@ bool CGravityVortexController::CanConsumeEntity( CBaseEntity *pEnt )
 	if ( pEnt->IsDisplacementImpossible() )
 		return false;
 
+	// Don't consume entities deferred for removal
+	if ( (pEnt->GetEffects() & EF_NODRAW) && (pEnt->GetSolidFlags() & FSOLID_NOT_SOLID) && (pEnt->GetMoveType() == MOVETYPE_NONE) )
+		return false;
+
 	// Don't consume barnacle parts! (Weird edge case)
 	CBarnacleTongueTip *pBarnacleTongueTip = dynamic_cast< CBarnacleTongueTip* >(pEnt);
 	if (pBarnacleTongueTip != NULL)
@@ -1510,8 +1514,24 @@ void CGravityVortexController::PullThink( void )
 		NDebugOverlay::Sphere( GetAbsOrigin(), m_flRadius, 0, 255, 0, 16, 4.0f );
 	}
 
+	// First, loop through entities within the consume radius and try consume
 	CBaseEntity *pEnts[128];
-	int numEnts = UTIL_EntitiesInSphere( pEnts, 128, GetAbsOrigin(), m_flRadius, 0 );
+	int numEnts = UTIL_EntitiesInSphere( pEnts, 128, GetAbsOrigin(), m_flConsumeRadius, 0 );
+	for (int i = 0; i < numEnts; i++)
+	{
+		// The Xen grenade should not consume entities through grates and other non-consumable objects
+		trace_t tr;
+		CXenGrenadeTraceFilter traceFilter( pEnts[i], COLLISION_GROUP_NONE, this );
+		UTIL_TraceLine( pEnts[i]->WorldSpaceCenter(), GetAbsOrigin(), MASK_SOLID, &traceFilter, &tr );
+		if (tr.fraction == 1.0f)
+		{
+			ConsumeEntity( pEnts[i] );
+			continue;
+		}
+	}
+
+	// Next, loop through all entities within the pull radius
+	numEnts = UTIL_EntitiesInSphere( pEnts, 128, GetAbsOrigin(), m_flRadius, 0 );
 
 	if (!m_bPVSCreated)
 	{
@@ -1627,18 +1647,6 @@ void CGravityVortexController::PullThink( void )
 			mass = pPhysObject->GetMass();
 		}
 
-		if ( dist < m_flConsumeRadius )
-		{
-			// The Xen grenade should not consume entities through grates and other non-consumable objects
-			trace_t tr;
-			CXenGrenadeTraceFilter traceFilter( pEnts[i], COLLISION_GROUP_NONE, this );
-			UTIL_TraceLine( vecEntCenter, GetAbsOrigin(), MASK_SOLID, &traceFilter, &tr );
-			if (tr.fraction == 1.0f)
-			{
-				ConsumeEntity( pEnts[i] );
-				continue;
-			}
-		}
 #else
 		// Attempt to kill and ragdoll any victims in range
 		if ( KillNPCInRange( pEnts[i], &pPhysObject ) == false )
