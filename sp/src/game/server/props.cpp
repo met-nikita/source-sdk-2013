@@ -4170,6 +4170,13 @@ BEGIN_DATADESC(CBasePropDoor)
 	DEFINE_FIELD( m_bFirstBlocked, FIELD_BOOLEAN ),
 	//DEFINE_FIELD(m_hDoorList, FIELD_CLASSPTR),	// Reconstructed
 	
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_flKickSpeed, FIELD_FLOAT, "kickspeed" ),
+	DEFINE_KEYFIELD( m_bOpenOnKick, FIELD_BOOLEAN, "openonkick" ),
+	DEFINE_KEYFIELD( m_bUnlockOnKick, FIELD_BOOLEAN, "unlockonkick" ),
+	DEFINE_FIELD( m_bKicked, FIELD_BOOLEAN ),
+#endif
+
 	DEFINE_INPUTFUNC(FIELD_VOID, "Open", InputOpen),
 	DEFINE_INPUTFUNC(FIELD_STRING, "OpenAwayFrom", InputOpenAwayFrom),
 	DEFINE_INPUTFUNC(FIELD_VOID, "Close", InputClose),
@@ -4190,6 +4197,11 @@ BEGIN_DATADESC(CBasePropDoor)
 	DEFINE_OUTPUT(m_OnClose, "OnClose"),
 	DEFINE_OUTPUT(m_OnOpen, "OnOpen"),
 	DEFINE_OUTPUT(m_OnLockedUse, "OnLockedUse" ),
+	
+#ifdef EZ2
+	DEFINE_OUTPUT( m_OnKicked, "OnKicked" ),
+#endif
+	
 	DEFINE_EMBEDDED( m_ls ),
 
 	// Function Pointers
@@ -4769,6 +4781,9 @@ void CBasePropDoor::DoorOpen(CBaseEntity *pOpenAwayFrom)
 			if ( pLinkedDoor != NULL )
 			{
 				// If the door isn't already moving, get it moving
+#ifdef EZ2
+				pLinkedDoor->m_bKicked = m_bKicked;
+#endif
 				pLinkedDoor->m_hActivator = m_hActivator;
 				pLinkedDoor->DoorOpen( pOpenAwayFrom );
 			}
@@ -4812,6 +4827,10 @@ void CBasePropDoor::DoorOpenMoveDone(void)
 	}
 
 	m_OnFullyOpen.FireOutput(this, this);
+
+#ifdef EZ2
+	m_bKicked = false;
+#endif
 
 	// Let the leaf class do its thing.
 	OnDoorOpened();
@@ -4916,6 +4935,10 @@ void CBasePropDoor::DoorCloseMoveDone(void)
 
 	m_OnFullyClosed.FireOutput(m_hActivator, this);
 	UpdateAreaPortals(false);
+
+#ifdef EZ2
+	m_bKicked = false;
+#endif
 
 	// Let the leaf class do its thing.
 	OnDoorClosed();
@@ -5218,6 +5241,43 @@ bool CBasePropDoor::TestCollision( const Ray_t &ray, unsigned int mask, trace_t&
 	return false;
 }
 
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose:  Uses the new CBaseEntity interaction implementation
+// Input  :  The type of interaction, extra info pointer, and who started it
+// Output :	 true  - if sub-class has a response for the interaction
+//			 false - if sub-class has no response
+//-----------------------------------------------------------------------------
+bool CBasePropDoor::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
+{
+	if ( interactionType == g_interactionBadCopKick)
+	{
+		// Fire an output
+		m_OnKicked.FireOutput( sourceEnt, this, 0.0f );
+
+		// If kicking is meant to unlock this door, unlock
+		if ( m_bUnlockOnKick )
+		{
+			Unlock();
+		}
+
+		// TODO - Check if the source entity is behind the door if the door type is "backward" to make sure we don't kick doors towards ourselves
+		if (m_bOpenOnKick)
+		{
+			// Set the door speed to the kicking speed
+			m_bKicked = true;
+
+			// Open the door away from the source entity if you can
+			OpenIfUnlocked( sourceEnt, sourceEnt );
+		}
+
+		return true;
+	}
+
+	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
+}
+#endif
+
 
 //-----------------------------------------------------------------------------
 // Custom trace filter for doors
@@ -5342,7 +5402,7 @@ class CPropDoorRotating : public CBasePropDoor
 	DECLARE_CLASS( CPropDoorRotating, CBasePropDoor );
 
 public:
-
+	CPropDoorRotating() { m_bOpenOnKick = true; }
 	~CPropDoorRotating();
 
 	int		DrawDebugTextOverlays(void);
@@ -5380,12 +5440,6 @@ public:
 #ifdef MAPBASE
 	// Filters don't work well with the way doors are considered obstructions, so it's just a spawnflag that stops all NPCs for now.
 	virtual bool PassesDoorFilter(CBaseEntity *pEntity) { return !HasSpawnFlags(SF_DOOR_NONPCS); }
-#endif
-
-#ifdef EZ2
-	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
-
-	COutputEvent m_OnKicked;
 #endif
 
 	DECLARE_DATADESC();
@@ -5450,10 +5504,6 @@ BEGIN_DATADESC(CPropDoorRotating)
 	//m_vecForwardBoundsMax
 	//m_vecBackBoundsMin
 	//m_vecBackBoundsMax
-
-#ifdef EZ2
-	DEFINE_OUTPUT( m_OnKicked, "OnKicked" ),
-#endif
 
 END_DATADESC()
 
@@ -5520,6 +5570,13 @@ void CPropDoorRotating::Spawn()
 	// Figure out our volumes of movement as this door opens
 	CalculateDoorVolume( GetLocalAngles(), m_angRotationOpenForward, &m_vecForwardBoundsMin, &m_vecForwardBoundsMax );
 	CalculateDoorVolume( GetLocalAngles(), m_angRotationOpenBack, &m_vecBackBoundsMin, &m_vecBackBoundsMax );
+
+#ifdef EZ2
+	if ( m_flKickSpeed <= 0)
+	{
+		m_flKickSpeed = m_flSpeed * 5.0f;
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -5968,7 +6025,18 @@ void CPropDoorRotating::BeginOpening(CBaseEntity *pOpenAwayFrom)
 		}
 	}
 
+#ifdef EZ2
+	float flSpeed = m_flSpeed;
+	if ( m_bKicked )
+	{
+		flSpeed = m_flKickSpeed;
+	}
+
+	AngularMove( angOpen, flSpeed );
+
+#else
 	AngularMove(angOpen, m_flSpeed);
+#endif
 }
 
 
@@ -6001,6 +6069,10 @@ void CPropDoorRotating::DoorStop( void )
 {
 	SetLocalAngularVelocity( vec3_angle );
 	SetMoveDoneTime( -1 );
+
+#ifdef EZ2
+	m_bKicked = false;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -6059,7 +6131,11 @@ float CPropDoorRotating::GetOpenInterval()
 	QAngle vecDestDelta = m_angRotationOpenForward - GetLocalAngles();
 	
 	// divide by speed to get time to reach dest
+#ifdef EZ2
+	return m_bKicked ?  vecDestDelta.Length() / m_flKickSpeed : vecDestDelta.Length() / m_flSpeed;
+#else
 	return vecDestDelta.Length() / m_flSpeed;
+#endif
 }
 
 
@@ -6214,27 +6290,6 @@ void CPropDoorRotating::InputSetSpeed(inputdata_t &inputdata)
 	AssertMsg1(inputdata.value.Float() > 0.0f, "InputSetSpeed on %s called with negative parameter!", GetDebugName() );
 	m_flSpeed = inputdata.value.Float();
 	DoorResume();
-}
-#endif
-
-#ifdef EZ2
-//-----------------------------------------------------------------------------
-// Purpose:  Uses the new CBaseEntity interaction implementation
-// Input  :  The type of interaction, extra info pointer, and who started it
-// Output :	 true  - if sub-class has a response for the interaction
-//			 false - if sub-class has no response
-//-----------------------------------------------------------------------------
-bool CPropDoorRotating::HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt )
-{
-	if (interactionType == g_interactionBadCopKick)
-	{
-		// Fire an output
-		m_OnKicked.FireOutput( sourceEnt, this, 0.0f );
-
-		return true;
-	}
-
-	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
 #endif
 

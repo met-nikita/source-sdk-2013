@@ -79,6 +79,10 @@ public:
 	virtual bool PassesDoorFilter(CBaseEntity *pEntity) { return true; }
 #endif
 
+#ifdef EZ2
+	bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
+#endif
+
 protected:
 
 	enum DoorState_t
@@ -102,6 +106,13 @@ protected:
 	CUtlVector< CHandle< CBasePropDoor > >	m_hDoorList;	// List of doors linked to us
 
 	inline CBaseEntity *GetActivator();
+
+#ifdef EZ2
+	float	m_flKickSpeed;
+	bool	m_bOpenOnKick;
+	bool	m_bUnlockOnKick;
+	bool	m_bKicked;
+#endif
 
 private:
 
@@ -217,6 +228,9 @@ private:
 	COutputEvent m_OnClose;					// Triggered when the door is told to close.
 	COutputEvent m_OnOpen;					// Triggered when the door is told to open.
 	COutputEvent m_OnLockedUse;				// Triggered when the user tries to open a locked door.
+#ifdef EZ2
+	COutputEvent m_OnKicked;
+#endif
 };
 
 
