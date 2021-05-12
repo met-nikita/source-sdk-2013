@@ -5261,8 +5261,7 @@ bool CBasePropDoor::HandleInteraction( int interactionType, void *data, CBaseCom
 			Unlock();
 		}
 
-		// TODO - Check if the source entity is behind the door if the door type is "backward" to make sure we don't kick doors towards ourselves
-		if (m_bOpenOnKick)
+		if ( CanOpenOnKick( sourceEnt ) )
 		{
 			// Set the door speed to the kicking speed
 			m_bKicked = true;
@@ -5442,6 +5441,10 @@ public:
 	virtual bool PassesDoorFilter(CBaseEntity *pEntity) { return !HasSpawnFlags(SF_DOOR_NONPCS); }
 #endif
 
+#ifdef EZ2
+	virtual bool CanOpenOnKick( CBaseEntity * pEntity );
+#endif
+
 	DECLARE_DATADESC();
 
 private:
@@ -5603,6 +5606,25 @@ void CPropDoorRotating::CalcOpenAngles()
 	m_angRotationOpenBack.y = m_angRotationClosed.y + (vecMoveDir.y * m_flDistance);
 	m_angRotationOpenBack.z = m_angRotationClosed.z + (vecMoveDir.z * m_flDistance);
 }
+
+#ifdef EZ2
+// Check if the source entity is behind the door to make sure we don't kick doors towards ourselves 
+bool CPropDoorRotating::CanOpenOnKick( CBaseEntity * pEntity )
+{
+	Vector vecForwardDoor;
+	GetVectors( &vecForwardDoor, NULL, NULL );
+	if ( m_eOpenDirection == DOOR_ROTATING_OPEN_FORWARD && vecForwardDoor.Dot( pEntity->GetAbsOrigin() ) > vecForwardDoor.Dot( GetAbsOrigin() ) )
+	{
+		return false;
+	}
+	else if ( m_eOpenDirection == DOOR_ROTATING_OPEN_BACKWARD && vecForwardDoor.Dot( pEntity->GetAbsOrigin() ) < vecForwardDoor.Dot( GetAbsOrigin() ) )
+	{
+		return false;
+	}
+
+	return BaseClass::CanOpenOnKick( pEntity );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Figures out whether the door's hinge is on its left or its right.

@@ -112,6 +112,8 @@ protected:
 	bool	m_bOpenOnKick;
 	bool	m_bUnlockOnKick;
 	bool	m_bKicked;
+
+	virtual bool CanOpenOnKick( CBaseEntity * pEntity ) { return m_bOpenOnKick; }
 #endif
 
 private:
