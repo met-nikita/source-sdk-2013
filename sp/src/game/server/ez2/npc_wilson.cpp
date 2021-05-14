@@ -1284,11 +1284,13 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 	if ( interactionType == g_interactionArbeitScannerStart )
 	{
 		SetEyeState(TURRET_EYE_SEEKING_TARGET);
+		SpeakIfAllowed( TLK_SCAN_START );
 		return true;
 	}
 	if ( interactionType == g_interactionArbeitScannerEnd )
 	{
 		SetEyeState(TURRET_EYE_DORMANT);
+		SpeakIfAllowed( TLK_SCAN_END );
 		return true;
 	}
 
