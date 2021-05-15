@@ -282,6 +282,10 @@ int CNPC_VehicleDriver::SelectSchedule( void )
 #ifndef EZ2
 	if ( GetGoalEnt() )
 		return SCHED_VEHICLEDRIVER_DRIVE_PATH;
+#else
+	// TODO - VERY BAD THING - fix this in next alpha version!
+	if ( GetGoalEnt() && !m_bUseCombatAI )
+		return SCHED_VEHICLEDRIVER_DRIVE_PATH;
 #endif
 
 	switch ( m_NPCState )
