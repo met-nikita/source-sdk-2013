@@ -286,7 +286,7 @@ void CNPC_Antlion::Spawn( void )
 #ifdef HL2_EPISODIC
 	if ( IsWorker() )
 	{
-		SetModel( ANTLION_WORKER_MODEL );
+		SetModel( DefaultOrCustomModel(ANTLION_WORKER_MODEL) );
 		AddSpawnFlags( SF_NPC_LONG_RANGE );
 		SetBloodColor( BLOOD_COLOR_ANTLION_WORKER );
 	}
@@ -304,12 +304,12 @@ void CNPC_Antlion::Spawn( void )
 			SetBloodColor( BLOOD_COLOR_ANTLION );
 		}
 #else
-		SetModel( ANTLION_MODEL );
+		SetModel( DefaultOrCustomModel(ANTLION_MODEL) );
 		SetBloodColor( BLOOD_COLOR_ANTLION );
 #endif
 	}
 #else
-	SetModel( ANTLION_MODEL );
+	SetModel( DefaultOrCustomModel(ANTLION_MODEL) );
 	SetBloodColor( BLOOD_COLOR_YELLOW );
 #endif // HL2_EPISODIC
 
