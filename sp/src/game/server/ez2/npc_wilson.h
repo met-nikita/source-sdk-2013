@@ -166,6 +166,16 @@ public:
 	// Always think if we're the main Wilson NPC
 	bool		ShouldAlwaysThink() { return CNPC_Wilson::GetWilson() == this || BaseClass::ShouldAlwaysThink(); }
 
+	void		SetDamaged( bool bDamaged );
+	void		SetPlayingDead( bool bPlayingDead );
+
+	void			InputTurnOnDamagedMode( inputdata_t &inputdata ) { SetDamaged( true ); }
+	void			InputTurnOffDamagedMode( inputdata_t &inputdata ) { SetDamaged( false ); }
+
+	void			InputTurnOnDeadMode( inputdata_t &inputdata ) { SetPlayingDead( true ); }
+	void			InputTurnOffDeadMode( inputdata_t &inputdata ) { SetPlayingDead( false ); }
+
+
 protected:
 	//-----------------------------------------------------
 	// Conditions, Schedules, Tasks
@@ -217,6 +227,12 @@ protected:
 	// For when Wilson is meant to be non-interactive (e.g. background maps, dev commentary)
 	// This makes Wilson unmovable and deactivates/doesn't precache a few miscellaneous things.
 	bool	m_bStatic;
+
+	// For when Wilson is in 'damaged mode'. He can still respond and interact as normal, but he has a different model and effects.
+	bool	m_bDamaged;
+
+	// For when Wilson is 'playing dead', as in the final map ez2_c6_3. The NPC technically isn't dead but he will not respond and appears dead 
+	bool	m_bDead;
 
 	// Makes Will-E always available as a speech target, even when out of regular range.
 	// (e.g. Will-E on monitor in ez2_c3_3)

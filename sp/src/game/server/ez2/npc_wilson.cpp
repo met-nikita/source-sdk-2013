@@ -85,6 +85,7 @@ ConVar npc_wilson_clearance_debug( "npc_wilson_clearance_debug", "0", FCVAR_NONE
 static const char *g_DamageZapContext = "DamageZapEffect";
 
 #define WILSON_MODEL "models/will_e.mdl"
+#define DAMAGED_MODEL "models/will_e_damaged.mdl"
 
 #define FLOOR_TURRET_GLOW_SPRITE	"sprites/glow1.vmt"
 
@@ -121,6 +122,10 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_KEYFIELD( m_bStatic, FIELD_BOOLEAN, "static" ),
 
+	DEFINE_KEYFIELD( m_bDamaged, FIELD_BOOLEAN, "damaged" ),
+
+	DEFINE_KEYFIELD( m_bDead, FIELD_BOOLEAN, "dead" ),
+
 	DEFINE_INPUT( m_bOmniscient, FIELD_BOOLEAN, "SetOmniscient" ),
 
 	DEFINE_INPUT( m_bCanBeEnemy, FIELD_BOOLEAN, "SetCanBeEnemy" ),
@@ -137,6 +142,13 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableMotion", InputEnableMotion ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableMotion", InputDisableMotion ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnDamagedMode", InputTurnOnDamagedMode ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffDamagedMode", InputTurnOffDamagedMode ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnDeadMode", InputTurnOnDeadMode ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffDeadMode", InputTurnOffDeadMode ),
+
 
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
@@ -201,7 +213,9 @@ CNPC_Wilson::~CNPC_Wilson( void )
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::Precache()
 {
-	if (GetModelName() == NULL_STRING)
+	if (GetModelName() == NULL_STRING && m_bDamaged)
+		SetModelName(AllocPooledString(DAMAGED_MODEL));
+	else if (GetModelName() == NULL_STRING)
 		SetModelName(AllocPooledString(WILSON_MODEL));
 
 	PrecacheModel(STRING(GetModelName()));
@@ -283,7 +297,24 @@ void CNPC_Wilson::Spawn()
 	//m_iMuzzleAttachment = LookupAttachment( "eyes" );
 	m_iEyeAttachment = LookupAttachment( "light" );
 
-	SetEyeState( TURRET_EYE_DORMANT );
+	if (m_bDead)
+	{
+		SetEyeState( TURRET_EYE_DEAD );
+		AddContext( "classname:none" );
+	}
+	else
+	{
+		SetEyeState( TURRET_EYE_DORMANT );
+	}
+
+	if (m_bDamaged)
+	{
+		AddContext( "wilson_damaged:1" );
+
+		// Get a tesla effect on our hitboxes permanently
+		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime, g_DamageZapContext );
+		m_flTeslaStopTime = FLT_MAX;
+	}
 
 	SetUse( &CNPC_Wilson::Use );
 
@@ -463,16 +494,34 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CNPC_Wilson::TeslaThink()
 {
+	// Don't zap if dead
+	if (m_bDead)
+	{
+		m_flTeslaStopTime = gpGlobals->curtime;
+		return;
+	}
+
 	CEffectData data;
+	float flNextTeslaThinkTime;
 	data.m_nEntIndex = entindex();
 	data.m_flMagnitude = 3;
 	data.m_flScale = 0.5f;
 	DispatchEffect( "TeslaHitboxes", data );
 	EmitSound( "RagdollBoogie.Zap" );
 
+	// Damaged Wilson has a much slower rate of zaps
+	if (m_bDamaged)
+	{
+		flNextTeslaThinkTime = gpGlobals->curtime + random->RandomFloat( 5.0f, 10.0f );
+	}
+	else
+	{
+		flNextTeslaThinkTime = gpGlobals->curtime + random->RandomFloat( 0.1f, 0.3f );
+	}
+
 	if ( gpGlobals->curtime < m_flTeslaStopTime )
 	{
-		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime + random->RandomFloat( 0.1f, 0.3f ), g_DamageZapContext );
+		SetContextThink( &CNPC_Wilson::TeslaThink, flNextTeslaThinkTime, g_DamageZapContext );
 	}
 }
 
@@ -993,6 +1042,54 @@ bool CNPC_Wilson::IsSilentSquadMember() const
 {
 	// For now, always be silent.
 	return true;
+}
+
+void CNPC_Wilson::SetDamaged( bool bDamaged )
+{
+	if (m_bDamaged == bDamaged)
+		return;
+
+	m_bDamaged = bDamaged;
+
+	if (m_bDamaged)
+	{
+		SetModelName( AllocPooledString( DAMAGED_MODEL ) );
+		SetModel( STRING( GetModelName() ) );
+		AddContext( "wilson_damaged:1" );
+
+		// Get a tesla effect on our hitboxes permanently
+		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime, g_DamageZapContext );
+		m_flTeslaStopTime = FLT_MAX;
+	}
+	else
+	{
+		SetModelName( AllocPooledString( WILSON_MODEL ) );
+		SetModel( STRING( GetModelName() ) );
+		RemoveContext( "wilson_damaged:1" );
+		m_flTeslaStopTime = gpGlobals->curtime;
+	}
+}
+
+void CNPC_Wilson::SetPlayingDead( bool bPlayingDead )
+{
+	if (m_bDead == bPlayingDead)
+		return;
+
+	m_bDead = bPlayingDead;
+
+	if (m_bDead)
+	{
+		// No longer trigger any responses
+		AddContext( "classname:none" );
+		SetEyeState( TURRET_EYE_DEAD );
+		m_flTeslaStopTime = gpGlobals->curtime;
+	}
+	else
+	{
+		RemoveContext( "classname:none" );
+		SetEyeState( TURRET_EYE_DORMANT );
+		m_flTeslaStopTime = gpGlobals->curtime;
+	}
 }
 
 //-----------------------------------------------------------------------------
