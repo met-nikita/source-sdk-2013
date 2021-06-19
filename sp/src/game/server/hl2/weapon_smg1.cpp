@@ -57,7 +57,7 @@ public:
 
 	virtual const Vector& GetBulletSpread( void )
 	{
-#ifdef EZ
+#ifdef EZ1
 		static const Vector cone = VECTOR_CONE_2DEGREES;
 #else
 		static const Vector cone = VECTOR_CONE_5DEGREES;
