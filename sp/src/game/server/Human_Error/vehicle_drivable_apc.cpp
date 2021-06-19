@@ -951,7 +951,7 @@ void CPropDrivableAPC::Think(void)
 
 #ifdef EZ2
 			IGameEvent *event = gameeventmanager->CreateEvent( "vehicle_overturned" );
-			if (event)
+			if (event && m_hPlayer->IsAlive())
 			{
 				event->SetInt( "userid", m_hPlayer->GetUserID() );
 				event->SetInt( "vehicle", entindex() );
