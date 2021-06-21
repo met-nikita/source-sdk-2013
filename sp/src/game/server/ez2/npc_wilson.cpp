@@ -1068,6 +1068,9 @@ void CNPC_Wilson::SetDamaged( bool bDamaged )
 		RemoveContext( "wilson_damaged:1" );
 		m_flTeslaStopTime = gpGlobals->curtime;
 	}
+
+	// Reset physics
+	CreateVPhysics();
 }
 
 void CNPC_Wilson::SetPlayingDead( bool bPlayingDead )
