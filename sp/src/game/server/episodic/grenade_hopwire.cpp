@@ -1730,7 +1730,8 @@ void CGravityVortexController::PullThink( void )
 			// Act as if it's the Xen life we were supposed to spawn
 			m_hReleaseEntity = NULL;
 		}
-		else if (!HasSpawnFlags( SF_VORTEX_CONTROLLER_DONT_SPAWN_LIFE ))
+		
+		if (!HasSpawnFlags( SF_VORTEX_CONTROLLER_DONT_SPAWN_LIFE ))
 		{
 			// Spawn Xen lifeform
 			if ( hopwire_spawn_life.GetInt() == 1 )
