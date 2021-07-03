@@ -12,6 +12,11 @@
 #include "point_template.h"
 #endif
 
+#ifdef EZ2
+#include "particle_parse.h"
+#include "ai_basenpc.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -60,6 +65,9 @@ public:
 	bool IsAlive() { return true; } // Required for NPCs to see this entity
 
 	void Break( CBaseEntity *pBreaker, const CTakeDamageInfo &info );
+
+	// Override to return false to hide item crate hints
+	virtual bool IsItemCrate() { return true; };
 #endif
 
 protected:
@@ -98,6 +106,10 @@ private:
 	string_t			m_strAlternateMaster;
 	CrateAppearance_t	m_CrateAppearance;
 
+#ifdef EZ2
+	CAI_BaseNPC::EZ_VARIANT m_tEzVariant;
+#endif
+
 	COutputEvent m_OnCacheInteraction;
 #ifdef MAPBASE
 	COutputEHANDLE m_OnItem;
@@ -118,6 +130,11 @@ BEGIN_DATADESC( CItem_ItemCrate )
 	DEFINE_KEYFIELD( m_nItemCount, FIELD_INTEGER, "ItemCount" ),	
 	DEFINE_KEYFIELD( m_strAlternateMaster, FIELD_STRING, "SpecificResupply" ),	
 	DEFINE_KEYFIELD( m_CrateAppearance, FIELD_INTEGER, "CrateAppearance" ),
+
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_tEzVariant, FIELD_INTEGER, "ezvariant" ),
+#endif
+
 	DEFINE_INPUTFUNC( FIELD_VOID, "Kill", InputKill ),
 	DEFINE_OUTPUT( m_OnCacheInteraction, "OnCacheInteraction" ),
 #ifdef MAPBASE
@@ -347,7 +364,7 @@ void CItem_ItemCrate::Break( CBaseEntity *pBreaker, const CTakeDamageInfo &info 
 {
 	BaseClass::Break( pBreaker, info );
 
-	if ( pBreaker->IsPlayer() )
+	if ( IsItemCrate() && pBreaker->IsPlayer() )
 	{
 		IGameEvent *event = gameeventmanager->CreateEvent( "player_smash_crate" );
 		if ( event )
@@ -430,6 +447,15 @@ void CItem_ItemCrate::OnBreak( const Vector &vecVelocity, const AngularImpulse &
 
 		if ( !pSpawn )
 			return;
+
+#ifdef EZ2
+		if ( pSpawn->IsNPC() )
+		{
+			CAI_BaseNPC * pNPC =  pSpawn->MyNPCPointer();
+			pNPC->m_tEzVariant = m_tEzVariant;
+		}
+#endif
+
 
 #ifdef MAPBASE
 		Vector vecOrigin;
@@ -554,3 +580,68 @@ void CItem_ItemCrate::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_
 		TakeDamage( CTakeDamageInfo( pPhysGunUser, pPhysGunUser, GetHealth(), DMG_GENERIC ) );
 	}
 }
+
+#ifdef EZ2
+
+class CItem_CreatureCrate : public CItem_ItemCrate
+{
+public:
+	DECLARE_CLASS( CItem_CreatureCrate, CItem_ItemCrate );
+	DECLARE_DATADESC();
+
+	void Precache( void );
+	void Spawn( void );
+
+	bool IsItemCrate() { return false; }
+
+	void Break( CBaseEntity *pBreaker, const CTakeDamageInfo &info );
+
+	void SoundThink();
+
+protected:
+	string_t m_iszSound; // Soundscript to play
+};
+
+//-----------------------------------------------------------------------------
+// Save/load: 
+//-----------------------------------------------------------------------------
+BEGIN_DATADESC( CItem_CreatureCrate )
+
+DEFINE_KEYFIELD( m_iszSound, FIELD_SOUNDNAME, "idlesound" ),
+
+DEFINE_THINKFUNC( SoundThink ),
+
+END_DATADESC()
+// 	
+
+void CItem_CreatureCrate::Precache( void )
+{
+	PrecacheParticleSystem( "creaturecrate_stasisbreak" );
+	PrecacheScriptSound( STRING( m_iszSound ) );
+	BaseClass::Precache();
+}
+
+void CItem_CreatureCrate::Spawn( void )
+{
+	BaseClass::Spawn();
+
+	SetContextThink( &CItem_CreatureCrate::SoundThink, gpGlobals->curtime + 5, "SoundThink" );
+}
+
+void CItem_CreatureCrate::Break( CBaseEntity * pBreaker, const CTakeDamageInfo & info )
+{
+	DispatchParticleEffect( "creaturecrate_stasisbreak", WorldSpaceCenter(), GetAbsAngles() );
+
+	SetContextThink( NULL, TICK_NEVER_THINK, "SoundThink" );
+
+	BaseClass::Break( pBreaker, info );
+}
+
+LINK_ENTITY_TO_CLASS( item_creature_crate, CItem_CreatureCrate );
+
+void CItem_CreatureCrate::SoundThink()
+{
+	EmitSound( STRING( m_iszSound ) );
+	SetContextThink( &CItem_CreatureCrate::SoundThink, gpGlobals->curtime + RandomFloat( 5.0f, 20.0f ), "SoundThink" );
+}
+#endif
