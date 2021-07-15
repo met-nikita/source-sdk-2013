@@ -4011,6 +4011,12 @@ void CBlackHeadcrab::CleanupTemporalEffects()
 	m_hTesla = NULL;
 	m_hSprite = NULL;
 	m_hDistortionSprite = NULL;
+
+	// Change from temporal variant to default in order to not use the temporal ragdolls set up for Clone Cop
+	if ( m_tEzVariant == EZ_VARIANT_TEMPORAL )
+	{
+		m_tEzVariant = EZ_VARIANT_DEFAULT;
+	}
 }
 
 //-----------------------------------------------------------------------------

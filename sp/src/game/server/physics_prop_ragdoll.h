@@ -97,6 +97,7 @@ public:
 #ifdef EZ2	
 	// Ragdoll smells
 	virtual void EmitScent();
+	virtual void TimeWarpThink();
 	virtual void SetNextScentTime( float flNextScentTime ) { m_flNextScentTime = flNextScentTime; };
 	virtual void SetEmitScent( bool bEmitScent ) { m_bEmitScent = bEmitScent; };
 

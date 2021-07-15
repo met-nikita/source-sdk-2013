@@ -348,6 +348,40 @@ void CRagdollProp::EmitScent()
 	}
 }
 
+// Heavily based on the temporal crab fade out think function in npc_headcrab
+void CRagdollProp::TimeWarpThink()
+{
+	// Check if we've already changed the render mode
+	// TODO - this creates an error case if this render mode is set any other way
+	if ( m_nRenderMode != kRenderTransTexture )
+	{
+		m_nRenderMode = kRenderTransTexture;
+		DispatchParticleEffect( "ShadowCrab_Vanish", WorldSpaceCenter(), GetAbsAngles() );
+		EmitSound( "NPC_TemporalHeadcrab.Vanish" );
+		DisableMotion();
+	}
+
+	float dt = gpGlobals->frametime;
+	if (dt > 0.1f)
+	{
+		dt = 0.1f;
+	}
+	
+	int speed = MAX( 1, 256*dt ); // fade out over 1 second
+	SetRenderColorA( UTIL_Approach( 0, m_clrRender->a, speed ) );
+	SetRenderColorR( UTIL_Approach( 0, m_clrRender->a, speed ) );
+	SetRenderColorG( UTIL_Approach( 0, m_clrRender->a, speed ) );
+	
+	if (m_clrRender->a == 0)
+	{
+		UTIL_Remove( this );
+		SetContextThink( NULL, TICK_NEVER_THINK, "RagdollTimeShiftContext" );
+		return;
+	}
+
+	SetContextThink( &CRagdollProp::TimeWarpThink, gpGlobals->curtime, "RagdollTimeShiftContext" );
+}
+
 int CRagdollProp::GetBloodColor()
 {
 	int iVPhysicsFlesh = VPhysicsGetFlesh();
@@ -1594,6 +1628,13 @@ CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, con
 		pRagdoll->SetNextScentTime( flNextScentTime );
 		pRagdoll->SetContextThink( &CRagdollProp::EmitScent, flNextScentTime, "RagdollScentContext" );
 	}
+
+	// Temporal ragdolls fade out!
+	if ( pAnimating->MyNPCPointer() && pAnimating->MyNPCPointer()->m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_TEMPORAL )
+	{
+		pRagdoll->SetContextThink( &CRagdollProp::TimeWarpThink, gpGlobals->curtime + 0.25f, "RagdollTimeShiftContext" );
+	}
+
 #endif
 	pRagdoll->InitRagdollAnimation();
 	matrix3x4_t pBoneToWorld[MAXSTUDIOBONES], pBoneToWorldNext[MAXSTUDIOBONES];

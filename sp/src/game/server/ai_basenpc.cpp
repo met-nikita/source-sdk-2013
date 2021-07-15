@@ -12409,6 +12409,17 @@ void CAI_BaseNPC::Precache( void )
 	PrecacheScriptSound( "AI_BaseNPC.BodyDrop_Light" );
 	PrecacheScriptSound( "AI_BaseNPC.SentenceStop" );
 
+#ifdef EZ2
+	if ( m_tEzVariant == EZ_VARIANT_TEMPORAL )
+	{
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Vanish" );
+		PrecacheScriptSound( "NPC_TemporalHeadcrab.Appear" );
+
+		PrecacheParticleSystem( "ShadowCrab_Vanish" );
+		PrecacheParticleSystem( "ShadowCrab_Appear" );
+	}
+#endif
+
 	BaseClass::Precache();
 }
 
