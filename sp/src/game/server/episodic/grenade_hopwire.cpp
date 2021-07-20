@@ -455,6 +455,32 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 #endif
 
 #ifdef EZ2
+	// Some NPCs are sucked up before they ragdoll, which stops them from dying. Stop them from breaking stuff.
+	if (pEnt->MyNPCPointer())
+	{
+		// Run Vscript OnDeath hook
+		if (pEnt->m_ScriptScope.IsInitialized() && pEnt->g_Hook_OnDeath.CanRunInScope( pEnt->m_ScriptScope ))
+		{
+			CTakeDamageInfo info( this, this, 10000.0, DMG_GENERIC | DMG_REMOVENORAGDOLL );
+			HSCRIPT hInfo = g_pScriptVM->RegisterInstance( const_cast<CTakeDamageInfo*>(&info) );
+
+			// info
+			ScriptVariant_t functionReturn;
+			ScriptVariant_t args[] ={ ScriptVariant_t( hInfo ) };
+			if (pEnt->g_Hook_OnDeath.Call( pEnt->m_ScriptScope, &functionReturn, args ) && (functionReturn.m_type == FIELD_BOOLEAN && functionReturn.m_bool == false))
+			{
+				// Make this entity cheat death
+				g_pScriptVM->RemoveInstance( hInfo );
+				return;
+			}
+
+			g_pScriptVM->RemoveInstance( hInfo );
+		}
+
+		// If the NPC is to be remvoed, fire the output
+		pEnt->FireNamedOutput( "OnDeath", variant_t(), this, pEnt );
+	}
+
 	float flMass = 0.0f;
 
 	// Ragdolls need to report the sum of all their parts
@@ -563,10 +589,6 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	// before being removed, otherwise they play forever
 	pEnt->EmitSound( "AI_BaseNPC.SentenceStop" );
 	pEnt->EmitSound( "AI_BaseNPC.SentenceStop2" );
-
-	// Some NPCs are sucked up before they ragdoll, which stops them from dying. Stop them from breaking stuff.
-	if (pEnt->MyNPCPointer())
-		pEnt->FireNamedOutput( "OnDeath", variant_t(), this, pEnt );
 #else
 	// Ragdolls need to report the sum of all their parts
 	CRagdollProp *pRagdoll = dynamic_cast< CRagdollProp* >( pEnt );
