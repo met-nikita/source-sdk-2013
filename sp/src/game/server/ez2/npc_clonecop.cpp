@@ -18,6 +18,8 @@
 #include "npc_manhack.h"
 #include "particle_parse.h"
 #include "prop_combine_ball.h"
+#include "ez2_player.h"
+#include "ai_interactions.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -35,6 +37,7 @@ int CNPC_CloneCop::gm_nBloodAttachment = -1;
 float CNPC_CloneCop::gm_flBodyRadius = 10.0f;
 
 #define COMBINE_AE_GREN_DROP		( 9 )
+#define COMBINE_AE_KICK				( 3 )
 
 //---------------------------------------------------------
 // Save/Restore
@@ -438,6 +441,10 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 {
 	bool handledEvent = false;
 
+	CBaseEntity *pHurt;
+	CBaseCombatCharacter* pBCC;;
+	trace_t tr;
+
 	if (pEvent->type & AE_TYPE_NEWEVENTSYSTEM)
 	{
 		BaseClass::HandleAnimEvent( pEvent );
@@ -527,7 +534,26 @@ void CNPC_CloneCop::HandleAnimEvent( animevent_t *pEvent )
 			}
 			handledEvent = true;
 			break;
+		case COMBINE_AE_KICK:
+			// Try to dispatch a kick interaction
+			pHurt = CheckTraceHullAttack( 70, -Vector( 16, 16, 18 ), Vector( 16, 16, 18 ), 0, DMG_CLUB );
+			pBCC = ToBaseCombatCharacter( pHurt );
+			
+			if (pBCC)
+			{
+				CTakeDamageInfo dmgInfo( this, this, sk_clonecop_kick.GetFloat(), DMG_CLUB );
+				tr;
 
+				UTIL_TraceLine( WorldSpaceCenter(), pHurt->WorldSpaceCenter(), MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &tr );
+				KickInfo_t kickInfo( &tr, &dmgInfo );
+				if (pBCC && pBCC->DispatchInteraction( g_interactionBadCopKick, &kickInfo, this ))
+				{
+					// If the interaction returns true, exit
+					handledEvent = true;
+					break;
+				}
+			}
+			// Fall through if the kick was unhandled
 		default:
 			BaseClass::HandleAnimEvent( pEvent );
 			break;
@@ -741,6 +767,16 @@ bool CNPC_CloneCop::IsHeavyDamage( const CTakeDamageInfo &info )
 	}
 
 	return BaseClass::IsHeavyDamage( info );
+}
+
+Activity CNPC_CloneCop::NPC_TranslateActivity( Activity eNewActivity )
+{
+	// If there's any reason to treat this as an actual melee attack 2, do that instead. For now I see no reason not to just translate the activity
+	if ( eNewActivity == ACT_MELEE_ATTACK1 )
+	{
+		return ACT_MELEE_ATTACK2;
+	}
+	return BaseClass::NPC_TranslateActivity( eNewActivity );
 }
 
 //-----------------------------------------------------------------------------

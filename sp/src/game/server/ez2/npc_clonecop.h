@@ -58,6 +58,7 @@ public:
 
 	Activity	GetFlinchActivity( bool bHeavyDamage, bool bGesture );
 	bool		IsHeavyDamage( const CTakeDamageInfo &info );
+	Activity	NPC_TranslateActivity( Activity eNewActivity );
 	Activity	Weapon_TranslateActivity( Activity eNewActivity );
 
 	WeaponProficiency_t CalcWeaponProficiency( CBaseCombatWeapon *pWeapon );

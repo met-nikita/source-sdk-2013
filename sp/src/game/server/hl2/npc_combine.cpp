@@ -3956,7 +3956,7 @@ void CNPC_Combine::HandleAnimEvent( animevent_t *pEvent )
 #ifdef EZ					
 						// 1upD - Commandable Combine soldiers should 1-hit rebels with their melee attack
 						// Blixibon - Damage is changed after damage force is calculated so citizens aren't launched across the room (more natural-looking)
-						if (IsMajorCharacter() && pBCC->ClassMatches("npc_citizen"))
+						if (IsCommandable() && pBCC->ClassMatches("npc_citizen"))
 						{
 							info.SetDamage(pBCC->GetHealth());
 						}
