@@ -108,7 +108,16 @@ void CNPC_Zombigaunt::Precache()
 		SetModelName( AllocPooledString( pModelNames[m_tEzVariant % EZ_VARIANT_COUNT] ) );
 	}
 
-	PrecacheParticleSystem( "blood_drip_zombigaunt_01" );
+	if (m_tEzVariant == EZ_VARIANT_RAD)
+	{
+		PrecacheParticleSystem( "blood_drip_glowbigaunt_01" );
+	}
+	else
+	{
+		PrecacheParticleSystem( "blood_drip_zombigaunt_01" );
+	}
+
+
 
 	BaseClass::Precache();
 }
@@ -329,7 +338,15 @@ void CNPC_Zombigaunt::StartEye( void )
 	// Start blood drip particle
 	if ( GetSleepState() == AISS_AWAKE )
 	{
-		DispatchParticleEffect( "blood_drip_zombigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true);
+		if (m_tEzVariant == EZ_VARIANT_RAD)
+		{
+			DispatchParticleEffect( "blood_drip_glowbigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true );
+		}
+		else
+		{
+			DispatchParticleEffect( "blood_drip_zombigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true );
+		}
+
 		SetContextThink( &CNPC_Zombigaunt::BleedThink, gpGlobals->curtime + 0.1, ZOMBIGAUNT_BLEED_THINK );
 	}
 }
@@ -357,7 +374,15 @@ void CNPC_Zombigaunt::Wake( CBaseEntity * pActivator )
 //-----------------------------------------------------------------------------
 void CNPC_Zombigaunt::BleedThink()
 {
-	DispatchParticleEffect( "blood_drip_zombigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true );
+	if (m_tEzVariant == EZ_VARIANT_RAD)
+	{
+		DispatchParticleEffect( "blood_drip_glowbigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true );
+	}
+	else
+	{
+		DispatchParticleEffect( "blood_drip_zombigaunt_01", PATTACH_POINT_FOLLOW, this, LookupAttachment( "mouth" ), true );
+	}
+
 	SetNextThink( gpGlobals->curtime + random->RandomFloat( 1.0, 1.5 ), ZOMBIGAUNT_BLEED_THINK );
 }
 
