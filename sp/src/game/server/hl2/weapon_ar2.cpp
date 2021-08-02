@@ -736,9 +736,10 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 {
 	if (CBasePlayer *pPlayer = ToBasePlayer(GetOwner()))
 	{
-		SendWeaponAnim(ACT_VM_PRIMARYATTACK);
+		SendWeaponAnim( GetPrimaryAttackActivity() );
 		WeaponSound( SINGLE );
 		
+		m_nShotsFired++;
 
 		// Fire the bullets
 		if ( sk_ez2_super_proto_ar2.GetBool() )
