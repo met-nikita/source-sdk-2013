@@ -134,6 +134,9 @@ BEGIN_DATADESC( CBaseCombatCharacter )
 #else
 	DEFINE_FIELD( m_bForceServerRagdoll, FIELD_BOOLEAN ),
 #endif
+#ifdef EZ
+	DEFINE_FIELD( m_hDeathRagdoll, FIELD_EHANDLE ),
+#endif
 	DEFINE_FIELD( m_bPreventWeaponPickup, FIELD_BOOLEAN ),
 
 #ifndef MAPBASE // See CBaseEntity::InputKilledNPC()
@@ -1726,6 +1729,9 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 		// with their vehicle - for more dramatic death/collisions
 		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, info2, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
 		FixupBurningServerRagdoll( pRagdoll );
+#ifdef EZ
+		m_hDeathRagdoll = pRagdoll;
+#endif
 		RemoveDeferred();
 		return true;
 	}
@@ -1740,6 +1746,9 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 	{
 		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_DEBRIS );
 		FixupBurningServerRagdoll( pRagdoll );
+#ifdef EZ
+		m_hDeathRagdoll = pRagdoll;
+#endif
 		RemoveDeferred();
 		return true;
 	}
@@ -1761,7 +1770,9 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 		//FIXME: This is fairly leafy to be here, but time is short!
 		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
 		FixupBurningServerRagdoll( pRagdoll );
-#ifndef EZ
+#ifdef EZ
+		m_hDeathRagdoll = pRagdoll;
+#else
 		PhysSetEntityGameFlags( pRagdoll, FVPHYSICS_NO_SELF_COLLISIONS );
 #endif
 		RemoveDeferred();
