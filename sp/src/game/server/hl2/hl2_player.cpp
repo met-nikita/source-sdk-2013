@@ -4238,6 +4238,31 @@ void CHL2_Player::UpdateClientData( void )
 	}
 #endif // HL2_EPISODIC
 
+#ifdef EZ2
+	// Update SLAMs
+	if (m_hActiveSatchels.Count() > 0)
+	{
+		// Clean up nonexistent satchels
+		for (int i = m_hActiveSatchels.Count()-1; i >= 0; i--)
+		{
+			if (m_hActiveSatchels[i] == NULL || m_hActiveSatchels[i]->IsMarkedForDeletion())
+				m_hActiveSatchels.Remove( i );
+		}
+	}
+	m_HL2Local.m_iSatchelCount = m_hActiveSatchels.Count();
+
+	if (m_hActiveTripmines.Count() > 0)
+	{
+		// Clean up nonexistent tripmines
+		for (int i = m_hActiveTripmines.Count()-1; i >= 0; i--)
+		{
+			if (m_hActiveTripmines[i] == NULL || m_hActiveTripmines[i]->IsMarkedForDeletion())
+				m_hActiveTripmines.Remove( i );
+		}
+	}
+	m_HL2Local.m_iTripmineCount = m_hActiveTripmines.Count();
+#endif
+
 	BaseClass::UpdateClientData();
 }
 
@@ -4247,6 +4272,25 @@ void CHL2_Player::OnRestore()
 {
 	BaseClass::OnRestore();
 	m_pPlayerAISquad = g_AI_SquadManager.FindCreateSquad(AllocPooledString(PLAYER_SQUADNAME));
+
+#ifdef EZ2
+	// Recollect active satchels/tripmines
+	CBaseEntity *pEntity = NULL;
+	CBaseGrenade *pGrenade = NULL;
+	while ((pEntity = gEntList.FindEntityByClassname( pEntity, "npc_satchel" )) != NULL)
+	{
+		pGrenade = static_cast<CBaseGrenade*>(pEntity);
+		if (pGrenade->GetThrower() == this)
+			m_hActiveSatchels.AddToTail( pEntity );
+	}
+
+	while ((pEntity = gEntList.FindEntityByClassname( pEntity, "npc_tripmine" )) != NULL)
+	{
+		pGrenade = static_cast<CBaseGrenade*>(pEntity);
+		if (pGrenade->GetThrower() == this)
+			m_hActiveTripmines.AddToTail( pEntity );
+	}
+#endif
 }
 
 //---------------------------------------------------------
@@ -4737,6 +4781,41 @@ void CHL2_Player::HandleAnimEvent( animevent_t *pEvent )
 	}
 
 	BaseClass::HandleAnimEvent( pEvent );
+}
+
+void CHL2_Player::OnDropSatchel( CBaseEntity *pSatchel )
+{
+	m_hActiveSatchels.AddToTail( pSatchel );
+}
+
+void CHL2_Player::OnSetupTripmine( CBaseEntity *pTripmine )
+{
+	//Msg( "OnSetupTripmine\n" );
+	m_hActiveTripmines.AddToTail( pTripmine );
+}
+
+void CHL2_Player::OnSatchelExploded( CBaseEntity *pSatchel, CBaseEntity *pAttacker )
+{
+	// send a message to the client, to notify the hud of the loss
+	CSingleUserRecipientFilter user( this );
+	user.MakeReliable();
+	UserMessageBegin( user, "SLAMExploded" );
+		WRITE_BOOL( pAttacker != this );
+	MessageEnd();
+
+	m_hActiveSatchels.FindAndRemove( pSatchel );
+}
+
+void CHL2_Player::OnTripmineExploded( CBaseEntity *pTripmine, CBaseEntity *pAttacker )
+{
+	// send a message to the client, to notify the hud of the loss
+	CSingleUserRecipientFilter user( this );
+	user.MakeReliable();
+	UserMessageBegin( user, "SLAMExploded" );
+		WRITE_BOOL( pAttacker != this );
+	MessageEnd();
+
+	m_hActiveTripmines.FindAndRemove( pTripmine );
 }
 #endif
 

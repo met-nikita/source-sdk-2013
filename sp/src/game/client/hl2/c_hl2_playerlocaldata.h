@@ -45,6 +45,10 @@ public:
 	float	m_flFlashBattery;
 	Vector	m_vecLocatorOrigin;
 #endif
+#ifdef EZ2
+	int		m_iSatchelCount;
+	int		m_iTripmineCount;
+#endif
 
 	// Ladder related data
 	EHANDLE			m_hLadder;

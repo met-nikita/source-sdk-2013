@@ -34,6 +34,11 @@ public:
 	// Input handlers
 	void			InputExplode( inputdata_t &inputdata );
 
+#ifdef EZ2
+	void			Event_Killed( const CTakeDamageInfo &info );
+	void			Explode( trace_t *pTrace, int bitsDamageType );
+#endif
+
 	float			m_flNextBounceSoundTime;
 	bool			m_bInAir;
 	Vector			m_vLastPosition;
@@ -51,6 +56,10 @@ public:
 private:
 	void				CreateEffects( void );
 	CHandle<CSprite>	m_hGlowSprite;
+
+#ifdef EZ2
+	EHANDLE				m_hAttacker;
+#endif
 };
 
 #endif	//SATCHEL_H

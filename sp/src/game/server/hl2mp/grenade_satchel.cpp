@@ -13,6 +13,9 @@
 #include "explode.h"
 #include "Sprite.h"
 #include "grenade_satchel.h"
+#ifdef EZ2
+#include "hl2_player.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -95,6 +98,19 @@ void CSatchelCharge::Spawn( void )
 
 	m_hGlowSprite = NULL;
 	CreateEffects();
+
+#ifdef EZ2
+	if (GetOwnerEntity() && GetOwnerEntity()->IsPlayer())
+	{
+		CHL2_Player *pHL2Player = static_cast<CHL2_Player*>(GetOwnerEntity());
+		if (pHL2Player)
+		{
+			pHL2Player->OnDropSatchel( this );
+		}
+	}
+
+	m_hAttacker = NULL;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -124,8 +140,53 @@ void CSatchelCharge::InputExplode( inputdata_t &inputdata )
 {
 	ExplosionCreate( GetAbsOrigin() + Vector( 0, 0, 16 ), GetAbsAngles(), GetThrower(), GetDamage(), sk_satchel_radius.GetFloat(),
 		SF_ENVEXPLOSION_NOSPARKS | SF_ENVEXPLOSION_NODLIGHTS | SF_ENVEXPLOSION_NOSMOKE, 0.0f, this );
+
+#ifdef EZ2
+	if (GetThrower() && GetThrower()->IsPlayer())
+	{
+		CHL2_Player *pHL2Player = static_cast<CHL2_Player*>(GetThrower());
+		if (pHL2Player)
+		{
+			pHL2Player->OnSatchelExploded( this, inputdata.pActivator );
+		}
+	}
+#endif
+
 	UTIL_Remove( this );
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+void CSatchelCharge::Event_Killed( const CTakeDamageInfo &info )
+{
+	m_hAttacker = info.GetAttacker();
+
+	BaseClass::Event_Killed( info );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+void CSatchelCharge::Explode( trace_t *pTrace, int bitsDamageType )
+{
+	if (GetThrower() && GetThrower()->IsPlayer())
+	{
+		CHL2_Player *pHL2Player = static_cast<CHL2_Player*>(GetThrower());
+		if (pHL2Player)
+		{
+			pHL2Player->OnSatchelExploded( this, m_hAttacker );
+		}
+	}
+
+	BaseClass::Explode( pTrace, bitsDamageType );
+}
+#endif
 
 
 void CSatchelCharge::SatchelThink( void )
