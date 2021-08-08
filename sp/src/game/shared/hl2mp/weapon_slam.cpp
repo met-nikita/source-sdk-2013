@@ -633,6 +633,18 @@ void CWeapon_SLAM::SatchelAttach( void )
 			}
 #endif
 
+#ifdef EZ2
+			// HACKHACK: Tell the player they have this satchel
+			if (GetOwner()->IsPlayer())
+			{
+				CHL2_Player *pHL2Player = static_cast<CHL2_Player*>(GetOwner());
+				if (pHL2Player)
+				{
+					pHL2Player->OnDropSatchel( pSatchel );
+				}
+			}
+#endif
+
 			pOwner->RemoveAmmo( 1, m_iSecondaryAmmoType );
 		}
 	}

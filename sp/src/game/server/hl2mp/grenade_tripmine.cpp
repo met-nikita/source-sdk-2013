@@ -15,6 +15,9 @@
 #ifdef EZ2
 #include "mapbase/matchers.h"
 #endif
+#ifdef EZ2
+#include "hl2_player.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -54,6 +57,8 @@ BEGIN_DATADESC( CTripmineGrenade )
 	DEFINE_FIELD( m_nTripmineClass, FIELD_INTEGER ),
 	DEFINE_KEYFIELD( m_nTripmineClassString, FIELD_STRING, "TripmineClass" ),
 	DEFINE_KEYFIELD( m_TripmineColor, FIELD_COLOR32, "TripmineColor" ),
+	DEFINE_FIELD( m_bTripped, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_hPlacer, FIELD_EHANDLE ),
 #endif
 
 	// Function Pointers
@@ -97,6 +102,17 @@ void CTripmineGrenade::Spawn( void )
 	if ( pOwner != NULL )
 	{
 		m_nTripmineClass = pOwner->Classify();
+
+		m_hPlacer = pOwner;
+
+		if (m_hPlacer->IsPlayer())
+		{
+			CHL2_Player *pHL2Player = static_cast<CHL2_Player*>(m_hPlacer.Get());
+			if (pHL2Player)
+			{
+				pHL2Player->OnSetupTripmine( this );
+			}
+		}
 	}
 #endif
 
@@ -329,6 +345,9 @@ void CTripmineGrenade::BeamBreakThink( void  )
 	if (pBCC || fabs( m_flBeamLength - tr.fraction ) > 0.001)
 	{
 		m_iHealth = 0;
+#ifdef EZ2
+		m_bTripped = true;
+#endif
 #ifdef MAPBASE
 		Event_Killed( CTakeDamageInfo( (CBaseEntity*)m_hOwner, pEntity, 100, GIB_NORMAL ) );
 #else
@@ -388,6 +407,28 @@ void CTripmineGrenade::DelayDeathThink( void )
 
 #ifdef MAPBASE
 	m_OnExplode.FireOutput(m_hAttacker.Get(), this);
+#endif
+
+#ifdef EZ2
+	if (m_hPlacer && m_hPlacer->IsPlayer())
+	{
+		CHL2_Player *pHL2Player = static_cast<CHL2_Player*>(m_hPlacer.Get());
+		if (pHL2Player)
+		{
+			if (!m_bTripped)
+			{
+				// UNDONE: Do this in case the attacker might've been from the player
+				//if (m_hAttacker && m_hAttacker->GetOwnerEntity())
+				//	m_hAttacker = m_hAttacker->GetOwnerEntity();
+
+				pHL2Player->OnTripmineExploded( this, m_hAttacker );
+			}
+			else
+			{
+				pHL2Player->OnTripmineExploded( this, GetOwnerEntity() );
+			}
+		}
+	}
 #endif
 
 	UTIL_Remove( this );

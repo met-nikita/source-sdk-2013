@@ -76,6 +76,10 @@ private:
 	Class_T     m_nTripmineClass;
 	string_t	m_nTripmineClassString;
 	color32     m_TripmineColor;
+
+	bool		m_bTripped;
+
+	EHANDLE		m_hPlacer;
 #endif
 
 	DECLARE_DATADESC();

@@ -44,6 +44,10 @@ public:
 	CNetworkVar( float, m_flFlashBattery );
 	CNetworkVar( Vector, m_vecLocatorOrigin );
 #endif
+#ifdef EZ2
+	CNetworkVar( int,	m_iSatchelCount );
+	CNetworkVar( int,	m_iTripmineCount );
+#endif
 
 	// Ladder related data
 	CNetworkVar( EHANDLE, m_hLadder );

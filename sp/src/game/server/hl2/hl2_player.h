@@ -183,6 +183,11 @@ public:
 	virtual void ApplyFlashlightColorCorrection( bool bColorCorrectionEnabled );
 
 	virtual void SetLegModel( string_t iszModel );
+
+	void		OnDropSatchel( CBaseEntity *pSatchel );
+	void		OnSetupTripmine( CBaseEntity *pTripmine );
+	void		OnSatchelExploded( CBaseEntity *pSatchel, CBaseEntity *pAttacker );
+	void		OnTripmineExploded( CBaseEntity *pTripmine, CBaseEntity *pAttacker );
 #endif
 
 	// Apply a battery
@@ -433,6 +438,11 @@ private:
 	CommanderCommand_t	m_QueuedCommand;
 #ifdef EZ
 	EHANDLE				m_hCommandPointProp;
+#endif
+
+#ifdef EZ2
+	CUtlVector<CBaseEntity*>	m_hActiveSatchels;
+	CUtlVector<CBaseEntity*>	m_hActiveTripmines;
 #endif
 
 	Vector				m_vecMissPositions[16];
