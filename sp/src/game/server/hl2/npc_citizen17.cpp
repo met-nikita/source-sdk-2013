@@ -425,6 +425,9 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_KEYFIELD(	m_bUsedBackupWeapon,		FIELD_BOOLEAN, "disablebackupweapon" ),
 	DEFINE_FIELD(		m_vecDecoyObjectTarget,		FIELD_VECTOR),
 #endif
+#ifdef EZ2
+	DEFINE_KEYFIELD(	m_bCanSurrender, FIELD_BOOLEAN, "cansurrender" ),
+#endif
 #ifdef MAPBASE
 	DEFINE_INPUT(		m_bTossesMedkits,			FIELD_BOOLEAN, "SetTossMedkits" ),
 	DEFINE_KEYFIELD(	m_bAlternateAiming,			FIELD_BOOLEAN, "AlternateAiming" ),
@@ -441,6 +444,10 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_OUTPUT(		m_OnHealedPlayer,		"OnHealedPlayer" ),
 	DEFINE_OUTPUT(		m_OnThrowMedkit,		"OnTossMedkit" ),
 	DEFINE_OUTPUT(		m_OnGiveAmmo,			"OnGiveAmmo" ),
+#endif
+
+#ifdef EZ2
+	DEFINE_OUTPUT(		m_OnSurrender,			"OnSurrender" ),
 #endif
 
 	DEFINE_INPUTFUNC( FIELD_VOID,	"RemoveFromPlayerSquad", InputRemoveFromPlayerSquad ),
@@ -462,6 +469,9 @@ BEGIN_DATADESC( CNPC_Citizen )
 
 #ifdef MAPBASE
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetPoliceGoal", InputSetPoliceGoal ),
+#endif
+#ifdef EZ2
+	DEFINE_INPUTFUNC( FIELD_STRING, "Surrender", InputSurrender ),
 #endif
 
 	DEFINE_USEFUNC( CommanderUse ),
@@ -1035,6 +1045,20 @@ Class_T	CNPC_Citizen::Classify()
 
 	if (GlobalEntity_GetState("citizens_passive") == GLOBAL_ON)
 		return CLASS_CITIZEN_PASSIVE;
+
+#ifdef EZ2
+	if ( IsSurrendered() )
+	{
+		// If we got a weapon back, revert to rebel
+		if ( GetActiveWeapon() != NULL )
+		{
+			RemoveContext( "surrendered:1" );
+			return CLASS_PLAYER_ALLY;
+		}
+
+		return CLASS_CITIZEN_PASSIVE;
+	}
+#endif
 
 	return CLASS_PLAYER_ALLY;
 }
@@ -1688,6 +1712,20 @@ int CNPC_Citizen::SelectSchedule()
 // TODO - Find a better spot for this!
 #ifdef EZ
 	TrySpeakBeg();
+#endif
+
+#ifdef EZ2
+	if ( IsSurrendered() )
+	{
+		if (GetActiveWeapon() != NULL)
+		{
+			RemoveContext( "surrendered:1" );
+		}
+		else if (!HasCondition( COND_HEAR_DANGER ) && !HasCondition( COND_BETTER_WEAPON_AVAILABLE ) )
+		{
+			return SCHED_COWER;
+		}
+	}
 #endif
 
 #ifdef MAPBASE
@@ -2939,7 +2977,7 @@ Activity CNPC_Citizen::NPC_TranslateActivity( Activity activity )
 
 #ifdef EZ2
 	// Unarmed citizens use 'panic readiness' activities!
-	if ( !m_bWillpowerDisabled && GetActiveWeapon() == NULL && m_NPCState == NPC_STATE_COMBAT )
+	if ( (!m_bWillpowerDisabled && GetActiveWeapon() == NULL && m_NPCState == NPC_STATE_COMBAT) || IsSurrendered() )
 	{
 		switch (activity)
 		{
@@ -5139,6 +5177,12 @@ bool CNPC_Citizen::HandleInteraction(int interactionType, void *data, CBaseComba
 		// Do normal kick handling
 		return false;
 	}
+	// Set the context for surrender
+	else if ( interactionType == g_interactionBadCopOrderSurrender && m_bCanSurrender && GetActiveWeapon() == NULL )
+	{
+		AddContext( "surrendered:1" );
+		m_OnSurrender.FireOutput( sourceEnt, sourceEnt );
+	}
 #endif
 #endif
 
@@ -5697,6 +5741,14 @@ void CNPC_Citizen::InputSetPoliceGoal( inputdata_t &inputdata )
 	}
 
 	m_PolicingBehavior.Enable( pPoliceGoal );
+}
+#endif
+
+#ifdef EZ2
+void CNPC_Citizen::InputSurrender( inputdata_t & inputdata )
+{
+	AddContext( "surrendered:1" );
+	m_OnSurrender.FireOutput( inputdata.pActivator, inputdata.pCaller );
 }
 #endif
 

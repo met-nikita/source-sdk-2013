@@ -366,7 +366,8 @@ void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 
 	AI_CriteriaSet modifiers;
 	bool bStealthChat = false;
-	ModifyOrAppendSpeechTargetCriteria(modifiers, pEntity);
+	bool bOrderSurrender = false;
+	ModifyOrAppendSpeechTargetCriteria( modifiers, pEntity );
 
 	CAI_BaseNPC *pNPC = pEntity->MyNPCPointer();
 	if ( pNPC )
@@ -377,9 +378,21 @@ void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 			modifiers.AppendCriteria( "stealth_chat", "1" );
 			bStealthChat = true;
 		}
+
+		// Is Bad Cop trying to order a rebel to surrender?
+		if ( pNPC->IRelationType( this ) <= D_FR && !pNPC->GetWeapon( 0 ) && !pNPC->IsInAScript() )
+		{
+			modifiers.AppendCriteria( "order_surrender", "1" );
+			bOrderSurrender = true;
+		}
 	}
 
 	bool bSpoken = SpeakIfAllowed( TLK_USE, modifiers );
+
+	if ( bSpoken && bOrderSurrender )
+	{
+		pNPC->DispatchInteraction( g_interactionBadCopOrderSurrender, NULL, this );
+	}
 
 	if ( bSpoken && bStealthChat )
 	{

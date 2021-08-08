@@ -91,6 +91,9 @@ extern int  g_interactionXenGrenadeRagdoll;
 
 // Bad Cop kick
 extern int	g_interactionBadCopKick;
+
+// Bad Cop order surrender
+extern int	g_interactionBadCopOrderSurrender;
 #endif
 
 #endif	//AI_INTERACTIONS_H

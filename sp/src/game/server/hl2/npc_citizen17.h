@@ -82,6 +82,9 @@ public:
 #ifdef EZ
 		, m_iWillpowerModifier( 0 )
 #endif
+#ifdef EZ2
+		, m_bCanSurrender( 1 )
+#endif
 	{
 	}
 
@@ -210,6 +213,8 @@ public:
 
 	bool			GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * pActivator );
 	bool			TrySpeakBeg();
+
+	inline bool		IsSurrendered() { return GetContextValue( "surrendered" )[0] == '1'; };
 #endif
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);
@@ -334,6 +339,9 @@ public:
 #ifdef MAPBASE
 	void			InputSetPoliceGoal( inputdata_t &inputdata );
 #endif
+#ifdef EZ2
+	void			InputSurrender( inputdata_t &inputdata );
+#endif
 
 	//---------------------------------
 	//	Sounds & speech
@@ -438,6 +446,9 @@ private:
 
 	bool			m_bUsedBackupWeapon;	// 1upD - Has this rebel been given a backup weapon already?
 #endif
+#ifdef EZ2
+	bool			m_bCanSurrender;		// 1upD - Can this rebel surrender?
+#endif
 	//-----------------------------------------------------
 	//	Outputs
 	//-----------------------------------------------------
@@ -452,6 +463,10 @@ private:
 	COutputEvent		m_OnHealedPlayer;
 	COutputEHANDLE		m_OnThrowMedkit;
 	COutputEvent		m_OnGiveAmmo;
+#endif
+
+#ifdef EZ2
+	COutputEvent		m_OnSurrender;
 #endif
 
 	//-----------------------------------------------------

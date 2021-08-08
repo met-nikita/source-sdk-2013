@@ -664,6 +664,7 @@ END_DATADESC()
 // Interactions
 //-----------------------------------------------------------------------------
 	int g_interactionBadCopKick = 0;
+	int g_interactionBadCopOrderSurrender = 0;
 #endif
 
 #ifdef MAPBASE_VSCRIPT
@@ -762,6 +763,12 @@ void CHL2_Player::Precache( void )
 	if ( g_interactionBadCopKick == 0 )
 	{
 		g_interactionBadCopKick = CBaseCombatCharacter::GetInteractionID();
+	}
+
+	// Interactions
+	if (g_interactionBadCopOrderSurrender == 0)
+	{
+		g_interactionBadCopOrderSurrender = CBaseCombatCharacter::GetInteractionID();
 	}
 
 #endif
