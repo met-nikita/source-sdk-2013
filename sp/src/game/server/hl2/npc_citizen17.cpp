@@ -5108,6 +5108,10 @@ bool CNPC_Citizen::HandleInteraction(int interactionType, void *data, CBaseComba
 	{
 		KickInfo_t * pInfo = static_cast< KickInfo_t *>(data);
 
+		// Only continue if our damage filter allows us to
+		if (pInfo->dmgInfo && !PassesDamageFilter( *pInfo->dmgInfo ))
+			return false;
+
 		// If we have directional information, see if this kick knocked a weapon free
 		trace_t * pTr = pInfo->tr;
 		CBaseCombatWeapon * pWeapon = GetActiveWeapon();
