@@ -65,6 +65,7 @@
 #define TLK_COMMAND_RECALL	"TLK_COMMAND_RECALL" // 1upD - issuing order to recall squad
 #define TLK_COMMAND_ADD		"TLK_COMMAND_ADD" // 1upD - issuing order to join squad
 #define TLK_COMMAND_REMOVE	"TLK_COMMAND_REMOVE" // 1upD - issuing order to leave squad
+#define TLK_DETONATE		"TLK_DETONATE" // 1upD - detonating satchel charges
 #define TLK_DENY_COMMAND	"TLK_DENY_COMMAND" // designer has asked this NPC to politely deny player commands to move the squad
 #define TLK_BETRAYED		"TLK_BETRAYED"	// player killed an ally in front of me.
 #define TLK_ALLY_KILLED		"TLK_ALLY_KILLED" // witnessed an ally die some other way.

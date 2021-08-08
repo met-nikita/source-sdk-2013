@@ -155,6 +155,10 @@ public:
 
 	bool			GetInVehicle( IServerVehicle *pVehicle, int nRole );
 
+	// Override impulse commands for new detonation command
+	virtual void		CheatImpulseCommands( int iImpulse );
+	virtual void		DetonateExplosives();
+
 	// For more accurate representations of whether the player actually sees something
 	// (3D dot calculations instead of 2D dot calculations)
 	bool			FInTrueViewCone( const Vector &vecSpot );

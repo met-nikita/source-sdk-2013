@@ -25,6 +25,7 @@
 #include "combine_mine.h"
 #include "weapon_physcannon.h"
 #include "saverestore_utlvector.h"
+#include "grenade_satchel.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -186,6 +187,8 @@ void CEZ2_Player::Precache( void )
 	BaseClass::Precache();
 
 	PrecacheModel( "models/bad_cop.mdl" );
+	PrecacheScriptSound( "Player.Detonate" );
+	PrecacheScriptSound( "Player.DetonateFail" );
 }
 
 //-----------------------------------------------------------------------------
@@ -488,6 +491,54 @@ bool CEZ2_Player::GetInVehicle( IServerVehicle *pVehicle, int nRole )
 		VehicleHintHide( this, pVehicle->GetVehicleEnt() );
 
 	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : iImpulse - 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::CheatImpulseCommands( int iImpulse )
+{
+	switch (iImpulse)
+	{
+	case 36:
+	{
+		DetonateExplosives();
+		break;
+	}
+
+	default:
+		BaseClass::CheatImpulseCommands( iImpulse );
+	}
+}
+
+void CEZ2_Player::DetonateExplosives()
+{
+	DevMsg( "Player attempting to detonate explosives...\n" );
+
+	bool bDidExplode = false;
+	CBaseEntity * pEntity = NULL;
+	while ((pEntity = gEntList.FindEntityByClassname( pEntity, "npc_satchel" )) != NULL)
+	{
+		CSatchelCharge *pSatchel = dynamic_cast<CSatchelCharge *>(pEntity);
+		if (pSatchel->m_bIsLive && pSatchel->GetThrower() && pSatchel->GetThrower() == this)
+		{
+			g_EventQueue.AddEvent( pSatchel, "Explode", 0.20, this, this );
+			bDidExplode = true;
+		}
+	}
+
+	if (bDidExplode)
+	{
+		// Play sound for pressing the detonator
+		EmitSound( "Player.Detonate" );
+		SpeakIfAllowed( TLK_DETONATE );
+	}
+	else
+	{
+		// Play a 'failed to detonate' sound
+		EmitSound( "Player.DetonateFail" );
+	}
 }
 
 //-----------------------------------------------------------------------------
