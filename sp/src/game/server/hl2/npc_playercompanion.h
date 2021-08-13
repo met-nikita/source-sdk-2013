@@ -26,6 +26,10 @@
 #include "mapbase/ai_grenade.h"
 #endif
 
+#ifdef EZ2
+#include "ez2/ai_behavior_surrender.h"
+#endif
+
 #if defined( _WIN32 )
 #pragma once
 #endif
@@ -435,6 +439,9 @@ protected:
 
 	virtual CAI_FollowBehavior &GetFollowBehavior( void ) { return m_FollowBehavior; }
 	virtual CAI_StandoffBehavior &GetStandoffBehavior( void ) { return m_StandoffBehavior; } // Blixibon - Added because soldiers have their own special standoff behavior
+#ifdef EZ2
+	virtual CAI_SurrenderBehavior &GetSurrenderBehavior( void ) { return m_SurrenderBehavior; }
+#endif
 
 	CAI_AssaultBehavior				m_AssaultBehavior;
 	CAI_FollowBehavior				m_FollowBehavior;
@@ -445,6 +452,9 @@ protected:
 	CAI_OperatorBehavior			m_OperatorBehavior;
 	CAI_PassengerBehaviorCompanion	m_PassengerBehavior;
 	CAI_FearBehavior				m_FearBehavior;
+#endif
+#ifdef EZ2
+	CAI_SurrenderBehavior			m_SurrenderBehavior;
 #endif
 	//-----------------------------------------------------
 

@@ -201,6 +201,11 @@ bool CNPC_PlayerCompanion::CreateBehaviors()
 	AddBehavior( &m_FollowBehavior );
 	AddBehavior( &m_LeadBehavior );
 #endif//HL2_EPISODIC
+
+#ifdef EZ2
+	// Citizens are the only surrendering NPCs at the moment and they have their own version of the behavior, so this one doesn't need to be added.
+	//AddBehavior( &m_SurrenderBehavior );
+#endif
 	
 	return BaseClass::CreateBehaviors();
 }
@@ -816,6 +821,16 @@ int CNPC_PlayerCompanion::SelectSchedule()
 			return BaseClass::SelectSchedule();
 		}
 	}
+
+#ifdef EZ2
+	// We can't do much while we're on the ground
+	// (also, having a forced grenade target messes us up)
+	if (GetSurrenderBehavior().CanSelectSchedule() && (GetSurrenderBehavior().IsSurrenderIdleOnGround() || m_hForcedGrenadeTarget))
+	{
+		DeferSchedulingToBehavior( &GetSurrenderBehavior() );
+		return BaseClass::SelectSchedule();
+	}
+#endif
 
 #ifdef MAPBASE
 	if ( m_hForcedGrenadeTarget )

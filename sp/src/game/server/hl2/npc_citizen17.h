@@ -15,6 +15,9 @@
 #include "ai_behavior_rappel.h"
 #include "ai_behavior_police.h"
 #endif
+#ifdef EZ2
+#include "ez2/ai_behavior_surrender.h"
+#endif
 
 struct SquadCandidate_t;
 
@@ -81,9 +84,6 @@ public:
 	 :	m_iHead( -1 )
 #ifdef EZ
 		, m_iWillpowerModifier( 0 )
-#endif
-#ifdef EZ2
-		, m_bCanSurrender( 1 )
 #endif
 	{
 	}
@@ -214,7 +214,9 @@ public:
 	bool			GiveBackupWeapon( CBaseCombatWeapon * pWeapon, CBaseEntity * pActivator );
 	bool			TrySpeakBeg();
 
-	inline bool		IsSurrendered() { return GetContextValue( "surrendered" )[0] == '1'; };
+	inline bool		IsSurrendered() { return m_SurrenderBehavior.IsSurrendered(); } //{ return GetContextValue( "surrendered" )[0] == '1'; };
+	inline bool		IsSurrenderIdle() { return m_SurrenderBehavior.IsSurrenderIdle(); }
+	inline bool		CanSurrender() { return m_SurrenderBehavior.CanSurrender(); }
 #endif
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);
@@ -341,6 +343,9 @@ public:
 #endif
 #ifdef EZ2
 	void			InputSurrender( inputdata_t &inputdata );
+	void			InputSetSurrenderFlags( inputdata_t &inputdata );
+	void			InputAddSurrenderFlags( inputdata_t &inputdata );
+	void			InputRemoveSurrenderFlags( inputdata_t &inputdata );
 #endif
 
 	//---------------------------------
@@ -446,9 +451,6 @@ private:
 
 	bool			m_bUsedBackupWeapon;	// 1upD - Has this rebel been given a backup weapon already?
 #endif
-#ifdef EZ2
-	bool			m_bCanSurrender;		// 1upD - Can this rebel surrender?
-#endif
 	//-----------------------------------------------------
 	//	Outputs
 	//-----------------------------------------------------
@@ -467,6 +469,7 @@ private:
 
 #ifdef EZ2
 	COutputEvent		m_OnSurrender;
+	COutputEvent		m_OnStopSurrendering;
 #endif
 
 	//-----------------------------------------------------
@@ -478,6 +481,28 @@ private:
 	// Rappel
 	virtual bool IsWaitingToRappel( void ) { return m_RappelBehavior.IsWaitingToRappel(); }
 	void BeginRappel() { m_RappelBehavior.BeginRappel(); }
+#endif
+
+#ifdef EZ2
+	class CCitizenSurrenderBehavior : public CAI_SurrenderBehavior
+	{
+		typedef CAI_SurrenderBehavior BaseClass;
+
+	public:
+		virtual void Surrender( CBaseCombatCharacter *pCaptor );
+
+		virtual int SelectSchedule();
+
+		virtual void BuildScheduleTestBits();
+
+		virtual int ModifyResistanceValue( int iVal );
+
+		inline CNPC_Citizen *GetOuterCit() { return static_cast<CNPC_Citizen*>(GetOuter()); }
+	};
+
+	virtual CAI_SurrenderBehavior &GetSurrenderBehavior( void ) { return m_SurrenderBehavior; }
+
+	CCitizenSurrenderBehavior	m_SurrenderBehavior;
 #endif
 
 	CHandle<CAI_FollowGoal>	m_hSavedFollowGoalEnt;

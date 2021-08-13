@@ -120,6 +120,7 @@ enum Hint_e
 	// EZ2 hints
 	HINT_BEAST_HOME = 2000,
 	HINT_BEAST_FRUSTRATION,
+	HINT_SURRENDER_IDLE_DEST,
 #endif
 };
 const char *GetHintTypeDescription( Hint_e iHintType );

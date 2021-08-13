@@ -790,6 +790,14 @@ bool CAI_PlayerAlly::SelectQuestionAndAnswerSpeech( AISpeechSelection_t *pSelect
 	if ( !IsOkToSpeak( SPEECH_IDLE ) )
 		return false;
 
+#ifdef EZ2
+	// For now, Combine soldiers should use their own IdleSound() Q&A code.
+	// (this fixes idle speech overlap and interference with citizen Q&A)
+	//   -Blixibon
+	if ( IsCombine() )
+		return false;
+#endif
+
 	if ( IsMoving() )
 		return false;
 
@@ -811,6 +819,17 @@ bool CAI_PlayerAlly::SelectQuestionAndAnswerSpeech( AISpeechSelection_t *pSelect
 //-----------------------------------------------------------------------------
 void CAI_PlayerAlly::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response )
 {
+#ifdef EZ2
+	if (IsCombine())
+	{
+		// For now, Combine soldiers should use their own IdleSound() Q&A code.
+		// (this fixes idle speech overlap and interference with citizen Q&A)
+		//   -Blixibon
+		m_hPotentialSpeechTarget = NULL;
+		return;
+	}
+#endif
+
 #ifdef HL2_EPISODIC
 	CAI_AllySpeechManager *pSpeechManager = GetAllySpeechManager();
 	ConceptInfo_t *pConceptInfo	= pSpeechManager->GetConceptInfo( concept );

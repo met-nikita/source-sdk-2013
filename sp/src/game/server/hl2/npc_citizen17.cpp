@@ -141,6 +141,11 @@ ConVar npc_citizen_gib( "npc_citizen_gib", "1" );
 #endif
 ConVar npc_citizen_longfall_death_height("npc_citizen_longfall_death_height", "32768");
 ConVar npc_citizen_brute_mask_eject_threshold("npc_citizen_brute_mask_eject_threshold", "100");
+#ifdef EZ2
+ConVar npc_citizen_surrender_auto_distance( "npc_citizen_surrender_auto_distance", "720" );
+ConVar npc_citizen_surrender_ammo_scale_min( "npc_citizen_surrender_ammo_scale_min", "0.05" );
+ConVar npc_citizen_surrender_ammo_scale_max( "npc_citizen_surrender_ammo_scale_max", "0.10" );
+#endif
 #endif
 
 #ifdef MAPBASE
@@ -425,9 +430,6 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_KEYFIELD(	m_bUsedBackupWeapon,		FIELD_BOOLEAN, "disablebackupweapon" ),
 	DEFINE_FIELD(		m_vecDecoyObjectTarget,		FIELD_VECTOR),
 #endif
-#ifdef EZ2
-	DEFINE_KEYFIELD(	m_bCanSurrender, FIELD_BOOLEAN, "cansurrender" ),
-#endif
 #ifdef MAPBASE
 	DEFINE_INPUT(		m_bTossesMedkits,			FIELD_BOOLEAN, "SetTossMedkits" ),
 	DEFINE_KEYFIELD(	m_bAlternateAiming,			FIELD_BOOLEAN, "AlternateAiming" ),
@@ -448,6 +450,7 @@ BEGIN_DATADESC( CNPC_Citizen )
 
 #ifdef EZ2
 	DEFINE_OUTPUT(		m_OnSurrender,			"OnSurrender" ),
+	DEFINE_OUTPUT(		m_OnStopSurrendering,			"OnStopSurrendering" ),
 #endif
 
 	DEFINE_INPUTFUNC( FIELD_VOID,	"RemoveFromPlayerSquad", InputRemoveFromPlayerSquad ),
@@ -471,7 +474,10 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetPoliceGoal", InputSetPoliceGoal ),
 #endif
 #ifdef EZ2
-	DEFINE_INPUTFUNC( FIELD_STRING, "Surrender", InputSurrender ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "Surrender", InputSurrender ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetSurrenderFlags", InputSetSurrenderFlags ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "AddSurrenderFlags", InputAddSurrenderFlags ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "RemoveSurrenderFlags", InputAddSurrenderFlags ),
 #endif
 
 	DEFINE_USEFUNC( CommanderUse ),
@@ -494,6 +500,9 @@ bool CNPC_Citizen::CreateBehaviors()
 #ifdef MAPBASE
 	AddBehavior( &m_RappelBehavior );
 	AddBehavior( &m_PolicingBehavior );
+#endif
+#ifdef EZ2
+	AddBehavior( &m_SurrenderBehavior );
 #endif
 	
 	return true;
@@ -708,6 +717,39 @@ void CNPC_Citizen::Spawn()
 	if (NameMatches("griggs"))
 	{
 		m_bTossesMedkits = true;
+	}
+#endif
+
+#ifdef EZ2
+	if (!IsMedic() && !IsAmmoResupplier() && m_Type == CT_BRUTE && CanSurrender() && ((m_iszAmmoSupply == NULL_STRING && m_iAmmoAmount == 0) || (FStrEq(STRING(m_iszAmmoSupply), "SMG1") && m_iAmmoAmount == 1)))
+	{
+		// Change the ammo supply and ammo ammount to reflect our equipment (for surrendering purposes)
+		if (HasGrenades() && RandomInt( 0, 1 ) == 1)
+		{
+			if (IsAltFireCapable())
+			{
+				m_iAmmoAmount = 1;
+				if (GetActiveWeapon() && GetActiveWeapon()->ClassMatches("weapon_ar2*"))
+					m_iszAmmoSupply = AllocPooledString( "AR2AltFire" );
+				else
+					m_iszAmmoSupply = AllocPooledString( "SMG1_Grenade" );
+			}
+			else
+			{
+				m_iszAmmoSupply = AllocPooledString( "Grenade" );
+				m_iAmmoAmount = RandomInt( 1, 2 );
+			}
+		}
+		else if (GetActiveWeapon() && GetActiveWeapon()->UsesPrimaryAmmo())
+		{
+			int iAmmoIndex = GetActiveWeapon()->GetPrimaryAmmoType();
+			const char *pszAmmoName = GetAmmoDef()->Name( iAmmoIndex );
+			if (pszAmmoName)
+			{
+				m_iszAmmoSupply = AllocPooledString( pszAmmoName );
+				m_iAmmoAmount = ((float)GetAmmoDef()->MaxCarry( iAmmoIndex ) * RandomFloat( npc_citizen_surrender_ammo_scale_min.GetFloat(), npc_citizen_surrender_ammo_scale_max.GetFloat() ));
+			}
+		}
 	}
 #endif
 }
@@ -1052,7 +1094,8 @@ Class_T	CNPC_Citizen::Classify()
 		// If we got a weapon back, revert to rebel
 		if ( GetActiveWeapon() != NULL )
 		{
-			RemoveContext( "surrendered:1" );
+			//RemoveContext( "surrendered:1" );
+			m_SurrenderBehavior.StopSurrendering();
 			return CLASS_PLAYER_ALLY;
 		}
 
@@ -1106,6 +1149,13 @@ bool CNPC_Citizen::ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior )
 			}
 		}
 	}
+#ifdef EZ2
+	// Don't use func_tanks while surrendered
+	else if ( IsSurrendered() && pBehavior == &m_FuncTankBehavior )
+	{
+		return false;
+	}
+#endif
 
 	return BaseClass::ShouldBehaviorSelectSchedule( pBehavior );
 }
@@ -1277,6 +1327,15 @@ Disposition_t CNPC_Citizen::IRelationType(CBaseEntity * pTarget)
 	if (disposition == D_HT && HasCondition(COND_CIT_WILLPOWER_LOW)) {
 		return D_FR;
 	}
+
+#ifdef EZ2
+	if (m_SurrenderBehavior.IsSurrendered() && pTarget && pTarget->Classify() == CLASS_CITIZEN_PASSIVE && disposition == D_NU)
+	{
+		// Surrendered citizens like each other (for speech, etc.)
+		return D_LI;
+	}
+#endif
+
 	return disposition;
 }
 
@@ -1448,7 +1507,11 @@ void CNPC_Citizen::GatherConditions()
 		float flStareDist = sk_citizen_player_stare_dist.GetFloat();
 		float flPlayerDamage = pPlayer->GetMaxHealth() - pPlayer->GetHealth();
 
-		if( pPlayer->IsAlive() && flPlayerDamage > 0 && (flDistSqr <= flStareDist * flStareDist) && pPlayer->FInViewCone( this ) && pPlayer->FVisible( this ) )
+		if( pPlayer->IsAlive() && flPlayerDamage > 0 && (flDistSqr <= flStareDist * flStareDist) && pPlayer->FInViewCone( this ) && pPlayer->FVisible( this )
+#ifdef EZ2
+			&& (!IsSurrendered() /*|| m_SurrenderBehavior.IsSurrenderIdleStanding()*/) // For now, surrendered medics only heal if you +USE them
+#endif
+			)
 		{
 			if( m_flTimePlayerStare == FLT_MAX )
 			{
@@ -1498,6 +1561,11 @@ void CNPC_Citizen::PredictPlayerPush()
 	bool bHadPlayerPush = HasCondition( COND_PLAYER_PUSHING );
 
 	BaseClass::PredictPlayerPush();
+
+#ifdef EZ2
+	if ( IsSurrendered() /*&& !m_SurrenderBehavior.IsSurrenderIdleStanding()*/ ) // For now, surrendered medics only heal if you +USE them
+		return;
+#endif
 
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 	if ( !bHadPlayerPush && HasCondition( COND_PLAYER_PUSHING ) && 
@@ -1714,20 +1782,6 @@ int CNPC_Citizen::SelectSchedule()
 	TrySpeakBeg();
 #endif
 
-#ifdef EZ2
-	if ( IsSurrendered() )
-	{
-		if (GetActiveWeapon() != NULL)
-		{
-			RemoveContext( "surrendered:1" );
-		}
-		else if (!HasCondition( COND_HEAR_DANGER ) && !HasCondition( COND_BETTER_WEAPON_AVAILABLE ) )
-		{
-			return SCHED_COWER;
-		}
-	}
-#endif
-
 #ifdef MAPBASE
 	if ( IsWaitingToRappel() && BehaviorSelectSchedule() )
 	{
@@ -1782,6 +1836,11 @@ int CNPC_Citizen::SelectSchedule()
 //-----------------------------------------------------------------------------
 int CNPC_Citizen::SelectSchedulePriorityAction()
 {
+#ifdef EZ2
+	if ( IsSurrendered() && (!m_SurrenderBehavior.ShouldBeStanding() || m_SurrenderBehavior.IsInterruptable()) )
+		return SCHED_NONE;
+#endif
+
 	int schedule = SelectScheduleHeal();
 	if ( schedule != SCHED_NONE )
 		return schedule;
@@ -1807,8 +1866,20 @@ int CNPC_Citizen::SelectScheduleHeal()
 
 	if ( CanHeal() )
 	{
+		float flHealMoveRange = HEAL_MOVE_RANGE;
+#ifdef EZ2
+		// Surrendered medics have limited range
+		if (IsSurrendered())
+			flHealMoveRange = 128.0f;
+#endif
+
 		CBaseEntity *pEntity = PlayerInRange( GetLocalOrigin(), HEAL_TOSS_TARGET_RANGE );
+#ifdef EZ2
+		// Ugh, do I really HAVE to heal you?
+		if ( pEntity && (!IsSurrendered() || HasCondition( COND_CIT_PLAYERHEALREQUEST )) )
+#else
 		if ( pEntity )
+#endif
 		{
 			if ( USE_EXPERIMENTAL_MEDIC_CODE() && IsMedic() )
 			{
@@ -1819,7 +1890,7 @@ int CNPC_Citizen::SelectScheduleHeal()
 					return SCHED_CITIZEN_HEAL_TOSS;
 				}
 			}
-			else if ( PlayerInRange( GetLocalOrigin(), HEAL_MOVE_RANGE ) )
+			else if ( PlayerInRange( GetLocalOrigin(), flHealMoveRange ) )
 			{
 				// use old mechanism for ammo
 				if ( ShouldHealTarget( pEntity, HasCondition( COND_CIT_PLAYERHEALREQUEST ) ) )
@@ -1834,7 +1905,7 @@ int CNPC_Citizen::SelectScheduleHeal()
 		if ( m_pSquad )
 		{
 			pEntity = NULL;
-			float distClosestSq = HEAL_MOVE_RANGE*HEAL_MOVE_RANGE;
+			float distClosestSq = flHealMoveRange*flHealMoveRange;
 			float distCurSq;
 			
 			AISquadIter_t iter;
@@ -2097,6 +2168,21 @@ int CNPC_Citizen::TranslateSchedule( int scheduleType )
 		// Don't chase enemies if you're weaponless!
 		if ( GetActiveWeapon() == NULL )
 		{
+			if (m_SurrenderBehavior.SurrenderAutomatically() &&
+				GetEnemy() && (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).LengthSqr() < Square( npc_citizen_surrender_auto_distance.GetFloat() ))
+			{
+				CBaseCombatCharacter *pBCC = GetEnemy()->MyCombatCharacterPointer();
+				if (pBCC && pBCC->FInViewCone( this ) && (pBCC->IsPlayer() || (pBCC->IsNPC() && pBCC->MyNPCPointer()->IsPlayerAlly())))
+				{
+					// Surrender automatically if we're allowed to
+					if (DispatchInteraction( g_interactionBadCopOrderSurrender, NULL, pBCC ) && m_SurrenderBehavior.CanSelectSchedule())
+					{
+						Msg("Surrendering automatically!\n");
+						return SCHED_STANDOFF;
+					}
+				}
+			}
+
 			return SCHED_STANDOFF;
 		}
 #endif
@@ -2196,7 +2282,26 @@ int CNPC_Citizen::TranslateWillpowerSchedule(int scheduleType)
 		break;
 	case SCHED_CHASE_ENEMY:
 		if (HasCondition(COND_CIT_WILLPOWER_LOW) || HasCondition(COND_NO_WEAPON))
+		{
+#ifdef EZ2
+			if (m_SurrenderBehavior.SurrenderAutomatically() && !GetActiveWeapon() /*&& HasCondition( COND_CIT_WILLPOWER_VERY_LOW )*/ &&
+				GetEnemy() && (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).LengthSqr() < Square( npc_citizen_surrender_auto_distance.GetFloat() ))
+			{
+				CBaseCombatCharacter *pBCC = GetEnemy()->MyCombatCharacterPointer();
+				if (pBCC && pBCC->FInViewCone( this ) && (pBCC->IsPlayer() || (pBCC->IsNPC() && pBCC->MyNPCPointer()->IsPlayerAlly())))
+				{
+					// Surrender automatically if we're allowed to
+					if (DispatchInteraction( g_interactionBadCopOrderSurrender, NULL, pBCC ) && m_SurrenderBehavior.CanSelectSchedule())
+					{
+						Msg("Surrendering automatically!\n");
+						return SCHED_STANDOFF;
+					}
+				}
+			}
+#endif
+
 			return SCHED_RUN_FROM_ENEMY; // If we are afraid, take cover!
+		}
 		break;
 	case SCHED_COMBAT_FACE:
 		// 1upD - don't just stand there, do something!
@@ -2977,7 +3082,7 @@ Activity CNPC_Citizen::NPC_TranslateActivity( Activity activity )
 
 #ifdef EZ2
 	// Unarmed citizens use 'panic readiness' activities!
-	if ( (!m_bWillpowerDisabled && GetActiveWeapon() == NULL && m_NPCState == NPC_STATE_COMBAT) || IsSurrendered() )
+	if ( (!m_bWillpowerDisabled && GetActiveWeapon() == NULL && m_NPCState == NPC_STATE_COMBAT) /*|| IsSurrendered()*/ )
 	{
 		switch (activity)
 		{
@@ -3452,6 +3557,31 @@ void CNPC_Citizen::SimpleUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE
 			m_OnDenyCommanderUse.FireOutput( this, this );
 		}
 	}
+
+#ifdef EZ2
+	if (IsSurrendered() && m_SurrenderBehavior.IsSurrenderIdle())
+	{
+		if (m_SurrenderBehavior.ShouldBeStanding())
+		{
+			// Check if the player is asking for health
+			if (CanHeal() && ShouldHealTarget( pActivator, true ))
+			{
+				Msg( "Setting heal request\n" );
+				SetCondition( COND_CIT_PLAYERHEALREQUEST );
+			}
+			else
+			{
+				Msg( "Surrendering to ground\n" );
+				m_SurrenderBehavior.SurrenderToGround();
+			}
+		}
+		else
+		{
+			Msg( "Surrendering to standing\n" );
+			m_SurrenderBehavior.SurrenderStand();
+		}
+	}
+#endif
 
 	m_bDontUseSemaphore = false;
 }
@@ -5182,10 +5312,18 @@ bool CNPC_Citizen::HandleInteraction(int interactionType, void *data, CBaseComba
 		return false;
 	}
 	// Set the context for surrender
-	else if ( interactionType == g_interactionBadCopOrderSurrender && m_bCanSurrender && GetActiveWeapon() == NULL )
+	else if ( interactionType == g_interactionBadCopOrderSurrender && m_SurrenderBehavior.CanSurrender() && GetActiveWeapon() == NULL )
 	{
-		AddContext( "surrendered:1" );
-		m_OnSurrender.FireOutput( sourceEnt, sourceEnt );
+		//AddContext( "surrendered:1" );
+		m_SurrenderBehavior.Surrender( sourceEnt );
+		//m_OnSurrender.FireOutput( sourceEnt, sourceEnt );
+
+		if (sourceEnt)
+		{
+			AddLookTarget( sourceEnt, 1.0f, 3.0f, 1.0f );
+		}
+
+		return true;
 	}
 #endif
 #endif
@@ -5491,6 +5629,20 @@ void CNPC_Citizen::Heal()
 
 			pTarget->TakeHealth( healAmt, DMG_GENERIC );
 			pTarget->RemoveAllDecals();
+
+#ifdef EZ2
+			if (pTarget->IsPlayer())
+			{
+				// Fire the event (used for surrender behavior)
+				IGameEvent *event = gameeventmanager->CreateEvent( "medic_heal_player" );
+				if (event)
+				{
+					event->SetInt( "userid", ToBasePlayer( pTarget )->GetUserID() );
+					event->SetInt( "medic", entindex() );
+					gameeventmanager->FireEvent( event );
+				}
+			}
+#endif
 		}
 	}
 
@@ -5751,8 +5903,24 @@ void CNPC_Citizen::InputSetPoliceGoal( inputdata_t &inputdata )
 #ifdef EZ2
 void CNPC_Citizen::InputSurrender( inputdata_t & inputdata )
 {
-	AddContext( "surrendered:1" );
-	m_OnSurrender.FireOutput( inputdata.pActivator, inputdata.pCaller );
+	//AddContext( "surrendered:1" );
+	m_SurrenderBehavior.Surrender( ToBaseCombatCharacter( inputdata.pActivator ) );
+	//m_OnSurrender.FireOutput( inputdata.pActivator, inputdata.pCaller );
+}
+
+void CNPC_Citizen::InputSetSurrenderFlags( inputdata_t & inputdata )
+{
+	m_SurrenderBehavior.SetFlags( inputdata.value.Int() );
+}
+
+void CNPC_Citizen::InputAddSurrenderFlags( inputdata_t & inputdata )
+{
+	m_SurrenderBehavior.AddFlags( inputdata.value.Int() );
+}
+
+void CNPC_Citizen::InputRemoveSurrenderFlags( inputdata_t & inputdata )
+{
+	m_SurrenderBehavior.RemoveFlags( inputdata.value.Int() );
 }
 #endif
 
@@ -5810,6 +5978,83 @@ bool CNPC_Citizen::UseSemaphore( void )
 
 	return BaseClass::UseSemaphore();
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::CCitizenSurrenderBehavior::Surrender( CBaseCombatCharacter *pCaptor )
+{
+	BaseClass::Surrender( pCaptor );
+
+	// "You surrendered even though you had a weapon the whole time???"
+	// TODO: Maybe keep this and turn backup weapons into a resistance modifier? (i.e. citizens have a weapon concealed and are just waiting for the right time to use it)
+	GetOuterCit()->m_bUsedBackupWeapon = true;
+
+	// Brutes become very, very annoying ammo resuppliers
+	if (GetOuterCit()->m_Type == CT_BRUTE && !GetOuter()->HasSpawnFlags( SF_CITIZEN_AMMORESUPPLIER ) && GetOuterCit()->m_iszAmmoSupply != NULL_STRING)
+	{
+		GetOuterCit()->AddSpawnFlags( SF_CITIZEN_AMMORESUPPLIER );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int CNPC_Citizen::CCitizenSurrenderBehavior::SelectSchedule()
+{
+	int schedule = SCHED_NONE;
+	if (IsSurrenderIdleStanding() || IsSurrenderMovingToIdle())
+	{
+		//if (HasCondition( COND_CIT_PLAYERHEALREQUEST ))
+		{
+			// Heal if needed
+			schedule = GetOuterCit()->SelectScheduleHeal();
+			if (schedule != SCHED_NONE)
+				return schedule;
+		}
+
+		if (GetOuterCit()->m_Type == CT_BRUTE)
+		{
+			// Look for a weapon immediately
+			schedule = GetOuterCit()->SelectScheduleRetrieveItem();
+			if (schedule != SCHED_NONE)
+				return schedule;
+		}
+	}
+
+	return BaseClass::SelectSchedule();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::CCitizenSurrenderBehavior::BuildScheduleTestBits()
+{
+	BaseClass::BuildScheduleTestBits();
+
+	if (IsSurrenderIdleStanding())
+	{
+		GetOuter()->SetCustomInterruptCondition( COND_CIT_PLAYERHEALREQUEST );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int CNPC_Citizen::CCitizenSurrenderBehavior::ModifyResistanceValue( int iVal )
+{
+	iVal = BaseClass::ModifyResistanceValue( iVal );
+
+	iVal += GetOuterCit()->m_iWillpowerModifier;
+
+	// Brutes give resistance a natural bonus
+	if (GetOuterCit()->m_Type == CT_BRUTE)
+		iVal += 3;
+
+	return iVal;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 //

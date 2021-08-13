@@ -26,6 +26,7 @@
 #include "weapon_physcannon.h"
 #include "saverestore_utlvector.h"
 #include "grenade_satchel.h"
+#include "npc_citizen17.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -35,6 +36,8 @@ ConVar player_dummy_in_squad( "player_dummy_in_squad", "0", FCVAR_ARCHIVE, "Puts
 ConVar player_dummy( "player_dummy", "1", FCVAR_NONE, "Enables the player NPC dummy." );
 
 ConVar player_use_instructor( "player_use_instructor", "1", FCVAR_NONE, "Enables game instructor hints instead of HL2 HUD hints" );
+
+ConVar player_silent_surrender( "player_silent_surrender", "1" );
 
 #if EZ2
 LINK_ENTITY_TO_CLASS(player, CEZ2_Player);
@@ -281,6 +284,78 @@ SIGHT_EVENT_HINT_END( "" )
 SightEvent_t g_SightHintEnterVehicle( "Vehicle Enter", 200.0f, VehicleHintTest, VehicleHintShow );
 
 //-----------------------------------------------------------------------------
+bool SurrenderableCitizenHintTest( CEZ2_Player *pPlayer, CBaseEntity *pActivator )
+{
+	// Don't do this if there's too many enemies around
+	if (pPlayer->GetVisibleEnemies() > 2)
+		return false;
+
+	if (pActivator->Classify() == CLASS_PLAYER_ALLY && pActivator->MyNPCPointer()->GetActiveWeapon() == NULL)
+	{
+		CNPC_Citizen *pCitizen = dynamic_cast<CNPC_Citizen*>(pActivator);
+		if (pCitizen && !pCitizen->IsSurrendered() && pCitizen->CanSurrender() && pPlayer->GetAbsOrigin().DistToSqr(pActivator->GetAbsOrigin()) <= Square(192.0f))
+			return true;
+	}
+
+	return false;
+}
+
+// Shows the hint when the player sees a surrenderable citizen
+SIGHT_EVENT_HINT_START( SurrenderableCitizenHintShow, "player_see_surrenderable" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "victim", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "#EZ2_HudHint_Surrenderable" )
+
+// Hides the hint when the player enters the vehicle
+SIGHT_EVENT_HINT_START( SurrenderableCitizenHintHide, "player_did_surrender" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "victim", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "" )
+
+// Show a HUD hint for surrenderable citizens
+SightEvent_t g_SightHintSurrenderableCitizen( "Surrenderable Citizen", 100.0f, SurrenderableCitizenHintTest, SurrenderableCitizenHintShow );
+
+//-----------------------------------------------------------------------------
+bool SurrenderedMedicHintTest( CEZ2_Player *pPlayer, CBaseEntity *pActivator )
+{
+	// Don't do this if the player is in combat
+	if (pPlayer->GetNPCComponent() && pPlayer->GetNPCComponent()->GetState() == NPC_STATE_COMBAT)
+		return false;
+
+	if (pActivator->Classify() == CLASS_CITIZEN_PASSIVE)
+	{
+		CNPC_Citizen *pCitizen = dynamic_cast<CNPC_Citizen*>(pActivator);
+		if (pCitizen && pCitizen->IsSurrendered() && pCitizen->IsSurrenderIdle() &&
+			pCitizen->IsMedic() && pPlayer->GetAbsOrigin().DistToSqr( pActivator->GetAbsOrigin() ) <= Square( 192.0f ))
+		{
+			// We have the medic, but make sure that we need health in the first place
+			if ((pPlayer->GetMaxHealth() - pPlayer->GetHealth()) >= 15)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+// Shows the hint when the player sees a surrendered medic
+SIGHT_EVENT_HINT_START( SurrenderedMedicHintShow, "player_see_surrendered_medic" )
+
+			event->SetInt( "userid", pPlayer->GetUserID() );
+			event->SetInt( "medic", pActivator->entindex() );
+			gameeventmanager->FireEvent( event );
+
+SIGHT_EVENT_HINT_END( "#EZ2_HudHint_SurrenderedMedic" )
+
+// Show a HUD hint for surrendered medics who can heal the player
+SightEvent_t g_SightHintSurrenderedMedic( "Surrendered Medic", 100.0f, SurrenderedMedicHintTest, SurrenderedMedicHintShow );
+
+//-----------------------------------------------------------------------------
 inline void CEZ2_Player::AddSightEvent( SightEvent_t &sightEvent )
 {
 	sightEvent.flLastHintTime = 0.0f;
@@ -294,6 +369,8 @@ CEZ2_Player::CEZ2_Player()
 	AddSightEvent( g_SightHintSoldierSquad );
 	AddSightEvent( g_SightHintCrateKick );
 	AddSightEvent( g_SightHintEnterVehicle );
+	AddSightEvent( g_SightHintSurrenderableCitizen );
+	AddSightEvent( g_SightHintSurrenderedMedic );
 }
 
 //-----------------------------------------------------------------------------
@@ -387,37 +464,54 @@ void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
 		{
 			modifiers.AppendCriteria( "order_surrender", "1" );
 			bOrderSurrender = true;
+
+			// See MIN_HUDHINT_DISPLAY_TIME in basecombatweapon_shared.cpp
+			if (g_SightHintSurrenderableCitizen.flLastHintTime != 0 && gpGlobals->curtime - g_SightHintSurrenderableCitizen.flLastHintTime < 7.0f)
+				SurrenderableCitizenHintHide( this, pNPC );
 		}
 	}
 
 	bool bSpoken = SpeakIfAllowed( TLK_USE, modifiers );
 
-	if ( bSpoken && bOrderSurrender )
+	if (bSpoken)
 	{
-		pNPC->DispatchInteraction( g_interactionBadCopOrderSurrender, NULL, this );
+		if ( bOrderSurrender )
+		{
+			pNPC->DispatchInteraction( g_interactionBadCopOrderSurrender, NULL, this );
+		}
+		else if ( bStealthChat )
+		{
+			// "Fascinating."
+			// "Holy shit!"
+
+			if (pNPC->GetExpresser())
+			{
+				pNPC->GetExpresser()->Speak( TLK_USE_SCARE );
+
+				// If the chosen response has no speech, force the NPC to be recognized as *not* speaking.
+				// This lets them say their alert concept while turning to look at the player.
+				if (!IsRunningScriptedSceneWithSpeech(pNPC))
+					pNPC->GetExpresser()->ForceNotSpeaking();
+			}
+			else
+			{
+				pNPC->AddFacingTarget(this, 5.0f, 3.0f, 2.0f);
+				pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
+			}
+
+			//CSoundEnt::InsertSound( SOUND_PLAYER, EyePosition(), 128, 0.1, this );
+		}
 	}
-
-	if ( bSpoken && bStealthChat )
+	else if ( bOrderSurrender )
 	{
-		// "Fascinating."
-		// "Holy shit!"
-
-		if (pNPC->GetExpresser())
+		// The player can't speak. We may be in a scripted state.
+		// If the NPC is facing us, try to order a surrender anyway.
+		// (Bad Cop just has that glare, don't question it)
+		if (/*GetNumSquadCommandables() <= 0 &&*/ pNPC->FInViewCone( this ) && GetActiveWeapon() && player_silent_surrender.GetBool())
 		{
-			pNPC->GetExpresser()->Speak( TLK_USE_SCARE );
-
-			// If the chosen response has no speech, force the NPC to be recognized as *not* speaking.
-			// This lets them say their alert concept while turning to look at the player.
-			if (!IsRunningScriptedSceneWithSpeech(pNPC))
-				pNPC->GetExpresser()->ForceNotSpeaking();
+			//GetActiveWeapon()->SendWeaponAnim( ACT_VM_COMMAND_SEND );
+			pNPC->DispatchInteraction( g_interactionBadCopOrderSurrender, NULL, this );
 		}
-		else
-		{
-			pNPC->AddFacingTarget(this, 5.0f, 3.0f, 2.0f);
-			pNPC->AddLookTarget(this, 5.0f, 3.0f, 2.0f);
-		}
-
-		//CSoundEnt::InsertSound( SOUND_PLAYER, EyePosition(), 128, 0.1, this );
 	}
 }
 

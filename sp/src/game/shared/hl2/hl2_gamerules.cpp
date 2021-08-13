@@ -786,12 +786,20 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_CITIZEN_REBEL,	D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_COMBINE,			D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_COMBINE_GUNSHIP,	D_NU, 0);
+#ifdef EZ2
+		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_COMBINE_HUNTER,	D_NU, 0);
+#else
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_COMBINE_HUNTER,	D_FR, 0);
+#endif
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_CONSCRIPT,		D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_FLARE,			D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_HEADCRAB,			D_FR, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_HOUNDEYE,			D_FR, 0);
+#ifdef EZ2
+		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_MANHACK,			D_NU, 0);
+#else
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_MANHACK,			D_FR, 0);
+#endif
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_METROPOLICE,		D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_MILITARY,			D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_MISSILE,			D_FR, 0);
@@ -2023,7 +2031,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_BARNACLE,			D_FR, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_BULLSEYE,			D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_BULLSQUID,		D_HT, 0 );
-		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_CITIZEN_PASSIVE,	D_HT, 0 );	
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_CITIZEN_PASSIVE,	D_NU, 0 );	
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_CITIZEN_REBEL,	D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_COMBINE,			D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_COMBINE_GUNSHIP,	D_HT, 0 );
