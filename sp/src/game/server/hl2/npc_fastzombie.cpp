@@ -400,11 +400,11 @@ BEGIN_DATADESC( CFastZombie )
 END_DATADESC()
 
 
+#ifndef EZ
 const char *CFastZombie::pMoanSounds[] =
 {
 	"NPC_FastZombie.Moan1",
 };
-#ifndef EZ
 //-----------------------------------------------------------------------------
 // The model we use for our legs when we get blowed up.
 //-----------------------------------------------------------------------------
@@ -440,6 +440,13 @@ const char *CFastZombie::pHeadcrabModelNames[EZ_VARIANT_COUNT] = {
 	"models/headcrab.mdl",
 	"models/xencrab.mdl",
 	"models/glowcrab.mdl",
+};
+
+const char *CFastZombie::pMoanSounds[EZ_VARIANT_COUNT] =
+{
+	"NPC_FastZombie.Moan1",
+	"NPC_FastXenbie.Moan1",
+	"NPC_FastGlowbie.Moan1",
 };
 #endif
 
@@ -1054,7 +1061,11 @@ int CFastZombie::MeleeAttack1Conditions( float flDot, float flDist )
 //-----------------------------------------------------------------------------
 const char *CFastZombie::GetMoanSound( int nSound )
 {
+#ifdef EZ
+	return pMoanSounds[ m_tEzVariant ];
+#else
 	return pMoanSounds[ nSound % ARRAYSIZE( pMoanSounds ) ];
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1245,13 +1256,13 @@ void CFastZombie::DeathSound( const CTakeDamageInfo &info )
 	switch (m_tEzVariant)
 	{
 	case EZ_VARIANT_RAD:
-		EmitSound( "NPC_FastGlowbie.Idle" );
+		EmitSound( "NPC_FastGlowbie.Die" );
 		break;
 	case EZ_VARIANT_XEN:
-		EmitSound( "NPC_FastXenbie.Idle" );
+		EmitSound( "NPC_FastXenbie.Die" );
 		break;
 	default:
-		EmitSound( "NPC_FastZombie.Idle" );
+		EmitSound( "NPC_FastZombie.Die" );
 		break;
 	}
 #else
@@ -1443,13 +1454,43 @@ void CFastZombie::HandleAnimEvent( animevent_t *pEvent )
 	
 	if ( pEvent->event == AE_FASTZOMBIE_GALLOP_LEFT )
 	{
+#ifdef EZ
+		switch (m_tEzVariant)
+		{
+			case EZ_VARIANT_RAD:
+				EmitSound( "NPC_FastGlowbie.GallopLeft" );
+				break;
+			case EZ_VARIANT_XEN:
+				EmitSound( "NPC_FastXenbie.GallopLeft" );
+				break;
+			default:
+				EmitSound( "NPC_FastZombie.GallopLeft" );
+				break;
+		}
+#else
 		EmitSound( "NPC_FastZombie.GallopLeft" );
+#endif
 		return;
 	}
 
 	if ( pEvent->event == AE_FASTZOMBIE_GALLOP_RIGHT )
 	{
+#ifdef EZ
+		switch (m_tEzVariant)
+		{
+			case EZ_VARIANT_RAD:
+				EmitSound( "NPC_FastGlowbie.GallopRight" );
+				break;
+			case EZ_VARIANT_XEN:
+				EmitSound( "NPC_FastXenbie.GallopRight" );
+				break;
+			default:
+				EmitSound( "NPC_FastZombie.GallopRight" );
+				break;
+		}
+#else
 		EmitSound( "NPC_FastZombie.GallopRight" );
+#endif
 		return;
 	}
 	
@@ -1787,12 +1828,42 @@ int CFastZombie::TranslateSchedule( int scheduleType )
 			if( !m_fHasScreamed )
 			{
 				// Only play that over-the-top attack scream once per combat state.
+#ifdef EZ
+				switch (m_tEzVariant)
+				{
+					case EZ_VARIANT_RAD:
+						EmitSound( "NPC_FastGlowbie.Scream" );
+						break;
+					case EZ_VARIANT_XEN:
+						EmitSound( "NPC_FastXenbie.Scream" );
+						break;
+					default:
+						EmitSound( "NPC_FastZombie.Scream" );
+						break;
+				}
+#else
 				EmitSound( "NPC_FastZombie.Scream" );
+#endif
 				m_fHasScreamed = true;
 			}
 			else
 			{
+#ifdef EZ
+				switch (m_tEzVariant)
+				{
+					case EZ_VARIANT_RAD:
+						EmitSound( "NPC_FastGlowbie.RangeAttack" );
+						break;
+					case EZ_VARIANT_XEN:
+						EmitSound( "NPC_FastXenbie.RangeAttack" );
+						break;
+					default:
+						EmitSound( "NPC_FastZombie.RangeAttack" );
+						break;
+				}
+#else
 				EmitSound( "NPC_FastZombie.RangeAttack" );
+#endif
 			}
 
 			return SCHED_FASTZOMBIE_RANGE_ATTACK1;
@@ -2033,7 +2104,22 @@ void CFastZombie::OnChangeActivity( Activity NewActivity )
 	if ( NewActivity == ACT_FASTZOMBIE_FRENZY )
 	{
 		// Scream!!!!
+#ifdef EZ
+		switch (m_tEzVariant)
+		{
+			case EZ_VARIANT_RAD:
+				EmitSound( "NPC_FastGlowbie.Frenzy" );
+				break;
+			case EZ_VARIANT_XEN:
+				EmitSound( "NPC_FastXenbie.Frenzy" );
+				break;
+			default:
+				EmitSound( "NPC_FastZombie.Frenzy" );
+				break;
+		}
+#else
 		EmitSound( "NPC_FastZombie.Frenzy" );
+#endif
 		SetPlaybackRate( random->RandomFloat( .9, 1.1 ) );	
 	}
 

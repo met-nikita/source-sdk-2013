@@ -342,6 +342,11 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Glowbie.Idle" );
 			PrecacheScriptSound( "Glowbie.Attack" );
 			PrecacheScriptSound( "Glowbie.Alarm" );
+
+			PrecacheScriptSound( "NPC_BaseGlowbie.Moan1" );
+			PrecacheScriptSound( "NPC_BaseGlowbie.Moan2" );
+			PrecacheScriptSound( "NPC_BaseGlowbie.Moan3" );
+			PrecacheScriptSound( "NPC_BaseGlowbie.Moan4" );
 			break;
 		case EZ_VARIANT_XEN:
 			PrecacheScriptSound( "Xenbie.FootstepRight" );
@@ -357,6 +362,11 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Xenbie.Idle" );
 			PrecacheScriptSound( "Xenbie.Attack" );
 			PrecacheScriptSound( "Xenbie.Alarm" );
+
+			PrecacheScriptSound( "NPC_BaseXenbie.Moan1" );
+			PrecacheScriptSound( "NPC_BaseXenbie.Moan2" );
+			PrecacheScriptSound( "NPC_BaseXenbie.Moan3" );
+			PrecacheScriptSound( "NPC_BaseXenbie.Moan4" );
 			break;
 		default:
 			PrecacheScriptSound( "Zombie.FootstepRight" );
@@ -372,6 +382,11 @@ void CZombie::Precache( void )
 			PrecacheScriptSound( "Zombie.Idle" );
 			PrecacheScriptSound( "Zombie.Attack" );
 			PrecacheScriptSound( "Zombie.Alarm" );
+
+			PrecacheScriptSound( "NPC_BaseZombie.Moan1" );
+			PrecacheScriptSound( "NPC_BaseZombie.Moan2" );
+			PrecacheScriptSound( "NPC_BaseZombie.Moan3" );
+			PrecacheScriptSound( "NPC_BaseZombie.Moan4" );
 			break;
 	}
 	if ( GetModelName() == NULL_STRING )
@@ -388,11 +403,6 @@ void CZombie::Precache( void )
 	}
 
 	PrecacheModel( STRING( GetModelName() ) );
-
-	PrecacheScriptSound( "NPC_BaseZombie.Moan1" );
-	PrecacheScriptSound( "NPC_BaseZombie.Moan2" );
-	PrecacheScriptSound( "NPC_BaseZombie.Moan3" );
-	PrecacheScriptSound( "NPC_BaseZombie.Moan4" );
 
 	BaseClass::Precache();
 #endif
@@ -707,9 +717,9 @@ const char *CZombie::GetMoanSound( int nSound )
 	switch (m_tEzVariant)
 	{
 		case EZ_VARIANT_RAD:
-			return pMoanSounds[nSound % ARRAYSIZE( pMoanSoundsRad )];		
+			return pMoanSoundsRad[nSound % ARRAYSIZE( pMoanSoundsRad )];
 		case EZ_VARIANT_XEN:
-			return pMoanSounds[nSound % ARRAYSIZE( pMoanSoundsXen )];
+			return pMoanSoundsXen[nSound % ARRAYSIZE( pMoanSoundsXen )];
 		default:
 			return pMoanSounds[nSound % ARRAYSIZE( pMoanSounds )];
 	}
