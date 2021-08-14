@@ -78,6 +78,9 @@ public:
 	virtual void	Activate( void );
 	void			Precache( void );
 	Class_T			Classify ( void );
+#ifdef EZ2
+	Disposition_t	IRelationType( CBaseEntity *pTarget );
+#endif
 	virtual void	ComputeWorldSpaceSurroundingBox( Vector *pVecWorldMins, Vector *pVecWorldMaxs );
 	virtual void	HandleAnimEvent( animevent_t *pEvent );
 	void			Event_Killed( const CTakeDamageInfo &info );

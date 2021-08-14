@@ -32,6 +32,10 @@
 #include "npc_antlion.h"
 #endif
 
+#ifdef EZ2
+#include "ez2/npc_basepredator.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -216,6 +220,26 @@ Class_T	CNPC_Barnacle::Classify ( void )
 {
 	return	CLASS_BARNACLE;
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+Disposition_t CNPC_Barnacle::IRelationType( CBaseEntity *pTarget )
+{
+	Disposition_t base = BaseClass::IRelationType(pTarget);
+
+	// Only hate baby bullsquids (mature bullsquids are too big)
+	if (pTarget && pTarget->Classify() == CLASS_BULLSQUID && base == D_HT)
+	{
+		CNPC_BasePredator *pPredator = dynamic_cast<CNPC_BasePredator*>(pTarget);
+		if (pPredator && !pPredator->IsBaby())
+			return D_NU;
+	}
+
+	return base;
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Initialize absmin & absmax to the appropriate box
