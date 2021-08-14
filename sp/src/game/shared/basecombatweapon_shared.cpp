@@ -36,6 +36,10 @@
 	#include "hl2mp_gamerules.h"
 #endif
 
+#ifdef EZ2
+#include "ez2/ez2_player.h"
+#endif
+
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -1622,7 +1626,7 @@ bool CBaseCombatWeapon::Deploy( )
 
 Activity CBaseCombatWeapon::GetDrawActivity( void )
 {
-#ifdef EZ
+#ifdef EZ1
 	if ( m_bFirstDraw )
 	{
 		// Check if this model has a sequence for ACT_VM_FIRSTDRAW
@@ -1632,6 +1636,44 @@ Activity CBaseCombatWeapon::GetDrawActivity( void )
 		// If the sequence exists, use ACT_VM_FIRSTRDAW instead of ACT_VM_DRAW
 		if (firstDrawSequence != -1)
 			return ACT_VM_FIRSTDRAW;
+#elif EZ2
+	Activity result;
+
+	if (m_bFirstDraw)
+	{
+		m_bFirstDraw = false;
+
+		if ( m_bShouldFirstDraw || GetWpnData().m_bAlwaysFirstDraw)
+		{
+#if !defined( CLIENT_DLL )
+			CEZ2_Player *pEZ2Player = assert_cast<CEZ2_Player*>(GetOwner());
+			if (pEZ2Player)
+			{
+				pEZ2Player->Event_FirstDrawWeapon( this );
+			}
+#endif
+
+			if ( UsesClipsForAmmo1() && m_iClip1 == 0 && SelectWeightedSequence( ACT_VM_FIRSTDRAW_EMPTY ) != -1)
+			{
+				return ACT_VM_FIRSTDRAW_EMPTY;
+			}
+			else
+			{
+				result = ACT_VM_FIRSTDRAW;
+			}
+		}
+		else
+		{
+			result = ACT_VM_FIRSTDRAW_QUICK;
+		}
+
+		// Check if this model has a sequence for ACT_VM_FIRSTDRAW
+		int	firstDrawSequence = SelectWeightedSequence( result );
+
+		// If the sequence exists, use ACT_VM_FIRSTRDAW instead of ACT_VM_DRAW
+		if (firstDrawSequence != -1)
+			return result;
+
 	}
 #endif
 	return ACT_VM_DRAW;
@@ -3071,6 +3113,10 @@ BEGIN_DATADESC( CBaseCombatWeapon )
 
 	DEFINE_FIELD( m_flUnlockTime,		FIELD_TIME ),
 	DEFINE_FIELD( m_hLocker,			FIELD_EHANDLE ),
+
+#ifdef EZ2
+	DEFINE_KEYFIELD( m_bShouldFirstDraw, FIELD_BOOLEAN, "ShouldFirstDraw" ),
+#endif
 
 #ifdef EZ
 	DEFINE_FIELD( m_bFirstDraw,			FIELD_BOOLEAN ),

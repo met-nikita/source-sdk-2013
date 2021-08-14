@@ -145,9 +145,6 @@ public:
 	
 	bool			CanAutoSwitchToNextBestWeapon( CBaseCombatWeapon *pWeapon );
 
-	// TODO: Remove instances of OnPickupWeapon()
-	void			Weapon_Equip( CBaseCombatWeapon *pWeapon );
-
 	void			OnUseEntity( CBaseEntity *pEntity );
 	bool			HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
 
@@ -180,6 +177,7 @@ public:
 	bool			HandleAddToPlayerSquad( CAI_BaseNPC *pNPC );
 	bool			HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC );
 
+	void			Event_FirstDrawWeapon( CBaseCombatWeapon *pWeapon );
 	void			Event_ThrewGrenade( CBaseCombatWeapon *pWeapon );
 	void			Event_DisplacerPistolDisplace( CBaseCombatWeapon *pWeapon, CBaseEntity *pVictimEntity );
 	void			Event_DisplacerPistolRelease( CBaseCombatWeapon *pWeapon, CBaseEntity *pReleaseEntity, CBaseEntity *pVictimEntity );

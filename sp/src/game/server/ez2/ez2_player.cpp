@@ -420,22 +420,6 @@ bool CEZ2_Player::CanAutoSwitchToNextBestWeapon( CBaseCombatWeapon *pWeapon )
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Event fired upon picking up a new weapon
-//-----------------------------------------------------------------------------
-void CEZ2_Player::Weapon_Equip( CBaseCombatWeapon *pWeapon )
-{
-	BaseClass::Weapon_Equip( pWeapon );
-
-	// Only comment on weapons we didn't spawn with
-	if (gpGlobals->curtime > 2.0f)
-	{
-		AI_CriteriaSet modifiers;
-		ModifyOrAppendWeaponCriteria(modifiers, pWeapon);
-		SpeakIfAllowed(TLK_NEWWEAPON, modifiers);
-	}
-}
-
-//-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void CEZ2_Player::OnUseEntity( CBaseEntity *pEntity )
@@ -1705,6 +1689,16 @@ bool CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
 	SetSpeechTarget(pNPC);
 
 	return SpeakIfAllowed(TLK_COMMAND_REMOVE);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Event fired upon picking up a new weapon
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Event_FirstDrawWeapon( CBaseCombatWeapon *pWeapon )
+{
+	AI_CriteriaSet modifiers;
+	ModifyOrAppendWeaponCriteria( modifiers, pWeapon );
+	SpeakIfAllowed( TLK_NEWWEAPON, modifiers );
 }
 
 //-----------------------------------------------------------------------------
