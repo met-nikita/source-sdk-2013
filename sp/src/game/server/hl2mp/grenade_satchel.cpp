@@ -100,6 +100,8 @@ void CSatchelCharge::Spawn( void )
 	CreateEffects();
 
 #ifdef EZ2
+	m_bIsLive = true; // Satchels are always live in EZ2
+
 	if (GetOwnerEntity() && GetOwnerEntity()->IsPlayer())
 	{
 		CHL2_Player *pHL2Player = static_cast<CHL2_Player*>(GetOwnerEntity());
