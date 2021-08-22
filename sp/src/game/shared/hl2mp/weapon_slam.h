@@ -66,7 +66,11 @@ public:
 	
 	void				SetPickupTouch( void );
 	void				SlamTouch( CBaseEntity *pOther );	// default weapon touch
-	void				ItemPostFrame( void );	
+	void				ItemPostFrame( void );
+#ifdef EZ
+	void SwitchMode();
+#endif
+
 	bool				Reload( void );
 	void				SetSlamState( int newState );
 	bool				CanAttachSLAM(void);		// In position where can attach SLAM?

@@ -120,6 +120,15 @@ acttable_t	CWeapon_SLAM::m_acttable[] =
 IMPLEMENT_ACTTABLE(CWeapon_SLAM);
 #endif
 
+#ifdef EZ
+ConVar weapon_slam_no_detonator( "weapon_slam_no_detonator",
+#ifdef EZ2
+	"1",
+#else
+	"0",
+#endif
+	FCVAR_REPLICATED, "Should weapon_slam use detonator animations and secondary fire detonator?" );
+#endif
 
 void CWeapon_SLAM::Spawn( )
 {
@@ -263,15 +272,24 @@ void CWeapon_SLAM::PrimaryAttack( void )
 //-----------------------------------------------------------------------------
 void CWeapon_SLAM::SecondaryAttack( void )
 {
-	CBaseCombatCharacter *pOwner  = GetOwner();
-	if (!pOwner)
+#ifdef EZ
+	if (weapon_slam_no_detonator.GetBool())
 	{
-		return;
+		SwitchMode();
 	}
-
-	if (m_bDetonatorArmed)
+	else
+#endif
 	{
-		StartSatchelDetonate();
+		CBaseCombatCharacter *pOwner  = GetOwner();
+		if (!pOwner)
+		{
+			return;
+		}
+
+		if (m_bDetonatorArmed)
+		{
+			StartSatchelDetonate();
+		}
 	}
 }
 
@@ -568,7 +586,11 @@ void CWeapon_SLAM::StartSatchelThrow( void )
 	else
 	{
 		SendWeaponAnim(ACT_SLAM_THROW_THROW_ND);
+#ifndef EZ
 		if (!m_bDetonatorArmed)
+#else
+		if (!m_bDetonatorArmed && !weapon_slam_no_detonator.GetBool())
+#endif
 		{
 			m_bDetonatorArmed		= true;
 			m_bNeedDetonatorDraw	= true;
@@ -693,11 +715,13 @@ void CWeapon_SLAM::StartSatchelAttach( void )
 			else
 			{
 				SendWeaponAnim(ACT_SLAM_STICKWALL_ND_ATTACH);
+#ifndef EZ2
 				if (!m_bDetonatorArmed)
 				{
 					m_bDetonatorArmed		= true;
 					m_bNeedDetonatorDraw	= true;
 				}
+#endif
 			}
 			
 			m_bNeedReload		= true;
@@ -850,41 +874,9 @@ void CWeapon_SLAM::ItemPostFrame( void )
 
 #ifdef EZ
 	// SLAMs use the RELOAD key to switch between tripmine and satchel mode
-	if ( pOwner->m_nButtons & IN_RELOAD && m_flNextPrimaryAttack <= gpGlobals->curtime ) 
+	if ( pOwner->m_nButtons & IN_RELOAD && m_flNextPrimaryAttack <= gpGlobals->curtime && !weapon_slam_no_detonator.GetBool() ) 
 	{
-		if ( m_tSlamState == SLAM_TRIPMINE_READY )
-		{
-			// Play sound for going to throw mode
-			EmitSound( "Weapon_SLAM.ThrowMode" );
-
-			if ( CanAttachSLAM() )
-			{
-				SetSlamState( SLAM_SATCHEL_ATTACH );
-				SendWeaponAnim( ACT_SLAM_TRIPMINE_TO_STICKWALL_ND );
-			}
-			else
-			{
-				SetSlamState( SLAM_SATCHEL_THROW );
-				SendWeaponAnim( ACT_SLAM_TRIPMINE_TO_THROW_ND );
-			}
-		}
-		else
-		{
-			// Play sound for going to tripmine mode
-			EmitSound( "Weapon_SLAM.TripMineMode" );
-
-			if ( m_tSlamState == SLAM_SATCHEL_ATTACH )
-			{
-				SetSlamState( SLAM_TRIPMINE_READY );
-				SendWeaponAnim( ACT_SLAM_STICKWALL_TO_TRIPMINE_ND );
-			}
-			else
-			{
-				SetSlamState( SLAM_TRIPMINE_READY );
-				SendWeaponAnim( ACT_SLAM_THROW_TO_TRIPMINE_ND );
-			}
-		}
-		m_flNextPrimaryAttack = gpGlobals->curtime + SequenceDuration();
+		SwitchMode();
 	}
 #endif
 
@@ -907,6 +899,46 @@ void CWeapon_SLAM::ItemPostFrame( void )
 		return;
 	}
 }
+
+#ifdef EZ
+void CWeapon_SLAM::SwitchMode()
+{
+	if (m_tSlamState == SLAM_TRIPMINE_READY)
+	{
+		// Play sound for going to throw mode
+		EmitSound( "Weapon_SLAM.ThrowMode" );
+
+		if (CanAttachSLAM())
+		{
+			SetSlamState( SLAM_SATCHEL_ATTACH );
+			SendWeaponAnim( ACT_SLAM_TRIPMINE_TO_STICKWALL_ND );
+		}
+		else
+		{
+			SetSlamState( SLAM_SATCHEL_THROW );
+			SendWeaponAnim( ACT_SLAM_TRIPMINE_TO_THROW_ND );
+		}
+	}
+	else
+	{
+		// Play sound for going to tripmine mode
+		EmitSound( "Weapon_SLAM.TripMineMode" );
+
+		if (m_tSlamState == SLAM_SATCHEL_ATTACH)
+		{
+			SetSlamState( SLAM_TRIPMINE_READY );
+			SendWeaponAnim( ACT_SLAM_STICKWALL_TO_TRIPMINE_ND );
+		}
+		else
+		{
+			SetSlamState( SLAM_TRIPMINE_READY );
+			SendWeaponAnim( ACT_SLAM_THROW_TO_TRIPMINE_ND );
+		}
+	}
+	m_flNextPrimaryAttack = gpGlobals->curtime + SequenceDuration();
+	m_flNextSecondaryAttack = gpGlobals->curtime + SequenceDuration();
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Switch to next best weapon
@@ -1122,8 +1154,11 @@ bool CWeapon_SLAM::Deploy( void )
 		return false;
 	}
 
+#ifndef EZ
 	m_bDetonatorArmed = AnyUndetonatedCharges();
-
+#else
+	m_bDetonatorArmed = weapon_slam_no_detonator.GetBool() ? false : AnyUndetonatedCharges();
+#endif
 
 	SetModel( GetViewModel() );
 
