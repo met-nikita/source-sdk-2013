@@ -23,10 +23,13 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-#define MIN_SPREAD_COMPONENT 0.03490 // Was 0.13053
-#define MAX_SPREAD_COMPONENT 0.34202 // Was 0.25881
+#define MIN_SPREAD_COMPONENT weapon_smg2_min_spread.GetFloat()
+#define MAX_SPREAD_COMPONENT weapon_smg2_max_spread.GetFloat()
 
 ConVar weapon_smg2_altfire_enabled( "weapon_smg2_altfire_enabled", "0", FCVAR_NONE, "Allows weapon_smg2 to fire full auto if the player holds down the secondary attack button." );
+ConVar weapon_smg2_min_spread( "weapon_smg2_min_spread", "0.03490", FCVAR_NONE, "SMG2 minimum fire cone vector component" );
+ConVar weapon_smg2_max_spread( "weapon_smg2_max_spread", "0.34202", FCVAR_NONE, "SMG2 maximum fire cone vector component" );
+ConVar weapon_smg2_debug( "weapon_smg2_debug", "0", FCVAR_NONE, "Log messages to console about the SMG2 spread" );
 
 class CWeaponSMG2 : public CHLSelectFireMachineGun
 {
@@ -70,6 +73,10 @@ public:
 		if (m_flSpreadComponent > MAX_SPREAD_COMPONENT)
 			m_flSpreadComponent = MAX_SPREAD_COMPONENT;
 
+		if ( weapon_smg2_debug.GetBool() )
+		{
+			DevMsg( "CWeaponSMG2::GetBulletSpread(): SMG2 spread component: %f\n", m_flSpreadComponent );
+		}
 
 		static const Vector cone = Vector(m_flSpreadComponent, m_flSpreadComponent, m_flSpreadComponent);
 		return cone;
