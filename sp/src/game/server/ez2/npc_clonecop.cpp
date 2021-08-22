@@ -91,6 +91,11 @@ void CNPC_CloneCop::Spawn( void )
 	CapabilitiesAdd( bits_CAP_DOORS_GROUP );
 
 	BaseClass::Spawn();
+
+	if (m_tEzVariant == EZ_VARIANT_RAD || m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		SetBloodColor( BLOOD_COLOR_BLUE );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -121,6 +126,11 @@ void CNPC_CloneCop::Precache()
 
 	PrecacheParticleSystem( "blood_spurt_synth_01" );
 	PrecacheParticleSystem( "blood_drip_synth_01" );
+
+	if (m_tEzVariant == EZ_VARIANT_RAD || m_tEzVariant == EZ_VARIANT_TEMPORAL)
+	{
+		PrecacheParticleSystem( "blood_impact_blue_01" );
+	}
 
 	BaseClass::Precache();
 }
