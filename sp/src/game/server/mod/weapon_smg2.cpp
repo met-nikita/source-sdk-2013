@@ -26,9 +26,11 @@
 #define MIN_SPREAD_COMPONENT weapon_smg2_min_spread.GetFloat()
 #define MAX_SPREAD_COMPONENT weapon_smg2_max_spread.GetFloat()
 
-ConVar weapon_smg2_altfire_enabled( "weapon_smg2_altfire_enabled", "0", FCVAR_NONE, "Allows weapon_smg2 to fire full auto if the player holds down the secondary attack button." );
-ConVar weapon_smg2_min_spread( "weapon_smg2_min_spread", "0.03490", FCVAR_NONE, "SMG2 minimum fire cone vector component" );
-ConVar weapon_smg2_max_spread( "weapon_smg2_max_spread", "0.34202", FCVAR_NONE, "SMG2 maximum fire cone vector component" );
+ConVar weapon_smg2_altfire_enabled( "weapon_smg2_altfire_enabled", "1", FCVAR_NONE, "Allows weapon_smg2 to fire full auto if the player holds down the secondary attack button." );
+ConVar weapon_smg2_altfire_ammo_modifier( "weapon_smg2_altfire_ammo_modifier", "2", FCVAR_NONE, "Multiply the number of bullets per shot by this amount for altfire" );
+ConVar weapon_smg2_min_spread( "weapon_smg2_min_spread", "0.015", FCVAR_NONE, "SMG2 minimum fire cone vector component" );
+ConVar weapon_smg2_max_spread( "weapon_smg2_max_spread", "0.075", FCVAR_NONE, "SMG2 maximum fire cone vector component" );
+ConVar weapon_smg2_burst_cycle_rate( "weapon_smg2_burst_cycle_rate", "0.2", FCVAR_NONE, "SMG2 maximum fire cone vector component" );
 ConVar weapon_smg2_debug( "weapon_smg2_debug", "0", FCVAR_NONE, "Log messages to console about the SMG2 spread" );
 
 class CWeaponSMG2 : public CHLSelectFireMachineGun
@@ -43,46 +45,28 @@ public:
 	
 	void	AddViewKick( void );
 	void	PrimaryAttack(void);
-	void	BurstAttack(int burstSize, float cycleRate);
+
+	virtual Vector	GetBulletSpread( WeaponProficiency_t proficiency );
+
+	Vector CalculateBurstAttackSpread();
+	void	BurstAttack(int burstSize, float cycleRate, int spentAmmoModifier = 1);
+	
 	void	SecondaryAttack( void );
 	void	ItemPostFrame(void);
 
-	float	GetBurstCycleRate(void) { return 0.3f; };
+	float	GetBurstCycleRate(void) { return weapon_smg2_burst_cycle_rate.GetFloat(); };
 	int		GetMinBurst() { return 3; }
 	int		GetMaxBurst() { return 3; }
 	int		GetBurstSize(void) { return 3; };
 
 	bool	Reload( void );
 
-	float	GetFireRate( void ) { return 0.04f; }
-	float	GetFullAutoFireRate( void ) { return 0.06f; }
+	float	GetFireRate( void ) { return 0.02f; }
+	float	GetFullAutoFireRate( void ) { return 0.03f; }
 	int		CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
 	Activity	GetPrimaryAttackActivity( void );
 
-	virtual const Vector& GetBulletSpread( void )
-	{
-
-		float l_flSpreadRegen = ((gpGlobals->curtime - m_flLastPrimaryAttack) / GetBurstCycleRate()) * (MAX_SPREAD_COMPONENT - MIN_SPREAD_COMPONENT) / 2;
-		m_flSpreadComponent -= l_flSpreadRegen;
-
-		// Minimum spread
-		if (m_flSpreadComponent < MIN_SPREAD_COMPONENT)
-			m_flSpreadComponent = MIN_SPREAD_COMPONENT;
-
-		// Maximum spread
-		if (m_flSpreadComponent > MAX_SPREAD_COMPONENT)
-			m_flSpreadComponent = MAX_SPREAD_COMPONENT;
-
-		if ( weapon_smg2_debug.GetBool() )
-		{
-			DevMsg( "CWeaponSMG2::GetBulletSpread(): SMG2 spread component: %f\n", m_flSpreadComponent );
-		}
-
-		static const Vector cone = Vector(m_flSpreadComponent, m_flSpreadComponent, m_flSpreadComponent);
-		return cone;
-	}
-
-	//const WeaponProficiencyInfo_t *GetProficiencyValues();
+	const WeaponProficiencyInfo_t *GetProficiencyValues();
 
 	void FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector &vecShootOrigin, Vector &vecShootDir );
 	void Operator_ForceNPCFire( CBaseCombatCharacter  *pOperator, bool bSecondary );
@@ -184,9 +168,9 @@ void CWeaponSMG2::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector 
 	WeaponSoundRealtime( SINGLE_NPC );
 
 	CSoundEnt::InsertSound( SOUND_COMBAT|SOUND_CONTEXT_GUNFIRE, pOperator->GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pOperator, SOUNDENT_CHANNEL_WEAPON, pOperator->GetEnemy() );
-	pOperator->FireBullets( 1, vecShootOrigin, vecShootDir, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 2, entindex(), 0 );
+	pOperator->FireBullets( 1, vecShootOrigin, vecShootDir, pOperator->GetAttackSpread( this ), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 2, entindex(), 0 );
 	pOperator->DoMuzzleFlash(); // Changing the shots doesn't help - just blows us up !
-	m_flSpreadComponent += (MAX_SPREAD_COMPONENT - MIN_SPREAD_COMPONENT) * 0.33f; // 1/3 The difference between max and min
+	m_flSpreadComponent += (MAX_SPREAD_COMPONENT - MIN_SPREAD_COMPONENT) * (1.0f / (float) GetBurstSize() ); // 1/3 The difference between max and min
 
 	m_iClip1 = m_iClip1 - 1;
 }
@@ -306,6 +290,15 @@ void CWeaponSMG2::PrimaryAttack(void)
 	BurstAttack( GetBurstSize(), GetBurstCycleRate() );
 }
 
+Vector CWeaponSMG2::GetBulletSpread( WeaponProficiency_t proficiency )
+{
+	Vector baseSpread = CalculateBurstAttackSpread();
+
+	const WeaponProficiencyInfo_t *pProficiencyValues = GetProficiencyValues();
+	float flModifier = (pProficiencyValues)[proficiency].spreadscale;
+	return (baseSpread * flModifier);
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -313,14 +306,35 @@ void CWeaponSMG2::SecondaryAttack(void)
 {
 	if ( weapon_smg2_altfire_enabled.GetBool() )
 	{
-		BurstAttack( 1, GetFullAutoFireRate() );
+		BurstAttack( 1, GetFullAutoFireRate(), weapon_smg2_altfire_ammo_modifier.GetInt() );
 	}
+}
+
+Vector CWeaponSMG2::CalculateBurstAttackSpread()
+{
+	float l_flSpreadRegen = ((gpGlobals->curtime - m_flLastPrimaryAttack) / GetBurstCycleRate()) * (MAX_SPREAD_COMPONENT - MIN_SPREAD_COMPONENT) / 2;
+	m_flSpreadComponent -= l_flSpreadRegen;
+
+	// Minimum spread
+	if (m_flSpreadComponent < MIN_SPREAD_COMPONENT)
+		m_flSpreadComponent = MIN_SPREAD_COMPONENT;
+
+	// Maximum spread
+	if (m_flSpreadComponent > MAX_SPREAD_COMPONENT)
+		m_flSpreadComponent = MAX_SPREAD_COMPONENT;
+
+	if (weapon_smg2_debug.GetBool())
+	{
+		DevMsg( "CWeaponSMG2::BurstAttack(): SMG2 spread component: %f\n", m_flSpreadComponent );
+	}
+
+	return Vector( m_flSpreadComponent, m_flSpreadComponent, m_flSpreadComponent );
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CWeaponSMG2::BurstAttack( int burstSize, float cycleRate )
+void CWeaponSMG2::BurstAttack( int burstSize, float cycleRate, int spentAmmoModifier )
 {
 	// Bursts always use the weapon's fire rate
 	float fireRate =  GetFireRate();
@@ -389,7 +403,7 @@ void CWeaponSMG2::BurstAttack( int burstSize, float cycleRate )
 	{
 		if (iBulletsToFire > m_iClip1)
 			iBulletsToFire = m_iClip1;
-		m_iClip1 -= iBulletsToFire;
+		m_iClip1 -= MIN(iBulletsToFire * spentAmmoModifier, m_iClip1);
 	}
 
 	m_iPrimaryAttacks++;
@@ -400,7 +414,7 @@ void CWeaponSMG2::BurstAttack( int burstSize, float cycleRate )
 	info.m_iShots = iBulletsToFire;
 	info.m_vecSrc = pPlayer->Weapon_ShootPosition();
 	info.m_vecDirShooting = pPlayer->GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
-	info.m_vecSpread = GetOwner()->GetAttackSpread(this);
+	info.m_vecSpread = GetOwner()->GetAttackSpread( this );
 	info.m_flDistance = MAX_TRACE_LENGTH;
 	info.m_iAmmoType = m_iPrimaryAmmoType;
 	info.m_iTracerFreq = 1;
@@ -517,4 +531,21 @@ void CWeaponSMG2::ItemPostFrame(void)
 	{
 		m_nShotsFired = 0;
 	}
+}
+
+//-----------------------------------------------------------------------------
+const WeaponProficiencyInfo_t *CWeaponSMG2::GetProficiencyValues()
+{
+	static WeaponProficiencyInfo_t proficiencyTable[] =
+	{
+		{ 7.0,		0.75 },
+	{ 5.00,		0.75 },
+	{ 10.0/3.0, 0.75 },
+	{ 5.0/3.0,	0.75 },
+	{ 1.00,		1.0 },
+	};
+
+	COMPILE_TIME_ASSERT( ARRAYSIZE( proficiencyTable ) == WEAPON_PROFICIENCY_PERFECT + 1 );
+
+	return proficiencyTable;
 }
