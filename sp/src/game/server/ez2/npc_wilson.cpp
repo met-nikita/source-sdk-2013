@@ -149,6 +149,7 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOnDeadMode", InputTurnOnDeadMode ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOffDeadMode", InputTurnOffDeadMode ),
 
+	DEFINE_THINKFUNC( TeslaThink ),
 
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
