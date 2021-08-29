@@ -1729,6 +1729,12 @@ void CPropDrivableAPC::OnRestore( void )
 	{
 		PhysDisableEntityCollisions( this, m_hConstrainedEntity );
 	}
+	// HACKHACK - On restore, the attachment point doesn't seem to work.
+	// Brute force workaround by calling Spawn() again
+	else if (GetDriver() == NULL)
+	{
+		Spawn();
+	}
 #endif
 }
 
