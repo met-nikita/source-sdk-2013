@@ -20,6 +20,7 @@
 ConVar sk_pitdrone_health( "sk_pitdrone_health", "100" );
 ConVar sk_pitdrone_dmg_spit( "sk_pitdrone_dmg_spit", "15" );
 ConVar sk_pitdrone_dmg_slash( "sk_pitdrone_dmg_slash", "15" );
+ConVar sk_pitdrone_spit_speed( "sk_pitdrone_spit_speed", "512" );
 
 LINK_ENTITY_TO_CLASS( npc_pitdrone, CNPC_PitDrone );
 
@@ -237,11 +238,11 @@ void CNPC_PitDrone::HandleAnimEvent( animevent_t *pEvent )
 
 				if ( this->GetWaterLevel() == 3 )
 				{
-					pBolt->SetAbsVelocity( vecShootDir * 512 );
+					pBolt->SetAbsVelocity( vecShootDir * sk_pitdrone_spit_speed.GetFloat() * 1/2 );
 				}
 				else
 				{
-					pBolt->SetAbsVelocity( vecShootDir * 1024 );
+					pBolt->SetAbsVelocity( vecShootDir * sk_pitdrone_spit_speed.GetFloat() );
 				}
 
 				AttackSound();
