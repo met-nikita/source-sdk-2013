@@ -669,6 +669,10 @@ void CGravityVortexController::PullPlayersInRange( void )
 		return;
 
 #ifdef EZ2
+	// Don't pull unless convar set
+	if ( !hopwire_pull_player.GetBool() )
+		return;
+
 	// Don't pull noclipping players
 	if ( pPlayer->GetMoveType() == MOVETYPE_NOCLIP )
 		return;
@@ -1525,11 +1529,10 @@ bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool 
 //-----------------------------------------------------------------------------
 void CGravityVortexController::PullThink( void )
 {
-	// Pull any players close enough to us
-	if(hopwire_pull_player.GetBool())
-		PullPlayersInRange();
-
 #ifdef EZ2
+	// Pull any players close enough to us
+	PullPlayersInRange();
+
 	// Draw debug information
 	if ( g_debug_hopwire.GetInt() >= 2 )
 	{
@@ -1561,6 +1564,10 @@ void CGravityVortexController::PullThink( void )
 		engine->GetPVSForCluster( engine->GetClusterForOrigin( GetAbsOrigin() ), sizeof(m_PVS), m_PVS );
 	}
 #else
+	// Pull any players close enough to us
+	if (hopwire_pull_player.GetBool())
+		PullPlayersInRange();
+
 	Vector mins, maxs;
 	mins = GetAbsOrigin() - Vector( m_flRadius, m_flRadius, m_flRadius );
 	maxs = GetAbsOrigin() + Vector( m_flRadius, m_flRadius, m_flRadius );
