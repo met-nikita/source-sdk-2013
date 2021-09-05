@@ -225,6 +225,14 @@ bool AIStrongOpt( void )
 	return ai_strong_optimizations.GetBool();
 }
 
+ConVar	ai_onchangeweapon_start_shooting( "ai_onchangeweapon_start_shooting", 
+#ifndef EZ2
+	"1",
+#else
+	"0",
+#endif
+	FCVAR_NONE, "Set whether or not NPCs can shoot immediately after changing to a new weapon." );
+
 //-----------------------------------------------------------------------------
 //
 // Crude frame timings
@@ -7902,7 +7910,7 @@ void CAI_BaseNPC::OnChangeActiveWeapon( CBaseCombatWeapon *pOldWeapon, CBaseComb
 	if ( pNewWeapon )
 	{
 		OnUpdateShotRegulator();
-		m_ShotRegulator.Reset( true );
+		m_ShotRegulator.Reset( ai_onchangeweapon_start_shooting.GetBool() );
 	}
 }
 
