@@ -2857,7 +2857,11 @@ bool CNPC_PlayerCompanion::Weapon_CanUse( CBaseCombatWeapon *pWeapon )
 		// are being used in this squad. Don't allow a companion to pick up
 		// a shotgun if a squadmate already has one.
 #ifdef MAPBASE
-		if (EntIsClass(pWeapon, gm_iszShotgunClassname))
+		if (EntIsClass(pWeapon, gm_iszShotgunClassname)
+#ifdef EZ
+			&& !IsCombine()
+#endif
+			)
 #else
 		if( pWeapon->ClassMatches( gm_iszShotgunClassname ) )
 #endif

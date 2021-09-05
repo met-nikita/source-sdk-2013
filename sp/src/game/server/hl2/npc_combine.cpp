@@ -60,6 +60,12 @@ ConVar npc_combine_altfire_not_allies_only( "npc_combine_altfire_not_allies_only
 ConVar npc_combine_new_cover_behavior( "npc_combine_new_cover_behavior", "1", FCVAR_NONE, "Mapbase: Toggles small patches for parts of npc_combine AI related to soldiers failing to take cover. These patches are minimal and only change cases where npc_combine would otherwise look at an enemy without shooting or run up to the player to melee attack when they don't have to. Consult the Mapbase wiki for more information." );
 #endif
 
+#ifdef EZ
+ConVar npc_combine_give_enabled( "npc_combine_give_enabled", "1", FCVAR_NONE, "Allows players to \"give\" weapons to Combine soldiers in their squad by holding one in front of them for a few seconds." );
+ConVar npc_combine_give_stare_dist( "npc_combine_give_stare_dist", "112", FCVAR_NONE, "The distance needed for soldiers to consider the possibility the player wants to give them a weapon." );
+ConVar npc_combine_give_stare_time( "npc_combine_give_stare_time", "1", FCVAR_NONE, "The amount of time the player needs to be staring at a soldier in order for them to pick up a weapon they're holding." );
+#endif
+
 #define COMBINE_SKIN_DEFAULT		0
 #define COMBINE_SKIN_SHOTGUNNER		1
 
@@ -1334,6 +1340,84 @@ void CNPC_Combine::GatherConditions()
 			}
 		}
 	}
+
+#ifdef EZ
+	if ( IsCommandable() && !IsInAScript() && HasCondition(COND_TALKER_PLAYER_STARING) && npc_combine_give_enabled.GetBool() )
+	{
+		CBasePlayer *pPlayer = AI_GetSinglePlayer();
+		if (pPlayer /*&& (!m_pSquad || m_pSquad->GetSquadMemberNearestTo( pPlayer->GetAbsOrigin() ) == this)*/)
+		{
+			bool bStareRelevant = false;
+
+			float flDistSqr = ( GetAbsOrigin() - pPlayer->GetAbsOrigin() ).Length2DSqr();
+			float flStareDist = npc_combine_give_stare_dist.GetFloat();
+
+			// Be extra certain that they're staring
+			Vector facingDir = pPlayer->EyeDirection2D();
+			Vector los = ( EyePosition() - pPlayer->EyePosition() );
+			los.z = 0;
+			VectorNormalize( los );
+
+			if( !IsMoving() && pPlayer->IsAlive() && (flDistSqr <= flStareDist * flStareDist) && DotProduct( los, facingDir ) > 0.8f && pPlayer->FVisible( this ) )
+			{
+				// If the player is holding an item in front of us, they might want us to pick it up.
+				CBaseEntity *pHeld = GetPlayerHeldEntity( pPlayer );
+
+				if (pHeld)
+				{
+					bStareRelevant = true;
+
+					if ( gpGlobals->curtime - m_flTimePlayerStare >= npc_combine_give_stare_time.GetFloat() &&
+						!IsCurSchedule(SCHED_NEW_WEAPON) && !IsCurSchedule(SCHED_GET_HEALTHKIT) )
+					{
+						// Is it a weapon?
+						if (pHeld->IsBaseCombatWeapon())
+						{
+							//SetCondition( COND_BETTER_WEAPON_AVAILABLE );
+
+							CBaseCombatWeapon *pWeapon = pHeld->MyCombatWeaponPointer();
+							if (Weapon_CanUse( pWeapon ))
+							{
+								if (!pWeapon->IsLocked( this ))
+								{
+									Msg( "%s picking up %s held by player\n", GetDebugName(), pHeld->GetDebugName() );
+
+									// Now lock the weapon for a few seconds while we go to pick it up.
+									m_flNextWeaponSearchTime = gpGlobals->curtime + 10.0;
+									pWeapon->Lock( 5.0, this );
+									SetTarget( pWeapon );
+									SetSchedule( SCHED_NEW_WEAPON );
+								}
+							}
+						}
+
+						// Is it an item?
+						/*
+						else if (pHeld->IsCombatItem() || pHeld->ClassMatches("weapon_frag"))
+						{
+							//SetCondition( COND_HEALTH_ITEM_AVAILABLE );
+
+							// See CAI_BaseNPC::PickupItem for items soldiers can absorb
+							SetTarget( pHeld );
+							SetSchedule( SCHED_GET_HEALTHKIT );
+						}
+						*/
+					}
+				}
+			}
+
+			if (!bStareRelevant)
+			{
+				m_flTimePlayerStare = FLT_MAX;
+			}
+			else if (m_flTimePlayerStare == FLT_MAX)
+			{
+				// Player wasn't looking at me at last think. They started staring now.
+				m_flTimePlayerStare = gpGlobals->curtime;
+			}
+		}
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
