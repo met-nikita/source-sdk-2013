@@ -1622,7 +1622,8 @@ void CGravityVortexController::PullThink( void )
 			if (pEnts[i]->IsNPC() && pNPC != NULL && pNPC->CanBecomeRagdoll())
 			{
 				// Find the pull force
-				vecForce *= (1.0f - (dist2D / m_flRadius)) * m_flStrength;
+				// Minimum pull force is 10% of strength here
+				vecForce *= MAX( 1.0f - ( abs( dist2D ) / m_flRadius), 0.1f ) * m_flStrength;
 
 				// Physics damage info
 				CTakeDamageInfo info( this, this, vecForce, GetAbsOrigin(), m_flStrength, DMG_BLAST );
@@ -1723,7 +1724,8 @@ void CGravityVortexController::PullThink( void )
 #endif
 
 		// Find the pull force
-		vecForce *= ( 1.0f - ( dist2D / m_flRadius ) ) * m_flStrength * mass;
+		// Minimum pull force is 10% of strength here
+		vecForce *= MAX( 1.0f - ( abs( dist2D ) / m_flRadius ), 0.1f ) * m_flStrength * mass;
 		
 
 #ifdef EZ2
