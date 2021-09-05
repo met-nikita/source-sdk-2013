@@ -167,6 +167,12 @@ public:
 	virtual void	StopFollowSound();
 	virtual bool	ShouldAlwaysThink();
 	virtual bool	ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior );
+	virtual bool	ShouldLookForBetterWeapon();
+	virtual void	Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector *pvecTarget = NULL, const Vector *pVelocity = NULL );
+	virtual void	PickupWeapon( CBaseCombatWeapon *pWeapon );
+
+	int 			SelectSchedulePriorityAction();
+	virtual int 	SelectScheduleRetrieveItem();
 
 	virtual bool	IsMajorCharacter() { return IsCommandable(); }
 
@@ -474,6 +480,9 @@ private:
 #ifdef EZ
 	string_t		m_iszOriginalSquad;
 	bool			m_bHoldPositionGoal; // Blixibon - For soldiers staying in their area even after being removed from player's squad
+
+	float			m_flTimePlayerStare;
+	bool			m_bTemporarilyNeedWeapon; // Soldiers who drop their weapons but aren't supposed to pick them up autonomously are given this so that they arm themselves again
 #endif
 
 	// Time Variables
