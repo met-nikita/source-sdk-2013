@@ -101,6 +101,7 @@
 
 #ifdef EZ
 #include "pointhurt.h"
+#include "items.h"
 #endif
 
 #include "env_debughistory.h"
@@ -11718,7 +11719,21 @@ CBaseEntity *CAI_BaseNPC::DropItem ( const char *pszItemName, Vector vecPos, QAn
 		return NULL;
 	}
 
+#ifdef EZ
+	CBaseEntity *pItem = CBaseEntity::CreateNoSpawn( pszItemName, vecPos, vecAng, this );
+
+	if (m_tEzVariant != EZ_VARIANT_DEFAULT)
+	{
+		// Make the item match our variant
+		CItem *pCItem = dynamic_cast<CItem*>(pItem);
+		if (pCItem)
+			pCItem->m_tEzVariant = m_tEzVariant;
+	}
+
+	DispatchSpawn( pItem );
+#else
 	CBaseEntity *pItem = CBaseEntity::Create( pszItemName, vecPos, vecAng, this );
+#endif
 
 	if ( pItem )
 	{

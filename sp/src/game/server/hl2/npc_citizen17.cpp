@@ -698,6 +698,14 @@ void CNPC_Citizen::Spawn()
 		// Randomize brute mask skin based on entity index
 		m_nSkin = entindex() % BRUTE_MASK_NUM_SKINS;
 	}
+	else if ( m_Type == CT_ARCTIC )
+	{
+		// For now, the "Arctic" citizen type should be equivalent to EZ_VARIANT_ARBEIT.
+		// This is mainly for dropping Arbeit items.
+		// (TODO: Might a mapper want arctic rebels to drop regular items? They could just use CT_UNIQUE, but they would lose random heads.)
+		if (m_tEzVariant == EZ_VARIANT_DEFAULT)
+			m_tEzVariant = EZ_VARIANT_ARBEIT;
+	}
 #endif
 	m_flTimePlayerStare = FLT_MAX;
 #ifndef EZ
