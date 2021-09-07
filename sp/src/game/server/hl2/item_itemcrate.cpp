@@ -454,6 +454,10 @@ void CItem_ItemCrate::OnBreak( const Vector &vecVelocity, const AngularImpulse &
 			CAI_BaseNPC * pNPC =  pSpawn->MyNPCPointer();
 			pNPC->m_tEzVariant = m_tEzVariant;
 		}
+		else if ( CItem *pItem = dynamic_cast<CItem*>(pSpawn) )
+		{
+			pItem->m_tEzVariant = m_tEzVariant;
+		}
 #endif
 
 
