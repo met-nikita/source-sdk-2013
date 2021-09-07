@@ -290,11 +290,31 @@ bool SurrenderableCitizenHintTest( CEZ2_Player *pPlayer, CBaseEntity *pActivator
 	if (pPlayer->GetVisibleEnemies() > 2)
 		return false;
 
+	// Only our current enemy
+	if (pPlayer->GetEnemy() != pActivator)
+		return false;
+
 	if (pActivator->Classify() == CLASS_PLAYER_ALLY && pActivator->MyNPCPointer()->GetActiveWeapon() == NULL)
 	{
+		// Check our enemy memory; Make sure we see them
+		CAI_Enemies *pEnemies = pPlayer->GetNPCComponent()->GetEnemies();
+		AI_EnemyInfo_t *pEnemyInfo = pEnemies->Find( pActivator );
+		if (!pEnemyInfo || (gpGlobals->curtime - pEnemyInfo->timeLastSeen) > 2.0f)
+			return false;
+
 		CNPC_Citizen *pCitizen = dynamic_cast<CNPC_Citizen*>(pActivator);
-		if (pCitizen && !pCitizen->IsSurrendered() && pCitizen->CanSurrender() && pPlayer->GetAbsOrigin().DistToSqr(pActivator->GetAbsOrigin()) <= Square(192.0f))
-			return true;
+		if (pCitizen && !pCitizen->IsSurrendered() && pCitizen->CanSurrender() && !pCitizen->SurrenderAutomatically()
+			&& pPlayer->GetAbsOrigin().DistToSqr( pActivator->GetAbsOrigin() ) <= Square( 224.0f ))
+		{
+			// Make sure they're not about to pick up a weapon
+			if (pCitizen->IsCurSchedule( SCHED_NEW_WEAPON, false ))
+				return false;
+
+			// Finally, check if the citizen has begged already
+			float flTimeSpeakBeg = pCitizen->GetTimeSpokeConcept( TLK_BEG );
+			if (flTimeSpeakBeg != -1 && gpGlobals->curtime - flTimeSpeakBeg >= 2.0f)
+				return true;
+		}
 	}
 
 	return false;
