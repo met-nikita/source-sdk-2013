@@ -92,6 +92,10 @@ public:
 
 	float	GetDesiredHealthPercentage( void ) const { return m_flDesiredHealth[0]; }
 
+#ifdef EZ
+	CItem::EZ_VARIANT_ITEM m_tEzVariant;
+#endif
+
 private:
 	friend void DynamicResupply_InitFromAlternateMaster( CBaseEntity *pTargetEnt, string_t iszMaster );
 	void FindPotentialItems( int nCount, DynamicResupplyItems_t *pItems, int iDebug, SpawnInfo_t *pSpawnInfo );
@@ -156,6 +160,10 @@ BEGIN_DATADESC( CItem_DynamicResupply )
 
 	DEFINE_FIELD( m_version, FIELD_INTEGER ),
 	DEFINE_FIELD( m_bIsMaster, FIELD_BOOLEAN ),
+
+#ifdef EZ
+	DEFINE_KEYFIELD( m_tEzVariant, FIELD_INTEGER, "ezvariant" ),
+#endif
 
 #ifdef MAPBASE
 	DEFINE_OUTPUT( m_OnItem, "OnItem" ),
@@ -359,7 +367,22 @@ void CItem_DynamicResupply::SpawnFullItem( CItem_DynamicResupply *pMaster, CBase
 		if ( pMaster->HasSpawnFlags(SF_DYNAMICRESUPPLY_FALLBACK_TO_VIAL) )
 		{
 #ifdef MAPBASE
+#ifdef EZ
+			CBaseEntity *pItem = CreateNoSpawn( "item_healthvial", GetAbsOrigin(), GetAbsAngles(), this );
+
+			// Give the item our E:Z variant
+			if (m_tEzVariant != CAI_BaseNPC::EZ_VARIANT_DEFAULT)
+			{
+				if (CItem *pCItem = dynamic_cast<CItem*>(pItem))
+				{
+					pCItem->m_tEzVariant = m_tEzVariant;
+				}
+			}
+
+			DispatchSpawn( pItem );
+#else
 			CBaseEntity *pItem = CBaseEntity::Create("item_healthvial", GetAbsOrigin(), GetAbsAngles(), this);
+#endif
 			m_OnItem.Set(pItem, pItem, this);
 #else
 			CBaseEntity::Create( "item_healthvial", GetAbsOrigin(), GetAbsAngles(), this );
@@ -383,7 +406,22 @@ void CItem_DynamicResupply::SpawnFullItem( CItem_DynamicResupply *pMaster, CBase
 		if ( flChoice <= flRatio[i] )
 		{
 #ifdef MAPBASE
+#ifdef EZ
+			CBaseEntity *pItem = CreateNoSpawn( g_DynamicResupplyAmmoItems[i].sEntityName, GetAbsOrigin(), GetAbsAngles(), this );
+
+			// Give the item our E:Z variant
+			if (m_tEzVariant != CAI_BaseNPC::EZ_VARIANT_DEFAULT)
+			{
+				if (CItem *pCItem = dynamic_cast<CItem*>(pItem))
+				{
+					pCItem->m_tEzVariant = m_tEzVariant;
+				}
+			}
+
+			DispatchSpawn( pItem );
+#else
 			CBaseEntity *pItem = CBaseEntity::Create( g_DynamicResupplyAmmoItems[i].sEntityName, GetAbsOrigin(), GetAbsAngles(), this );
+#endif
 			m_OnItem.Set(pItem, pItem, this);
 #else
 			CBaseEntity::Create( g_DynamicResupplyAmmoItems[i].sEntityName, GetAbsOrigin(), GetAbsAngles(), this );
@@ -565,7 +603,22 @@ bool CItem_DynamicResupply::SpawnItemFromRatio( int nCount, DynamicResupplyItems
 		Msg("Chosen item: %s (had farthest delta, %.2f)\n", pItems[iSelectedIndex].sEntityName, pSpawnInfo[iSelectedIndex].m_flDelta );
 	}
 
+#ifdef EZ
+	CBaseEntity *pEnt = CBaseEntity::CreateNoSpawn( pItems[iSelectedIndex].sEntityName, *pVecSpawnOrigin, GetAbsAngles(), this );
+
+	// Give the item our E:Z variant
+	if (m_tEzVariant != CAI_BaseNPC::EZ_VARIANT_DEFAULT)
+	{
+		if (CItem *pCItem = dynamic_cast<CItem*>(pEnt))
+		{
+			pCItem->m_tEzVariant = m_tEzVariant;
+		}
+	}
+
+	DispatchSpawn( pEnt );
+#else
 	CBaseEntity *pEnt = CBaseEntity::Create( pItems[iSelectedIndex].sEntityName, *pVecSpawnOrigin, GetAbsAngles(), this );
+#endif
 	pEnt->SetAbsVelocity( GetAbsVelocity() );
 	pEnt->SetLocalAngularVelocity( GetLocalAngularVelocity() );
 
