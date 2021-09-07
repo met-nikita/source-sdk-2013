@@ -2316,6 +2316,7 @@ public:
 		EZ_VARIANT_XEN,
 		EZ_VARIANT_RAD,
 		EZ_VARIANT_TEMPORAL,
+		EZ_VARIANT_ARBEIT, // For Arbeit stuff that isn't covered in goo
 
 		EZ_VARIANT_COUNT, // Keep this at the end
 	};
