@@ -2669,7 +2669,7 @@ void CNPC_Arbeit_FloorTurret::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGu
 {
 	BaseClass::OnPhysGunPickup( pPhysGunUser, reason );
 
-	if (pPhysGunUser && IRelationType( pPhysGunUser ) <= D_FR && IsAlive())
+	if (pPhysGunUser && IRelationType( pPhysGunUser ) <= D_FR && (IsAlive() && !OnSide()))
 	{
 		SpeakIfAllowed( TLK_PICKUP );
 	}
