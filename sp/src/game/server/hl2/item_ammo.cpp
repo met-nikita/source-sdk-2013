@@ -622,13 +622,26 @@ public:
 	void Precache( void )
 	{
 		PrecacheParticleSystem( "combineball" );
+#ifdef EZ
+		SetModelName( AllocPooledString( pModelNames[m_tEzVariant] ) );
+		PrecacheModel( STRING( GetModelName() ) );
+
+		// Goo-covered is just a separate skin of the Arbeit model
+		if (m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_RAD)
+			m_nSkin = 1;
+#else
 		PrecacheModel ("models/items/combine_rifle_ammo01.mdl");
+#endif
 	}
 
 	void Spawn( void )
 	{ 
 		Precache( );
+#ifdef EZ
+		SetModel( STRING( GetModelName() ) );
+#else
 		SetModel( "models/items/combine_rifle_ammo01.mdl");
+#endif
 		BaseClass::Spawn( );
 	}
 
@@ -644,9 +657,23 @@ public:
 		}
 		return false;
 	}
+
+#ifdef EZ
+	static const char *pModelNames[];
+#endif
 };
 
 LINK_ENTITY_TO_CLASS( item_ammo_ar2_altfire, CItem_AR2AltFireRound );
+
+#ifdef EZ
+const char *CItem_AR2AltFireRound::pModelNames[CAI_BaseNPC::EZ_VARIANT_COUNT] = {
+	"models/items/combine_rifle_ammo01.mdl",
+	"models/items/xen/combine_rifle_ammo01.mdl",
+	"models/items/arbeit/combine_rifle_ammo01.mdl", // Skin 1
+	"models/items/temporal/combine_rifle_ammo01.mdl",
+	"models/items/arbeit/combine_rifle_ammo01.mdl",
+};
+#endif
 
 // ==================================================================
 // Ammo crate which will supply infinite ammo of the specified type

@@ -15,6 +15,9 @@
 #include "entityoutput.h"
 #include "player_pickup.h"
 #include "vphysics/constraints.h"
+#ifdef EZ
+#include "ai_basenpc.h"
+#endif
 
 
 // Armor given by a battery
@@ -98,6 +101,12 @@ public:
 	void	InputEnableNPCPickup( inputdata_t &inputdata );
 	void	InputDisableNPCPickup( inputdata_t &inputdata );
 	void	InputBreakConstraint( inputdata_t &inputdata );
+#endif
+
+#ifdef EZ
+	// TODO: Maybe make EZ_VARIANT a shared enum instead of being within CAI_BaseNPC?
+	typedef CAI_BaseNPC::EZ_VARIANT EZ_VARIANT_ITEM;
+	EZ_VARIANT_ITEM m_tEzVariant;
 #endif
 
 	DECLARE_DATADESC();
