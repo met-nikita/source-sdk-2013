@@ -24,6 +24,7 @@
 #include "AI_ResponseSystem.h"
 #include "saverestore.h"
 #include "saverestore_utlmap.h"
+#include "items.h"
 
 #include "ai_hint.h"
 #include "ai_network.h"
@@ -1121,6 +1122,10 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 		char * squadname = UTIL_VarArgs( "xe%s", szClass );
 		DevMsg( "Adding xenpc '%s' to squad '%s' \n", baseNPC->GetDebugName(), squadname );
 		baseNPC->SetSquadName( AllocPooledString( squadname ) );
+	}
+	else if (CItem *pItem = dynamic_cast<CItem*>(pEntity))
+	{
+		pItem->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
 	}
 
 	if (szKV != NULL)
