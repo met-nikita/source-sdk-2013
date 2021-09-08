@@ -176,6 +176,11 @@ public:
 	// 1upD - Citizens can gib if killed by massive explosive damage or acid
 	virtual bool		ShouldGib( const CTakeDamageInfo &info );
 	virtual bool		CorpseGib( const CTakeDamageInfo &info );
+
+	virtual CSprite		* GetGlowSpritePtr( int i );
+	virtual void		  SetGlowSpritePtr( int i, CSprite * sprite );
+	virtual EyeGlow_t	* GetEyeGlowData( int i );
+	virtual int			  GetNumGlows();
 #endif
 
 	//---------------------------------
@@ -450,6 +455,8 @@ private:
 	bool			m_bSuppressiveFireDisabled; // 1upD - Override suppressive fire behavior
 
 	bool			m_bUsedBackupWeapon;	// 1upD - Has this rebel been given a backup weapon already?
+
+	CSprite			*m_pShoulderGlow;
 #endif
 	//-----------------------------------------------------
 	//	Outputs
