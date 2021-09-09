@@ -217,6 +217,7 @@ public:
 	inline bool		IsSurrendered() { return m_SurrenderBehavior.IsSurrendered(); } //{ return GetContextValue( "surrendered" )[0] == '1'; };
 	inline bool		IsSurrenderIdle() { return m_SurrenderBehavior.IsSurrenderIdle(); }
 	inline bool		CanSurrender() { return m_SurrenderBehavior.CanSurrender(); }
+	inline bool		SurrenderAutomatically() { return m_SurrenderBehavior.SurrenderAutomatically(); }
 #endif
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);

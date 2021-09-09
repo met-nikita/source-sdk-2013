@@ -189,9 +189,6 @@ void CAI_SurrenderBehavior::RunTask( const Task_t *pTask )
 
 					if( pHint == NULL )
 					{
-						//SetCondition( COND_SURRENDER_ANYWHERE ); // For now, surrender here
-						//TaskFail("Surrender: Couldn't find hint node\n");
-
 						if (vecDest != vec3_invalid)
 						{
 							if (GetNavigator()->SetGoal( vecDest ))
@@ -209,6 +206,12 @@ void CAI_SurrenderBehavior::RunTask( const Task_t *pTask )
 							}
 
 							m_hMovingToHint.Set( NULL );
+						}
+						else
+						{
+							//SetCondition( COND_SURRENDER_ANYWHERE ); // For now, surrender here
+							//TaskFail("Surrender: Couldn't find hint node\n");
+							GetOuter()->TaskComplete();
 						}
 					}
 					else
