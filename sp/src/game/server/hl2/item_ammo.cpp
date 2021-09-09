@@ -1117,18 +1117,22 @@ public:
 	CItem_XenGrenadeHolder()
 	{
 		m_bRemoveWhenEmpty = true;
-
-		// Enable all slots by default
-		for (int i = 0; i < XEN_GRENADE_SLOTS; i++)
-		{
-			SetSlot( i, true );
-		}
+		m_bCustomSlots = false;
 	}
 
 	void Spawn( void )
 	{ 
 		Precache( );
 		SetModel( STRING( GetModelName() ) );
+
+		if (!m_bCustomSlots)
+		{
+			// Enable all slots by default
+			for (int i = 0; i < XEN_GRENADE_SLOTS; i++)
+			{
+				SetSlot( i, true );
+			}
+		}
 
 		BaseClass::Spawn( );
 	}
@@ -1148,6 +1152,16 @@ public:
 			SetModelName( AllocPooledString( "models/items/xen_grenade_holder001a.mdl" ) );
 
 		PrecacheModel( STRING( GetModelName() ) );
+	}
+
+	bool KeyValue( const char *szKeyName, const char *szValue )
+	{
+		if (FStrEq( szKeyName, "body" ))
+		{
+			m_bCustomSlots = true;
+		}
+
+		return BaseClass::KeyValue( szKeyName, szValue );
 	}
 
 	bool MyTouch( CBasePlayer *pPlayer )
@@ -1230,6 +1244,8 @@ protected:
 	int m_nAttachmentSlots[XEN_GRENADE_SLOTS];
 
 	bool m_bRemoveWhenEmpty;
+
+	bool m_bCustomSlots; // Hack for non-Hammer placement; Don't save
 
 	COutputEvent m_OnPickupSlot[XEN_GRENADE_SLOTS];
 	COutputEvent m_OnEmpty;
