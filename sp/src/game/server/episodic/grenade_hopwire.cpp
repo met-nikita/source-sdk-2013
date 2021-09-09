@@ -127,6 +127,7 @@ public:
 	}
 
 	void Spawn( void );
+	void Activate( void );
 
 	virtual IResponseSystem *GetResponseSystem() { return m_pInstancedResponseSystem; }
 
@@ -158,6 +159,14 @@ void CXenGrenadeRecipeManager::Spawn( void )
 	{
 		m_pInstancedResponseSystem = PrecacheXenGrenadeResponseSystem( XEN_GRENADE_RECIPE_SCRIPT );
 	}
+}
+
+void CXenGrenadeRecipeManager::Activate( void )
+{
+	BaseClass::Activate();
+
+	g_hXenGrenadeRecipeManager = this;
+	XenGrenadeDebugMsg( "Assigned g_hXenGrenadeRecipeManager in CXenGrenadeRecipeManager::Activate()\n" );
 }
 
 //-----------------------------------------------------------------------------
@@ -344,10 +353,20 @@ bool CXenGrenadeRecipeManager::ParseRecipeBlock( char *szRecipe, CGravityVortexC
 
 void CreateRecipeManager()
 {
-	g_hXenGrenadeRecipeManager = static_cast<CXenGrenadeRecipeManager*>(CreateEntityByName( "xen_grenade_recipe_manager" ));
-	DispatchSpawn( g_hXenGrenadeRecipeManager );
+	CBaseEntity *pEnt = CreateEntityByName( "xen_grenade_recipe_manager" );
+	if (pEnt)
+	{
+		DispatchSpawn( pEnt );
+		pEnt->Activate();
+		XenGrenadeDebugMsg( "Spawned xen_grenade_recipe_manager\n" );
 
-	XenGrenadeDebugMsg( "Spawned xen_grenade_recipe_manager\n" );
+		// Now set in CXenGrenadeRecipeManager::Activate()
+		//g_hXenGrenadeRecipeManager = static_cast<CXenGrenadeRecipeManager*>(pEnt);
+	}
+	else
+	{
+		Error( "Unable to create xen_grenade_recipe_manager\n" );
+	}
 }
 
 // This is used for when an entity is close enough to be consumed, but shouldn't be consumed through
@@ -2004,12 +2023,6 @@ void CGrenadeHopwire::Precache( void )
 		g_interactionXenGrenadeCreate = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeHop = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeRagdoll = CBaseCombatCharacter::GetInteractionID();
-	}
-
-	// The recipe manager is needed for save/restore
-	if (!g_hXenGrenadeRecipeManager)
-	{
-		CreateRecipeManager();
 	}
 #endif
 
