@@ -33,6 +33,8 @@
 
 #ifdef EZ
 #include "ieffects.h"
+#include "particle_parse.h"
+#include "RagdollBoogie.h"
 #endif
 
 #ifdef EZ2
@@ -140,6 +142,8 @@ ConVar npc_citizen_gib( "npc_citizen_gib", "0" );
 ConVar npc_citizen_gib( "npc_citizen_gib", "1" );
 #endif
 ConVar npc_citizen_longfall_death_height("npc_citizen_longfall_death_height", "32768");
+ConVar npc_citizen_longfall_glow_chest_jump_fade_enter( "npc_citizen_longfall_glow_chest_jump_fade_enter", "0.25" );
+ConVar npc_citizen_longfall_glow_chest_jump_fade_exit( "npc_citizen_longfall_glow_chest_jump_fade_exit", "0.5" );
 ConVar npc_citizen_brute_mask_eject_threshold("npc_citizen_brute_mask_eject_threshold", "100");
 #ifdef EZ2
 ConVar npc_citizen_surrender_auto_distance( "npc_citizen_surrender_auto_distance", "720" );
@@ -179,6 +183,20 @@ const float HEAL_TARGET_RANGE_Z = 72; // a second check that Gordon isn't too fa
 #define BRUTE_MASK_BODYGROUP 1
 
 #define LONGFALL_GEAR_BODYGROUP 1
+#define LONGFALL_GLOW_CHEST_SPRITE	"sprites/light_glow01.vmt"
+#define LONGFALL_GLOW_CHEST_BRIGHT	164
+#define LONGFALL_GLOW_CHEST_A		255
+#define LONGFALL_GLOW_CHEST_R		255
+#define LONGFALL_GLOW_CHEST_G		230
+#define LONGFALL_GLOW_CHEST_B		105
+#define LONGFALL_GLOW_CHEST_SCALE	0.5f
+#define LONGFALL_GLOW_CHEST_JUMP_BRIGHT	255
+#define LONGFALL_GLOW_CHEST_JUMP_A		255
+#define LONGFALL_GLOW_CHEST_JUMP_R		100
+#define LONGFALL_GLOW_CHEST_JUMP_G		230
+#define LONGFALL_GLOW_CHEST_JUMP_B		255
+#define LONGFALL_GLOW_CHEST_JUMP_SCALE	0.75f
+#define LONGFALL_GLOW_SHOULDER_SPRITE	"sprites/glow1.vmt"
 #endif
 
 // player must be at least this distance away from an enemy before we fire an RPG at him
@@ -585,11 +603,17 @@ void CNPC_Citizen::PrecacheAllOfType( CitizenType_t type )
 	}
 
 #ifdef EZ
-	// Blixibon - Long-fall sounds
+	// Blixibon - Long-fall assets
 	if ( m_Type == CT_LONGFALL )
 	{
 		PrecacheScriptSound("NPC_Citizen_JumpRebel.Jump");
+		PrecacheScriptSound("NPC_Citizen_JumpRebel.Jump_Death");
 		PrecacheScriptSound("NPC_Citizen_JumpRebel.Land");
+
+		PrecacheModel( LONGFALL_GLOW_CHEST_SPRITE );
+		PrecacheModel( LONGFALL_GLOW_SHOULDER_SPRITE );
+
+		PrecacheParticleSystem( "citizen_longfall_jump" );
 	}
 	else if ( m_Type == CT_BRUTE )
 	{
@@ -3271,11 +3295,14 @@ void CNPC_Citizen::Event_Killed( const CTakeDamageInfo &info )
 		{
 			CTakeDamageInfo myInfo = info;
 
-			g_pEffects->Sparks( info.GetDamagePosition(), 4, 4 );
-			UTIL_Smoke( info.GetDamagePosition(), 20, 5 );
+			Vector vecBackpack;
+			GetAttachment( "backpack_mid", vecBackpack );
+
+			g_pEffects->Sparks( vecBackpack, 4, 4 );
+			UTIL_Smoke( vecBackpack, 20, 5 );
 
 			myInfo.SetDamageForce( info.GetDamageForce() + Vector(0,0,npc_citizen_longfall_death_height.GetFloat()) );
-			EmitSound("NPC_Citizen_JumpRebel.Jump");
+			EmitSound("NPC_Citizen_JumpRebel.Jump_Death");
 
 			// See if we'll hit a low ceiling
 			Vector vecOrigin = WorldSpaceCenter();
@@ -3286,10 +3313,22 @@ void CNPC_Citizen::Event_Killed( const CTakeDamageInfo &info )
 			if (tr.fraction != 1.0f)
 			{
 				UTIL_DecalTrace( &tr, "Rollermine.Crater" );
-				UTIL_DecalTrace( &tr, "Blood" );
+
+				// It seems that the blood decal now overwrites the rollermine crater
+				//UTIL_DecalTrace( &tr, "Blood" );
 			}
 
 			BaseClass::Event_Killed( myInfo );
+
+			if (m_hDeathRagdoll)
+			{
+				// Add a jump particle to the death ragdoll
+				// TODO: citizen_longfall_jump_death?
+				DispatchParticleEffect( "citizen_longfall_jump", PATTACH_POINT_FOLLOW, m_hDeathRagdoll, LookupAttachment( "backpack_end" ) );
+
+				CRagdollBoogie::Create( m_hDeathRagdoll, 50, gpGlobals->curtime, RandomFloat(2.0f, 3.0f), SF_RAGDOLL_BOOGIE_ELECTRICAL );
+			}
+
 			return;
 		}
 	}
@@ -3319,16 +3358,39 @@ void CNPC_Citizen::OnChangeActivity( Activity eNewActivity )
 		{
 			case ACT_JUMP:
 			{
-				EmitSound("NPC_Citizen_JumpRebel.Jump");
+				// Do the jump particle
+				DispatchParticleEffect( "citizen_longfall_jump", PATTACH_POINT_FOLLOW, this, LookupAttachment( "backpack_end" ) );
+
+				// Make the chest eye a different color while we're jumping
+				if (m_pEyeGlow)
+				{
+					m_pEyeGlow->SetRenderColor( LONGFALL_GLOW_CHEST_JUMP_R, LONGFALL_GLOW_CHEST_JUMP_G, LONGFALL_GLOW_CHEST_JUMP_B, LONGFALL_GLOW_CHEST_JUMP_A );
+					m_pEyeGlow->SetBrightness( LONGFALL_GLOW_CHEST_JUMP_BRIGHT, npc_citizen_longfall_glow_chest_jump_fade_enter.GetFloat() );
+					m_pEyeGlow->SetScale( LONGFALL_GLOW_CHEST_JUMP_SCALE, npc_citizen_longfall_glow_chest_jump_fade_enter.GetFloat() );
+				}
+
+				EmitSound( "NPC_Citizen_JumpRebel.Jump" );
 			} break;
 
-			//case ACT_GLIDE:
-			//	break;
+			case ACT_GLIDE:
+				break;
 
 			case ACT_LAND:
 			{
-				EmitSound("NPC_Citizen_JumpRebel.Land");
-			} break;
+				EmitSound( "NPC_Citizen_JumpRebel.Land" );
+			}
+			// Need to have a default case here due to jump rebels not always switching to ACT_LAND after jumping
+			default:
+			{
+				// If we were jumping, return the chest eye to its normal color
+				if (m_pEyeGlow && m_pEyeGlow->GetBrightness() == LONGFALL_GLOW_CHEST_JUMP_BRIGHT)
+				{
+					m_pEyeGlow->SetRenderColor( LONGFALL_GLOW_CHEST_R, LONGFALL_GLOW_CHEST_G, LONGFALL_GLOW_CHEST_B, LONGFALL_GLOW_CHEST_A );
+					m_pEyeGlow->SetBrightness( LONGFALL_GLOW_CHEST_BRIGHT, npc_citizen_longfall_glow_chest_jump_fade_exit.GetFloat() );
+					m_pEyeGlow->SetScale( LONGFALL_GLOW_CHEST_SCALE, npc_citizen_longfall_glow_chest_jump_fade_exit.GetFloat() );
+				}
+			}
+			break;
 		}
 	}
 
@@ -3621,6 +3683,105 @@ bool CNPC_Citizen::ShouldGib( const CTakeDamageInfo &info )
 bool CNPC_Citizen::CorpseGib( const CTakeDamageInfo &info )
 {
 	return BaseClass::CorpseGib( info );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return the pointer for a given sprite given an index
+//-----------------------------------------------------------------------------
+CSprite	* CNPC_Citizen::GetGlowSpritePtr( int index )
+{
+	if (m_Type == CT_LONGFALL)
+	{
+		switch (index)
+		{
+			case 0:
+				return m_pEyeGlow;
+			case 1:
+				return m_pShoulderGlow;
+		}
+	}
+
+	return BaseClass::GetGlowSpritePtr( index );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Sets the glow sprite at the given index
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::SetGlowSpritePtr( int index, CSprite * sprite )
+{
+	if (m_Type == CT_LONGFALL)
+	{
+		switch (index)
+		{
+			case 0:
+				m_pEyeGlow = sprite;
+				break;
+			case 1:
+				m_pShoulderGlow = sprite;
+				break;
+		}
+	}
+
+	BaseClass::SetGlowSpritePtr( index, sprite );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return the glow attributes for a given index
+//-----------------------------------------------------------------------------
+EyeGlow_t * CNPC_Citizen::GetEyeGlowData( int index )
+{
+	if (m_Type == CT_LONGFALL)
+	{
+		EyeGlow_t * eyeGlow = new EyeGlow_t();
+
+		switch (index){
+		case 0:
+			eyeGlow->spriteName = LONGFALL_GLOW_CHEST_SPRITE;
+			eyeGlow->attachment = "backpack_eye_chest";
+
+			eyeGlow->alpha = LONGFALL_GLOW_CHEST_A;
+			eyeGlow->brightness = LONGFALL_GLOW_CHEST_BRIGHT;
+
+			eyeGlow->red = LONGFALL_GLOW_CHEST_R;
+			eyeGlow->green = LONGFALL_GLOW_CHEST_G;
+			eyeGlow->blue = LONGFALL_GLOW_CHEST_B;
+
+			eyeGlow->renderMode = kRenderWorldGlow;
+			eyeGlow->scale = 0.5f;
+			eyeGlow->proxyScale = 2.0f;
+
+			return eyeGlow;
+		case 1:
+			eyeGlow->spriteName = LONGFALL_GLOW_SHOULDER_SPRITE;
+			eyeGlow->attachment = "backpack_eye_shoulder";
+
+			eyeGlow->alpha = 192;
+			eyeGlow->brightness = 164;
+
+			eyeGlow->red = 255;
+			eyeGlow->green = 245;
+			eyeGlow->blue = 180;
+
+			eyeGlow->renderMode = kRenderWorldGlow;
+			eyeGlow->scale = 0.15f;
+			eyeGlow->proxyScale = 1.0f;
+
+			return eyeGlow;
+		}
+	}
+
+	return NULL;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return the number of glows
+//-----------------------------------------------------------------------------
+int CNPC_Citizen::GetNumGlows()
+{
+	if (m_Type == CT_LONGFALL)
+		return 2;
+	else
+		return BaseClass::GetNumGlows();
 }
 #endif
 
