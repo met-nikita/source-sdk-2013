@@ -2321,11 +2321,20 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 				bool bHasPath = true;
 				Vector vecNodePos;
 
+#ifdef EZ
+				bool bPlayerHolding = (m_hTargetEnt->VPhysicsGetObject() && m_hTargetEnt->VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD);
+#endif
+
 				vecNodePos = pNode->GetPosition( GetHullType() );
 
 				float flDistZ;
 				flDistZ = fabs( vecNodePos.z - m_hTargetEnt->GetAbsOrigin().z );
+#ifdef EZ
+				// If the player is holding it, don't bother with Z leniency
+				if( flDistZ > Z_LENIENCY && !bPlayerHolding )
+#else
 				if( flDistZ > Z_LENIENCY )
+#endif
 				{
 					// The gun is too far away from its nearest node on the Z axis.
 					TaskFail( "Target not within Z_LENIENCY!\n");
@@ -2338,6 +2347,17 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 					}
 				}
 
+#ifdef EZ
+				// If the player is holding it, don't bother with XY leniency
+				if ( bPlayerHolding )
+				{
+					//AI_NavGoal_t goal( m_hTargetEnt->GetAbsOrigin(), ACT_INVALID, 48.0f, AIN_DEF_FLAGS, m_hTargetEnt );
+					AI_NavGoal_t goal( m_hTargetEnt->GetAbsOrigin() );
+					goal.pTarget = m_hTargetEnt;
+					bHasPath = GetNavigator()->SetGoal( goal );
+				}
+				else
+#endif
 				if( flDistZ >= 16.0 )
 				{
 					// The gun is higher or lower, but it's within reach. (probably on a table).
@@ -2534,8 +2554,22 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 
 	case TASK_WEAPON_RUN_PATH:
 	case TASK_ITEM_RUN_PATH:
-		GetNavigator()->SetMovementActivity(ACT_RUN);
+	{
+#ifdef EZ
+		if (m_hTargetEnt->VPhysicsGetObject() && m_hTargetEnt->VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD)
+		{
+			if ((GetAbsOrigin() - m_hTargetEnt->GetAbsOrigin()).Length2DSqr() < Square( 32.0f ))
+			{
+				GetNavigator()->ClearGoal();
+				TaskComplete();
+				break;
+			}
+		}
+#endif
+
+		GetNavigator()->SetMovementActivity( ACT_RUN );
 		break;
+	}
 
 	case TASK_RUN_PATH:
 		{
@@ -3015,7 +3049,16 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 
 	case TASK_ITEM_PICKUP:
 		{
-			SetIdealActivity( ACT_PICKUP_GROUND );
+#ifdef EZ
+			if (GetTarget() && fabs( GetTarget()->WorldSpaceCenter().z - GetAbsOrigin().z ) >= 12.0f)
+			{
+				SetIdealActivity( ACT_PICKUP_RACK );
+			}
+			else
+#endif
+			{
+				SetIdealActivity( ACT_PICKUP_GROUND );
+			}
 		}
 		break;
 
@@ -3878,6 +3921,16 @@ void CAI_BaseNPC::RunTask( const Task_t *pTask )
 				{
 					TaskComplete();
 				}
+#ifdef EZ
+				else if (m_hTargetEnt->VPhysicsGetObject() && m_hTargetEnt->VPhysicsGetObject()->GetGameFlags() & FVPHYSICS_PLAYER_HELD)
+				{
+					if ((GetAbsOrigin() - m_hTargetEnt->GetAbsOrigin()).Length2DSqr() < Square( 32.0f ))
+					{
+						GetNavigator()->ClearGoal();
+						TaskComplete();
+					}
+				}
+#endif
 			}
 			else
 			{

@@ -41,6 +41,7 @@
 #include "npc_antlion.h"
 #include "hl2_player.h"
 #include "npc_manhack.h"
+#include "items.h"
 #endif
 #ifdef EZ2
 #include "ez2/ez2_player.h"
@@ -57,6 +58,12 @@ ConVar npc_combine_unarmed_anims( "npc_combine_unarmed_anims", "1", FCVAR_NONE, 
 ConVar npc_combine_altfire_not_allies_only( "npc_combine_altfire_not_allies_only", "1", FCVAR_NONE, "Mapbase: Elites are normally only allowed to fire their alt-fire attack at the player and the player's allies; This allows elites to alt-fire at other enemies too." );
 
 ConVar npc_combine_new_cover_behavior( "npc_combine_new_cover_behavior", "1", FCVAR_NONE, "Mapbase: Toggles small patches for parts of npc_combine AI related to soldiers failing to take cover. These patches are minimal and only change cases where npc_combine would otherwise look at an enemy without shooting or run up to the player to melee attack when they don't have to. Consult the Mapbase wiki for more information." );
+#endif
+
+#ifdef EZ
+ConVar npc_combine_give_enabled( "npc_combine_give_enabled", "1", FCVAR_NONE, "Allows players to \"give\" weapons to Combine soldiers in their squad by holding one in front of them for a few seconds." );
+ConVar npc_combine_give_stare_dist( "npc_combine_give_stare_dist", "112", FCVAR_NONE, "The distance needed for soldiers to consider the possibility the player wants to give them a weapon." );
+ConVar npc_combine_give_stare_time( "npc_combine_give_stare_time", "1", FCVAR_NONE, "The amount of time the player needs to be staring at a soldier in order for them to pick up a weapon they're holding." );
 #endif
 
 #define COMBINE_SKIN_DEFAULT		0
@@ -235,6 +242,8 @@ DEFINE_FIELD( m_flStopMoveShootTime, FIELD_TIME ),
 #ifdef EZ
 DEFINE_FIELD( m_iszOriginalSquad, FIELD_STRING ), // Added by Blixibon to save original squad
 DEFINE_FIELD( m_bHoldPositionGoal, FIELD_BOOLEAN ),
+DEFINE_FIELD( m_flTimePlayerStare, FIELD_TIME ),
+DEFINE_FIELD( m_bTemporarilyNeedWeapon, FIELD_BOOLEAN ),
 #endif
 #ifndef MAPBASE // See ai_grenade.h
 DEFINE_KEYFIELD( m_iNumGrenades, FIELD_INTEGER, "NumGrenades" ),
@@ -319,6 +328,8 @@ CNPC_Combine::CNPC_Combine()
 	// For players who use npc_create
 	AddSpawnFlags( SF_COMBINE_COMMANDABLE | SF_COMBINE_REGENERATE );
 	m_iNumGrenades = 5;
+
+	m_bDontPickupWeapons = true;
 #endif
 }
 
@@ -767,6 +778,154 @@ void CNPC_Combine::UpdateFollowCommandPoint()
 	else if (IsFollowingCommandPoint())
 		ClearFollowTarget();
 }
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+#define OTHER_DEFER_SEARCH_TIME		FLT_MAX
+bool CNPC_Combine::ShouldLookForBetterWeapon()
+{
+	if ( BaseClass::ShouldLookForBetterWeapon() )
+	{
+		if ( IsInPlayerSquad() && (GetActiveWeapon()&&IsMoving()) && ( m_FollowBehavior.GetFollowTarget() && m_FollowBehavior.GetFollowTarget()->IsPlayer() ) )
+		{
+			// For soldiers in the player squad, you must be unarmed, or standing still (if armed) in order to 
+			// divert attention to looking for a new weapon.
+			return false;
+		}
+
+		if ( GetActiveWeapon() && IsMoving() )
+			return false;
+
+		CBaseCombatWeapon *pWeapon = GetActiveWeapon();
+		if( pWeapon )
+		{
+			bool bDefer = false;
+
+			if ( EntIsClass(pWeapon, gm_isz_class_AR2) )
+			{
+				// Content to keep this weapon forever
+				m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
+				bDefer = true;
+			}
+			else if( EntIsClass(pWeapon, gm_isz_class_RPG) )
+			{
+				// Content to keep this weapon forever
+				m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
+				bDefer = true;
+			}
+			else if ( EntIsClass(pWeapon, gm_isz_class_Shotgun) )
+			{
+				if (m_nSkin == COMBINE_SKIN_SHOTGUNNER)
+				{
+					// Shotgunners are content to keep this weapon forever
+					m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
+					bDefer = true;
+				}
+			}
+
+			if( bDefer )
+			{
+				// I'm happy with my current weapon. Don't search now.
+				// If you ask the code to defer, you must have set m_flNextWeaponSearchTime to when
+				// you next want to try to search.
+				Assert( m_flNextWeaponSearchTime != flOldWeaponSearchTime );
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+int CNPC_Combine::SelectSchedulePriorityAction()
+{
+	int schedule = BaseClass::SelectSchedulePriorityAction();
+	if ( schedule != SCHED_NONE )
+		return schedule;
+
+	schedule = SelectScheduleRetrieveItem();
+	if ( schedule != SCHED_NONE )
+		return schedule;
+
+	return SCHED_NONE;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+int CNPC_Combine::SelectScheduleRetrieveItem()
+{
+	if ( HasCondition(COND_BETTER_WEAPON_AVAILABLE) )
+	{
+		CBaseCombatWeapon *pWeapon = dynamic_cast<CBaseCombatWeapon *>(Weapon_FindUsable( WEAPON_SEARCH_DELTA ));
+		if ( pWeapon )
+		{
+			m_flNextWeaponSearchTime = gpGlobals->curtime + 10.0;
+			// Now lock the weapon for several seconds while we go to pick it up.
+			pWeapon->Lock( 10.0, this );
+			SetTarget( pWeapon );
+			return SCHED_NEW_WEAPON;
+		}
+	}
+
+	// Not needed due to regenerating health, although everything in this code works out of the box and all that's needed to make it function
+	// is a check in GatherConditions()
+	/*
+	if( HasCondition(COND_HEALTH_ITEM_AVAILABLE) )
+	{
+		if( !IsInPlayerSquad() )
+		{
+			// Been kicked out of the player squad since the time I located the health.
+			ClearCondition( COND_HEALTH_ITEM_AVAILABLE );
+		}
+		else
+		{
+			CBaseEntity *pBase = FindHealthItem(m_FollowBehavior.GetFollowTarget()->GetAbsOrigin(), Vector( 120, 120, 120 ) );
+			CItem *pItem = dynamic_cast<CItem *>(pBase);
+
+			if( pItem )
+			{
+				SetTarget( pItem );
+				return SCHED_GET_HEALTHKIT;
+			}
+		}
+	}
+	*/
+
+	return SCHED_NONE;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_Combine::Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector *pvecTarget /* = NULL */, const Vector *pVelocity /* = NULL */ )
+{
+	BaseClass::Weapon_Drop( pWeapon, pvecTarget, pVelocity );
+
+	if (m_bDontPickupWeapons && !IsInAScript() && IsCurSchedule( SCHED_NEW_WEAPON ))
+	{
+		// A non-autonomous soldier has dropped their weapon when trying to pick one up.
+		// Make sure they're allowed to re-arm themselves in case they fail to pick up this weapon.
+		m_bTemporarilyNeedWeapon = true;
+		m_bDontPickupWeapons = false;
+	}
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CNPC_Combine::PickupWeapon( CBaseCombatWeapon *pWeapon )
+{
+	BaseClass::PickupWeapon( pWeapon );
+
+	if (m_bTemporarilyNeedWeapon)
+	{
+		// We have our weapon now, so turn off weapon pickup
+		m_bTemporarilyNeedWeapon = false;
+		m_bDontPickupWeapons = true;
+	}
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1181,6 +1340,84 @@ void CNPC_Combine::GatherConditions()
 			}
 		}
 	}
+
+#ifdef EZ
+	if ( IsCommandable() && !IsInAScript() && HasCondition(COND_TALKER_PLAYER_STARING) && npc_combine_give_enabled.GetBool() )
+	{
+		CBasePlayer *pPlayer = AI_GetSinglePlayer();
+		if (pPlayer /*&& (!m_pSquad || m_pSquad->GetSquadMemberNearestTo( pPlayer->GetAbsOrigin() ) == this)*/)
+		{
+			bool bStareRelevant = false;
+
+			float flDistSqr = ( GetAbsOrigin() - pPlayer->GetAbsOrigin() ).Length2DSqr();
+			float flStareDist = npc_combine_give_stare_dist.GetFloat();
+
+			// Be extra certain that they're staring
+			Vector facingDir = pPlayer->EyeDirection2D();
+			Vector los = ( EyePosition() - pPlayer->EyePosition() );
+			los.z = 0;
+			VectorNormalize( los );
+
+			if( !IsMoving() && pPlayer->IsAlive() && (flDistSqr <= flStareDist * flStareDist) && DotProduct( los, facingDir ) > 0.8f && pPlayer->FVisible( this ) )
+			{
+				// If the player is holding an item in front of us, they might want us to pick it up.
+				CBaseEntity *pHeld = GetPlayerHeldEntity( pPlayer );
+
+				if (pHeld)
+				{
+					bStareRelevant = true;
+
+					if ( gpGlobals->curtime - m_flTimePlayerStare >= npc_combine_give_stare_time.GetFloat() &&
+						!IsCurSchedule(SCHED_NEW_WEAPON) && !IsCurSchedule(SCHED_GET_HEALTHKIT) )
+					{
+						// Is it a weapon?
+						if (pHeld->IsBaseCombatWeapon())
+						{
+							//SetCondition( COND_BETTER_WEAPON_AVAILABLE );
+
+							CBaseCombatWeapon *pWeapon = pHeld->MyCombatWeaponPointer();
+							if (Weapon_CanUse( pWeapon ))
+							{
+								if (!pWeapon->IsLocked( this ))
+								{
+									Msg( "%s picking up %s held by player\n", GetDebugName(), pHeld->GetDebugName() );
+
+									// Now lock the weapon for a few seconds while we go to pick it up.
+									m_flNextWeaponSearchTime = gpGlobals->curtime + 10.0;
+									pWeapon->Lock( 5.0, this );
+									SetTarget( pWeapon );
+									SetSchedule( SCHED_NEW_WEAPON );
+								}
+							}
+						}
+
+						// Is it an item?
+						/*
+						else if (pHeld->IsCombatItem() || pHeld->ClassMatches("weapon_frag"))
+						{
+							//SetCondition( COND_HEALTH_ITEM_AVAILABLE );
+
+							// See CAI_BaseNPC::PickupItem for items soldiers can absorb
+							SetTarget( pHeld );
+							SetSchedule( SCHED_GET_HEALTHKIT );
+						}
+						*/
+					}
+				}
+			}
+
+			if (!bStareRelevant)
+			{
+				m_flTimePlayerStare = FLT_MAX;
+			}
+			else if (m_flTimePlayerStare == FLT_MAX)
+			{
+				// Player wasn't looking at me at last think. They started staring now.
+				m_flTimePlayerStare = gpGlobals->curtime;
+			}
+		}
+	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
