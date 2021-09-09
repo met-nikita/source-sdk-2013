@@ -4712,8 +4712,22 @@ void CHL2_Player::TraceKickAttack()
 		KickInfo_t kickInfo( &tr, &dmgInfo );
 		if ( !pEntity->DispatchInteraction( g_interactionBadCopKick, &kickInfo, this ) )
 		{
-			// Send the damage to the recipient
-			pEntity->DispatchTraceAttack( dmgInfo, vecAim, &tr );
+			if (pEntity->m_takedamage == DAMAGE_NO && pEntity->GetParent())
+			{
+				// Send the damage to the recipient's parent instead
+				// (important for brush doors, charger trailers, etc.)
+				if ( !pEntity->GetParent()->DispatchInteraction( g_interactionBadCopKick, &kickInfo, this ) )
+				{
+					pEntity->GetParent()->DispatchTraceAttack( dmgInfo, vecAim, &tr );
+					ApplyMultiDamage();
+				}
+			}
+			else
+			{
+				// Send the damage to the recipient
+				pEntity->DispatchTraceAttack( dmgInfo, vecAim, &tr );
+				ApplyMultiDamage();
+			}
 		}
 
 		// Insert an AI sound so nearby enemies can hear the impact
