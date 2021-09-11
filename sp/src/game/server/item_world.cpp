@@ -93,6 +93,10 @@ BEGIN_DATADESC( CItem )
 	DEFINE_FIELD( m_vOriginalSpawnAngles, FIELD_VECTOR ),
 	DEFINE_PHYSPTR( m_pConstraint ),
 
+#ifdef EZ
+	DEFINE_KEYFIELD( m_tEzVariant, FIELD_INTEGER, "ezvariant" ),
+#endif
+
 	// Function Pointers
 	DEFINE_ENTITYFUNC( ItemTouch ),
 	DEFINE_THINKFUNC( Materialize ),

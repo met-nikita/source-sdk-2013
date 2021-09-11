@@ -30,10 +30,33 @@ public:
 	void Spawn( void );
 	void Precache( void );
 	bool MyTouch( CBasePlayer *pPlayer );
+
+#ifdef EZ
+	static const char *pModelNames[];
+	static const char *pTouchSounds[];
+#endif
 };
 
 LINK_ENTITY_TO_CLASS( item_healthkit, CHealthKit );
 PRECACHE_REGISTER(item_healthkit);
+
+#ifdef EZ
+const char *CHealthKit::pModelNames[CAI_BaseNPC::EZ_VARIANT_COUNT] = {
+	"models/items/healthkit.mdl",
+	"models/items/xen/healthkit.mdl",
+	"models/items/arbeit/healthkit.mdl", // Skin 1
+	"models/items/temporal/healthkit.mdl",
+	"models/items/arbeit/healthkit.mdl",
+};
+
+const char *CHealthKit::pTouchSounds[CAI_BaseNPC::EZ_VARIANT_COUNT] = {
+	"HealthKit.Touch",
+	"HealthKit_Xen.Touch",
+	"HealthKit_Rad.Touch",
+	"HealthKit_Temporal.Touch",
+	"HealthKit_Arbeit.Touch",
+};
+#endif
 
 
 //-----------------------------------------------------------------------------
@@ -42,7 +65,11 @@ PRECACHE_REGISTER(item_healthkit);
 void CHealthKit::Spawn( void )
 {
 	Precache();
+#ifdef EZ
+	SetModel( STRING( GetModelName() ) );
+#else
 	SetModel( "models/items/healthkit.mdl" );
+#endif
 
 	BaseClass::Spawn();
 }
@@ -53,9 +80,20 @@ void CHealthKit::Spawn( void )
 //-----------------------------------------------------------------------------
 void CHealthKit::Precache( void )
 {
+#ifdef EZ
+	SetModelName( AllocPooledString( pModelNames[m_tEzVariant] ) );
+	PrecacheModel( STRING( GetModelName() ) );
+
+	// Goo-covered is just a separate skin of the Arbeit model
+	if (m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_RAD)
+		m_nSkin = 1;
+
+	PrecacheScriptSound( pTouchSounds[m_tEzVariant] );
+#else
 	PrecacheModel("models/items/healthkit.mdl");
 
 	PrecacheScriptSound( "HealthKit.Touch" );
+#endif
 }
 
 
@@ -75,8 +113,13 @@ bool CHealthKit::MyTouch( CBasePlayer *pPlayer )
 			WRITE_STRING( GetClassname() );
 		MessageEnd();
 
+#ifdef EZ
+		CPASAttenuationFilter filter( pPlayer, pTouchSounds[m_tEzVariant] );
+		EmitSound( filter, pPlayer->entindex(), pTouchSounds[m_tEzVariant] );
+#else
 		CPASAttenuationFilter filter( pPlayer, "HealthKit.Touch" );
 		EmitSound( filter, pPlayer->entindex(), "HealthKit.Touch" );
+#endif
 
 		if ( g_pGameRules->ItemShouldRespawn( this ) == GR_ITEM_RESPAWN_YES )
 		{
@@ -105,16 +148,31 @@ public:
 	void Spawn( void )
 	{
 		Precache();
+#ifdef EZ
+		SetModel( STRING( GetModelName() ) );
+#else
 		SetModel( "models/healthvial.mdl" );
+#endif
 
 		BaseClass::Spawn();
 	}
 
 	void Precache( void )
 	{
-		PrecacheModel("models/healthvial.mdl");
+#ifdef EZ
+		SetModelName( AllocPooledString( pModelNames[m_tEzVariant] ) );
+		PrecacheModel( STRING( GetModelName() ) );
+
+		// Goo-covered is just a separate skin of the Arbeit model
+		if (m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_RAD)
+			m_nSkin = 1;
+
+		PrecacheScriptSound( pTouchSounds[m_tEzVariant] );
+#else
+		PrecacheModel( "models/healthvial.mdl" );
 
 		PrecacheScriptSound( "HealthVial.Touch" );
+#endif
 	}
 
 	bool MyTouch( CBasePlayer *pPlayer )
@@ -128,8 +186,13 @@ public:
 				WRITE_STRING( GetClassname() );
 			MessageEnd();
 
+#ifdef EZ
+			CPASAttenuationFilter filter( pPlayer, pTouchSounds[m_tEzVariant] );
+			EmitSound( filter, pPlayer->entindex(), pTouchSounds[m_tEzVariant] );
+#else
 			CPASAttenuationFilter filter( pPlayer, "HealthVial.Touch" );
 			EmitSound( filter, pPlayer->entindex(), "HealthVial.Touch" );
+#endif
 
 			if ( g_pGameRules->ItemShouldRespawn( this ) == GR_ITEM_RESPAWN_YES )
 			{
@@ -145,10 +208,33 @@ public:
 
 		return false;
 	}
+
+#ifdef EZ
+	static const char *pModelNames[];
+	static const char *pTouchSounds[];
+#endif
 };
 
 LINK_ENTITY_TO_CLASS( item_healthvial, CHealthVial );
 PRECACHE_REGISTER( item_healthvial );
+
+#ifdef EZ
+const char *CHealthVial::pModelNames[CAI_BaseNPC::EZ_VARIANT_COUNT] = {
+	"models/healthvial.mdl",
+	"models/items/xen/healthvial.mdl",
+	"models/items/arbeit/healthvial.mdl", // Skin 1
+	"models/items/temporal/healthvial.mdl",
+	"models/items/arbeit/healthvial.mdl",
+};
+
+const char *CHealthVial::pTouchSounds[CAI_BaseNPC::EZ_VARIANT_COUNT] = {
+	"HealthVial.Touch",
+	"HealthVial_Xen.Touch",
+	"HealthVial_Rad.Touch",
+	"HealthVial_Temporal.Touch",
+	"HealthVial_Arbeit.Touch",
+};
+#endif
 
 //-----------------------------------------------------------------------------
 // Wall mounted health kit. Heals the player when used.
