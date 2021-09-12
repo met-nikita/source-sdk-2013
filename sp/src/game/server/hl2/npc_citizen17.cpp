@@ -378,6 +378,7 @@ static const char *g_ppszModelLocs[] =
 	"Group03b",
 	"Group03x", // May wish to change this to "Group04%s" IF a brute and medic version of the long fall rebel are created - then we can have Group04, Group04b, Group04m
 	"Group04%s",
+	"Group05",
 };
 
 #define IsExcludedHead( type, bMedic, iHead) false // see XBox codeline for an implementation

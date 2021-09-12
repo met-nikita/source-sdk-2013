@@ -58,6 +58,7 @@ enum CitizenType_t
 	CT_BRUTE,
 	CT_LONGFALL,
 	CT_ARCTIC,
+	CT_ARBEIT, // Pre-war Arbeit employees
 };
 
 //-----------------------------------------------------------------------------
