@@ -94,6 +94,9 @@ ConVar sk_hunter_dmg_one_slash( "sk_hunter_dmg_one_slash", "20" );
 ConVar sk_hunter_dmg_charge( "sk_hunter_dmg_charge", "20" );
 #ifdef EZ2
 ConVar sk_hunter_dmg_one_slash_forcescale( "sk_hunter_dmg_one_slash_forcescale", "0.5" );
+
+// Suppress sounds when the player can't see it
+ConVar hunter_suppress_sounds_while_unseen( "hunter_suppress_sounds_while_unseen", "1" );
 #endif
 
 // Flechette volley attack
@@ -1313,6 +1316,10 @@ public:
 	void			PainSound( const CTakeDamageInfo &info );
 	void			DeathSound( const CTakeDamageInfo &info );
 
+#ifdef EZ2
+	bool			SuppressUnseenHunterSounds();
+#endif
+
 	//---------------------------------
 	// Damage handling
 	//---------------------------------
@@ -1988,6 +1995,11 @@ void CNPC_Hunter::IdleSound()
 //-----------------------------------------------------------------------------
 bool CNPC_Hunter::ShouldPlayIdleSound()
 {
+#ifdef EZ2
+	if ( SuppressUnseenHunterSounds() )
+		return false;
+#endif
+
 	if ( random->RandomInt(0, 99) == 0 && !HasSpawnFlags( SF_NPC_GAG ) )
 		return true;
 	
@@ -5606,6 +5618,11 @@ bool CNPC_Hunter::IsInLargeOutdoorMap()
 //-----------------------------------------------------------------------------
 void CNPC_Hunter::AlertSound()
 {
+#ifdef EZ2
+	if ( SuppressUnseenHunterSounds() )
+		return;
+#endif
+
 	EmitSound( "NPC_Hunter.Alert" );
 }
 
@@ -5628,6 +5645,27 @@ void CNPC_Hunter::DeathSound( const CTakeDamageInfo &info )
 {
 	EmitSound( "NPC_Hunter.Death" );
 }
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// In EZ2, the companion hunter usually is set to think outside PVS so that it can catch up.
+// Hunter footsteps are very loud and recognizable
+// In most of Chapter 4, the Hunter's footsteps are a constant nuisance
+// Before playing a footstep sound, make sure the player is within reasonable distance
+//-----------------------------------------------------------------------------
+bool CNPC_Hunter::SuppressUnseenHunterSounds()
+{
+	if ( !hunter_suppress_sounds_while_unseen.GetBool() )
+		return false;
+
+	CBaseEntity * pPlayer = UTIL_GetLocalPlayer();
+
+	trace_t	playerTr;
+	UTIL_TraceLine( WorldSpaceCenter(), pPlayer->EyePosition(), MASK_BLOCKLOS, pPlayer, COLLISION_GROUP_NONE, &playerTr );
+
+	return !HasCondition( COND_IN_PVS ) || (playerTr.fraction != 1.0f && abs( WorldSpaceCenter().DistTo( pPlayer->EyePosition() ) ) > 512.0f);
+}
+#endif
 
 
 //-----------------------------------------------------------------------------
@@ -6634,7 +6672,14 @@ Vector CNPC_Hunter::LeftFootHit( float eventtime )
 	Vector footPosition;
 
 	GetAttachment( "left foot", footPosition );
+
+#ifdef EZ2
+	if ( SuppressUnseenHunterSounds() )
+		return footPosition;
+#endif
+
 	CPASAttenuationFilter filter( this );
+
 	EmitSound( filter, entindex(), "NPC_Hunter.Footstep", &footPosition, eventtime );
 
 	FootFX( footPosition );
@@ -6650,6 +6695,12 @@ Vector CNPC_Hunter::RightFootHit( float eventtime )
 	Vector footPosition;
 
 	GetAttachment( "right foot", footPosition );
+
+#ifdef EZ2
+	if ( SuppressUnseenHunterSounds() )
+		return footPosition;
+#endif
+
 	CPASAttenuationFilter filter( this );
 	EmitSound( filter, entindex(), "NPC_Hunter.Footstep", &footPosition, eventtime );
 	FootFX( footPosition );
@@ -6665,6 +6716,12 @@ Vector CNPC_Hunter::BackFootHit( float eventtime )
 	Vector footPosition;
 
 	GetAttachment( "back foot", footPosition );
+
+#ifdef EZ2
+	if ( SuppressUnseenHunterSounds() )
+		return footPosition;
+#endif
+
 	CPASAttenuationFilter filter( this );
 	EmitSound( filter, entindex(), "NPC_Hunter.BackFootstep", &footPosition, eventtime );
 	FootFX( footPosition );
