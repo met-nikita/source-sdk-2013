@@ -2577,6 +2577,22 @@ void CNPC_Arbeit_FloorTurret::Precache( void )
 				PrecacheMaterial( "cable/goocable.vmt" );
 				break;
 
+			// EZ_VARIANT_ARBEIT alternates between the two camo turret models.
+			// The 'model' keyvalue can be used if only one of the two is desired.
+			case EZ_VARIANT_ARBEIT:
+			{
+				if (RandomInt( 0, 1 ) == 1)
+				{
+					SetModelName( AllocPooledString( "models/props/camoturret_01.mdl" ) );
+					PrecacheModel( "models/props/camoturret_02.mdl" );
+				}
+				else
+				{
+					SetModelName( AllocPooledString( "models/props/camoturret_02.mdl" ) );
+					PrecacheModel( "models/props/camoturret_01.mdl" );
+				}
+			} break;
+
 			default:
 			{
 				if (IsCitizenTurret())
