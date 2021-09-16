@@ -442,6 +442,8 @@ void CWeapon_SLAM::TripmineAttach( void )
 			pMine->SetOwnerEntity( GetOwnerEntity() );
 			DispatchSpawn( pMine );
 			pMine->Activate();
+
+			pMine->SetSolidFlags( FSOLID_COLLIDE_WITH_OWNER );
 #endif
 #endif
 

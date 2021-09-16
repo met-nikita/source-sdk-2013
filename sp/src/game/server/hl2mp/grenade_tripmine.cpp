@@ -334,8 +334,8 @@ void CTripmineGrenade::BeamBreakThink( void  )
 	CBaseCombatCharacter *pBCC  = ToBaseCombatCharacter( pEntity );
 
 #ifdef EZ2
-	// Tripmines do not detonate when tripped by entities that treat their class as friendly
-	if ( pBCC && pBCC->GetDefaultRelationshipDisposition( m_nTripmineClass ) == D_LI )
+	// Tripmines do not detonate when tripped by entities that treat their class as friendly or by the owner
+	if ( ( pBCC && pBCC->GetDefaultRelationshipDisposition( m_nTripmineClass ) == D_LI ) || ( GetOwnerEntity() && GetOwnerEntity() == pBCC ) )
 	{
 		SetNextThink( gpGlobals->curtime + 0.05f );
 		return;
