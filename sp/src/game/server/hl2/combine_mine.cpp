@@ -960,6 +960,10 @@ float CBounceBomb::FindNearestNPC()
 			// Disregard turrets (must apply to Arbeit turrets too)
 			if( pNPC->ClassMatches( "*turret*" ) )
 				continue;
+
+			// Disregard Wilson (or any other Arbeit tech)
+			if ( pNPC->Classify() == CLASS_ARBEIT_TECH )
+				continue;
 #else
 			// Disregard turrets
 			if( pNPC->m_iClassname == gm_iszFloorTurretClassname || pNPC->m_iClassname == gm_iszGroundTurretClassname )
