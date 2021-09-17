@@ -1039,14 +1039,14 @@ void CEZ2_Player::ModifyOrAppendSquadCriteria(AI_CriteriaSet& set)
 			}
 		}
 
-		set.AppendCriteria("squadmembers", UTIL_VarArgs("%i", iNumSquadCommandables));
+		set.AppendCriteria("squadmates", UTIL_VarArgs("%i", iNumSquadCommandables));
 
 		if (bSquadInPVS)
 			set.AppendCriteria("squad_in_pvs", "1");
 	}
 	else
 	{
-		set.AppendCriteria("squadmembers", "0");
+		set.AppendCriteria("squadmates", "0");
 	}
 }
 
