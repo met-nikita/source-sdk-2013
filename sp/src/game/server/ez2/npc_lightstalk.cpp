@@ -80,12 +80,12 @@ void CNPC_LightStalk::StartTask( const Task_t *pTask )
 	{
 		m_bIsRetracted = false;
 		StartEye();
-		if ( GetEnemy() )
-		{
-			variant_t Val;
-			Val.Set( FIELD_EHANDLE, GetEnemy() );
-			m_OnRise.CBaseEntityOutput::FireOutput( Val, GetEnemy(), this );
-		}
+
+		CBaseEntity *pActivator = GetRetractActivator();
+		variant_t Val;
+		Val.Set( FIELD_EHANDLE, pActivator );
+		m_OnRise.CBaseEntityOutput::FireOutput( Val, pActivator, this );
+
 		SetHullType( HULL_HUMAN );
 		break;
 	}
@@ -93,12 +93,12 @@ void CNPC_LightStalk::StartTask( const Task_t *pTask )
 	{
 		m_bIsRetracted = true;
 		KillSprites( 1.0f );
-		if ( GetEnemy() )
-		{
-			variant_t Val;
-			Val.Set( FIELD_EHANDLE, GetEnemy() );
-			m_OnLower.CBaseEntityOutput::FireOutput( Val, GetEnemy(), this );
-		}
+
+		CBaseEntity *pActivator = GetRetractActivator();
+		variant_t Val;
+		Val.Set( FIELD_EHANDLE, pActivator );
+		m_OnLower.CBaseEntityOutput::FireOutput( Val, pActivator, this );
+
 		SetHullType( HULL_TINY );
 		break;
 	}
