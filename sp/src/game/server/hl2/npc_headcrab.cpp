@@ -2663,6 +2663,12 @@ void CHeadcrab::Precache( void )
 		case EZ_VARIANT_RAD:
 			PrecacheModel( "models/glowcrabclassic.mdl" );
 			break;
+		case EZ_VARIANT_TEMPORAL:
+			PrecacheModel( "models/timecrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_ARBEIT:
+			PrecacheModel( "models/arbeitcrabclassic.mdl" );
+			break;
 		default:
 			PrecacheModel( DefaultOrCustomModel( "models/headcrabclassic.mdl" ) );
 			break;
@@ -2695,6 +2701,12 @@ void CHeadcrab::Spawn( void )
 			break;
 		case EZ_VARIANT_RAD:
 			SetModel( "models/glowcrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_TEMPORAL:
+			SetModel( "models/timecrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_ARBEIT:
+			SetModel( "models/arbeitcrabclassic.mdl" );
 			break;
 		default:
 			SetModel( DefaultOrCustomModel( "models/headcrabclassic.mdl" ) );
@@ -2822,11 +2834,16 @@ void CFastHeadcrab::Precache( void )
 	case EZ_VARIANT_RAD:
 		PrecacheModel( "models/glowcrab.mdl" );
 		break;
+	case EZ_VARIANT_TEMPORAL:
+		PrecacheModel( "models/timecrab.mdl" );
+		break;
+	case EZ_VARIANT_ARBEIT:
+		PrecacheModel( "models/arbeitcrab.mdl" );
+		break;
 	default:
 		PrecacheModel( DefaultOrCustomModel( "models/headcrab.mdl" ) );
 		break;
 	}
-	PrecacheModel( "models/glowcrab.mdl" );
 
 	PrecacheScriptSound( "NPC_FastHeadcrab.Idle" );
 	PrecacheScriptSound( "NPC_FastHeadcrab.Alert" );
@@ -2852,7 +2869,13 @@ void CFastHeadcrab::Spawn( void )
 			SetModel( "models/xencrab.mdl" );
 			break;
 		case EZ_VARIANT_RAD:
-			SetModel("models/glowcrab.mdl");
+			SetModel( "models/glowcrab.mdl" );
+			break;
+		case EZ_VARIANT_TEMPORAL:
+			SetModel( "models/timecrab.mdl" );
+			break;
+		case EZ_VARIANT_ARBEIT:
+			SetModel( "models/arbeitcrab.mdl" );
 			break;
 		default:
 			SetModel( DefaultOrCustomModel( "models/headcrab.mdl" ) );

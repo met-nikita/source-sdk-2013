@@ -228,24 +228,32 @@ const char *CZombie::pModelNames[EZ_VARIANT_COUNT] = {
 	"models/zombie/classic.mdl",
 	"models/zombie/xenbie.mdl",
 	"models/zombie/glowbie.mdl",
+	"models/zombie/timebie.mdl",
+	"models/zombie/arbie.mdl",
 };
 
 const char *CZombie::pTorsoModelNames[EZ_VARIANT_COUNT] = {
 	"models/zombie/classic_torso.mdl",
 	"models/zombie/xenbie_torso.mdl",
 	"models/zombie/glowbie_torso.mdl",
+	"models/zombie/timebie_torso.mdl",
+	"models/zombie/arbie_torso.mdl",
 };
 
 const char *CZombie::pLegsModelNames[EZ_VARIANT_COUNT] = {
 	"models/zombie/classic_legs.mdl",
 	"models/zombie/xenbie_legs.mdl",
 	"models/zombie/glowbie_legs.mdl",
+	"models/zombie/timebie_legs.mdl",
+	"models/zombie/arbie_legs.mdl",
 };
 
 const char *CZombie::pHeadcrabModelNames[EZ_VARIANT_COUNT] = {
 	"models/headcrabclassic.mdl",
 	"models/xencrabclassic.mdl",
 	"models/glowcrabclassic.mdl",
+	"models/timecrabclassic.mdl",
+	"models/arbeitcrabclassic.mdl",
 };
 #endif
 
