@@ -16,6 +16,9 @@ BEGIN_DATADESC( CNPC_BaseFlora )
 	DEFINE_KEYFIELD( m_bInvincible, FIELD_BOOLEAN, "invincible" ),
 	DEFINE_KEYFIELD( m_bIsRetracted, FIELD_BOOLEAN, "retracted" ),
 
+	DEFINE_FIELD( m_flRetractUntil, FIELD_TIME ),
+	DEFINE_FIELD( m_hLastAttacker, FIELD_EHANDLE ),
+
 	DEFINE_OUTPUT( m_OnRise, "OnRise" ),
 	DEFINE_OUTPUT( m_OnLower, "OnLower" ),
 END_DATADESC()
@@ -90,6 +93,18 @@ Disposition_t CNPC_BaseFlora::IRelationType( CBaseEntity * pTarget )
 	}
 
 	return BaseClass::IRelationType( pTarget );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Ensures that we know who attacked us
+//-----------------------------------------------------------------------------
+int CNPC_BaseFlora::OnTakeDamage_Alive( const CTakeDamageInfo &info )
+{
+	if ( !BaseClass::OnTakeDamage_Alive( info ) )
+		return 0;
+
+	m_hLastAttacker = info.GetAttacker();
+	return 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -197,7 +212,69 @@ int CNPC_BaseFlora::SelectSchedule( void )
 //=========================================================
 bool CNPC_BaseFlora::HasStartleCondition()
 {
-	return HasCondition( COND_HEAR_DANGER ) || HasCondition( COND_LIGHT_DAMAGE ) || HasCondition( COND_HEAVY_DAMAGE );
+	if (HasCondition( COND_LIGHT_DAMAGE ) || HasCondition( COND_HEAVY_DAMAGE ))
+	{
+		// If we were damaged, stay retracted for quite some time
+		m_flRetractUntil = gpGlobals->curtime + RandomFloat( 5.0f, 7.0f );
+		return true;
+	}
+	else if (HasCondition( COND_HEAR_DANGER ))
+	{
+		// If we hear danger, stay retracted for some time
+		m_flRetractUntil = gpGlobals->curtime + RandomFloat( 4.0f, 5.0f );
+
+		if (!GetEnemy())
+		{
+			// Assign m_hLastAttacker to the source of the danger
+			CSound *pSound = GetBestSound( SOUND_DANGER );
+			if (pSound)
+				m_hLastAttacker = pSound->m_hOwner;
+		}
+
+		return true;
+	}
+	else if (HasCondition( COND_HEAR_BULLET_IMPACT ))
+	{
+		CSound *pSound = GetBestSound( SOUND_BULLET_IMPACT );
+
+		if (pSound && pSound->GetSoundOrigin().DistToSqr(GetAbsOrigin()) <= Square(192.0f))
+		{
+			// If we hear a bullet impact nearby, stay retracted for some time
+			m_flRetractUntil = gpGlobals->curtime + RandomFloat( 3.0f, 5.0f );
+
+			if (!GetEnemy())
+			{
+				// Assign m_hLastAttacker to the source of the bullet impact
+				m_hLastAttacker = pSound->m_hOwner;
+			}
+
+			return true;
+		}
+	}
+
+	if (m_flRetractUntil > gpGlobals->curtime)
+	{
+		// Consider ourselves startled if we're already supposed to be retracted
+		return true;
+	}
+
+	return false;
+}
+
+//=========================================================
+// Purpose: Returns the entity which caused us to retract.
+//=========================================================
+CBaseEntity *CNPC_BaseFlora::GetRetractActivator()
+{
+	CBaseEntity *pActivator = GetEnemy();
+	if (!pActivator)
+		pActivator = m_hLastAttacker;
+
+	// As a failsafe, assign ourselves
+	if (!pActivator)
+		pActivator = this;
+
+	return pActivator;
 }
 
 AI_BEGIN_CUSTOM_NPC( npc_baseflora, CNPC_BaseFlora )

@@ -28,6 +28,8 @@ public:
 
 	Disposition_t IRelationType( CBaseEntity *pTarget );
 
+	virtual int		OnTakeDamage_Alive( const CTakeDamageInfo &info );
+
 	// Plants can't turn
 	float MaxYawSpeed ( void ) { return 0.0f; }
 
@@ -44,6 +46,8 @@ public:
 
 	bool HasStartleCondition();
 
+	CBaseEntity *GetRetractActivator();
+
 	virtual	float		CalcIdealYaw( const Vector &vecTarget ) { return UTIL_AngleMod( GetLocalAngles().y ); } // Plants can't turn, so the ideal yaw is the current yaw
 
 	int GetSoundInterests ( void );
@@ -57,6 +61,12 @@ protected:
 
 	bool m_bInvincible;
 	bool m_bIsRetracted;
+
+	// Stay retracted until this time
+	float m_flRetractUntil;
+
+	// This is used if the one who made us retract is not in enemy memory
+	EHANDLE m_hLastAttacker;
 
 	DEFINE_CUSTOM_AI;
 

@@ -66,12 +66,12 @@ void CNPC_XenHair::StartTask( const Task_t *pTask )
 		m_bIsRetracted = false;
 		m_flHairVelocity = 16.0f;
 		m_flIdealHeight = GetAbsOrigin().z + 64.0f;
-		if ( GetEnemy() )
-		{
-			variant_t Val;
-			Val.Set( FIELD_EHANDLE, GetEnemy() );
-			m_OnRise.CBaseEntityOutput::FireOutput( Val, GetEnemy(), this );
-		}
+
+		CBaseEntity *pActivator = GetRetractActivator();
+		variant_t Val;
+		Val.Set( FIELD_EHANDLE, pActivator );
+		m_OnRise.CBaseEntityOutput::FireOutput( Val, pActivator, this );
+
 		break;
 	}
 	case TASK_HAIR_RETRACT:
@@ -79,12 +79,12 @@ void CNPC_XenHair::StartTask( const Task_t *pTask )
 		m_bIsRetracted = true;
 		m_flHairVelocity = -16.0f;
 		m_flIdealHeight = GetAbsOrigin().z - 64.0f;
-		if ( GetEnemy() )
-		{
-			variant_t Val;
-			Val.Set( FIELD_EHANDLE, GetEnemy() );
-			m_OnLower.CBaseEntityOutput::FireOutput( Val, GetEnemy(), this );
-		}
+
+		CBaseEntity *pActivator = GetRetractActivator();
+		variant_t Val;
+		Val.Set( FIELD_EHANDLE, pActivator );
+		m_OnLower.CBaseEntityOutput::FireOutput( Val, pActivator, this );
+
 		break;
 	}
 	default:
