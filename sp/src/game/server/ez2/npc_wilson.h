@@ -286,7 +286,7 @@ public:
 
 	void	ScanThink();
 	bool	FinishScan();
-	void	CleanupScan();
+	void	CleanupScan(bool dispatchInteraction);
 
 	void	InputEnable( inputdata_t &inputdata );
 	void	InputDisable( inputdata_t &inputdata );

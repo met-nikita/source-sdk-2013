@@ -1943,7 +1943,9 @@ CArbeitScanner::CArbeitScanner( void )
 
 CArbeitScanner::~CArbeitScanner( void )
 {
-	CleanupScan();
+	// It's very important to make sure the scanner doesn't try to dispatch any responses during the destructor
+	// We pass "false" to CleanupScan so that it will not dispatch an interaction to the scanned entity
+	CleanupScan(false);
 }
 
 //-----------------------------------------------------------------------------
@@ -2032,7 +2034,7 @@ void CArbeitScanner::InputEnable( inputdata_t &inputdata )
 void CArbeitScanner::InputDisable( inputdata_t &inputdata )
 {
 	// Clean up any scans
-	CleanupScan();
+	CleanupScan(true);
 	SetScanState( SCAN_IDLE );
 
 	SetThink( NULL );
@@ -2270,7 +2272,7 @@ void CArbeitScanner::ScanThink()
 
 			EmitSound( "AI_BaseNPC.SentenceStop" );
 
-			CleanupScan();
+			CleanupScan(true);
 			SetThink( &CArbeitScanner::WaitForReturnThink );
 			SetNextThink( gpGlobals->curtime );
 			return;
@@ -2344,7 +2346,7 @@ bool CArbeitScanner::FinishScan()
 		m_OnScanReject.FireOutput(m_hScanning, this);
 	}
 
-	CleanupScan();
+	CleanupScan(true);
 
 	if (m_flCooldown != -1)
 	{
@@ -2363,11 +2365,13 @@ bool CArbeitScanner::FinishScan()
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CArbeitScanner::CleanupScan()
+void CArbeitScanner::CleanupScan(bool dispatchInteraction)
 {
 	if (m_hScanning)
 	{
-		m_hScanning->DispatchInteraction(g_interactionArbeitScannerEnd, NULL, NULL);
+		if( dispatchInteraction )
+			m_hScanning->DispatchInteraction(g_interactionArbeitScannerEnd, NULL, NULL);
+		
 		m_hScanning = NULL;
 	}
 
