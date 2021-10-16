@@ -69,6 +69,12 @@ public:
 	void				ItemPostFrame( void );
 #ifdef EZ
 	void SwitchMode();
+
+#ifndef CLIENT_DLL
+	void Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
+#endif
+
+	int TryThrowOrAttachSLAM();
 #endif
 
 	bool				Reload( void );

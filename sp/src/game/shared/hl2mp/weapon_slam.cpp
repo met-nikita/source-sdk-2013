@@ -940,6 +940,73 @@ void CWeapon_SLAM::SwitchMode()
 	m_flNextPrimaryAttack = gpGlobals->curtime + SequenceDuration();
 	m_flNextSecondaryAttack = gpGlobals->curtime + SequenceDuration();
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *pEvent - 
+//			*pOperator - 
+//-----------------------------------------------------------------------------
+#ifndef CLIENT_DLL
+void CWeapon_SLAM::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator )
+{
+	switch (pEvent->event)
+	{
+	case EVENT_WEAPON_THROW:
+	case EVENT_WEAPON_THROW2:
+	case EVENT_WEAPON_THROW3:
+		// Ignore the returned animation, we assume that if the SLAM is being created by an AE then there is no second sequence
+		TryThrowOrAttachSLAM();
+		break;
+
+	default:
+		BaseClass::Operator_HandleAnimEvent( pEvent, pOperator );
+		break;
+	}
+}
+#endif
+
+//-----------------------------------------------------------------------------
+// Purpose: Check if throwing or attaching the SLAM is needed
+//	If so, return the proper animation index.
+// Input  :
+// Output : Animation index for completion of throw
+//-----------------------------------------------------------------------------
+int CWeapon_SLAM::TryThrowOrAttachSLAM()
+{
+	int iAnim = 0;
+
+	if (m_bThrowSatchel)
+	{
+		SatchelThrow();
+		if (m_bDetonatorArmed && !m_bNeedDetonatorDraw)
+		{
+			iAnim = ACT_SLAM_THROW_THROW2;
+		}
+		else
+		{
+			iAnim = ACT_SLAM_THROW_THROW_ND2;
+		}
+	}
+	else if (m_bAttachSatchel)
+	{
+		SatchelAttach();
+		if (m_bDetonatorArmed && !m_bNeedDetonatorDraw)
+		{
+			iAnim = ACT_SLAM_STICKWALL_ATTACH2;
+		}
+		else
+		{
+			iAnim = ACT_SLAM_STICKWALL_ND_ATTACH2;
+		}
+	}
+	else if (m_bAttachTripmine)
+	{
+		TripmineAttach();
+		iAnim = m_bNeedDetonatorDraw ? ACT_SLAM_STICKWALL_ATTACH2 : ACT_SLAM_TRIPMINE_ATTACH2;
+	}
+
+	return iAnim;
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -995,6 +1062,7 @@ void CWeapon_SLAM::WeaponIdle( void )
 			return;
 		}
 
+#ifndef EZ
 		int iAnim = 0;
 
 		if (m_bThrowSatchel)
@@ -1025,8 +1093,13 @@ void CWeapon_SLAM::WeaponIdle( void )
 		{
 			TripmineAttach();
 			iAnim = m_bNeedDetonatorDraw ? ACT_SLAM_STICKWALL_ATTACH2 : ACT_SLAM_TRIPMINE_ATTACH2;
-		}	
+		}
 		else if ( m_bNeedReload )
+#else
+		int iAnim = TryThrowOrAttachSLAM();
+
+		if ( iAnim == 0 && m_bNeedReload )
+#endif
 		{	
 			// If owner had ammo draw the correct SLAM type
 			if (pOwner->GetAmmoCount(m_iSecondaryAmmoType) > 0)
