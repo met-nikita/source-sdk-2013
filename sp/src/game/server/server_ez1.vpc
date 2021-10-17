@@ -77,6 +77,8 @@ $Project "Server (Entropy Zero)"
 			$Folder	"Mod"
 			{
 				$File	"pointhurt.h"
+				$File	"hl2\npc_houndeye.cpp"
+				$File	"hl2\npc_houndeye.h"
 			}
 			$File	"$SRCDIR\game\shared\episodic\achievements_ep1.cpp"
 			$File	"$SRCDIR\game\shared\episodic\achievements_ep2.cpp"
