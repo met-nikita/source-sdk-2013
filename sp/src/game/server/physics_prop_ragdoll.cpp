@@ -109,6 +109,8 @@ BEGIN_DATADESC(CRagdollProp)
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableScent", InputEnableScent ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableScent", InputDisableScent ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "Gib", InputGib ),
 #endif
 
 #ifdef MAPBASE
@@ -2094,6 +2096,12 @@ void CRagdollProp::InputEnableScent( inputdata_t & inputdata )
 void CRagdollProp::InputDisableScent( inputdata_t & inputdata )
 {
 	SetEmitScent( false );
+}
+
+void CRagdollProp::InputGib( inputdata_t & inputdata )
+{
+	CTakeDamageInfo info( this, inputdata.pActivator, 1000, DMG_CRUSH | DMG_ALWAYSGIB );
+	TakeDamage( info );
 }
 #endif
 

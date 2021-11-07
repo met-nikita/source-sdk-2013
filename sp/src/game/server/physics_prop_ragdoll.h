@@ -145,6 +145,8 @@ public:
 #ifdef EZ2
 	void			InputEnableScent( inputdata_t &inputdata );
 	void			InputDisableScent( inputdata_t &inputdata );
+
+	void			InputGib( inputdata_t &inputdata );
 #endif
 
 	DECLARE_DATADESC();
