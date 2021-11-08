@@ -3191,8 +3191,10 @@ void CNPC_Vortigaunt::SetScriptedScheduleIgnoreConditions( Interruptability_t in
 //-----------------------------------------------------------------------------
 int CNPC_Vortigaunt::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 {
+#ifndef EZ
 	if( info.GetDamageType() & (DMG_CRUSH | DMG_BURN) )
 		return 0;
+#endif
 
 	// vital vortigaunts (eg the vortigoth in ep2) take less damage from explosions
 	// so that zombines don't blow them up disappointingly. They take less damage

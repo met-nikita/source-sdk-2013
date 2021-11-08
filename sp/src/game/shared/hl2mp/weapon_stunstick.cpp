@@ -1107,7 +1107,7 @@ void C_WeaponStunStick::Simulate( void )
 				m_pStunstickLight->TurnOn();
 			}
 
-			if (GetOwner()->IsPlayer())
+			if ( GetOwner() != NULL && GetOwner()->IsPlayer() )
 			{
 				CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 				if (pPlayer != NULL)
