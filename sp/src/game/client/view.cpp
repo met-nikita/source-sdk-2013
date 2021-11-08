@@ -111,7 +111,7 @@ static ConVar v_centerspeed( "v_centerspeed","500" );
 // 54 degrees approximates a 35mm camera - we determined that this makes the viewmodels
 // and motions look the most natural.
 ConVar v_viewmodel_fov( "viewmodel_fov", "54", FCVAR_ARCHIVE );
-#elif EZ2
+#elif EZ
 // Viewmodel FOV is no longer a cheat command so that it may be configured.
 ConVar v_viewmodel_fov( "viewmodel_fov", "54", FCVAR_ARCHIVE );
 #else
