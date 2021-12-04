@@ -35,14 +35,17 @@ public:
 
 	int RangeAttack1Conditions( float flDot, float flDist );
 
+	void StartTask ( const Task_t *pTask );
 	void HandleAnimEvent( animevent_t *pEvent );
-
 	virtual int TranslateSchedule( int scheduleType );
+
+	virtual bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
 
 	// Projectile methods
 	virtual float GetProjectileDamge();
 	virtual float GetBiteDamage( void );
 	virtual float GetWhipDamage( void );
+	virtual float GetEatInCombatPercentHealth( void );
 
 	// On feeding
 	virtual void OnFed();
@@ -52,6 +55,8 @@ public:
 
 	// Pit drones in opposing force hated headcrabs - this was an oversight, but let's keep it
 	bool IsPrey( CBaseEntity* pTarget ) { return pTarget->Classify() == CLASS_HEADCRAB; }
+
+	void SummonDrones( void );
 
 	DEFINE_CUSTOM_AI;
 

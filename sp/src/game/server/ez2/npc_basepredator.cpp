@@ -687,7 +687,23 @@ bool CNPC_BasePredator::CanMateWithTarget( CNPC_BasePredator * pTarget, bool rec
 //=========================================================
 bool CNPC_BasePredator::ShouldEatInCombat()
 {
-	return m_iMaxHealth > m_iHealth && HasCondition( COND_PREDATOR_SMELL_FOOD ) && !IsSameSpecies( GetEnemy() ) && ( !IsInSquad() || OccupyStrategySlot( SQUAD_SLOT_FEED ) );
+	// Do we need health?
+	if ( m_iHealth >= ( m_iMaxHealth * GetEatInCombatPercentHealth() ) )
+		return false;
+	
+	// Do we smell food?
+	if ( !HasCondition( COND_PREDATOR_SMELL_FOOD ) )
+		return false;
+
+	// Are we fighting with a rival over food?
+	if ( IsSameSpecies( GetEnemy() ) )
+		return false;
+
+	// Can we acquire a squad slot for this?
+	if (IsInSquad() && !OccupyStrategySlot( SQUAD_SLOT_FEED ))
+		return false;
+	
+	return true;
 }
 
 //=========================================================
