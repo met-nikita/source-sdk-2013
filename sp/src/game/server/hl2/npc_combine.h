@@ -135,6 +135,8 @@ public:
 	void InputDeployManhack( inputdata_t &inputdata );
 	void InputAddManhacks( inputdata_t &inputdata );
 	void InputSetManhacks( inputdata_t &inputdata );
+	void InputEnablePlayerUse( inputdata_t &inputdata );
+	void InputDisablePlayerUse( inputdata_t &inputdata );
 	COutputEHANDLE	m_OutManhack;
 
 	//-----------------------------------------------------
@@ -178,6 +180,9 @@ public:
 
 	// Blixibon - Elites in ball attacks should aim while moving, even if they can't shoot
 	bool			HasAttackSlot() { return BaseClass::HasAttackSlot() || HasStrategySlot( SQUAD_SLOT_SPECIAL_ATTACK ); }
+
+	// 1upD - Accessor for "Disable Player Use" key value
+	bool			IsPlayerUseDisabled() { return m_bDisablePlayerUse; };
 #endif
 
 	bool			UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
@@ -332,6 +337,9 @@ protected:
 #ifdef EZ
 	int				m_iManhacks;
 	AIHANDLE		m_hManhack = NULL;
+
+	// 1upD - If true, player +USE has no effect
+	bool m_bDisablePlayerUse;
 #endif
 
 #ifdef EZ2

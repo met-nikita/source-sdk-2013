@@ -304,6 +304,10 @@ DEFINE_OUTPUT( m_OutManhack, "OutManhack" ),
 
 DEFINE_USEFUNC( Use ),
 DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
+
+DEFINE_KEYFIELD( m_bDisablePlayerUse, FIELD_BOOLEAN, "DisablePlayerUse" ),
+DEFINE_INPUTFUNC( FIELD_VOID, "EnablePlayerUse", InputEnablePlayerUse ),
+DEFINE_INPUTFUNC( FIELD_VOID, "DisablePlayerUse", InputDisablePlayerUse ),
 #endif
 
 DEFINE_FIELD( m_iLastAnimEventHandled, FIELD_INTEGER ),
@@ -350,6 +354,13 @@ void CNPC_Combine::ClearFollowTarget()
 void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
 	m_OnPlayerUse.FireOutput(pActivator, pCaller);
+
+#ifdef EZ
+	if ( m_bDisablePlayerUse )
+	{
+		return;
+	}
+#endif
 
 	if (pActivator == UTIL_GetLocalPlayer() && IsCommandable())
 	{
@@ -1145,6 +1156,21 @@ void CNPC_Combine::InputSetManhacks( inputdata_t &inputdata )
 
 	SetBodygroup( COMBINE_BODYGROUP_MANHACK, (m_iManhacks > 0) );
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: Disables player use
+// Input  : &inputdata - 
+//-----------------------------------------------------------------------------
+void CNPC_Combine::InputDisablePlayerUse( inputdata_t &inputdata )
+{
+	m_bDisablePlayerUse = true;
+}
+
+void CNPC_Combine::InputEnablePlayerUse( inputdata_t &inputdata )
+{
+	m_bDisablePlayerUse = false;
+}
+
 #endif
 
 //-----------------------------------------------------------------------------
