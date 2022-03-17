@@ -300,6 +300,84 @@ class CAchievementEZ2FindAllRecordingBoxes : public CBaseAchievement
 DECLARE_ACHIEVEMENT(CAchievementEZ2FindAllRecordingBoxes, ACHIEVEMENT_EZ2_RECORDING, "ACH_EZ2_RECORDING", 5);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Kill Achievements
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class CAchievementEZ2KillChapter3Gonome : public CFailableAchievement
+{
+protected:
+
+	virtual void Init()
+	{
+		SetVictimFilter( "npc_zassassin" );
+		// Use flag ACH_LISTEN_KILL_EVENTS instead of ACH_LISTEN_PLAYER_KILL_ENEMY_EVENTS in case
+		//   the way the gonome dies doesn't treat the player as the attacker
+		SetFlags( ACH_LISTEN_MAP_EVENTS | ACH_LISTEN_KILL_EVENTS | ACH_SAVE_WITH_GAME );
+		SetGameDirFilter( "EntropyZero2" );
+		SetGoal( 1 );
+	}
+
+	// If we somehow manage to reach Chapter 3 without killing the gonome, fail this achievement
+	virtual void OnEvaluationEvent()
+	{
+		SetFailed();
+	}
+
+	// map event where achievement is activated
+	virtual const char *GetActivationEventName() { return "EZ2_COMPLETE_C2"; }
+	// map event where achievement is evaluated for success
+	virtual const char *GetEvaluationEventName() { return "EZ2_COMPLETE_C3"; }
+};
+DECLARE_ACHIEVEMENT( CAchievementEZ2KillChapter3Gonome, ACHIEVEMENT_EZ2_KILL_BEAST, "ACH_EZ2_KILL_BEAST", 5 );
+
+class CAchievementEZ2KillTwoGonomes : public CFailableAchievement
+{
+protected:
+
+	virtual void Init()
+	{
+		SetVictimFilter( "npc_zassassin" );
+		SetFlags( ACH_LISTEN_MAP_EVENTS | ACH_LISTEN_PLAYER_KILL_ENEMY_EVENTS | ACH_SAVE_WITH_GAME );
+		SetGameDirFilter( "EntropyZero2" );
+		SetGoal( 2 );
+	}
+
+	// If we complete Chapter 4a without killing two gonomes, fail this achievement.
+	// 
+	virtual void OnEvaluationEvent()
+	{
+		SetFailed();
+	}
+
+	// map event where achievement is activated
+	virtual const char *GetActivationEventName() { return "EZ2_START_XENT"; }
+	// map event where achievement is evaluated for success
+	virtual const char *GetEvaluationEventName() { return "ACH_EZ2_CH4a"; }
+};
+DECLARE_ACHIEVEMENT( CAchievementEZ2KillTwoGonomes, ACHIEVEMENT_EZ2_KILL_TWOGONOMES, "ACH_EZ2_KILL_TWOGONOMES", 5 );
+
+class CAchievementEZ2AdvisorDead : public CFailableAchievement
+{
+protected:
+
+	virtual void Init()
+	{
+		SetVictimFilter( "npc_advisor" );
+		SetFlags( ACH_LISTEN_MAP_EVENTS | ACH_LISTEN_KILL_EVENTS | ACH_SAVE_WITH_GAME );
+		SetGameDirFilter( "EntropyZero2" );
+		SetGoal( 1 );
+	}
+
+	// map event where achievement is activated\
+	// In this case we don't track the achievement until the conclusion of Chapter 5 to exclude any custom maps
+	virtual const char *GetActivationEventName() { return "EZ2_COMPLETE_C5"; }
+	// map event where achievement is evaluated for success
+	// This event has nothing to do with this achievement, but we need an evaluation event that will fire after this one is concluded
+	virtual const char *GetEvaluationEventName() { return "EZ2_STILL_ALIVE"; }
+};
+DECLARE_ACHIEVEMENT( CAchievementEZ2AdvisorDead, ACHIEVEMENT_EZ2_ADVISOR_DEAD, "ACH_EZ2_ADVISOR_DEAD", 5 );
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DECLARE_EZ2_MAP_EVENT_ACHIEVEMENT( achievementID, achievementName, iPointValue )					\
 	DECLARE_MAP_EVENT_ACHIEVEMENT_( achievementID, achievementName, "EntropyZero2", iPointValue, false )
