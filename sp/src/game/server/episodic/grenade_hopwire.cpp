@@ -72,6 +72,10 @@ ConVar hopwire_zombie_mass( "hopwire_zombie_mass", "250" ); // TODO Zombies shou
 ConVar hopwire_babysquid_mass( "hopwire_babysquid_mass", "200" );
 ConVar hopwire_headcrab_mass("hopwire_headcrab_mass", "100");
 ConVar hopwire_boid_mass( "hopwire_boid_mass", "50" );
+ConVar hopwire_schlorp_small_mass( "hopwire_schlorp_small_mass", "30" );
+ConVar hopwire_schlorp_medium_mass( "hopwire_schlorp_medium_mass", "100" );
+ConVar hopwire_schlorp_large_mass( "hopwire_schlorp_large_mass", "350" );
+ConVar hopwire_schlorp_huge_mass( "hopwire_schlorp_huge_mass", "600" );
 
 // Move this elsewhere if this concept is expanded
 ConVar ez2_spoilers_enabled( "ez2_spoilers_enabled", "0", FCVAR_NONE, "Enables the you-know-whats and you-know-whos that shouldn't shown in streams, but might make accidental cameos. This is on by default as a precaution." );
@@ -112,6 +116,7 @@ template<class ... Args> void XenGrenadeDebugMsg( const char *szMsg, Args ... ar
 }
 
 static const char *g_SpawnThinkContext = "SpawnThink";
+static const char *g_SchlorpThinkContext = "SchlorpThink";
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -600,6 +605,7 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	}
 
 	m_flMass += flMass;
+	m_flSchlorpMass += flMass;
 
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 	if (pPlayer)
@@ -1566,6 +1572,35 @@ bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool 
 
 	return true;
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: Schlorp
+//-----------------------------------------------------------------------------
+void CGravityVortexController::SchlorpThink( void )
+{
+	if (m_flSchlorpMass > 0.0f)
+	{
+		// 
+		// Play a sound based on the amount of mass consumed in the past 0.2 seconds
+		// 
+		const char *pszSoundName;
+		if (m_flSchlorpMass >= hopwire_schlorp_huge_mass.GetFloat())
+			pszSoundName = "WeaponXenGrenade.Schlorp_Huge";
+		else if (m_flSchlorpMass >= hopwire_schlorp_large_mass.GetFloat())
+			pszSoundName = "WeaponXenGrenade.Schlorp_Large";
+		else if (m_flSchlorpMass >= hopwire_schlorp_medium_mass.GetFloat())
+			pszSoundName = "WeaponXenGrenade.Schlorp_Medium";
+		else if (m_flSchlorpMass >= hopwire_schlorp_small_mass.GetFloat())
+			pszSoundName = "WeaponXenGrenade.Schlorp_Small";
+		else
+			pszSoundName = "WeaponXenGrenade.Schlorp_Tiny"; // Tiny (default)
+
+		EmitSound( pszSoundName );
+	}
+
+	m_flSchlorpMass = 0.0f;
+	SetNextThink( gpGlobals->curtime + 0.2f, g_SchlorpThinkContext );
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1805,6 +1840,8 @@ void CGravityVortexController::PullThink( void )
 			// Act as if it's the Xen life we were supposed to spawn
 			m_hReleaseEntity = NULL;
 		}
+
+		SetContextThink( NULL, TICK_NEVER_THINK, g_SchlorpThinkContext );
 		
 		if (!HasSpawnFlags( SF_VORTEX_CONTROLLER_DONT_SPAWN_LIFE ))
 		{
@@ -1859,6 +1896,10 @@ void CGravityVortexController::StartPull( const Vector &origin, float radius, fl
 
 	SetThink( &CGravityVortexController::PullThink );
 	SetNextThink( gpGlobals->curtime + 0.1f );
+
+#ifdef EZ2
+	SetContextThink( &CGravityVortexController::SchlorpThink, gpGlobals->curtime + 0.2f, g_SchlorpThinkContext );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1929,6 +1970,10 @@ BEGIN_DATADESC( CGravityVortexController )
 #endif
 
 	DEFINE_THINKFUNC( PullThink ),
+#ifdef EZ2
+	DEFINE_THINKFUNC( SpawnThink ),
+	DEFINE_THINKFUNC( SchlorpThink ),
+#endif
 END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( vortex_controller, CGravityVortexController );
@@ -2027,6 +2072,12 @@ void CGrenadeHopwire::Precache( void )
 	PrecacheScriptSound( "WeaponXenGrenade.SpawnXenPC" );
 	PrecacheScriptSound( "WeaponXenGrenade.Blip" );
 	PrecacheScriptSound( "WeaponXenGrenade.Hop" );
+
+	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Huge" );
+	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Large" );
+	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Medium" );
+	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Small" );
+	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Tiny" );
 
 	PrecacheParticleSystem( "xenpc_spawn" );
 
