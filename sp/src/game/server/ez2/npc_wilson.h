@@ -240,6 +240,9 @@ protected:
 
 	// See CNPC_Wilson::CanBeAnEnemyOf().
 	bool	m_bCanBeEnemy;
+ 
+	// Sets the player's target locator to this Wilson automatically.
+	bool	m_bAutoSetLocator;
 
 	// Enables a projected texture spotlight on the client.
 	CNetworkVar( bool, m_bEyeLightEnabled );
