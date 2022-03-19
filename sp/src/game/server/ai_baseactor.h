@@ -138,6 +138,11 @@ public:
 	virtual void			AddLookTarget( CBaseEntity *pTarget, float flImportance, float flDuration, float flRamp = 0.0 );
 	virtual void			AddLookTarget( const Vector &vecPosition, float flImportance, float flDuration, float flRamp = 0.0 );
 
+#ifdef EZ2
+	virtual void			OnSeeEntity( CBaseEntity *pEntity );
+	virtual bool			Remark( AI_CriteriaSet &modifiers, CBaseEntity *pRemarkable ) { return false; }
+#endif
+
 	virtual void			SetHeadDirection( const Vector &vTargetPos, float flInterval );
 
 	void					UpdateBodyControl( void );

@@ -89,6 +89,8 @@ public:
 	int 			TranslateSchedule( int scheduleType );
 
 	void			OnSeeEntity( CBaseEntity *pEntity );
+	bool			Remark( AI_CriteriaSet &modifiers, CBaseEntity *pRemarkable ) { return SpeakIfAllowed( TLK_REMARK, modifiers ); }
+	
 	void 			OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity *pAttacker );
 
 	void			AimGun();
