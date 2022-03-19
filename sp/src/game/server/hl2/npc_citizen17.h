@@ -504,6 +504,8 @@ private:
 
 		virtual void BuildScheduleTestBits();
 
+		virtual void RunTask( const Task_t *pTask );
+
 		virtual int ModifyResistanceValue( int iVal );
 
 		inline CNPC_Citizen *GetOuterCit() { return static_cast<CNPC_Citizen*>(GetOuter()); }

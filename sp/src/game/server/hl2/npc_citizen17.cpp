@@ -496,7 +496,7 @@ BEGIN_DATADESC( CNPC_Citizen )
 	DEFINE_INPUTFUNC( FIELD_VOID, "Surrender", InputSurrender ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetSurrenderFlags", InputSetSurrenderFlags ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "AddSurrenderFlags", InputAddSurrenderFlags ),
-	DEFINE_INPUTFUNC( FIELD_INTEGER, "RemoveSurrenderFlags", InputAddSurrenderFlags ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "RemoveSurrenderFlags", InputRemoveSurrenderFlags ),
 #endif
 
 	DEFINE_USEFUNC( CommanderUse ),
@@ -6193,6 +6193,10 @@ int CNPC_Citizen::CCitizenSurrenderBehavior::SelectSchedule()
 			if (schedule != SCHED_NONE)
 				return schedule;
 		}
+
+		schedule = GetOuterCit()->SelectSchedulePlayerPush();
+		if (schedule != SCHED_NONE)
+			return schedule;
 	}
 
 	return BaseClass::SelectSchedule();
@@ -6208,6 +6212,62 @@ void CNPC_Citizen::CCitizenSurrenderBehavior::BuildScheduleTestBits()
 	if (IsSurrenderIdleStanding())
 	{
 		GetOuter()->SetCustomInterruptCondition( COND_CIT_PLAYERHEALREQUEST );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *pTask - 
+//-----------------------------------------------------------------------------
+void CNPC_Citizen::CCitizenSurrenderBehavior::RunTask( const Task_t *pTask )
+{
+	switch( pTask->iTask )
+	{
+	case TASK_SURRENDER_IDLE_LOOP:
+		if (NextSurrenderIdleCheck() < gpGlobals->curtime)
+		{
+			if (IsSurrenderIdleStanding())
+			{
+				// Check if there's anyone in our squad nearby who should be healed
+				// (bit of a hack, but there's no other way to interrupt the schedule)
+				if ( GetOuter()->IsInSquad() )
+				{
+					CBaseEntity *pEntity = NULL;
+					float distClosestSq = Square( 128.0f );
+					float distCurSq;
+			
+					AISquadIter_t iter;
+					CAI_BaseNPC *pSquadmate = GetOuter()->GetSquad()->GetFirstMember( &iter );
+					while ( pSquadmate )
+					{
+						if ( pSquadmate != GetOuter() )
+						{
+							distCurSq = ( GetAbsOrigin() - pSquadmate->GetAbsOrigin() ).LengthSqr();
+							if ( distCurSq < distClosestSq && GetOuterCit()->ShouldHealTarget( pSquadmate ) )
+							{
+								distClosestSq = distCurSq;
+								pEntity = pSquadmate;
+							}
+						}
+
+						pSquadmate = GetOuter()->GetSquad()->GetNextMember( &iter );
+					}
+			
+					if ( pEntity )
+					{
+						// Assume the heal schedule will be selected
+						TaskComplete();
+					}
+				}
+			}
+
+			BaseClass::RunTask( pTask );
+		}
+		break;
+
+	default:
+		BaseClass::RunTask( pTask );
+		break;
 	}
 }
 
