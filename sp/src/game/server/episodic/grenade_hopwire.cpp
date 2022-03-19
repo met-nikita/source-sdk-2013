@@ -481,6 +481,8 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 #ifdef EZ2
 	float flMass = 0.0f;
 
+	pEnt->FireNamedOutput( "OnConsumed", variant_t(), this, pEnt );
+
 	// Ragdolls need to report the sum of all their parts
 	CRagdollProp *pRagdoll = dynamic_cast< CRagdollProp* >( pEnt );
 	if ( pRagdoll != NULL )
