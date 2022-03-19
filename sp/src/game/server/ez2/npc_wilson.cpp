@@ -1384,14 +1384,30 @@ bool CNPC_Wilson::HandleInteraction(int interactionType, void *data, CBaseCombat
 	// Change eye while being scanned
 	if ( interactionType == g_interactionArbeitScannerStart )
 	{
+		AI_CriteriaSet modifiers;
+		if (data)
+		{
+			CArbeitScanner *pScanner = assert_cast<CArbeitScanner*>(data);
+			if (pScanner)
+				pScanner->AppendContextToCriteria( modifiers );
+		}
+
 		SetEyeState(TURRET_EYE_SEEKING_TARGET);
-		SpeakIfAllowed( TLK_SCAN_START );
+		SpeakIfAllowed( TLK_SCAN_START, modifiers );
 		return true;
 	}
 	if ( interactionType == g_interactionArbeitScannerEnd )
 	{
+		AI_CriteriaSet modifiers;
+		if (data)
+		{
+			CArbeitScanner *pScanner = assert_cast<CArbeitScanner*>(data);
+			if (pScanner)
+				pScanner->AppendContextToCriteria( modifiers );
+		}
+
 		SetEyeState(TURRET_EYE_DORMANT);
-		SpeakIfAllowed( TLK_SCAN_END );
+		SpeakIfAllowed( TLK_SCAN_END, modifiers );
 		return true;
 	}
 
@@ -2303,7 +2319,7 @@ void CArbeitScanner::ScanThink()
 			m_pSprite->SetAttachment( this, m_iScanAttachment );
 		}
 
-		m_hScanning->DispatchInteraction(g_interactionArbeitScannerStart, NULL, NULL);
+		m_hScanning->DispatchInteraction(g_interactionArbeitScannerStart, this, NULL);
 
 		// Check if we should scan indefinitely
 		if (m_flScanTime == -1.0f)
@@ -2370,7 +2386,7 @@ void CArbeitScanner::CleanupScan(bool dispatchInteraction)
 	if (m_hScanning)
 	{
 		if( dispatchInteraction )
-			m_hScanning->DispatchInteraction(g_interactionArbeitScannerEnd, NULL, NULL);
+			m_hScanning->DispatchInteraction(g_interactionArbeitScannerEnd, this, NULL);
 		
 		m_hScanning = NULL;
 	}
