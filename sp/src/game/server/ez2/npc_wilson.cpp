@@ -986,6 +986,21 @@ void CNPC_Wilson::OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+bool CNPC_Wilson::IsValidEnemy( CBaseEntity *pEnemy )
+{
+	if (!BaseClass::IsValidEnemy( pEnemy ))
+		return false;
+
+	// HACKHACK: Just completely ignore bullseyes for now
+	if (pEnemy->Classify() == CLASS_BULLSEYE)
+		return false;
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 bool CNPC_Wilson::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 { 
 	// Don't be anyone's enemy unless it's needed for something
