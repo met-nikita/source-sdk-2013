@@ -2576,6 +2576,8 @@ void CAI_PlayerNPCDummy::DrawDebugGeometryOverlays( void )
 	}
 }
 
+extern ConVar ai_debug_remarkables;
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -2586,11 +2588,31 @@ void CAI_PlayerNPCDummy::OnSeeEntity( CBaseEntity * pEntity )
 		CInfoRemarkable * pRemarkable = dynamic_cast<CInfoRemarkable *>(pEntity);
 		if ( pRemarkable != NULL )
 		{
-			DevMsg( "Player dummy noticed remarkable %s!\n", GetDebugName() );
 			AI_CriteriaSet modifiers = pRemarkable->GetModifiers( GetOuter() );
 			if ( GetOuter()->SpeakIfAllowed( TLK_REMARK, modifiers ) )
 			{
 				pRemarkable->OnRemarked();
+
+				if (ai_debug_remarkables.GetBool())
+				{
+					Msg( "%s noticed remarkable %s and remarked on it!\n", GetDebugName(), pRemarkable->GetDebugName() );
+					if (m_debugOverlays & OVERLAY_NPC_SELECTED_BIT)
+					{
+						pRemarkable->DrawDebugGeometryOverlays();
+					}
+				}
+			}
+			else
+			{
+				if (ai_debug_remarkables.GetBool())
+				{
+					Msg( "%s noticed remarkable %s, but could not remark on it\n", GetDebugName(), pRemarkable->GetDebugName() );
+
+					if (m_debugOverlays & OVERLAY_NPC_SELECTED_BIT)
+					{
+						pRemarkable->DrawDebugGeometryOverlays();
+					}
+				}
 			}
 		}
 	}
