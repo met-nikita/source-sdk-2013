@@ -536,7 +536,11 @@ CAI_Hint *CAI_ActBusyBehavior::FindActBusyHintNode()
 		iBits |= bits_HINT_NODE_REPORT_FAILURES;
 	}
 
+#ifdef EZ2
+	if ( m_bUseNearestBusy || IsBeastActBusy() )
+#else
 	if ( m_bUseNearestBusy )
+#endif
 	{
 		iBits |= bits_HINT_NODE_NEAREST;
 	}
