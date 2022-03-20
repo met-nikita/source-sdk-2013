@@ -274,6 +274,24 @@ class CAchievementEZ2Superfuture : public CBaseAchievement
 };
 DECLARE_ACHIEVEMENT( CAchievementEZ2Superfuture, ACHIEVEMENT_EZ2_SUPERFUTURE, "ACH_EZ2_SUPERFUTURE", 5 );
 
+class CAchievementEZ2XenGrenadeHeli : public CBaseAchievement
+{
+	virtual void Init()
+	{
+		static const char *szComponents[] =
+		{
+			"EZ2_XENGRENADE_HELICOPTER"
+		};
+		SetFlags( ACH_HAS_COMPONENTS | ACH_LISTEN_COMPONENT_EVENTS | ACH_SAVE_GLOBAL );
+		m_pszComponentNames = szComponents;
+		m_iNumComponents = ARRAYSIZE( szComponents );
+		SetComponentPrefix( "EZ2_XENGRENADE_HELICOPTER" );
+		SetGameDirFilter( "EntropyZero2" );
+		SetGoal( 1 );
+	}
+};
+DECLARE_ACHIEVEMENT( CAchievementEZ2XenGrenadeHeli, ACHIEVEMENT_EZ2_XENGRENADE_HELICOPTER, "ACH_EZ2_XENGRENADE_HELICOPTER", 5 );
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Collectible Achievements
 ////////////////////////////////////////////////////////////////////////////////////////////////////
