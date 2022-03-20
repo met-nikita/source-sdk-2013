@@ -104,6 +104,8 @@ private:
 	bool	TryCreateBaby( const char *className ); // 1upD - Try to spawn an NPC
 	bool	TryCreateBird( const char *className ); // 1upD - Try to spawn an NPC
 	bool	TryCreateComplexNPC( const char *className, bool isBaby, bool isBird ); // 1upD - Try to spawn an NPC
+
+	void	SchlorpThink( void );
 #endif
 	void	PullThink( void );
 	void	StartPull( const Vector &origin, float radius, float strength, float duration );
@@ -117,6 +119,8 @@ private:
 	float	m_flNodeRadius;	// Radius to look for nodes
 
 	float	m_flConsumeRadius; // The maximum distance for an entity to be consumed
+
+	float	m_flSchlorpMass;	// The mass consumed in the past 0.2 seconds (used for "schlorp")
 
 							// If this points to an entity, the Xen grenade will always call g_interactionXenGrenadeRelease on it instead of spawning Xen life.
 							// This is so Will-E pops back out of Xen grenades.
