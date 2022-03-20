@@ -773,11 +773,11 @@ void CNPC_Gonome::HandleAnimEvent( animevent_t *pEvent )
 
 				EmitSound( pEvent->options );
 
-				// HACKHACK: If we have a hint node, hijack FireUser4 to tell it we're striking the wall
+				// HACKHACK: If we have a hint node, hijack OnUser4 to tell it we're striking the wall
 				// (for any potential decals or particle effects)
 				if (GetHintNode())
 				{
-					GetHintNode()->FireNamedOutput( "FireUser4", variant_t(), this, this );
+					GetHintNode()->FireNamedOutput( "OnUser4", variant_t(), this, this );
 				}
 			}
 		}
