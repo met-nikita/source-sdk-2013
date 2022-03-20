@@ -129,6 +129,8 @@ BEGIN_DATADESC(CNPC_Wilson)
 	DEFINE_INPUT( m_bOmniscient, FIELD_BOOLEAN, "SetOmniscient" ),
 
 	DEFINE_INPUT( m_bCanBeEnemy, FIELD_BOOLEAN, "SetCanBeEnemy" ),
+	
+	DEFINE_INPUT( m_bAutoSetLocator, FIELD_BOOLEAN, "AutoSetLocator" ),
 
 	DEFINE_KEYFIELD( m_bEyeLightEnabled, FIELD_BOOLEAN, "EyeLightEnabled" ),
 	//DEFINE_FIELD( m_iEyeLightBrightness, FIELD_INTEGER ), // SetEyeGlow()'s call in Activate() means we don't need to save this
@@ -315,6 +317,15 @@ void CNPC_Wilson::Spawn()
 		// Get a tesla effect on our hitboxes permanently
 		SetContextThink( &CNPC_Wilson::TeslaThink, gpGlobals->curtime, g_DamageZapContext );
 		m_flTeslaStopTime = FLT_MAX;
+	}
+	
+	if (m_bAutoSetLocator && UTIL_GetLocalPlayer())
+	{
+		CHL2_Player *pPlayer = assert_cast<CHL2_Player*>( UTIL_GetLocalPlayer() );
+		{
+			// Note that this will override any existing locator target entity
+			pPlayer->SetLocatorTargetEntity( this );
+		}
 	}
 
 	SetUse( &CNPC_Wilson::Use );
