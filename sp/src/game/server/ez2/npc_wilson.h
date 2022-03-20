@@ -156,6 +156,8 @@ public:
 
 	int		BloodColor( void ) { return DONT_BLEED; }
 
+	bool	IsValidEnemy( CBaseEntity *pEnemy );
+
 	// By default, Will-E doesn't attack anyone and nobody attacks him. (although he does see enemies for BC, see IRelationType)
 	// You can make NPCs attack him with m_bCanBeEnemy, but Will-E is literally incapable of combat.
 	bool	CanBeAnEnemyOf( CBaseEntity *pEnemy );
