@@ -202,6 +202,9 @@ BEGIN_DATADESC( CBaseAnimating )
 
 #ifdef EZ
 	DEFINE_KEYFIELD( m_bDisplacementImpossible, FIELD_BOOLEAN, "DisplacementImpossible" ),
+	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetDisplacementImpossible", InputSetDisplacementImpossible ),
+
+	DEFINE_OUTPUT( m_OnConsumed, "OnConsumed" ),
 #endif
 
  // DEFINE_FIELD( m_boneCacheHandle, memhandle_t ),
