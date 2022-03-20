@@ -15,6 +15,9 @@
 #include "saverestore_utlvector.h"
 #include "bone_setup.h"
 #include "physics_npc_solver.h"
+#ifdef EZ2
+#include "mapbase\info_remarkable.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -1542,6 +1545,52 @@ void CAI_BaseActor::StartTaskRangeAttack1( const Task_t *pTask )
 		AddLookTarget( GetEnemy(), 1.0, 0.5, 0.2 );
 	}
 }
+
+
+#ifdef EZ2
+extern ConVar ai_debug_remarkables;
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CAI_BaseActor::OnSeeEntity( CBaseEntity *pEntity )
+{
+	BaseClass::OnSeeEntity(pEntity);
+
+	if ( pEntity->IsRemarkable() )
+	{
+		CInfoRemarkable * pRemarkable = dynamic_cast<CInfoRemarkable *>(pEntity);
+		if ( pRemarkable != NULL )
+		{
+			AI_CriteriaSet modifiers = pRemarkable->GetModifiers( this );
+			if ( Remark( modifiers, pRemarkable ) )
+			{
+				pRemarkable->OnRemarked();
+
+				if (ai_debug_remarkables.GetBool())
+				{
+					Msg( "%s noticed remarkable %s and remarked on it!\n", GetDebugName(), pRemarkable->GetDebugName() );
+					if (m_debugOverlays & OVERLAY_NPC_SELECTED_BIT)
+					{
+						pRemarkable->DrawDebugGeometryOverlays();
+					}
+				}
+			}
+			else
+			{
+				if (ai_debug_remarkables.GetBool())
+				{
+					Msg( "%s noticed remarkable %s, but could not remark on it\n", GetDebugName(), pRemarkable->GetDebugName() );
+					if (m_debugOverlays & OVERLAY_NPC_SELECTED_BIT)
+					{
+						pRemarkable->DrawDebugGeometryOverlays();
+					}
+				}
+			}
+		}
+	}
+}
+#endif
 
 
 //-----------------------------------------------------------------------------
