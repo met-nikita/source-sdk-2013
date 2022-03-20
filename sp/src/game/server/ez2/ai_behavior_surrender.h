@@ -91,6 +91,9 @@ public:
 	void SpoilSafePlace();
 	void ReleaseAllHints();
 
+	void	ComputeAndSetRenderBounds();
+	void	ResetBounds();
+
 	bool CanSurrender() { return m_bCanSurrender; }
 	virtual void Surrender( CBaseCombatCharacter *pCaptor );
 	void StopSurrendering();
@@ -120,6 +123,7 @@ public:
 	CBaseCombatCharacter *GetNearestPotentialRescuer( bool bIncludingPlayer = true, bool bFirst = false, int *pNumRescuers = NULL );
 
 	void RefreshSurrenderIdle();
+	inline float NextSurrenderIdleCheck() const { return m_flSurrenderIdleNextCheck; }
 
 	void FindSurrenderDest( CAI_Hint **pOutHint, Vector &vecDest, Vector &vecDir );
 	int TranslateSchedule( int scheduleType );
@@ -143,6 +147,7 @@ public:
 	{
 		SCHED_SURRENDER_FACE_CAPTOR = BaseClass::NEXT_SCHEDULE,
 		SCHED_SURRENDER_MOVE_TO_SAFE_PLACE,
+		SCHED_SURRENDER_MOVE_AWAY,
 		SCHED_SURRENDER_STANDING_IDLE,
 		SCHED_SURRENDER_FLOOR_ENTER,
 		SCHED_SURRENDER_FLOOR_IDLE,
@@ -155,6 +160,8 @@ public:
 		TASK_SURRENDER_AT_SAFE_PLACE,
 		TASK_SURRENDER_IDLE_LOOP,
 		TASK_SURRENDER_IDLE,
+		TASK_SURRENDER_SET_CUSTOM_BOUNDS,
+		TASK_SURRENDER_RESET_BOUNDS,
 		NEXT_TASK,
 
 		COND_SURRENDER_STATE_CHANGE = BaseClass::NEXT_CONDITION,	// Should be standing
@@ -177,6 +184,7 @@ private:
 	bool			m_bCancelSurrender;
 	bool			m_bShouldBeStanding;
 	bool			m_bOnGround;
+	bool			m_bUsingCustomBounds;
 
 	int				m_iSurrenderFlags;
 

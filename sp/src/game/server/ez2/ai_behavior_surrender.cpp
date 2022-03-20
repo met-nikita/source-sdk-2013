@@ -42,6 +42,7 @@ BEGIN_DATADESC( CAI_SurrenderBehavior )
 	DEFINE_FIELD( m_bCancelSurrender, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bShouldBeStanding, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bOnGround, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bUsingCustomBounds, FIELD_BOOLEAN ),
 
 	DEFINE_FIELD( m_iSurrenderFlags, FIELD_INTEGER ),
 
@@ -136,6 +137,16 @@ void CAI_SurrenderBehavior::StartTask( const Task_t *pTask )
 		if (IsCurSchedule( SCHED_SURRENDER_FLOOR_IDLE, false ))
 			m_bOnGround = true;
 
+		break;
+
+	case TASK_SURRENDER_SET_CUSTOM_BOUNDS:
+		ComputeAndSetRenderBounds();
+		TaskComplete();
+		break;
+
+	case TASK_SURRENDER_RESET_BOUNDS:
+		ResetBounds();
+		TaskComplete();
 		break;
 
 	case TASK_SURRENDER_FACE_CAPTOR:
@@ -327,12 +338,14 @@ bool CAI_SurrenderBehavior::KeyValue( const char *szKeyName, const char *szValue
 
 			// 1 = Start surrendered (standing)
 			case 1:
+				SetCondition( COND_SURRENDER_ANYWHERE ); // Surrender where the NPC spawns
 				m_bShouldBeStanding = true;
 				Surrender( NULL );
 				break;
 
 			// 2 = Start surrendered (on ground)
 			case 2:
+				SetCondition( COND_SURRENDER_ANYWHERE ); // Surrender where the NPC spawns
 				Surrender( NULL );
 				break;
 		}
@@ -422,6 +435,36 @@ void CAI_SurrenderBehavior::ReleaseAllHints()
 }
 
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CAI_SurrenderBehavior::ComputeAndSetRenderBounds()
+{
+	if (!m_bUsingCustomBounds)
+	{
+		Vector mins, maxs;
+		if ( GetOuter()->ComputeHitboxSurroundingBox( &mins, &maxs ) )
+		{
+			UTIL_SetSize( GetOuter(), mins - GetAbsOrigin(), maxs - GetAbsOrigin());
+			if ( GetOuter()->VPhysicsGetObject() )
+			{
+				GetOuter()->SetupVPhysicsHull();
+			}
+			m_bUsingCustomBounds = true;
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CAI_SurrenderBehavior::ResetBounds()
+{
+	if ( m_bUsingCustomBounds )
+	{
+		GetOuter()->SetHullSizeNormal( true );
+		m_bUsingCustomBounds = false;
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 // Output : Returns true on success, false on failure.
 // Notes  : This behavior runs when I have an enemy that I fear, but who
@@ -503,7 +546,8 @@ void CAI_SurrenderBehavior::PrescheduleThink()
 		curActivity == ACT_ARREST_FLOOR ||
 		curActivity == ACT_ARREST_FLOOR_EXIT ||
 		curActivity == ACT_ARREST_FLOOR_CURIOUS ||
-		curActivity == ACT_CIT_HEAL)
+		curActivity == ACT_CIT_HEAL ||
+		m_hSafePlaceHint && m_hSafePlaceHint->HintActivityName() != NULL_STRING)
 	{
 		bShouldPlaySurrenderLayer = false;
 	}
@@ -700,6 +744,9 @@ int CAI_SurrenderBehavior::TranslateSchedule( int scheduleType )
 			}
 		}
 		break;
+
+	case SCHED_MOVE_AWAY:
+		return SCHED_SURRENDER_MOVE_AWAY;
 	}
 
 	return BaseClass::TranslateSchedule( scheduleType );
@@ -1117,7 +1164,11 @@ void CAI_SurrenderBehavior::RefreshSurrenderIdle()
 			// If that's not why, then RESIST!!!
 			SetCondition( COND_SURRENDER_CANCEL );
 			m_bCancelSurrender = true;
-			Msg( "Can stop surrendering\n" );
+
+			if (ai_debug_surrender_behavior.GetBool())
+			{
+				Msg( "%s (%i): Can stop surrendering\n", GetOuter()->GetDebugName(), GetOuter()->entindex() );
+			}
 		}
 	}
 }
@@ -1352,6 +1403,8 @@ AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER( CAI_SurrenderBehavior )
 	DECLARE_TASK( TASK_SURRENDER_AT_SAFE_PLACE )
 	DECLARE_TASK( TASK_SURRENDER_IDLE )
 	DECLARE_TASK( TASK_SURRENDER_IDLE_LOOP )
+	DECLARE_TASK( TASK_SURRENDER_SET_CUSTOM_BOUNDS )
+	DECLARE_TASK( TASK_SURRENDER_RESET_BOUNDS )
 
 	DECLARE_CONDITION( COND_SURRENDER_STATE_CHANGE )
 	//DECLARE_CONDITION( COND_SURRENDER_INITIAL )
@@ -1407,6 +1460,27 @@ AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER( CAI_SurrenderBehavior )
 	//===============================================
 	DEFINE_SCHEDULE
 	(
+		SCHED_SURRENDER_MOVE_AWAY,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE					SCHEDULE:SCHED_MOVE_AWAY_FAIL"
+		"		TASK_MOVE_AWAY_PATH						120"
+		"		TASK_WALK_PATH							0"
+		"		TASK_WAIT_FOR_MOVEMENT					0"
+		"		TASK_SET_ACTIVITY					ACTIVITY:ACT_IDLE"
+		"		TASK_SURRENDER_AT_SAFE_PLACE			0"
+		//"		TASK_SET_SCHEDULE						SCHEDULE:SCHED_MOVE_AWAY_END"
+		""
+		"	Interrupts"
+		"		COND_HEAR_DANGER"
+		"		COND_SURRENDER_CANCEL"
+		"		COND_SURRENDER_ENEMY_TOO_CLOSE"
+	);
+
+	//===============================================
+	//===============================================
+	DEFINE_SCHEDULE
+	(
 		SCHED_SURRENDER_STANDING_IDLE,
 
 		"	Tasks"
@@ -1417,6 +1491,7 @@ AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER( CAI_SurrenderBehavior )
 		""
 		"		COND_HEAR_DANGER"
 		"		COND_NEW_ENEMY"
+		"		COND_PLAYER_PUSHING"
 		"		COND_SURRENDER_CANCEL"
 		"		COND_SURRENDER_STATE_CHANGE"
 		"		COND_SURRENDER_ENEMY_CLOSE"
@@ -1443,6 +1518,7 @@ AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER( CAI_SurrenderBehavior )
 		"	Tasks"
 		"		TASK_SET_FAIL_SCHEDULE				SCHEDULE:SCHED_SURRENDER_FLOOR_IDLE"
 		"		TASK_SET_ACTIVITY					ACTIVITY:ACT_ARREST_FLOOR"
+		"		TASK_SURRENDER_SET_CUSTOM_BOUNDS			0"
 		"		TASK_SURRENDER_IDLE_LOOP			0"
 		"		TASK_SET_SCHEDULE					SCHEDULE:SCHED_SURRENDER_FLOOR_EXIT"
 		""
@@ -1483,6 +1559,7 @@ AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER( CAI_SurrenderBehavior )
 		SCHED_SURRENDER_FLOOR_EXIT,
 
 		"	Tasks"
+		"		TASK_SURRENDER_RESET_BOUNDS			0"
 		"		TASK_PLAY_SEQUENCE	ACTIVITY:ACT_ARREST_FLOOR_EXIT"
 		""
 		"	Interrupts"
