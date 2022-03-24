@@ -4721,6 +4721,10 @@ void CHL2_Player::TraceKickAttack()
 					pEntity->GetParent()->DispatchTraceAttack( dmgInfo, vecAim, &tr );
 					ApplyMultiDamage();
 				}
+
+				// Use pEntity for the remaining stuff below
+				// (allows brush doors to count towards achievements)
+				pEntity = pEntity->GetParent();
 			}
 			else
 			{
@@ -4730,15 +4734,32 @@ void CHL2_Player::TraceKickAttack()
 			}
 		}
 
-		// Fire achievement event
-		IGameEvent *event = gameeventmanager->CreateEvent( "entity_kicked" );
-		if (event)
+		if (kickInfo.success)
 		{
-			event->SetInt( "entindex_kicked", pEntity->entindex() );
-			event->SetInt( "entindex_attacker", this->entindex() );
-			event->SetInt( "entindex_inflictor", this->entindex() );
-			event->SetInt( "damagebits", dmgInfo.GetDamageType() );
-			gameeventmanager->FireEvent( event );
+			// Fire achievement event
+			IGameEvent *event = gameeventmanager->CreateEvent( "entity_kicked" );
+			if (event)
+			{
+				event->SetInt( "entindex_kicked", pEntity ? pEntity->entindex() : 0 );
+				event->SetInt( "entindex_attacker", this->entindex() );
+				event->SetInt( "entindex_inflictor", this->entindex() );
+				event->SetInt( "damagebits", dmgInfo.GetDamageType() );
+				gameeventmanager->FireEvent( event );
+			}
+
+			// Add a context counting how many times this entity has been kicked
+			if (pEntity)
+			{
+				int iIndex = pEntity->FindContextByName( "kicked" );
+				int iNumKicks = 1;
+				if (iIndex != -1)
+				{
+					// Increment for each kick
+					iNumKicks += atoi( pEntity->GetContextValue( iIndex ) );
+				}
+
+				pEntity->AddContext( "kicked", CNumStr( iNumKicks ) );
+			}
 		}
 
 		// Insert an AI sound so nearby enemies can hear the impact
