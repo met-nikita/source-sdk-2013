@@ -746,6 +746,36 @@ protected:
 DECLARE_ACHIEVEMENT( CAchievementEZ2SquadChapter2, ACHIEVEMENT_EZ2_SQUAD_CH2, "ACH_EZ2_SQUAD_CH2", 5 );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Misc. Event Achievements
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class CAchievementEZ2FlipAPC : public CBaseAchievement
+{
+protected:
+
+	void Init() 
+	{
+		SetFlags( ACH_LISTEN_MAP_EVENTS | ACH_SAVE_WITH_GAME );
+		SetGameDirFilter( "EntropyZero2" );
+		SetGoal( 1 );
+	}
+
+	virtual void ListenForEvents()
+	{
+		ListenForGameEvent( "vehicle_overturned" );
+	}
+
+	void FireGameEvent_Internal( IGameEvent *event )
+	{
+		if ( 0 == Q_strcmp( event->GetName(), "vehicle_overturned" ) )
+		{
+			IncrementCount();
+		}
+	}
+};
+DECLARE_ACHIEVEMENT( CAchievementEZ2FlipAPC, ACHIEVEMENT_EZ2_FLIP_APC, "ACH_EZ2_FLIP_APC", 5 );
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DECLARE_EZ2_MAP_EVENT_ACHIEVEMENT( achievementID, achievementName, iPointValue )					\
 	DECLARE_MAP_EVENT_ACHIEVEMENT_( achievementID, achievementName, "EntropyZero2", iPointValue, false )
