@@ -672,8 +672,6 @@ DECLARE_ACHIEVEMENT( CAchievementEZ2XenGrenadeWeight, ACHIEVEMENT_EZ2_XENGRENADE
 // Kick Achievements
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO - We might need a way to make the door kicking achievement "remember" previously kicked doors
-// For now allowing any door kick
 class CAchievementEZ2KickDoors : public CBaseAchievement
 {
 protected:
@@ -685,6 +683,16 @@ protected:
 		SetFlags( ACH_LISTEN_KICK_EVENTS | ACH_SAVE_GLOBAL );
 		SetGameDirFilter( "EntropyZero2" );
 		SetGoal( KICK_DOORS_COUNT );
+	}
+
+	virtual void Event_EntityKicked( CBaseEntity *pVictim, CBaseEntity *pAttacker, CBaseEntity *pInflictor, IGameEvent *event )
+	{
+		// We only want one kick per entity
+		int iIndex = pVictim->FindContextByName( "kicked" );
+		if (iIndex != -1 && atoi( pVictim->GetContextValue( iIndex ) ) > 0)
+			return;
+
+		IncrementCount();
 	}
 
 	// Show progress for this achievement

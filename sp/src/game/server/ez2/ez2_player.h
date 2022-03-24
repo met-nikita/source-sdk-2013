@@ -399,10 +399,12 @@ struct KickInfo_t
 	{
 		tr = _tr;
 		dmgInfo = _dmgInfo;
+		success = true;
 	}
 
 	trace_t *tr;
 	CTakeDamageInfo *dmgInfo;
+	bool success; // Can be set by interactions to determine if a kick was "successful" (whether it should be counted by kick trackers)
 };
 
 //-----------------------------------------------------------------------------
