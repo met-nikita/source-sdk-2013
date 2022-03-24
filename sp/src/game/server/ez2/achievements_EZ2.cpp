@@ -406,7 +406,7 @@ protected:
 	}
 
 	// map event where achievement is activated
-	virtual const char *GetActivationEventName() { return "EZ2_COMPLETE_C2"; }
+	virtual const char *GetActivationEventName() { return "EZ2_START_KILL_BEAST"; }
 	// map event where achievement is evaluated for success
 	virtual const char *GetEvaluationEventName() { return "EZ2_COMPLETE_C3"; }
 };
@@ -437,7 +437,7 @@ protected:
 	// map event where achievement is activated
 	virtual const char *GetActivationEventName() { return "EZ2_START_XENT"; }
 	// map event where achievement is evaluated for success
-	virtual const char *GetEvaluationEventName() { return "ACH_EZ2_CH4a"; }
+	virtual const char *GetEvaluationEventName() { return "EZ2_COMPLETE_C4a"; }
 };
 DECLARE_ACHIEVEMENT( CAchievementEZ2KillTwoGonomes, ACHIEVEMENT_EZ2_KILL_TWOGONOMES, "ACH_EZ2_KILL_TWOGONOMES", 5 );
 
@@ -455,7 +455,7 @@ protected:
 
 	// map event where achievement is activated\
 	// In this case we don't track the achievement until the conclusion of Chapter 5 to exclude any custom maps
-	virtual const char *GetActivationEventName() { return "EZ2_COMPLETE_C5"; }
+	virtual const char *GetActivationEventName() { return "EZ2_START_KILL_ADVISOR"; }
 	// map event where achievement is evaluated for success
 	// This event has nothing to do with this achievement, but we need an evaluation event that will fire after this one is concluded
 	virtual const char *GetEvaluationEventName() { return "EZ2_STILL_ALIVE"; }
