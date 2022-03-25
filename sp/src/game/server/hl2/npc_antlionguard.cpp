@@ -61,6 +61,9 @@ ConVar	g_antlionguard_hemorrhage( "g_antlionguard_hemorrhage", "1", FCVAR_NONE, 
 #define	MIN_BLAST_DAMAGE		25.0f
 #define MIN_CRUSH_DAMAGE		20.0f
 
+#define ANTLIONGUARD_BLUE_MODEL		"models/antlion_guard_blue.mdl"
+#define ANTLIONGUARD_XEN_MODEL		"models/antlion_guard_xen.mdl"
+
 //==================================================
 //
 // Antlion Guard
@@ -678,6 +681,24 @@ void CNPC_AntlionGuard::UpdateOnRemove( void )
 //-----------------------------------------------------------------------------
 void CNPC_AntlionGuard::Precache( void )
 {
+#ifdef EZ
+	if (GetModelName() == NULL_STRING)
+	{
+		switch (m_tEzVariant)
+		{
+			case EZ_VARIANT_RAD:
+				SetModelName( AllocPooledString( ANTLIONGUARD_BLUE_MODEL ) );
+				break;
+			case EZ_VARIANT_XEN:
+				SetModelName( AllocPooledString( ANTLIONGUARD_XEN_MODEL ) );
+				break;
+			default:
+				SetModelName( AllocPooledString( ANTLIONGUARD_MODEL ) );
+				break;
+		}
+	}
+#endif
+
 	PrecacheModel( DefaultOrCustomModel( ANTLIONGUARD_MODEL ) );
 
 	PrecacheScriptSound( "NPC_AntlionGuard.Shove" );
@@ -720,8 +741,14 @@ void CNPC_AntlionGuard::Precache( void )
 	PrecacheParticleSystem( "blood_antlionguard_injured_light" );
 	PrecacheParticleSystem( "blood_antlionguard_injured_heavy" );
 
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_RAD)
+	{
+		PrecacheParticleSystem( "blood_impact_blue_01" );
+	}
+#endif
 #ifdef EZ2
-	if (m_tEzVariant == EZ_VARIANT_XEN)
+	else if (m_tEzVariant == EZ_VARIANT_XEN)
 	{
 		PrecacheParticleSystem( "xenpc_spawn" );
 	}
@@ -767,7 +794,22 @@ void CNPC_AntlionGuard::CreateGlow( CSprite **pSprite, const char *pAttachName )
 		return;
 
 	(*pSprite)->TurnOn();
+#ifdef EZ
+	switch (m_tEzVariant)
+	{
+		case EZ_VARIANT_XEN:
+			(*pSprite)->SetTransparency( kRenderWorldGlow, 50, 150, 25, 200, kRenderFxNoDissipation );
+			break;
+		case EZ_VARIANT_RAD:
+			(*pSprite)->SetTransparency( kRenderWorldGlow, 0, 255, 255, 200, kRenderFxNoDissipation );
+			break;
+		default:
+			(*pSprite)->SetTransparency( kRenderWorldGlow, 156, 169, 121, 164, kRenderFxNoDissipation );
+			break;
+	}
+#else
 	(*pSprite)->SetTransparency( kRenderWorldGlow, 156, 169, 121, 164, kRenderFxNoDissipation );
+#endif
 	(*pSprite)->SetScale( 1.0f );
 	(*pSprite)->SetGlowProxySize( 16.0f );
 	int nAttachment = LookupAttachment( pAttachName );
@@ -812,7 +854,18 @@ void CNPC_AntlionGuard::Spawn( void )
 	SetMoveType( MOVETYPE_STEP );
 
 	SetNavType( NAV_GROUND );
+#ifdef EZ
+	if (m_tEzVariant == EZ_VARIANT_RAD)
+	{
+		SetBloodColor( BLOOD_COLOR_BLUE );
+	}
+	else
+	{
+		SetBloodColor( BLOOD_COLOR_YELLOW );
+	}
+#else
 	SetBloodColor( BLOOD_COLOR_YELLOW );
+#endif
 
 	m_iHealth = sk_antlionguard_health.GetFloat();
 	m_iMaxHealth = m_iHealth;
