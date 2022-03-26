@@ -783,6 +783,40 @@ protected:
 };
 DECLARE_ACHIEVEMENT( CAchievementEZ2FlipAPC, ACHIEVEMENT_EZ2_FLIP_APC, "ACH_EZ2_FLIP_APC", 5 );
 
+class CAchievementEZ2HealedBySurrenderedMedic : public CBaseAchievement
+{
+protected:
+
+	void Init() 
+	{
+		SetFlags( ACH_LISTEN_MAP_EVENTS | ACH_SAVE_WITH_GAME );
+		SetGameDirFilter( "EntropyZero2" );
+		SetGoal( 1 );
+	}
+
+	virtual void ListenForEvents()
+	{
+		ListenForGameEvent( "medic_heal_player" );
+	}
+
+	void FireGameEvent_Internal( IGameEvent *event )
+	{
+		if ( 0 == Q_strcmp( event->GetName(), "medic_heal_player" ) )
+		{
+			CBaseEntity *pEnt = UTIL_EntityByIndex( event->GetInt( "medic", 0 ) );
+			if (!pEnt || !pEnt->ClassMatches("npc_citizen"))
+				return;
+
+			CNPC_Citizen *pCitizen = static_cast<CNPC_Citizen*>(pEnt);
+			if (!pCitizen->IsSurrendered())
+				return;
+
+			IncrementCount();
+		}
+	}
+};
+DECLARE_ACHIEVEMENT( CAchievementEZ2HealedBySurrenderedMedic, ACHIEVEMENT_EZ2_SURRENDERED_HEAL, "ACH_EZ2_SURRENDERED_HEAL", 5 );
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DECLARE_EZ2_MAP_EVENT_ACHIEVEMENT( achievementID, achievementName, iPointValue )					\
