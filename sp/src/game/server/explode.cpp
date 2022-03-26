@@ -13,6 +13,9 @@
 #include "vstdlib/random.h"
 #include "tier1/strtools.h"
 #include "shareddefs.h"
+#ifdef EZ
+#include "particle_parse.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -184,6 +187,13 @@ void CEnvExplosion::Precache( void )
 	{
 		m_sFireballSprite = PrecacheModel( STRING( m_iszFireballSprite ) );
 	}
+
+#ifdef EZ
+	// TODO: Shared global place to put this?
+	PrecacheParticleSystem( "ExplosionCore" );
+	PrecacheParticleSystem( "ExplosionEmbers" );
+	PrecacheParticleSystem( "ExplosionFlash" );
+#endif
 }
 
 void CEnvExplosion::Spawn( void )
