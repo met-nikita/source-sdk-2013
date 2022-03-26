@@ -550,6 +550,13 @@ void CBaseGrenade::Precache( void )
 	BaseClass::Precache( );
 
 	PrecacheScriptSound( "BaseGrenade.Explode" );
+
+#ifdef EZ
+	// TODO: Shared global place to put this?
+	PrecacheParticleSystem( "ExplosionCore" );
+	PrecacheParticleSystem( "ExplosionEmbers" );
+	PrecacheParticleSystem( "ExplosionFlash" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
