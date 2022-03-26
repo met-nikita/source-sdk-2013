@@ -2042,6 +2042,7 @@ void CArbeitScanner::Spawn( void )
 	{
 		SetThink( NULL );
 		SetNextThink( TICK_NEVER_THINK );
+		SetScanState( SCAN_OFF );
 	}
 }
 
@@ -2070,6 +2071,7 @@ void CArbeitScanner::InputEnable( inputdata_t &inputdata )
 	{
 		SetThink( &CArbeitScanner::IdleThink );
 		SetNextThink( gpGlobals->curtime );
+		SetScanState( SCAN_IDLE );
 	}
 }
 
@@ -2077,7 +2079,7 @@ void CArbeitScanner::InputDisable( inputdata_t &inputdata )
 {
 	// Clean up any scans
 	CleanupScan(true);
-	SetScanState( SCAN_IDLE );
+	SetScanState( SCAN_OFF );
 
 	SetThink( NULL );
 	SetNextThink( TICK_NEVER_THINK );
