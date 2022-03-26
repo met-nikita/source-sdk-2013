@@ -310,6 +310,7 @@ public:
 		SCAN_SCANNING,	// Scan in progress
 		SCAN_DONE,		// Scanning done, displays a checkmark or something
 		SCAN_REJECT,	// Scanning rejected, displays an X or something
+		SCAN_OFF,		// Scanner is disabled
 	};
 
 	COutputEvent m_OnScanDone;
