@@ -1803,7 +1803,11 @@ void CPropDrivableAPC::FireRocket( void )
 	QAngle angles;
 	VectorAngles( vecDir, angles );
 
+#ifdef EZ
+	CAPCMissile *pRocket = (CAPCMissile *)CAPCMissile::Create( vecRocketOrigin, angles, vecVelocity, GetDriver() );
+#else
 	CAPCMissile *pRocket = (CAPCMissile *)CAPCMissile::Create( vecRocketOrigin, angles, vecVelocity, this );
+#endif
 	pRocket->IgniteDelay();
 #ifdef EZ
 	// If the APC has a target, disable guiding and aim at that target instead
