@@ -197,4 +197,8 @@ protected:
 
 CBaseGrenade *HopWire_Create( const Vector &position, const QAngle &angles, const Vector &velocity, const AngularImpulse &angVelocity, CBaseEntity *pOwner, float timer, const char * modelClosed = NULL, const char * modelOpen = NULL );
 
+#ifdef EZ2
+void VerifyXenRecipeManager( const char *pszActivator );
+#endif
+
 #endif // GRENADE_HOPWIRE_H
