@@ -623,11 +623,11 @@ public:
 	{
 		PrecacheParticleSystem( "combineball" );
 #ifdef EZ
-		SetModelName( AllocPooledString( pModelNames[m_tEzVariant] ) );
+		SetModelName( AllocPooledString( pModelNames[ GetEZVariant() ] ) );
 		PrecacheModel( STRING( GetModelName() ) );
 
 		// Goo-covered is just a separate skin of the Arbeit model
-		if (m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_RAD)
+		if (GetEZVariant() == EZ_VARIANT_RAD)
 			m_nSkin = 1;
 #else
 		PrecacheModel ("models/items/combine_rifle_ammo01.mdl");
@@ -666,7 +666,7 @@ public:
 LINK_ENTITY_TO_CLASS( item_ammo_ar2_altfire, CItem_AR2AltFireRound );
 
 #ifdef EZ
-const char *CItem_AR2AltFireRound::pModelNames[CAI_BaseNPC::EZ_VARIANT_COUNT] = {
+const char *CItem_AR2AltFireRound::pModelNames[EZ_VARIANT_COUNT] = {
 	"models/items/combine_rifle_ammo01.mdl",
 	"models/items/xen/combine_rifle_ammo01.mdl",
 	"models/items/arbeit/combine_rifle_ammo01.mdl", // Skin 1
@@ -1179,6 +1179,8 @@ public:
 			SetModelName( AllocPooledString( "models/items/xen_grenade_holder001a.mdl" ) );
 
 		PrecacheModel( STRING( GetModelName() ) );
+
+		UTIL_PrecacheOther( "weapon_hopwire" );
 	}
 
 	bool KeyValue( const char *szKeyName, const char *szValue )

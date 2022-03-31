@@ -37,11 +37,11 @@ public:
 	void Precache( void )
 	{
 #ifdef EZ
-		SetModelName( AllocPooledString( pModelNames[m_tEzVariant] ) );
+		SetModelName( AllocPooledString( pModelNames[ GetEZVariant() ] ) );
 		PrecacheModel( STRING( GetModelName() ) );
 
 		// Goo-covered is just a separate skin of the Arbeit model
-		if (m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_RAD)
+		if (GetEZVariant() == EZ_VARIANT_RAD)
 			m_nSkin = 1;
 #else
 		PrecacheModel ("models/items/battery.mdl");
@@ -61,7 +61,7 @@ LINK_ENTITY_TO_CLASS(item_battery, CItemBattery);
 PRECACHE_REGISTER(item_battery);
 
 #ifdef EZ
-const char *CItemBattery::pModelNames[CAI_BaseNPC::EZ_VARIANT_COUNT] = {
+const char *CItemBattery::pModelNames[EZ_VARIANT_COUNT] = {
 	"models/items/battery.mdl",
 	"models/items/xen/battery.mdl",
 	"models/items/arbeit/battery.mdl", // Skin 1

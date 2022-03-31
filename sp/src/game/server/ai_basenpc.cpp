@@ -11730,13 +11730,8 @@ CBaseEntity *CAI_BaseNPC::DropItem ( const char *pszItemName, Vector vecPos, QAn
 #ifdef EZ
 	CBaseEntity *pItem = CBaseEntity::CreateNoSpawn( pszItemName, vecPos, vecAng, this );
 
-	if (m_tEzVariant != EZ_VARIANT_DEFAULT)
-	{
-		// Make the item match our variant
-		CItem *pCItem = dynamic_cast<CItem*>(pItem);
-		if (pCItem)
-			pCItem->m_tEzVariant = m_tEzVariant;
-	}
+	// Make the item match our variant
+	pItem->SetEZVariant( GetEZVariant() );
 
 	DispatchSpawn( pItem );
 #else

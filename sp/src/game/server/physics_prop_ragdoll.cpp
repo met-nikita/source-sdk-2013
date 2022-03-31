@@ -1632,7 +1632,7 @@ CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, con
 	}
 
 	// Temporal ragdolls fade out!
-	if ( pAnimating->MyNPCPointer() && pAnimating->MyNPCPointer()->m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_TEMPORAL )
+	if ( pAnimating->MyNPCPointer() && pAnimating->MyNPCPointer()->m_tEzVariant == EZ_VARIANT_TEMPORAL )
 	{
 		pRagdoll->SetContextThink( &CRagdollProp::TimeWarpThink, gpGlobals->curtime + 0.25f, "RagdollTimeShiftContext" );
 	}
