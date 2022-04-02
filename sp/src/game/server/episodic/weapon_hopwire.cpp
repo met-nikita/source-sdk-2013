@@ -560,6 +560,8 @@ public:
 	DECLARE_CLASS( CWeaponEndGame, CWeaponHopwire );
 	DECLARE_SERVERCLASS();
 
+	void	Precache( void );
+
 	bool	ShouldDisplayHUDHint() { return true; }
 protected:
 	void	ThrowGrenade( CBasePlayer *pPlayer );
@@ -571,6 +573,15 @@ private:
 
 
 };
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CWeaponEndGame::Precache( void )
+{
+	// Skip Xen grenade precache
+	CBaseHLCombatWeapon::Precache();
+}
 
 void CWeaponEndGame::ThrowGrenade( CBasePlayer * pPlayer )
 {
@@ -597,9 +608,7 @@ IMPLEMENT_SERVERCLASS_ST( CWeaponEndGame, DT_WeaponEndGame )
 END_SEND_TABLE()
 
 LINK_ENTITY_TO_CLASS( weapon_endgame, CWeaponEndGame );
-#ifndef EZ2
 PRECACHE_WEAPON_REGISTER( weapon_endgame );
-#endif
 
 BEGIN_DATADESC( CWeaponEndGame )
 DEFINE_OUTPUT( m_OnEndGame, "OnEndGame" ),

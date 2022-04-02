@@ -423,7 +423,11 @@ void CXenGrenadeRecipeManager::PrecacheXenRecipes( void )
 	for (int i = 0; i < pResponses.Count(); i++)
 	{
 		// Handle the response here...
+#ifdef NEW_RESPONSE_SYSTEM
 		pResponses[i].GetResponse( szRecipe, szRecipeSize );
+#else
+		pResponses[i]->GetResponse( szRecipe, szRecipeSize );
+#endif
 		GetXenGrenadeResponseFromSystem( szRecipe, szRecipeSize, m_pInstancedResponseSystem, szRecipe );
 
 		recipeEntities.EnsureCapacity( 16 );
