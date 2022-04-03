@@ -119,6 +119,7 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_FIELD( m_fNextFidgetSpeechTime, FIELD_TIME ),
 	DEFINE_FIELD( m_bPlayerLeftPVS, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_flPlayerNearbyTime, FIELD_TIME ),
 
 	DEFINE_KEYFIELD( m_bStatic, FIELD_BOOLEAN, "static" ),
 
@@ -204,6 +205,8 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	// when in fact we were just spawned
 	// (it's funny, but still)
 	m_flLastSawPlayerTime = gpGlobals->curtime;
+
+	m_flPlayerNearbyTime = -1.0f;
 }
 
 CNPC_Wilson::~CNPC_Wilson( void )
@@ -952,6 +955,7 @@ void CNPC_Wilson::OnSeeEntity( CBaseEntity *pEntity )
 			// Needs to be Speak() to override any currently running speech
 			SetSpeechTarget( pEntity );
 			Speak( TLK_FOUNDPLAYER );
+			m_flPlayerNearbyTime = -1.0f;
 		}
 
 		m_bPlayerLeftPVS = false;
@@ -1233,6 +1237,7 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 	if (pPlayer && gpGlobals->curtime > 2.0f)
 	{
+		bool bShouldSpeakGoodbye = (m_flPlayerNearbyTime != -1.0f && gpGlobals->curtime - m_flPlayerNearbyTime >= 30.0f);
 		if ( HasCondition(COND_IN_PVS) )
 		{
 			if ( HasCondition( COND_TALKER_PLAYER_DEAD ) && FInViewCone(pPlayer) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
@@ -1241,15 +1246,26 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 					return true;
 			}
 
-			float flDistSqr = (GetAbsOrigin() - pPlayer->GetAbsOrigin()).LengthSqr();
-			if (flDistSqr >= Square( 256 ))
+			// If we're in a vehicle, use the vehicle's origin instead
+			Vector vecSearchOrigin = m_hAttachedVehicle ? m_hAttachedVehicle->GetAbsOrigin() : GetAbsOrigin();
+			float flDistSqr = (vecSearchOrigin - pPlayer->GetAbsOrigin()).LengthSqr();
+			if (flDistSqr >= Square( 300 ))
 			{
-				if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
+				m_flPlayerNearbyTime = -1.0f;
+				if ( bShouldSpeakGoodbye && SpeakIfAllowed( TLK_GOODBYE, true ) )
 					return true;
 			}
+			else if (m_flPlayerNearbyTime == -1.0f)
+			{
+				m_flPlayerNearbyTime = gpGlobals->curtime;
+			}
 		}
-		else if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
-			return true;
+		else
+		{
+			m_flPlayerNearbyTime = -1.0f;
+			if ( bShouldSpeakGoodbye && SpeakIfAllowed( TLK_GOODBYE, true ) )
+				return true;
+		}
 	}
 
 	return false;

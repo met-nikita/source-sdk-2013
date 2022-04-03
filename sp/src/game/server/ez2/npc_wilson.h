@@ -145,8 +145,6 @@ public:
 	virtual CAI_Expresser *CreateExpresser(void);
 	virtual CAI_Expresser *GetExpresser() { return m_pExpresser;  }
 
-	inline bool		CanSpeakGoodbye() { return (GetExpresser()->GetTimeSpokeConcept(TLK_FOUNDPLAYER) >= GetExpresser()->GetTimeSpokeConcept(TLK_GOODBYE)); }
-
 	bool			GetGameTextSpeechParams( hudtextparms_t &params );
 
 	bool			IsOmniscient() { return m_bOmniscient; }
@@ -227,6 +225,10 @@ protected:
 
 	// See CNPC_Wilson::NPCThink()
 	bool	m_bPlayerLeftPVS;
+
+	// How long the player has spent around Wilson
+	// (for goodbyes)
+	float	m_flPlayerNearbyTime;
 
 	// For when Wilson is meant to be non-interactive (e.g. background maps, dev commentary)
 	// This makes Wilson unmovable and deactivates/doesn't precache a few miscellaneous things.
