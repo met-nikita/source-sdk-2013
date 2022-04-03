@@ -494,6 +494,7 @@ protected:
 	void Init()
 	{
 		SetAttackerFilter( "player" );
+		SetInflictorFilter( "crossbow_bolt" );
 		SetFlags( ACH_LISTEN_KILL_EVENTS | ACH_SAVE_GLOBAL );
 		SetGameDirFilter( "EntropyZero2" );
 		SetGoal( KILL_ALIENSWXBOW_COUNT );
@@ -510,27 +511,23 @@ protected:
 		if (!pAttacker->IsPlayer())
 			return;
 
-		CBaseCombatWeapon * pWeapon = pAttacker->MyCombatCharacterPointer()->GetActiveWeapon();
-		if ( pWeapon && pWeapon->ClassMatches("weapon_crossbow") )
+		// Check if the victim is an alien
+		int lVictimClassification = pVictim->Classify();
+		switch (lVictimClassification)
 		{
-			// Check if the victim is an alien
-			int lVictimClassification = pVictim->Classify();
-			switch (lVictimClassification)
-			{
-			case CLASS_ALIEN_FAUNA:
-			case CLASS_ALIEN_PREDATOR:
-			case CLASS_ANTLION:
-			case CLASS_BARNACLE:
-			case CLASS_HEADCRAB:
-			case CLASS_BULLSQUID:
-			case CLASS_HOUNDEYE:
-			case CLASS_RACE_X:
-			case CLASS_VORTIGAUNT:
-			case CLASS_ZOMBIE:
-				IncrementCount();
-			default:
-				return;
-			}
+		case CLASS_ALIEN_FAUNA:
+		case CLASS_ALIEN_PREDATOR:
+		case CLASS_ANTLION:
+		case CLASS_BARNACLE:
+		case CLASS_HEADCRAB:
+		case CLASS_BULLSQUID:
+		case CLASS_HOUNDEYE:
+		case CLASS_RACE_X:
+		case CLASS_VORTIGAUNT:
+		case CLASS_ZOMBIE:
+			IncrementCount();
+		default:
+			return;
 		}
 	}
 
