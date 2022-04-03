@@ -411,6 +411,16 @@ void CEZ2_Player::Spawn( void )
 
 	SetModel( "models/bad_cop.mdl" );
 
+	Activate();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Activate( void )
+{
+	BaseClass::Activate();
+
 	ListenForGameEvent( "zombie_scream" );
 	ListenForGameEvent( "vehicle_overturned" );
 }
@@ -1711,6 +1721,24 @@ bool CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
 	SetSpeechTarget(pNPC);
 
 	return SpeakIfAllowed(TLK_COMMAND_REMOVE);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Weapon_HandleEquip( CBaseCombatWeapon *pWeapon )
+{
+	BaseClass::Weapon_HandleEquip( pWeapon );
+
+	// Make sure Wilson doesn't remind us of our special weapons for at least 20 minutes
+	if (FClassnameIs( pWeapon, "weapon_hopwire" ))
+	{
+		AddContext( "xen_grenade_thrown", "1", 1200.0f );
+	}
+	else if (FClassnameIs( pWeapon, "weapon_displacer_pistol" ))
+	{
+		AddContext( "displacer_used", "1", 1200.0f );
+	}
 }
 
 //-----------------------------------------------------------------------------

@@ -79,7 +79,7 @@ CNPC_Wilson *CNPC_Wilson::GetBestWilson( float &flBestDistSqr, const Vector *vec
 
 ConVar npc_wilson_depressing_death("npc_wilson_depressing_death", "0", FCVAR_NONE, "Makes Will-E shut down and die into an empty husk rather than explode.");
 
-ConVar npc_wilson_clearance_speed_threshold( "npc_wilson_clearance_speed_threshold", "500.0", FCVAR_NONE, "The speed at which Will-E starts to think he's gonna get knocked off if approaching a surface." );
+ConVar npc_wilson_clearance_speed_threshold( "npc_wilson_clearance_speed_threshold", "250.0", FCVAR_NONE, "The speed at which Will-E starts to think he's gonna get knocked off if approaching a surface." );
 ConVar npc_wilson_clearance_debug( "npc_wilson_clearance_debug", "0", FCVAR_NONE, "Debugs Will-E's low clearance detection." );
 
 static const char *g_DamageZapContext = "DamageZapEffect";
@@ -476,6 +476,7 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 	{
 		AI_CriteriaSet modifiers;
 		ModifyOrAppendDamageCriteria(modifiers, info);
+		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", LastHitGroup()));
 		SpeakIfAllowed( TLK_WOUND, modifiers );
 	}
 
@@ -789,8 +790,7 @@ void CNPC_Wilson::PrescheduleThink( void )
 		// Make sure we can see the direction we're going in
 		if (velocity.LengthSqr() >= Square(npc_wilson_clearance_speed_threshold.GetFloat()) && vecForward.Dot(velocity) > 0.0f)
 		{
-			// For approximating the front of the APC
-			Vector vecOrigin = GetAbsOrigin() + (velocity);
+			Vector vecOrigin = GetAbsOrigin();
 
 			CTraceFilterSkipTwoEntities pFilter(this, m_hAttachedVehicle, COLLISION_GROUP_NONE);
 			trace_t tr;
