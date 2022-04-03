@@ -887,6 +887,18 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 	if (pWilson)
 	{
 		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<32>( "%f.3", sqrt(flBestDistSqr) ));
+
+		// Record whether Wilson is speaking
+		if (pWilson->IsSpeaking())
+		{
+			criteriaSet.AppendCriteria( "wilson_speaking", "1" );
+		}
+		else
+		{
+			criteriaSet.AppendCriteria( "wilson_speaking", "0" );
+		}
+
+		pWilson->AppendContextToCriteria( criteriaSet, "wilson_" );
 	}
 	else
 	{
@@ -1229,7 +1241,8 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 		return false;
 
 	// Don't say anything if we're running a scene
-	if ( IsTalkingInAScriptedScene( this, true ) )
+	// (instanced scenes aren't ignored because they could be Wilson scenes)
+	if ( IsTalkingInAScriptedScene( this, false ) )
 	{
 		return false;
 	}

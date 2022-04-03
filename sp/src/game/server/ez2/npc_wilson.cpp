@@ -1698,6 +1698,16 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 		{
 			set.AppendCriteria( "player_in_vehicle", "0" );
 		}
+
+		// Record whether the player is speaking
+		if (pPlayer->GetExpresser() && pPlayer->GetExpresser()->IsSpeaking())
+		{
+			set.AppendCriteria( "player_speaking", "1" );
+		}
+		else
+		{
+			set.AppendCriteria( "player_speaking", "0" );
+		}
 	}
 	else
 	{
@@ -1784,7 +1794,7 @@ bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPla
 	if ( fRespondingToPlayer )
 	{
 		// If we're responding to the player, don't respond if the scene has speech in it
-		if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this ) )
+		if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this, false ) )
 		{
 			return false;
 		}
@@ -1792,7 +1802,7 @@ bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPla
 	else
 	{
 		// If we're not responding to the player, don't talk if running a logic_choreo
-		if ( IsRunningScriptedSceneAndNotPaused( this ) )
+		if ( IsRunningScriptedSceneAndNotPaused( this, false ) )
 		{
 			return false;
 		}
