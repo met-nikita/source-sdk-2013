@@ -117,6 +117,10 @@ public:
 	bool					m_bAllowFlipping;	// False to disallow flipping the model, regardless of whether
 												// it is built left or right handed.
 
+#ifdef CSS_WEAPONS_IN_HL2 // This code originates from Mapbase v7.0. In the event of a merge conflict, it should take precedence over this code.
+	float					m_flViewmodelFOV;
+#endif
+
 #ifdef EZ2
 	bool					m_bAlwaysFirstDraw;			// This weapon defaults to playing the first draw animation, even if dropped by an enemy 
 	bool					m_bPreventPlayerSwap;		// If the player is holding another weapon in the same slot as this weapon, prevent picking up this weapon 
