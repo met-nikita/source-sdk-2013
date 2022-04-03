@@ -226,10 +226,10 @@ CItem_DynamicResupply::CItem_DynamicResupply( void )
 	m_flDesiredAmmo[8] = 0;		// Crossbow
 	m_flDesiredAmmo[9] = 0;		// AR2 alt-fire
 #ifdef CSS_WEAPONS_IN_HL2
-	m_flDesiredAmmo[10] = 0;	// .45 ACP
-	m_flDesiredAmmo[11] = 0;	// .357 SIG
-	m_flDesiredAmmo[12] = 0;	// 5.56mm
-	m_flDesiredAmmo[13] = 0;	// 7.62mm
+	m_flDesiredAmmo[11] = 0;	// .45 ACP
+	m_flDesiredAmmo[12] = 0;	// .357 SIG
+	m_flDesiredAmmo[13] = 0;	// 5.56mm
+	m_flDesiredAmmo[14] = 0;	// 7.62mm
 #endif
 }
 
