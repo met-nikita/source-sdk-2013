@@ -1920,7 +1920,7 @@ void CAI_PlayerAlly::InputDisableSpeakWhileScripting( inputdata_t &inputdata )
 void CAI_PlayerAlly::InputAnswerConcept( inputdata_t &inputdata )
 {
 	// Complex Q&A
-	ConceptResponseAnswer( inputdata.pActivator, inputdata.value.String() );
+	ConceptResponseAnswer_PlayerAlly( inputdata.pActivator, inputdata.value.String() );
 }
 #endif
 

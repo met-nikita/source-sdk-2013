@@ -29,4 +29,15 @@
 		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers); \
 	} \
 
+// Uses bRespondingToPlayer in the third parameter
+// (important for back-and-forth TLK_CONCEPT_ANSWERs)
+#define ConceptResponseAnswer_PlayerAlly(target, concept) \
+	if (target) \
+	{ \
+		AI_CriteriaSet modifiers; \
+		SetSpeechTarget(target); \
+		modifiers.AppendCriteria("speechtarget_concept", concept); \
+		SpeakIfAllowed(TLK_CONCEPT_ANSWER, modifiers, target->IsPlayer()); \
+	} \
+
 #endif
