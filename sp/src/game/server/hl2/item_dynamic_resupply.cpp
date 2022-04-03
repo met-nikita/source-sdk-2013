@@ -180,10 +180,10 @@ BEGIN_DATADESC( CItem_DynamicResupply )
 	DEFINE_KEYFIELD( m_flDesiredAmmo[10], FIELD_FLOAT, "DesiredAmmoXenGrenade" ),
 #endif
 #ifdef CSS_WEAPONS_IN_HL2
-	DEFINE_KEYFIELD( m_flDesiredAmmo[10], FIELD_FLOAT, "DesiredAmmo45ACP" ),
-	DEFINE_KEYFIELD( m_flDesiredAmmo[11], FIELD_FLOAT, "DesiredAmmo357SIG" ),
-	DEFINE_KEYFIELD( m_flDesiredAmmo[12], FIELD_FLOAT, "DesiredAmmo556mm" ),
-	DEFINE_KEYFIELD( m_flDesiredAmmo[13], FIELD_FLOAT, "DesiredAmmo762mm" ),
+	DEFINE_KEYFIELD( m_flDesiredAmmo[11], FIELD_FLOAT, "DesiredAmmo45ACP" ),
+	DEFINE_KEYFIELD( m_flDesiredAmmo[12], FIELD_FLOAT, "DesiredAmmo357SIG" ),
+	DEFINE_KEYFIELD( m_flDesiredAmmo[13], FIELD_FLOAT, "DesiredAmmo556mm" ),
+	DEFINE_KEYFIELD( m_flDesiredAmmo[14], FIELD_FLOAT, "DesiredAmmo762mm" ),
 #endif
 
 	DEFINE_FIELD( m_version, FIELD_INTEGER ),
