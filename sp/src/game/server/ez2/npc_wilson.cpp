@@ -204,7 +204,7 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	// So we don't think we haven't seen the player in a while
 	// when in fact we were just spawned
 	// (it's funny, but still)
-	m_flLastSawPlayerTime = gpGlobals->curtime;
+	m_flLastSawPlayerTime = -1.0f;
 
 	m_flPlayerNearbyTime = -1.0f;
 }
@@ -949,7 +949,7 @@ void CNPC_Wilson::OnSeeEntity( CBaseEntity *pEntity )
 			SetSpeechTarget( pEntity );
 			SpeakIfAllowed( TLK_ALLY_IN_BARNACLE );
 		}
-		else if (gpGlobals->curtime - m_flLastSawPlayerTime > 60.0f /*&& m_flCarryTime < m_flLastSawPlayerTime*/)
+		else if (gpGlobals->curtime - m_flLastSawPlayerTime > 60.0f && m_flLastSawPlayerTime != -1.0f /*&& m_flCarryTime < m_flLastSawPlayerTime*/)
 		{
 			// Oh, hey, Bad Cop! Long time no see!
 			// Needs to be Speak() to override any currently running speech
