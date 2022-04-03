@@ -190,7 +190,7 @@ void CGonomeSpit::Shoot( CBaseEntity *pOwner, int nGonomeSpitSprite, CSprite * p
 	pSpit->SetAbsVelocity( vecVelocity );
 	pSpit->SetOwnerEntity( pOwner );
 
-	pSpit->m_bGoo = (pSpit->GetOwnerEntity() && pSpit->GetOwnerEntity()->IsNPC()) ? pSpit->GetOwnerEntity()->MyNPCPointer()->m_tEzVariant == CAI_BaseNPC::EZ_VARIANT_RAD : false;
+	pSpit->m_bGoo = (pSpit->GetOwnerEntity() && pSpit->GetOwnerEntity()->IsNPC()) ? pSpit->GetOwnerEntity()->MyNPCPointer()->m_tEzVariant == EZ_VARIANT_RAD : false;
 
 	pSpit->SetSprite( pSprite );
 

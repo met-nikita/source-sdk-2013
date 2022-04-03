@@ -135,6 +135,21 @@ enum Class_T
 	NUM_AI_CLASSES
 };
 
+//-----------------------------------------------------
+// Entropy : Zero Variants
+//-----------------------------------------------------
+enum EZ_VARIANT
+{
+	EZ_VARIANT_INVALID = -1,
+	EZ_VARIANT_DEFAULT = 0,
+	EZ_VARIANT_XEN,				// Came from Xen or a place connected to Xen. Used by Xen relay grenades.
+	EZ_VARIANT_RAD,				// Covered in blue radioactive goo. NPCs leave behind hazardous puddles when they die.
+	EZ_VARIANT_TEMPORAL,		// Affected by temporal anomalies. Used by temporal crabs.
+	EZ_VARIANT_ARBEIT,			// Property of Arbeit Communications. Used for Arbeit stuff that isn't covered in goo.
+
+	EZ_VARIANT_COUNT, // Keep this at the end
+};
+
 #elif defined( HL1_DLL )
 
 enum Class_T
@@ -1130,6 +1145,9 @@ public:
 #ifdef EZ
 	virtual bool	IsDisplacementImpossible() { return true; }
 	virtual void	SetDisplacementImpossible( bool displacementImpossible ) {}
+
+	virtual EZ_VARIANT	GetEZVariant() { return EZ_VARIANT_DEFAULT; }
+	virtual void		SetEZVariant( EZ_VARIANT variant ) {}
 #endif
 
 	// If this is a vehicle, returns the vehicle interface

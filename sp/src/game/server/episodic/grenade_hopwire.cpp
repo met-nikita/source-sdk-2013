@@ -119,123 +119,359 @@ static const char *g_SpawnThinkContext = "SpawnThink";
 static const char *g_SchlorpThinkContext = "SchlorpThink";
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// Purpose: Ensures Xen recipes are loaded and precached when they are needed.
 //-----------------------------------------------------------------------------
-class CXenGrenadeRecipeManager : public CBaseEntity
+class CXenGrenadeRecipeManager : public CAutoGameSystem
 {
-	DECLARE_CLASS( CXenGrenadeRecipeManager, CBaseEntity );
-	DECLARE_DATADESC();
-
 public:
-
-	CXenGrenadeRecipeManager()
+	CXenGrenadeRecipeManager() : CAutoGameSystem( "CXenGrenadeRecipeManager" )
 	{
 	}
 
-	void Spawn( void );
-	void Activate( void );
+	virtual bool Init()
+	{
+		return true;
+	}
 
-	virtual IResponseSystem *GetResponseSystem() { return m_pInstancedResponseSystem; }
+	virtual void LevelInitPreEntity()
+	{
+		// Unless cheats are on, assume Xen doesn't exist by default
+		if (sv_cheats->GetBool())
+		{
+			m_bXenExists = true;
+			m_pszXenCreator = "sv_cheats";
+		}
+		else
+		{
+			m_bXenExists = false;
+			m_pszXenCreator = "Unknown"; // Default value
+		}
 
-	virtual int	Save( ISave &save );
-	virtual int	Restore( IRestore &restore );
+		m_bXenPrecached = false;
+
+		m_bPrecachedLate = false;
+	}
+
+	virtual void LevelInitPostEntity()
+	{
+		// If Xen exists, precache Xen
+		if (m_bXenExists)
+		{
+			PrecacheXenRecipes();
+			m_bXenPrecached = true;
+		}
+	}
+
+	virtual void LevelShutdownPreEntity()
+	{
+	}
+
+	virtual void LevelShutdownPostEntity()
+	{
+	}
+
+	virtual void OnRestore()
+	{
+		if (m_bXenExists)
+		{
+			PrecacheXenRecipes();
+		}
+	}
+
+	//------------------------------------------------------------------------------------
+
+	inline bool XenExists() const { return m_bXenExists; }
+
+	inline bool PrecachedLate() const { return m_bPrecachedLate; }
+	inline const char *GetXenCreator() const { return m_pszXenCreator; }
+
+	// Affirms the existence of Xen.
+	void VerifyRecipeManager( const char *pszActivator )
+	{
+		if (!m_bXenExists)
+		{
+			XenGrenadeDebugMsg( "Xen recipe manager activated\n" );
+			m_pszXenCreator = pszActivator;
+		}
+
+		m_bXenExists = true;
+
+		if (!m_bXenPrecached && gpGlobals->curtime > 2.0f)
+		{
+			// Uh-oh. Late precache is a serious hang.
+			// There's not much more we could do about it, unfortunately.
+			UTIL_CenterPrintAll( "Precaching Xen...\n" );
+
+			PrecacheXenRecipes();
+
+			//Warning( "************************************\n!!!!! Late precache of Xen recipe manager !!!!!\n************************************\n" );
+
+			m_bPrecachedLate = true;
+			m_bXenPrecached = true;
+		}
+	}
+
+	void PrecacheXenRecipes();
 
 	bool FindBestRecipe( char *szRecipe, size_t szRecipeSize, AI_CriteriaSet &set, CGravityVortexController *pActivator );
 
-	bool ParseRecipe( char *szRecipe, CGravityVortexController *pActivator );
-	bool ParseRecipeBlock( char *szRecipe, CGravityVortexController *pActivator );
+	bool ParseRecipe( char *szRecipe, CUtlMap<string_t, string_t> &spawnList );
+	bool ParseRecipeBlock( char *szRecipe, CUtlMap<string_t, string_t> &spawnList );
+
+	inline IResponseSystem *GetResponseSystem() { return m_pInstancedResponseSystem; }
+
+	friend class CXenRecipeSaveRestoreBlockHandler;
 
 protected:
 	IResponseSystem *m_pInstancedResponseSystem;
+
+	bool m_bXenExists;
+	bool m_bXenPrecached;
+
+	// The creator of Xen.
+	const char *m_pszXenCreator;
+
+	bool m_bPrecachedLate;
 };
 
-CHandle<CXenGrenadeRecipeManager> g_hXenGrenadeRecipeManager;
+CXenGrenadeRecipeManager	g_XenGrenadeRecipeManager;
 
-BEGIN_DATADESC( CXenGrenadeRecipeManager )
-END_DATADESC()
+//-----------------------------------------------------------------------------
+// Recipe Response System Save/Restore
+//-----------------------------------------------------------------------------
+static short XEN_RECIPE_SAVE_RESTORE_VERSION = 1;
 
-LINK_ENTITY_TO_CLASS( xen_grenade_recipe_manager, CXenGrenadeRecipeManager );
-
-void CXenGrenadeRecipeManager::Spawn( void )
+class CXenRecipeSaveRestoreBlockHandler : public CDefSaveRestoreBlockHandler
 {
-    SetSolid( SOLID_NONE );
-    SetMoveType( MOVETYPE_NONE );
+public:
+	const char *GetBlockName()
+	{
+		return "XenRecipes";
+	}
+
+	//---------------------------------
+
+	void Save( ISave *pSave )
+	{
+		bool bDoSave = g_XenGrenadeRecipeManager.XenExists() && g_XenGrenadeRecipeManager.m_pInstancedResponseSystem != NULL;
+
+		pSave->WriteBool( &bDoSave );
+		if ( bDoSave )
+		{
+			pSave->StartBlock( "InstancedResponseSystem" );
+			{
+				SaveRestoreFieldInfo_t fieldInfo = { &g_XenGrenadeRecipeManager.m_pInstancedResponseSystem, 0, NULL };
+				responseSystemSaveRestoreOps->Save( fieldInfo, pSave );
+			}
+			pSave->EndBlock();
+		}
+	}
+
+	//---------------------------------
+
+	void WriteSaveHeaders( ISave *pSave )
+	{
+		pSave->WriteShort( &XEN_RECIPE_SAVE_RESTORE_VERSION );
+	}
+
+	//---------------------------------
+
+	void ReadRestoreHeaders( IRestore *pRestore )
+	{
+		// No reason why any future version shouldn't try to retain backward compatability. The default here is to not do so.
+		short version;
+		pRestore->ReadShort( &version );
+		m_fDoLoad = ( version == XEN_RECIPE_SAVE_RESTORE_VERSION );
+	}
+
+	//---------------------------------
+
+	void Restore( IRestore *pRestore, bool createPlayers )
+	{
+		if ( m_fDoLoad )
+		{
+			bool bDoRestore = false;
+
+			pRestore->ReadBool( &bDoRestore );
+			if ( bDoRestore )
+			{
+				char szResponseSystemBlockName[SIZE_BLOCK_NAME_BUF];
+				pRestore->StartBlock( szResponseSystemBlockName );
+				if ( !Q_stricmp( szResponseSystemBlockName, "InstancedResponseSystem" ) )
+				{
+					if ( !g_XenGrenadeRecipeManager.m_pInstancedResponseSystem )
+					{
+						// TODO: Verify that using 'PrecacheXenGrenadeResponseSystem' instead of 'PrecacheCustomResponseSystem' on restore is a good thing
+						g_XenGrenadeRecipeManager.m_pInstancedResponseSystem = PrecacheXenGrenadeResponseSystem( XEN_GRENADE_RECIPE_SCRIPT );
+						if (g_XenGrenadeRecipeManager.m_pInstancedResponseSystem)
+						{
+							SaveRestoreFieldInfo_t fieldInfo =
+							{
+								&g_XenGrenadeRecipeManager.m_pInstancedResponseSystem,
+								0,
+								NULL
+							};
+							responseSystemSaveRestoreOps->Restore( fieldInfo, pRestore );
+						}
+					}
+				}
+				pRestore->EndBlock();
+			}
+
+			// Tell the manager Xen has been restored
+			g_XenGrenadeRecipeManager.m_bXenExists = true;
+		}
+	}
+
+private:
+	bool m_fDoLoad;
+};
+
+//-----------------------------------------------------------------------------
+
+CXenRecipeSaveRestoreBlockHandler g_XenRecipeSaveRestoreBlockHandler;
+
+//-------------------------------------
+
+ISaveRestoreBlockHandler *GetXenRecipeSaveRestoreBlockHandler()
+{
+	return &g_XenRecipeSaveRestoreBlockHandler;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Designed to be used externally
+//-----------------------------------------------------------------------------
+void VerifyXenRecipeManager( const char *pszActivator )
+{
+	g_XenGrenadeRecipeManager.VerifyRecipeManager( pszActivator );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Debug commands
+//-----------------------------------------------------------------------------
+CON_COMMAND( hopwire_xen_print_state, "Prints the current state of Xen." )
+{
+	char szMsg[512];
+	if (g_XenGrenadeRecipeManager.XenExists())
+	{
+		Q_strncpy( szMsg, "Xen exists.\n{\n", sizeof( szMsg ) );
+
+		Q_snprintf( szMsg, sizeof( szMsg ), "%s	Creator of Xen: %s\n", szMsg, g_XenGrenadeRecipeManager.GetXenCreator() );
+		Q_snprintf( szMsg, sizeof( szMsg ), "%s	Precached late: %s\n", szMsg, g_XenGrenadeRecipeManager.PrecachedLate() ? "Yes" : "No" );
+
+		Q_snprintf( szMsg, sizeof( szMsg ), "%s}\n", szMsg );
+	}
+	else
+	{
+		Q_strncpy( szMsg, "Xen does not exist.\n", sizeof( szMsg ) );
+	}
+
+	ConColorMsg( XenColor, "%s", szMsg );
+}
+
+CON_COMMAND( hopwire_xen_force_create, "Forces the creation of Xen if it doesn't exist already." )
+{
+	CBasePlayer *pPlayer = UTIL_GetCommandClient();
+
+	if (!g_XenGrenadeRecipeManager.XenExists())
+	{
+		VerifyXenRecipeManager( pPlayer ? pPlayer->GetPlayerName() : "You, apparently!" );
+		ConColorMsg( XenColor, "Xen created!\n" );
+	}
+	else
+	{
+		ConColorMsg( XenColor, "Xen already exists.\n" );
+	}
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// Purpose: Precaches Xen
+//-----------------------------------------------------------------------------
+void CXenGrenadeRecipeManager::PrecacheXenRecipes( void )
+{
+	if ( m_bXenPrecached )
+		return;
 
 	if ( !m_pInstancedResponseSystem )
 	{
 		m_pInstancedResponseSystem = PrecacheXenGrenadeResponseSystem( XEN_GRENADE_RECIPE_SCRIPT );
 	}
-}
 
-void CXenGrenadeRecipeManager::Activate( void )
-{
-	BaseClass::Activate();
-
-	g_hXenGrenadeRecipeManager = this;
-	XenGrenadeDebugMsg( "Assigned g_hXenGrenadeRecipeManager in CXenGrenadeRecipeManager::Activate()\n" );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Need a custom save restore so we can restore the instanced response system by name
-//  after we've loaded the filename from disk...
-// Input  : &save - 
-//-----------------------------------------------------------------------------
-int CXenGrenadeRecipeManager::Save( ISave &save )
-{
-	int iret = BaseClass::Save( save );
-	if ( iret )
+#ifdef NEW_RESPONSE_SYSTEM
+	CUtlVector<AI_Response> pResponses;
+#else
+	CUtlVector<AI_Response*> pResponses;
+#endif
+	m_pInstancedResponseSystem->GetAllResponses( &pResponses );
+	if ( pResponses.Count() <= 0 )
 	{
-		bool doSave = m_pInstancedResponseSystem != NULL;
-		save.WriteBool( &doSave );
-		if ( doSave )
-		{
-			save.StartBlock( "InstancedResponseSystem" );
-			{
-				SaveRestoreFieldInfo_t fieldInfo = { &m_pInstancedResponseSystem, 0, NULL };
-				responseSystemSaveRestoreOps->Save( fieldInfo, &save );
-			}
-			save.EndBlock();
-		}
+		XenGrenadeDebugMsg( "Precache: No responses!?!?\n" );
+		return;
 	}
-	return iret;
-}
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : &restore - 
-//-----------------------------------------------------------------------------
-int	CXenGrenadeRecipeManager::Restore( IRestore &restore )
-{
-	int iret = BaseClass::Restore( restore );
-	if ( iret )
+	char szRecipe[512];
+	int szRecipeSize = sizeof(szRecipe);
+	CUtlMap<string_t, string_t> recipeEntities;
+
+	SetDefLessFunc( recipeEntities );
+
+	CUtlSymbolTable precachedEntities;
+
+	for (int i = 0; i < pResponses.Count(); i++)
 	{
-		bool doRead = false;
-		restore.ReadBool( &doRead );
-		if ( doRead )
+		// Handle the response here...
+#ifdef NEW_RESPONSE_SYSTEM
+		pResponses[i].GetResponse( szRecipe, szRecipeSize );
+#else
+		pResponses[i]->GetResponse( szRecipe, szRecipeSize );
+#endif
+		GetXenGrenadeResponseFromSystem( szRecipe, szRecipeSize, m_pInstancedResponseSystem, szRecipe );
+
+		recipeEntities.EnsureCapacity( 16 );
+		ParseRecipe( szRecipe, recipeEntities );
+
+		for (unsigned int i2 = 0; i2 < recipeEntities.Count(); i2++)
 		{
-			char szResponseSystemBlockName[SIZE_BLOCK_NAME_BUF];
-			restore.StartBlock( szResponseSystemBlockName );
-			if ( !Q_stricmp( szResponseSystemBlockName, "InstancedResponseSystem" ) )
+			const char *pszClass = STRING( recipeEntities.Key( i2 ) );
+
+			if (g_debug_hopwire.GetBool())
 			{
-				if ( !m_pInstancedResponseSystem )
+				CUtlSymbol sym = precachedEntities.Find( pszClass );
+				if (!sym.IsValid())
 				{
-					m_pInstancedResponseSystem = PrecacheCustomResponseSystem( XEN_GRENADE_RECIPE_SCRIPT );
-					if ( m_pInstancedResponseSystem )
-					{
-						SaveRestoreFieldInfo_t fieldInfo =
-						{
-							&m_pInstancedResponseSystem,
-							0,
-							NULL
-						};
-						responseSystemSaveRestoreOps->Restore( fieldInfo, &restore );
-					}
+					precachedEntities.AddString( pszClass );
+					XenGrenadeDebugMsg( "Precache: Precaching %s (%i:%i)\n", pszClass, i, i2 );
+				}
+				else
+				{
+					XenGrenadeDebugMsg( "Precache: Symbol %s (%i:%i) already valid\n", pszClass, i, i2 );
 				}
 			}
-			restore.EndBlock();
+
+			UTIL_PrecacheXenVariant( pszClass );
 		}
+
+		recipeEntities.Purge();
 	}
-	return iret;
+
+	if (g_debug_hopwire.GetBool())
+	{
+		// List all of the entities we precached (reuse szRecipe)
+		Q_strncpy( szRecipe, "All Precached Entities:\n{\n", szRecipeSize );
+
+		for (int i = 0; i < precachedEntities.GetNumStrings(); i++)
+		{
+			precachedEntities.String( i );
+			Q_snprintf( szRecipe, sizeof( szRecipe ), "%s	%s\n", szRecipe, precachedEntities.String( i ) );
+		}
+
+		Q_snprintf( szRecipe, sizeof( szRecipe ), "%s}\n", szRecipe );
+
+		XenGrenadeDebugMsg( "%s", szRecipe );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -270,7 +506,7 @@ bool CXenGrenadeRecipeManager::FindBestRecipe( char *szRecipe, size_t szRecipeSi
 // Purpose: 
 // Input  : *conceptName - 
 //-----------------------------------------------------------------------------
-bool CXenGrenadeRecipeManager::ParseRecipe( char *szRecipe, CGravityVortexController *pActivator )
+bool CXenGrenadeRecipeManager::ParseRecipe( char *szRecipe, CUtlMap<string_t, string_t> &spawnList )
 {
 	XenGrenadeDebugMsg( "	ParseRecipe: Start\n" );
 
@@ -281,7 +517,7 @@ bool CXenGrenadeRecipeManager::ParseRecipe( char *szRecipe, CGravityVortexContro
 	V_SplitString( szRecipe, ";", vecBlocks );
 	FOR_EACH_VEC( vecBlocks, i )
 	{
-		if (ParseRecipeBlock( vecBlocks[i], pActivator ))
+		if (ParseRecipeBlock( vecBlocks[i], spawnList ))
 			bSucceed = true;
 	}
 
@@ -292,7 +528,7 @@ bool CXenGrenadeRecipeManager::ParseRecipe( char *szRecipe, CGravityVortexContro
 // Purpose: 
 // Input  : *conceptName - 
 //-----------------------------------------------------------------------------
-bool CXenGrenadeRecipeManager::ParseRecipeBlock( char *szRecipe, CGravityVortexController *pActivator )
+bool CXenGrenadeRecipeManager::ParseRecipeBlock( char *szRecipe, CUtlMap<string_t, string_t> &spawnList )
 {
 	XenGrenadeDebugMsg( "	ParseRecipeBlock: Start \"%s\"\n", szRecipe );
 
@@ -349,30 +585,12 @@ bool CXenGrenadeRecipeManager::ParseRecipeBlock( char *szRecipe, CGravityVortexC
 	{
 		for (int i = 0; i < iNumEnts; i++)
 		{
-			pActivator->m_SpawnList.Insert( iszClass, kv );
+			spawnList.Insert( iszClass, kv );
 			XenGrenadeDebugMsg( "	ParseRecipeBlock: Added \"%s\" number %i to spawn list\n", STRING( iszClass ), iNumEnts );
 		}
 	}
 
 	return true;
-}
-
-void CreateRecipeManager()
-{
-	CBaseEntity *pEnt = CreateEntityByName( "xen_grenade_recipe_manager" );
-	if (pEnt)
-	{
-		DispatchSpawn( pEnt );
-		pEnt->Activate();
-		XenGrenadeDebugMsg( "Spawned xen_grenade_recipe_manager\n" );
-
-		// Now set in CXenGrenadeRecipeManager::Activate()
-		//g_hXenGrenadeRecipeManager = static_cast<CXenGrenadeRecipeManager*>(pEnt);
-	}
-	else
-	{
-		Error( "Unable to create xen_grenade_recipe_manager\n" );
-	}
 }
 
 // This is used for when an entity is close enough to be consumed, but shouldn't be consumed through
@@ -668,6 +886,8 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 void CGravityVortexController::PullPlayersInRange( void )
 {
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+	if (!pPlayer || !pPlayer->VPhysicsGetObject())
+		return;
 	
 	Vector	vecForce = GetAbsOrigin() - pPlayer->WorldSpaceCenter();
 	float	dist = VectorNormalize( vecForce );
@@ -841,10 +1061,7 @@ int	CGravityVortexController::Restore( IRestore &restore )
 //-----------------------------------------------------------------------------
 void CGravityVortexController::CreateXenLife()
 {
-	if (!g_hXenGrenadeRecipeManager)
-	{
-		CreateRecipeManager();
-	}
+	VerifyXenRecipeManager( GetClassname() );
 
 	// Create a list of conditions based on the consumed entities
 	AI_CriteriaSet set;
@@ -946,9 +1163,9 @@ void CGravityVortexController::CreateXenLife()
 	}
 
 	char szRecipe[512];
-	if (g_hXenGrenadeRecipeManager->FindBestRecipe(szRecipe, sizeof(szRecipe), set, this))
+	if (g_XenGrenadeRecipeManager.FindBestRecipe(szRecipe, sizeof(szRecipe), set, this))
 	{
-		if (g_hXenGrenadeRecipeManager->ParseRecipe(szRecipe, this))
+		if (g_XenGrenadeRecipeManager.ParseRecipe(szRecipe, m_SpawnList))
 			StartSpawning();
 	}
 }
@@ -1147,12 +1364,12 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 	angSpawnAngles.y = RandomFloat(0, 360);
 	pEntity->SetAbsAngles( angSpawnAngles );
 
+	pEntity->SetEZVariant( EZ_VARIANT_XEN );
+
 	CAI_BaseNPC * baseNPC = pEntity->MyNPCPointer();
 	if (baseNPC)
 	{
 		baseNPC->AddSpawnFlags( SF_NPC_FALL_TO_GROUND );
-		baseNPC->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
-
 
 		const char * squadnameContext = GetContextValue( "squadname" );
 
@@ -1169,10 +1386,6 @@ bool CGravityVortexController::TryCreateRecipeNPC( const char *szClass, const ch
 			DevMsg( "Adding xenpc '%s' to squad '%s' \n", baseNPC->GetDebugName(), squadname );
 			baseNPC->SetSquadName( AllocPooledString( squadname ) );
 		}
-	}
-	else if (CItem *pItem = dynamic_cast<CItem*>(pEntity))
-	{
-		pItem->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
 	}
 
 	if (szKV != NULL)
@@ -1515,7 +1728,7 @@ bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool 
 	{
 		baseNPC->AddSpawnFlags( SF_NPC_FALL_TO_GROUND );
 	}
-	baseNPC->m_tEzVariant = CAI_BaseNPC::EZ_VARIANT_XEN;
+	baseNPC->m_tEzVariant = EZ_VARIANT_XEN;
 	// Set the squad name of a new Xen NPC to 'xenpc_headcrab', 'xenpc_bullsquid', etc
 	char * squadname = UTIL_VarArgs( "xe%s", className );
 	DevMsg( "Adding xenpc '%s' to squad '%s' \n", baseNPC->GetDebugName(), squadname );
@@ -2098,13 +2311,6 @@ void CGrenadeHopwire::Precache( void )
 
 	PrecacheMaterial( "sprites/rollermine_shock.vmt" );
 
-	UTIL_PrecacheXenVariant( "npc_headcrab" );
-	UTIL_PrecacheXenVariant( "npc_zombie" );
-	UTIL_PrecacheXenVariant( "npc_antlion" );
-	UTIL_PrecacheXenVariant( "npc_bullsquid" );
-	UTIL_PrecacheXenVariant( "npc_zombine" );
-	UTIL_PrecacheXenVariant( "npc_antlionguard" );
-
 	// Interactions
 	if (g_interactionXenGrenadePull == 0)
 	{
@@ -2115,6 +2321,8 @@ void CGrenadeHopwire::Precache( void )
 		g_interactionXenGrenadeHop = CBaseCombatCharacter::GetInteractionID();
 		g_interactionXenGrenadeRagdoll = CBaseCombatCharacter::GetInteractionID();
 	}
+
+	VerifyXenRecipeManager( GetClassname() );
 #endif
 
 	BaseClass::Precache();

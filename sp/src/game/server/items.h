@@ -104,9 +104,8 @@ public:
 #endif
 
 #ifdef EZ
-	// TODO: Maybe make EZ_VARIANT a shared enum instead of being within CAI_BaseNPC?
-	typedef CAI_BaseNPC::EZ_VARIANT EZ_VARIANT_ITEM;
-	EZ_VARIANT_ITEM m_tEzVariant;
+	EZ_VARIANT	GetEZVariant() { return m_tEzVariant; }
+	void		SetEZVariant( EZ_VARIANT variant ) { m_tEzVariant = variant; }
 #endif
 
 	DECLARE_DATADESC();
@@ -122,6 +121,10 @@ private:
 	QAngle		m_vOriginalSpawnAngles;
 
 	IPhysicsConstraint		*m_pConstraint;
+
+#ifdef EZ
+	EZ_VARIANT	m_tEzVariant;
+#endif
 };
 
 #endif // ITEMS_H

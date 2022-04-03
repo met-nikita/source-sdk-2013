@@ -96,7 +96,8 @@ public:
 	float	GetDesiredHealthPercentage( void ) const { return m_flDesiredHealth[0]; }
 
 #ifdef EZ
-	CItem::EZ_VARIANT_ITEM m_tEzVariant;
+	EZ_VARIANT	GetEZVariant() { return m_tEzVariant; }
+	void		SetEZVariant( EZ_VARIANT variant ) { m_tEzVariant = variant; }
 #endif
 
 private:
@@ -123,6 +124,10 @@ private:
 	float	m_flDesiredAmmo[ NUM_AMMO_ITEMS ];
 
 	bool m_bIsMaster;
+
+#ifdef EZ
+	EZ_VARIANT m_tEzVariant;
+#endif
 
 #ifdef MAPBASE
 	COutputEHANDLE m_OnItem;
@@ -269,12 +274,20 @@ void CItem_DynamicResupply::Precache( void )
 	int i;
 	for ( i = 0; i < NUM_HEALTH_ITEMS; i++ )
 	{
+#ifdef EZ
+		UTIL_PrecacheEZVariant( g_DynamicResupplyHealthItems[i].sEntityName, m_tEzVariant );
+#else
 		UTIL_PrecacheOther( g_DynamicResupplyHealthItems[i].sEntityName );
+#endif
 	}
 
 	for ( i = 0; i < NUM_AMMO_ITEMS; i++ )
 	{
+#ifdef EZ
+		UTIL_PrecacheEZVariant( g_DynamicResupplyAmmoItems[i].sEntityName, m_tEzVariant );
+#else
 		UTIL_PrecacheOther( g_DynamicResupplyAmmoItems[i].sEntityName );
+#endif
 	}
 }
 
@@ -375,14 +388,11 @@ void CItem_DynamicResupply::SpawnFullItem( CItem_DynamicResupply *pMaster, CBase
 #ifdef MAPBASE
 #ifdef EZ
 			CBaseEntity *pItem = CreateNoSpawn( "item_healthvial", GetAbsOrigin(), GetAbsAngles(), this );
-
+			
 			// Give the item our E:Z variant
-			if (m_tEzVariant != CAI_BaseNPC::EZ_VARIANT_DEFAULT)
+			if (m_tEzVariant != EZ_VARIANT_DEFAULT)
 			{
-				if (CItem *pCItem = dynamic_cast<CItem*>(pItem))
-				{
-					pCItem->m_tEzVariant = m_tEzVariant;
-				}
+				pItem->SetEZVariant( m_tEzVariant );
 			}
 
 			DispatchSpawn( pItem );
@@ -414,14 +424,11 @@ void CItem_DynamicResupply::SpawnFullItem( CItem_DynamicResupply *pMaster, CBase
 #ifdef MAPBASE
 #ifdef EZ
 			CBaseEntity *pItem = CreateNoSpawn( g_DynamicResupplyAmmoItems[i].sEntityName, GetAbsOrigin(), GetAbsAngles(), this );
-
+			
 			// Give the item our E:Z variant
-			if (m_tEzVariant != CAI_BaseNPC::EZ_VARIANT_DEFAULT)
+			if (m_tEzVariant != EZ_VARIANT_DEFAULT)
 			{
-				if (CItem *pCItem = dynamic_cast<CItem*>(pItem))
-				{
-					pCItem->m_tEzVariant = m_tEzVariant;
-				}
+				pItem->SetEZVariant( m_tEzVariant );
 			}
 
 			DispatchSpawn( pItem );
@@ -613,12 +620,9 @@ bool CItem_DynamicResupply::SpawnItemFromRatio( int nCount, DynamicResupplyItems
 	CBaseEntity *pEnt = CBaseEntity::CreateNoSpawn( pItems[iSelectedIndex].sEntityName, *pVecSpawnOrigin, GetAbsAngles(), this );
 
 	// Give the item our E:Z variant
-	if (m_tEzVariant != CAI_BaseNPC::EZ_VARIANT_DEFAULT)
+	if (m_tEzVariant != EZ_VARIANT_DEFAULT)
 	{
-		if (CItem *pCItem = dynamic_cast<CItem*>(pEnt))
-		{
-			pCItem->m_tEzVariant = m_tEzVariant;
-		}
+		pEnt->SetEZVariant( m_tEzVariant );
 	}
 
 	DispatchSpawn( pEnt );
