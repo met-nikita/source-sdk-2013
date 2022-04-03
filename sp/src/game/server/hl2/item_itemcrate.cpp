@@ -71,6 +71,9 @@ public:
 	virtual bool IsItemCrate() { return true; };
 
 	virtual void OnSpawnNPC( CBaseEntity * pEntity, CBaseCombatCharacter * pBreaker ){ }
+
+	EZ_VARIANT	GetEZVariant() { return m_tEzVariant; }
+	void		SetEZVariant( EZ_VARIANT variant ) { m_tEzVariant = variant; }
 #endif
 
 protected:
@@ -110,7 +113,7 @@ private:
 	CrateAppearance_t	m_CrateAppearance;
 
 #ifdef EZ2
-	CAI_BaseNPC::EZ_VARIANT m_tEzVariant;
+	EZ_VARIANT			m_tEzVariant;
 #endif
 
 	COutputEvent m_OnCacheInteraction;
@@ -456,16 +459,11 @@ void CItem_ItemCrate::OnBreak( const Vector &vecVelocity, const AngularImpulse &
 			return;
 
 #ifdef EZ2
+		pSpawn->SetEZVariant( m_tEzVariant );
+
 		if ( pSpawn->IsNPC() )
 		{
-			CAI_BaseNPC * pNPC =  pSpawn->MyNPCPointer();
-			pNPC->m_tEzVariant = m_tEzVariant;
-
-			OnSpawnNPC( pNPC, pBreaker->MyCombatCharacterPointer() );
-		}
-		else if ( CItem *pItem = dynamic_cast<CItem*>(pSpawn) )
-		{
-			pItem->m_tEzVariant = m_tEzVariant;
+			OnSpawnNPC( pSpawn, pBreaker->MyCombatCharacterPointer() );
 		}
 #endif
 

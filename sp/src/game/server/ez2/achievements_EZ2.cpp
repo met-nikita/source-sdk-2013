@@ -494,6 +494,7 @@ protected:
 	void Init()
 	{
 		SetAttackerFilter( "player" );
+		SetInflictorFilter( "crossbow_bolt" );
 		SetFlags( ACH_LISTEN_KILL_EVENTS | ACH_SAVE_GLOBAL );
 		SetGameDirFilter( "EntropyZero2" );
 		SetGoal( KILL_ALIENSWXBOW_COUNT );
@@ -510,27 +511,23 @@ protected:
 		if (!pAttacker->IsPlayer())
 			return;
 
-		CBaseCombatWeapon * pWeapon = pAttacker->MyCombatCharacterPointer()->GetActiveWeapon();
-		if ( pWeapon && pWeapon->ClassMatches("weapon_crossbow") )
+		// Check if the victim is an alien
+		int lVictimClassification = pVictim->Classify();
+		switch (lVictimClassification)
 		{
-			// Check if the victim is an alien
-			int lVictimClassification = pVictim->Classify();
-			switch (lVictimClassification)
-			{
-			case CLASS_ALIEN_FAUNA:
-			case CLASS_ALIEN_PREDATOR:
-			case CLASS_ANTLION:
-			case CLASS_BARNACLE:
-			case CLASS_HEADCRAB:
-			case CLASS_BULLSQUID:
-			case CLASS_HOUNDEYE:
-			case CLASS_RACE_X:
-			case CLASS_VORTIGAUNT:
-			case CLASS_ZOMBIE:
-				IncrementCount();
-			default:
-				return;
-			}
+		case CLASS_ALIEN_FAUNA:
+		case CLASS_ALIEN_PREDATOR:
+		case CLASS_ANTLION:
+		case CLASS_BARNACLE:
+		case CLASS_HEADCRAB:
+		case CLASS_BULLSQUID:
+		case CLASS_HOUNDEYE:
+		case CLASS_RACE_X:
+		case CLASS_VORTIGAUNT:
+		case CLASS_ZOMBIE:
+			IncrementCount();
+		default:
+			return;
 		}
 	}
 
@@ -538,6 +535,11 @@ protected:
 	virtual bool ShouldShowProgressNotification() { return true; }
 };
 DECLARE_ACHIEVEMENT( CAchievementEZ2KillAliensWithCrossbow, ACHIEVEMENT_EZ2_KILL_ALIENSWXBOW, "ACH_EZ2_KILL_ALIENSWXBOW", 5 );
+
+// HACKHACK: Checking our active weapon isn't enough because the player could be killing NPCs using the APC, a mounted gun, grenades, etc.
+// As a result, we hook directly into the 357 class to turn this on when firing a bullet and turn it off directly afterwards. This ensures
+// that the achievement only counts during the relevant window.
+bool g_bEZ2357AchievementHack = false;
 
 class CAchievementEZ2KillRebelsWith357 : public CBaseAchievement
 {
@@ -566,7 +568,10 @@ protected:
 		CBaseCombatWeapon * pWeapon = pAttacker->MyCombatCharacterPointer()->GetActiveWeapon();
 		if (pWeapon && pWeapon->ClassMatches( "weapon_357" ))
 		{
-			IncrementCount();
+			if (g_bEZ2357AchievementHack)
+			{
+				IncrementCount();
+			}
 		}
 	}
 

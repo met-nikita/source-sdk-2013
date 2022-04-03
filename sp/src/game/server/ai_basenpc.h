@@ -2309,19 +2309,11 @@ private:
 	// Entropy : Zero 2 Variants
 	//-----------------------------------------------------
 public:
-	enum EZ_VARIANT
-	{
-		EZ_VARIANT_INVALID = -1,
-		EZ_VARIANT_DEFAULT = 0,
-		EZ_VARIANT_XEN,
-		EZ_VARIANT_RAD,
-		EZ_VARIANT_TEMPORAL,
-		EZ_VARIANT_ARBEIT, // For Arbeit stuff that isn't covered in goo
 
-		EZ_VARIANT_COUNT, // Keep this at the end
-	};
+	EZ_VARIANT	GetEZVariant() { return m_tEzVariant; }
+	void		SetEZVariant( EZ_VARIANT variant ) { m_tEzVariant = variant; }
 
-	EZ_VARIANT m_tEzVariant;
+	EZ_VARIANT m_tEzVariant; // TODO: Now that we have accessor functions, this should be private
 
 #ifdef EZ
 	virtual bool	ShouldDropGooPuddle() { return true; }

@@ -79,7 +79,7 @@ CNPC_Wilson *CNPC_Wilson::GetBestWilson( float &flBestDistSqr, const Vector *vec
 
 ConVar npc_wilson_depressing_death("npc_wilson_depressing_death", "0", FCVAR_NONE, "Makes Will-E shut down and die into an empty husk rather than explode.");
 
-ConVar npc_wilson_clearance_speed_threshold( "npc_wilson_clearance_speed_threshold", "500.0", FCVAR_NONE, "The speed at which Will-E starts to think he's gonna get knocked off if approaching a surface." );
+ConVar npc_wilson_clearance_speed_threshold( "npc_wilson_clearance_speed_threshold", "250.0", FCVAR_NONE, "The speed at which Will-E starts to think he's gonna get knocked off if approaching a surface." );
 ConVar npc_wilson_clearance_debug( "npc_wilson_clearance_debug", "0", FCVAR_NONE, "Debugs Will-E's low clearance detection." );
 
 static const char *g_DamageZapContext = "DamageZapEffect";
@@ -119,6 +119,7 @@ BEGIN_DATADESC(CNPC_Wilson)
 
 	DEFINE_FIELD( m_fNextFidgetSpeechTime, FIELD_TIME ),
 	DEFINE_FIELD( m_bPlayerLeftPVS, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_flPlayerNearbyTime, FIELD_TIME ),
 
 	DEFINE_KEYFIELD( m_bStatic, FIELD_BOOLEAN, "static" ),
 
@@ -203,7 +204,9 @@ CNPC_Wilson::CNPC_Wilson( void ) :
 	// So we don't think we haven't seen the player in a while
 	// when in fact we were just spawned
 	// (it's funny, but still)
-	m_flLastSawPlayerTime = gpGlobals->curtime;
+	m_flLastSawPlayerTime = -1.0f;
+
+	m_flPlayerNearbyTime = -1.0f;
 }
 
 CNPC_Wilson::~CNPC_Wilson( void )
@@ -473,6 +476,7 @@ int CNPC_Wilson::OnTakeDamage( const CTakeDamageInfo &info )
 	{
 		AI_CriteriaSet modifiers;
 		ModifyOrAppendDamageCriteria(modifiers, info);
+		modifiers.AppendCriteria("hitgroup", UTIL_VarArgs("%i", LastHitGroup()));
 		SpeakIfAllowed( TLK_WOUND, modifiers );
 	}
 
@@ -786,8 +790,7 @@ void CNPC_Wilson::PrescheduleThink( void )
 		// Make sure we can see the direction we're going in
 		if (velocity.LengthSqr() >= Square(npc_wilson_clearance_speed_threshold.GetFloat()) && vecForward.Dot(velocity) > 0.0f)
 		{
-			// For approximating the front of the APC
-			Vector vecOrigin = GetAbsOrigin() + (velocity);
+			Vector vecOrigin = GetAbsOrigin();
 
 			CTraceFilterSkipTwoEntities pFilter(this, m_hAttachedVehicle, COLLISION_GROUP_NONE);
 			trace_t tr;
@@ -946,12 +949,13 @@ void CNPC_Wilson::OnSeeEntity( CBaseEntity *pEntity )
 			SetSpeechTarget( pEntity );
 			SpeakIfAllowed( TLK_ALLY_IN_BARNACLE );
 		}
-		else if (gpGlobals->curtime - m_flLastSawPlayerTime > 60.0f /*&& m_flCarryTime < m_flLastSawPlayerTime*/)
+		else if (gpGlobals->curtime - m_flLastSawPlayerTime > 60.0f && m_flLastSawPlayerTime != -1.0f /*&& m_flCarryTime < m_flLastSawPlayerTime*/)
 		{
 			// Oh, hey, Bad Cop! Long time no see!
 			// Needs to be Speak() to override any currently running speech
 			SetSpeechTarget( pEntity );
 			Speak( TLK_FOUNDPLAYER );
+			m_flPlayerNearbyTime = -1.0f;
 		}
 
 		m_bPlayerLeftPVS = false;
@@ -1233,6 +1237,7 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 	if (pPlayer && gpGlobals->curtime > 2.0f)
 	{
+		bool bShouldSpeakGoodbye = (m_flPlayerNearbyTime != -1.0f && gpGlobals->curtime - m_flPlayerNearbyTime >= 30.0f);
 		if ( HasCondition(COND_IN_PVS) )
 		{
 			if ( HasCondition( COND_TALKER_PLAYER_DEAD ) && FInViewCone(pPlayer) && !GetExpresser()->SpokeConcept(TLK_PLDEAD) )
@@ -1241,15 +1246,26 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 					return true;
 			}
 
-			float flDistSqr = (GetAbsOrigin() - pPlayer->GetAbsOrigin()).LengthSqr();
-			if (flDistSqr >= Square( 256 ))
+			// If we're in a vehicle, use the vehicle's origin instead
+			Vector vecSearchOrigin = m_hAttachedVehicle ? m_hAttachedVehicle->GetAbsOrigin() : GetAbsOrigin();
+			float flDistSqr = (vecSearchOrigin - pPlayer->GetAbsOrigin()).LengthSqr();
+			if (flDistSqr >= Square( 300 ))
 			{
-				if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
+				m_flPlayerNearbyTime = -1.0f;
+				if ( bShouldSpeakGoodbye && SpeakIfAllowed( TLK_GOODBYE, true ) )
 					return true;
 			}
+			else if (m_flPlayerNearbyTime == -1.0f)
+			{
+				m_flPlayerNearbyTime = gpGlobals->curtime;
+			}
 		}
-		else if ( CanSpeakGoodbye() && SpeakIfAllowed( TLK_GOODBYE ) )
-			return true;
+		else
+		{
+			m_flPlayerNearbyTime = -1.0f;
+			if ( bShouldSpeakGoodbye && SpeakIfAllowed( TLK_GOODBYE, true ) )
+				return true;
+		}
 	}
 
 	return false;
@@ -1682,6 +1698,16 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 		{
 			set.AppendCriteria( "player_in_vehicle", "0" );
 		}
+
+		// Record whether the player is speaking
+		if (pPlayer->GetExpresser() && pPlayer->GetExpresser()->IsSpeaking())
+		{
+			set.AppendCriteria( "player_speaking", "1" );
+		}
+		else
+		{
+			set.AppendCriteria( "player_speaking", "0" );
+		}
 	}
 	else
 	{
@@ -1768,7 +1794,7 @@ bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPla
 	if ( fRespondingToPlayer )
 	{
 		// If we're responding to the player, don't respond if the scene has speech in it
-		if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this ) )
+		if ( IsRunningScriptedSceneWithSpeechAndNotPaused( this, false ) )
 		{
 			return false;
 		}
@@ -1776,7 +1802,7 @@ bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPla
 	else
 	{
 		// If we're not responding to the player, don't talk if running a logic_choreo
-		if ( IsRunningScriptedSceneAndNotPaused( this ) )
+		if ( IsRunningScriptedSceneAndNotPaused( this, false ) )
 		{
 			return false;
 		}

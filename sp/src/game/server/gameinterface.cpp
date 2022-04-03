@@ -161,6 +161,9 @@ CTimedEventMgr g_NetworkPropertyEventMgr;
 
 ISaveRestoreBlockHandler *GetEventQueueSaveRestoreBlockHandler();
 ISaveRestoreBlockHandler *GetCommentarySaveRestoreBlockHandler();
+#ifdef EZ2
+ISaveRestoreBlockHandler *GetXenRecipeSaveRestoreBlockHandler();
+#endif
 
 CUtlLinkedList<CMapEntityRef, unsigned short> g_MapEntityRefs;
 
@@ -699,6 +702,9 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetEventQueueSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetAchievementSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetVScriptSaveRestoreBlockHandler() );
+#ifdef EZ2
+	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetXenRecipeSaveRestoreBlockHandler() );
+#endif
 
 	// The string system must init first + shutdown last
 	IGameSystem::Add( GameStringSystem() );

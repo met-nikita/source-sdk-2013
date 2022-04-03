@@ -99,7 +99,13 @@ IMPLEMENT_SERVERCLASS_ST(CWeaponHopwire, DT_WeaponHopwire)
 END_SEND_TABLE()
 
 LINK_ENTITY_TO_CLASS( weapon_hopwire, CWeaponHopwire );
+
+// In E:Z2, the hopwire's Xen spawning feature precaches a massive number of assets which shouldn't be used on levels which don't have Xen grenades.
+// As a result, the hopwire is precached in the same way as any other entity. (i.e. not precached at all times like other weapons are)
+#ifndef EZ2
 PRECACHE_WEAPON_REGISTER(weapon_hopwire);
+#endif
+
 CWeaponHopwire::CWeaponHopwire() :
 	CBaseHLCombatWeapon(),
 	m_bRedraw( false )
@@ -554,6 +560,8 @@ public:
 	DECLARE_CLASS( CWeaponEndGame, CWeaponHopwire );
 	DECLARE_SERVERCLASS();
 
+	void	Precache( void );
+
 	bool	ShouldDisplayHUDHint() { return true; }
 protected:
 	void	ThrowGrenade( CBasePlayer *pPlayer );
@@ -565,6 +573,15 @@ private:
 
 
 };
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CWeaponEndGame::Precache( void )
+{
+	// Skip Xen grenade precache
+	CBaseHLCombatWeapon::Precache();
+}
 
 void CWeaponEndGame::ThrowGrenade( CBasePlayer * pPlayer )
 {

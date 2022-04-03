@@ -411,6 +411,16 @@ void CEZ2_Player::Spawn( void )
 
 	SetModel( "models/bad_cop.mdl" );
 
+	Activate();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Activate( void )
+{
+	BaseClass::Activate();
+
 	ListenForGameEvent( "zombie_scream" );
 	ListenForGameEvent( "vehicle_overturned" );
 }
@@ -877,6 +887,18 @@ void CEZ2_Player::ModifyOrAppendCriteria(AI_CriteriaSet& criteriaSet)
 	if (pWilson)
 	{
 		criteriaSet.AppendCriteria("wilson_distance", CFmtStrN<32>( "%f.3", sqrt(flBestDistSqr) ));
+
+		// Record whether Wilson is speaking
+		if (pWilson->IsSpeaking())
+		{
+			criteriaSet.AppendCriteria( "wilson_speaking", "1" );
+		}
+		else
+		{
+			criteriaSet.AppendCriteria( "wilson_speaking", "0" );
+		}
+
+		pWilson->AppendContextToCriteria( criteriaSet, "wilson_" );
 	}
 	else
 	{
@@ -1219,7 +1241,8 @@ bool CEZ2_Player::IsAllowedToSpeak(AIConcept_t concept)
 		return false;
 
 	// Don't say anything if we're running a scene
-	if ( IsTalkingInAScriptedScene( this, true ) )
+	// (instanced scenes aren't ignored because they could be Wilson scenes)
+	if ( IsTalkingInAScriptedScene( this, false ) )
 	{
 		return false;
 	}
@@ -1711,6 +1734,24 @@ bool CEZ2_Player::HandleRemoveFromPlayerSquad( CAI_BaseNPC *pNPC )
 	SetSpeechTarget(pNPC);
 
 	return SpeakIfAllowed(TLK_COMMAND_REMOVE);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::Weapon_HandleEquip( CBaseCombatWeapon *pWeapon )
+{
+	BaseClass::Weapon_HandleEquip( pWeapon );
+
+	// Make sure Wilson doesn't remind us of our special weapons for at least 20 minutes
+	if (FClassnameIs( pWeapon, "weapon_hopwire" ))
+	{
+		AddContext( "xen_grenade_thrown", "1", 1200.0f );
+	}
+	else if (FClassnameIs( pWeapon, "weapon_displacer_pistol" ))
+	{
+		AddContext( "displacer_used", "1", 1200.0f );
+	}
 }
 
 //-----------------------------------------------------------------------------

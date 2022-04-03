@@ -1786,19 +1786,40 @@ public:
 	virtual void LevelShutdownPostEntity();
 
 	bool AddOrMarkPrecached( const char *pClassname );
+#ifdef EZ
+	bool AddOrMarkPrecachedVariant( const char *pClassname, EZ_VARIANT variant );
+#endif
 
 private:
+#ifdef EZ
+	CUtlSymbolTable		m_list[EZ_VARIANT_COUNT];
+#else
 	CUtlSymbolTable		m_list;
+#endif
 };
 
 void CPrecacheOtherList::LevelInitPreEntity()
 {
+#ifdef EZ
+	for (int i = 0; i < EZ_VARIANT_COUNT; i++)
+	{
+		m_list[i].RemoveAll();
+	}
+#else
 	m_list.RemoveAll();
+#endif
 }
 
 void CPrecacheOtherList::LevelShutdownPostEntity()
 {
+#ifdef EZ
+	for (int i = 0; i < EZ_VARIANT_COUNT; i++)
+	{
+		m_list[i].RemoveAll();
+	}
+#else
 	m_list.RemoveAll();
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1808,13 +1829,42 @@ void CPrecacheOtherList::LevelShutdownPostEntity()
 //-----------------------------------------------------------------------------
 bool CPrecacheOtherList::AddOrMarkPrecached( const char *pClassname )
 {
+#ifdef EZ
+	CUtlSymbol sym = m_list[EZ_VARIANT_DEFAULT].Find( pClassname );
+#else
 	CUtlSymbol sym = m_list.Find( pClassname );
+#endif
 	if ( sym.IsValid() )
 		return false;
 
+#ifdef EZ
+	m_list[EZ_VARIANT_DEFAULT].AddString( pClassname );
+#else
 	m_list.AddString( pClassname );
+#endif
 	return true;
 }
+
+#ifdef EZ
+
+//-----------------------------------------------------------------------------
+// Purpose: mark or add
+// Input  : *pEntity - 
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CPrecacheOtherList::AddOrMarkPrecachedVariant( const char *pClassname, EZ_VARIANT variant )
+{
+	if ( variant <= EZ_VARIANT_INVALID || variant >= EZ_VARIANT_COUNT )
+		return false;
+
+	CUtlSymbol sym = m_list[variant].Find( pClassname );
+	if ( sym.IsValid() )
+		return false;
+
+	m_list[variant].AddString( pClassname );
+	return true;
+}
+#endif
 
 CPrecacheOtherList g_PrecacheOtherList( "CPrecacheOtherList" );
 #endif
@@ -1859,7 +1909,7 @@ void UTIL_PrecacheOther( const char *szClassname, const char *modelName )
 //-----------------------------------------------------------------------------
 void UTIL_PrecacheXenVariant( const char *szClassname )
 {
-	UTIL_PrecacheEZVariant( szClassname, CAI_BaseNPC::EZ_VARIANT_XEN );
+	UTIL_PrecacheEZVariant( szClassname, EZ_VARIANT::EZ_VARIANT_XEN );
 }
 
 //-----------------------------------------------------------------------------
@@ -1871,7 +1921,7 @@ void UTIL_PrecacheEZVariant( const char *szClassname, int ezvariant )
 {
 #if defined( PRECACHE_OTHER_ONCE )
 	// already done this one?, if not, mark as done
-	if (!g_PrecacheOtherList.AddOrMarkPrecached( szClassname ))
+	if (!g_PrecacheOtherList.AddOrMarkPrecachedVariant( szClassname, (EZ_VARIANT)ezvariant ))
 		return;
 #endif
 
@@ -1882,11 +1932,7 @@ void UTIL_PrecacheEZVariant( const char *szClassname, int ezvariant )
 		return;
 	}
 
-	// If this entity is an NPC, apply the EZ variant to the NPC before precaching
-	if (pEntity->MyNPCPointer() != NULL)
-	{
-		pEntity->MyNPCPointer()->m_tEzVariant = (CAI_BaseNPC::EZ_VARIANT) ezvariant;
-	}
+	pEntity->SetEZVariant( (EZ_VARIANT)ezvariant );
 
 	if (pEntity)
 		pEntity->Precache();
