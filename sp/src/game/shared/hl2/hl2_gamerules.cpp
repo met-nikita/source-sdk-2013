@@ -399,6 +399,24 @@ ConVar	sk_npc_dmg_gunship_to_plr	( "sk_npc_dmg_gunship_to_plr", "0", FCVAR_REPLI
 ConVar	sv_player_death_time( "sv_player_death_time", "1.0", FCVAR_REPLICATED );
 #endif
 
+#ifdef CSS_WEAPONS_IN_HL2
+ConVar	sk_plr_dmg_45acp			( "sk_plr_dmg_45acp", "7", FCVAR_REPLICATED );
+ConVar	sk_npc_dmg_45acp			( "sk_npc_dmg_45acp", "3", FCVAR_REPLICATED );
+ConVar	sk_max_45acp				( "sk_max_45acp", "100", FCVAR_REPLICATED );
+
+ConVar	sk_plr_dmg_357sig			( "sk_plr_dmg_357sig", "20", FCVAR_REPLICATED );
+ConVar	sk_npc_dmg_357sig			( "sk_npc_dmg_357sig", "15", FCVAR_REPLICATED );
+ConVar	sk_max_357sig				( "sk_max_357sig", "52", FCVAR_REPLICATED );
+
+ConVar	sk_plr_dmg_556mm			( "sk_plr_dmg_556mm", "8", FCVAR_REPLICATED );
+ConVar	sk_npc_dmg_556mm			( "sk_npc_dmg_556mm", "3", FCVAR_REPLICATED );
+ConVar	sk_max_556mm				( "sk_max_556mm", "90", FCVAR_REPLICATED );
+
+ConVar	sk_plr_dmg_762mm			( "sk_plr_dmg_762mm", "9", FCVAR_REPLICATED );
+ConVar	sk_npc_dmg_762mm			( "sk_npc_dmg_762mm", "4", FCVAR_REPLICATED );
+ConVar	sk_max_762mm				( "sk_max_762mm", "60", FCVAR_REPLICATED );
+#endif
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : iDmgType - 
@@ -2858,6 +2876,13 @@ CAmmoDef *GetAmmoDef()
 #endif // HL2_EPISODIC
 #ifdef MAPBASE
 		def.AddAmmoType("slam",				DMG_BURN,					TRACER_NONE,			0,			0,			5,			0,							0 );
+#endif
+
+#ifdef CSS_WEAPONS_IN_HL2
+		def.AddAmmoType("45ACP",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_45acp",		"sk_npc_dmg_45acp",		"sk_max_45acp",		BULLET_IMPULSE(200, 1225), 0 );
+		def.AddAmmoType("357SIG",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_357sig",	"sk_npc_dmg_357sig",	"sk_max_357sig",	BULLET_IMPULSE(200, 1225), 0 );
+		def.AddAmmoType("556mm",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_556mm",		"sk_npc_dmg_556mm",		"sk_max_556mm",		BULLET_IMPULSE(200, 1225), 0 );
+		def.AddAmmoType("762mm",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_762mm",		"sk_npc_dmg_762mm",		"sk_max_762mm",		BULLET_IMPULSE(200, 1225), 0 );
 #endif
 	}
 

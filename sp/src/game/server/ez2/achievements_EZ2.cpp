@@ -649,7 +649,7 @@ protected:
 			return;
 
 		// Victim must be temporal
-		if (pNPC->m_tEzVariant != CAI_BaseNPC::EZ_VARIANT_TEMPORAL)
+		if (pNPC->m_tEzVariant != EZ_VARIANT_TEMPORAL)
 			return;
 
 		const char * pEventComponent = UTIL_VarArgs( "EZ2_KILL_TEMPORALCRAB_%s", m_pAchievementMgr->GetMapName() );

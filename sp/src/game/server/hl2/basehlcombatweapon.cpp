@@ -11,6 +11,9 @@
 #include "game.h"
 #include "in_buttons.h"
 #include "gamestats.h"
+#ifdef CSS_WEAPONS_IN_HL2
+#include "ammodef.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -100,12 +103,22 @@ void CHLMachineGun::PrimaryAttack( void )
 	info.m_iTracerFreq = 2;
 #endif
 
+#ifdef CSS_WEAPONS_IN_HL2
+	if (GetDamageMultiplier() != 1.0f)
+	{
+		info.m_flDamage = round( GetAmmoDef()->PlrDamage( info.m_iAmmoType ) * GetDamageMultiplier() );
+	}
+#endif
 	FireBullets( info );
 
 	//Factor in the view kick
 	AddViewKick();
 
+#ifdef CSS_WEAPONS_IN_HL2
+	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), IsSilenced() ? SOUNDENT_VOLUME_MACHINEGUN / 3.0 : SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
+#else
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
+#endif
 	
 	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
 	{

@@ -121,8 +121,14 @@ public:
 
 #define WEAPON_NOCLIP			-1	// clip sizes set to this tell the weapon it doesn't use a clip
 
+#ifdef EZ
+// E:Z needs a higher limit
+#define	MAX_AMMO_TYPES	36
+#define MAX_AMMO_SLOTS  36		// not really slots
+#else
 #define	MAX_AMMO_TYPES	32		// ???
 #define MAX_AMMO_SLOTS  32		// not really slots
+#endif
 
 #define HUD_PRINTNOTIFY		1
 #define HUD_PRINTCONSOLE	2
