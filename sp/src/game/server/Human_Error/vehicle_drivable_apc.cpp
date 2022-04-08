@@ -1652,6 +1652,13 @@ void CPropDrivableAPC::ExitVehicle( int nRole )
 		m_hTarget->MyNPCPointer()->RemoveGlowEffect();
 		m_hTarget = NULL;
 	}
+
+	// Remove our laser dot when we exit the vehicle
+	if ( m_hLaserDot )
+	{
+		UTIL_Remove( m_hLaserDot );
+		m_hLaserDot = NULL;
+	}
 #endif
 
 	BaseClass::ExitVehicle( nRole );
