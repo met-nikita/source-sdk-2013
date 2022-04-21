@@ -1466,6 +1466,9 @@ public:
 	void Spawn( void );
 	void Activate( void );
 	bool KeyValue( const char *szKeyName, const char *szValue );
+#ifdef EZ
+	bool GetKeyValue( const char *szKeyName, char *szValue, int iMaxLen );
+#endif
 
 	static int ChangeList( levellist_t *pLevelList, int maxList );
 
@@ -1572,6 +1575,23 @@ bool CChangeLevel::KeyValue( const char *szKeyName, const char *szValue )
 
 	return true;
 }
+
+#ifdef EZ
+bool CChangeLevel::GetKeyValue( const char *szKeyName, char *szValue, int iMaxLen )
+{
+	if ( FStrEq( szKeyName, "map" ) )
+	{
+		Q_snprintf( szValue, iMaxLen, "%s", m_szMapName );
+		return true;
+	}
+	else  if ( FStrEq( szKeyName, "landmark" ) )
+	{
+		Q_snprintf( szValue, iMaxLen, "%s", m_szLandmarkName );
+		return true;
+	}
+	return BaseClass::GetKeyValue( szKeyName, szValue, iMaxLen );
+}
+#endif
 
 
 
