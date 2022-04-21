@@ -28,6 +28,8 @@
 #include "grenade_satchel.h"
 #include "npc_citizen17.h"
 #include "npc_combine.h"
+#include "point_bonusmaps_accessor.h"
+#include "achievementmgr.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -39,6 +41,8 @@ ConVar player_dummy( "player_dummy", "1", FCVAR_NONE, "Enables the player NPC du
 ConVar player_use_instructor( "player_use_instructor", "1", FCVAR_NONE, "Enables game instructor hints instead of HL2 HUD hints" );
 
 ConVar player_silent_surrender( "player_silent_surrender", "1" );
+
+extern ConVar sv_bonus_challenge;
 
 #if EZ2
 LINK_ENTITY_TO_CLASS(player, CEZ2_Player);
@@ -72,6 +76,8 @@ BEGIN_DATADESC(CEZ2_Player)
 
 	DEFINE_INPUTFUNC(FIELD_VOID, "StartScripting", InputStartScripting),
 	DEFINE_INPUTFUNC(FIELD_VOID, "StopScripting", InputStopScripting),
+	
+	DEFINE_INPUTFUNC(FIELD_VOID, "__FinishBonusChallenge", InputFinishBonusChallenge),
 END_DATADESC()
 
 BEGIN_ENT_SCRIPTDESC( CEZ2_Player, CBasePlayer, "E:Z2's player entity." )
@@ -85,10 +91,15 @@ BEGIN_ENT_SCRIPTDESC( CEZ2_Player, CBasePlayer, "E:Z2's player entity." )
 
 	DEFINE_SCRIPTFUNC( IsInAScript, "Returns true if the player is in a script." )
 
+	DEFINE_SCRIPTFUNC( HasCheated, "Returns true if the player has had cheats on during this map." )
+
+	DEFINE_SCRIPTFUNC( HUDMaskInterrupt, "Disables HUD elements for mask cache scenes." )
+	DEFINE_SCRIPTFUNC( HUDMaskRestore, "Restores disabled HUD elements for mask cache scenes." )
+
 END_SCRIPTDESC();
 
 IMPLEMENT_SERVERCLASS_ST(CEZ2_Player, DT_EZ2_Player)
-
+	SendPropBool( SENDINFO( m_bBonusChallengeUpdate ) ),
 END_SEND_TABLE()
 
 /*
@@ -183,6 +194,20 @@ void CEZ2_Player::PostThink(void)
 		}
 	}
 
+	if (GetBonusChallenge() != EZ_CHALLENGE_NONE && !m_bMaskInterrupt && gpGlobals->curtime > 2.5f)
+	{
+		// Abort the challenge if we're cheating
+		if (HasCheated() && developer.GetInt() == 0)
+		{
+			RunScript( "MapCheated()" );
+		}
+		else if (GetBonusChallenge() == EZ_CHALLENGE_TIME)
+		{
+			// Start and stay ahead 2.5 seconds after curtime
+			SetBonusProgress( gpGlobals->curtime - 2.5f );
+		}
+	}
+
 	BaseClass::PostThink();
 }
 
@@ -193,6 +218,11 @@ void CEZ2_Player::Precache( void )
 	PrecacheModel( "models/bad_cop.mdl" );
 	PrecacheScriptSound( "Player.Detonate" );
 	PrecacheScriptSound( "Player.DetonateFail" );
+
+	if (GetBonusChallenge() == EZ_CHALLENGE_MASS || sv_bonus_challenge.GetInt() == EZ_CHALLENGE_MASS)
+	{
+		VerifyXenRecipeManager( GetClassname() );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -393,6 +423,19 @@ CEZ2_Player::CEZ2_Player()
 	AddSightEvent( g_SightHintEnterVehicle );
 	AddSightEvent( g_SightHintSurrenderableCitizen );
 	AddSightEvent( g_SightHintSurrenderedMedic );
+
+	if (sv_bonus_challenge.GetInt() != EZ_CHALLENGE_NONE)
+	{
+		// Make sure the difficulty is set to hard and cheats are off
+		// (must do this before the player spawns)
+
+		ConVarRef skill( "skill" );
+		skill.SetValue("3"); // SKILL_HARD
+		HL2GameRules()->SetSkillLevel( SKILL_HARD );
+
+		if (sv_cheats)
+			sv_cheats->SetValue( "0" );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -412,6 +455,32 @@ void CEZ2_Player::Spawn( void )
 	SetModel( "models/bad_cop.mdl" );
 
 	Activate();
+
+	if (GetBonusChallenge() != EZ_CHALLENGE_NONE)
+	{
+		// Run the main script
+		RunScriptFile( "ez2/bonus_challenge" );
+
+		if (GetBonusChallenge() > EZ_CHALLENGE_SPECIAL)
+		{
+			// Run the challenge's script
+			RunScriptFile( UTIL_VarArgs( "ez2/bonus_challenge_special_%i", GetBonusChallenge() ) );
+		}
+
+		// Run the map's script
+		RunScriptFile( UTIL_VarArgs( "ez2/bonus_challenge_%s", STRING(gpGlobals->mapname) ) );
+
+		if (gpGlobals->eLoadType != MapLoad_Transition)
+		{
+			// Ensure the bonus challenge state is retained if the player dies
+			CBaseEntity *pAutosave = CBaseEntity::Create( "logic_autosave", vec3_origin, vec3_angle, NULL );
+			if ( pAutosave )
+			{
+				g_EventQueue.AddEvent( pAutosave, "Save", 1.0, NULL, NULL );
+				g_EventQueue.AddEvent( pAutosave, "Kill", 1.1, NULL, NULL );
+			}
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -423,6 +492,7 @@ void CEZ2_Player::Activate( void )
 
 	ListenForGameEvent( "zombie_scream" );
 	ListenForGameEvent( "vehicle_overturned" );
+	ListenForGameEvent( "skill_changed" );
 }
 
 //-----------------------------------------------------------------------------
@@ -698,7 +768,19 @@ int CEZ2_Player::OnTakeDamage_Alive(const CTakeDamageInfo & info)
 			Speak(TLK_WOUND, modifiers);
 	}
 
-	return BaseClass::OnTakeDamage_Alive(info);
+	int iPreHealth = GetHealth();
+	int base = BaseClass::OnTakeDamage_Alive(info);
+
+	if (base == 1 && GetHealth() != iPreHealth)
+	{
+		if (GetBonusChallenge() == EZ_CHALLENGE_DAMAGE)
+		{
+			// Add this damage to the bonus progress
+			SetBonusProgress( GetBonusProgress() + (iPreHealth - GetHealth()) );
+		}
+	}
+
+	return base;
 }
 
 //-----------------------------------------------------------------------------
@@ -1499,6 +1581,11 @@ void CEZ2_Player::Event_KilledEnemy(CBaseCombatCharacter *pVictim, const CTakeDa
 	if (!IsAlive())
 		return;
 
+	if (GetBonusChallenge() == EZ_CHALLENGE_KILLS && pVictim->IsNPC())
+	{
+		SetBonusProgress( GetBonusProgress() + 1 );
+	}
+
 	if (CNPC_Wilson::GetWilson() && info.GetInflictor() == CNPC_Wilson::GetWilson())
 	{
 		// TODO: Achievement?
@@ -1855,6 +1942,17 @@ void CEZ2_Player::FireGameEvent( IGameEvent *event )
 			SpeakIfAllowed( TLK_VEHICLE_OVERTURNED );
 		}
 	}
+	else if ( FStrEq( "skill_changed", event->GetName() ) )
+	{
+		if (GetBonusChallenge() != EZ_CHALLENGE_NONE && !m_bMaskInterrupt && event->GetInt("skill_level", 0) != SKILL_HARD)
+		{
+			// Abort the challenge if the difficulty level is changed
+			if (developer.GetInt() == 0)
+			{
+				RunScript( "SkillChanged()" );
+			}
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1877,6 +1975,75 @@ void CEZ2_Player::InputStopScripting( inputdata_t &inputdata )
 
 	// Remove this once we've replaced gagging in all of the maps and talker files
 	AddContext("gag", "0");
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::InputFinishBonusChallenge( inputdata_t &inputdata )
+{
+	// Really simple check to make sure this wasn't ent_fire'd through the basic command
+	// (not that people can't cheat in other ways)
+	if (inputdata.pActivator == GetWorldEntity())
+		m_bBonusChallengeUpdate = true;
+	else
+		Warning( "Invalid activator\n" );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::FireBullets( const FireBulletsInfo_t &info )
+{
+	BaseClass::FireBullets( info );
+
+	if (GetBonusChallenge() == EZ_CHALLENGE_BULLETS)
+	{
+		SetBonusProgress( GetBonusProgress() + info.m_iShots );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::HasCheated()
+{
+	// Borrow the achievement manager for this
+	CAchievementMgr *pAchievementMgr = dynamic_cast<CAchievementMgr *>(engine->GetAchievementMgr());
+	if (pAchievementMgr)
+	{
+		return pAchievementMgr->WereCheatsEverOn();
+	}
+
+	return false;
+}
+
+#define HIDEHUD_MASK_INTERRUPT_BITS (HIDEHUD_HEALTH | HIDEHUD_MISCSTATUS | HIDEHUD_CROSSHAIR | HIDEHUD_BONUS_PROGRESS)
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::HUDMaskInterrupt()
+{
+	m_Local.m_iHideHUD |= HIDEHUD_MASK_INTERRUPT_BITS;
+	m_bMaskInterrupt = true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEZ2_Player::HUDMaskRestore()
+{
+	m_Local.m_iHideHUD &= ~(HIDEHUD_MASK_INTERRUPT_BITS);
+	m_bMaskInterrupt = false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CEZ2_Player::HidingBonusProgressHUD()
+{
+	return m_bMaskInterrupt /*|| GetBonusChallenge() >= EZ_CHALLENGE_SPECIAL*/;
 }
 
 //=============================================================================

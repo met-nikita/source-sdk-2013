@@ -16,6 +16,9 @@ public:
 	C_EZ2_Player();
 	~C_EZ2_Player();
 
+	void OnDataChanged( DataUpdateType_t updateType );
+
+	bool m_bBonusChallengeUpdate;
 };
 
 

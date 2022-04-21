@@ -187,6 +187,16 @@ public:
 
 	void			FireGameEvent( IGameEvent *event );
 
+	void			InputFinishBonusChallenge( inputdata_t &inputdata );
+	bool			HasCheated();
+
+	void			HUDMaskInterrupt();
+	void			HUDMaskRestore();
+
+	bool			HidingBonusProgressHUD();
+
+	void			FireBullets( const FireBulletsInfo_t &info );
+
 	// Blixibon - StartScripting for gag replacement
 	bool				IsInAScript( void ) { return m_bInAScript; }
 	inline void			SetInAScript( bool bScript ) { m_bInAScript = bScript; }
@@ -290,6 +300,10 @@ private:
 
 	// See PlayerCriteria_t
 	int				m_iCriteriaAppended;
+
+	// These don't need to be saved
+	CNetworkVar( bool, m_bBonusChallengeUpdate );
+	bool m_bMaskInterrupt;
 };
 
 //-----------------------------------------------------------------------------

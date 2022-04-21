@@ -25,6 +25,7 @@
 #include "saverestore.h"
 #include "saverestore_utlmap.h"
 #include "items.h"
+#include "hl2_shareddefs.h"
 
 #include "ai_hint.h"
 #include "ai_network.h"
@@ -875,6 +876,17 @@ void CGravityVortexController::ConsumeEntity( CBaseEntity *pEnt )
 	}
 
 	pEnt->RemoveDeferred();
+
+	if (GetThrower() && GetThrower()->IsPlayer())
+	{
+		CBasePlayer *pPlayer = ((CBasePlayer *)GetThrower());
+		if (pPlayer->GetBonusChallenge() == EZ_CHALLENGE_MASS)
+		{
+			// Add this mass to the bonus progress
+			// TODO: Prevent Xen spawns from contributing to this value?
+			pPlayer->SetBonusProgress( pPlayer->GetBonusProgress() - flMass );
+		}
+	}
 #else
 	UTIL_Remove( pEnt );
 #endif

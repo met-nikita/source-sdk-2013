@@ -170,6 +170,10 @@ private:
 #endif
 
 #endif
+
+#ifdef EZ
+	virtual bool IsBonusChallengeTimeBased( void );
+#endif
 };
 
 

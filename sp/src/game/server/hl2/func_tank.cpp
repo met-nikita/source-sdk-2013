@@ -48,6 +48,10 @@
 #include "hl2_player.h"
 #endif //HL2_DLL
 
+#ifdef EZ
+#include "hl2_shareddefs.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -2971,6 +2975,17 @@ void CFuncTankGun::Fire( int bulletCount, const Vector &barrelEnd, const Vector 
 		}
 	}
 #endif // HL2_EPISODIC
+
+#ifdef EZ
+	if (pAttacker && pAttacker->IsPlayer())
+	{
+		CBasePlayer *pPlayer = ((CBasePlayer*)pAttacker);
+		if (pPlayer->GetBonusChallenge() == EZ_CHALLENGE_BULLETS)
+		{
+			pPlayer->SetBonusProgress( pPlayer->GetBonusProgress() + info.m_iShots );
+		}
+	}
+#endif
 
 	CFuncTank::Fire( bulletCount, barrelEnd, forward, pAttacker, bIgnoreSpread );
 }
