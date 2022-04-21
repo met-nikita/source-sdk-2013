@@ -122,6 +122,7 @@ $Project "Client (Entropy Zero 2)"
 			$File	"hl2\hud_ammo.cpp"
 			$File	"hl2\hud_battery.cpp"
 			$File	"hl2\hud_blood.cpp"
+			$File	"hl2\hud_bonusprogress.cpp" // Unused in HL2
 			$File	"hl2\hud_credits.cpp"
 			$File	"hl2\hud_damageindicator.cpp"
 			$File	"hl2\hud_flashlight.cpp"

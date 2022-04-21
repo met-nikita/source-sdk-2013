@@ -35,6 +35,10 @@ using namespace vgui;
 #include "point_bonusmaps_accessor.h"
 #endif
 
+#ifdef EZ
+#include "hl2_shareddefs.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -57,6 +61,10 @@ public:
 	virtual void VidInit( void );
 	virtual void Reset( void );
 	virtual void OnThink();
+
+#ifdef EZ
+	virtual void Paint();
+#endif
 
 protected:
 
@@ -308,6 +316,25 @@ void CHudBonusProgress::OnThink()
 	SetDisplayValue(m_iBonusProgress);
 }
 
+#ifdef EZ
+//-----------------------------------------------------------------------------
+// Purpose: renders the vgui panel
+//-----------------------------------------------------------------------------
+void CHudBonusProgress::Paint()
+{
+	// For special challenges, count the maximum value as a sign this challenge doesn't use a counter
+	if (m_iLastChallenge >= EZ_CHALLENGE_SPECIAL && m_iBonusProgress == 65536)
+	{
+		// Only draw the label
+		PaintLabel();
+	}
+	else
+	{
+		BaseClass::Paint();
+	}
+}
+#endif
+
 void CHudBonusProgress::SetChallengeLabel( void )
 {
 	// Blank for no challenge
@@ -316,6 +343,18 @@ void CHudBonusProgress::SetChallengeLabel( void )
 		SetLabelText(L"");
 		return;
 	}
+
+#ifdef EZ
+	if (m_iLastChallenge == EZ_CHALLENGE_MASS)
+	{
+		// Give the number enough room
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "BonusProgressExpandToMassChallenge" );
+	}
+	else
+	{
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "BonusProgressExpandToNormal" );
+	}
+#endif
 
 	char szBonusTextName[] = "#Valve_Hud_BONUS_PROGRESS00";
 
