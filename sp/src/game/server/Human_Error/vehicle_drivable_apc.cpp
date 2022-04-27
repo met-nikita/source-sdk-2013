@@ -38,6 +38,7 @@
 #include "physics_saverestore.h"
 #include "weapon_physcannon.h"
 #include "eventqueue.h"
+#include "hl2_shareddefs.h"
 #endif
 
 #ifdef EZ2
@@ -1761,6 +1762,17 @@ void CPropDrivableAPC::FireMachineGun( void )
 	DoMuzzleFlash();
 
 	EmitSound( "Weapon_AR2.Single" );
+
+#ifdef EZ
+	if (GetDriver() && GetDriver()->IsPlayer())
+	{
+		CBasePlayer *pPlayer = ((CBasePlayer*)GetDriver());
+		if (pPlayer->GetBonusChallenge() == EZ_CHALLENGE_BULLETS)
+		{
+			pPlayer->SetBonusProgress( pPlayer->GetBonusProgress() + BulletInfo.m_iShots );
+		}
+	}
+#endif
 }
 
 

@@ -2529,6 +2529,23 @@ bool CHalfLife2::FPlayerCanRespawn( CBasePlayer *pPlayer )
 
 #endif//CLIENT_DLL
 
+#ifdef EZ
+//---------------------------------------------------------
+//---------------------------------------------------------
+bool CHalfLife2::IsBonusChallengeTimeBased()
+{
+#ifdef CLIENT_DLL
+	C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
+#else
+	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+#endif
+	if (!pPlayer)
+		return false;
+
+	return pPlayer->GetBonusChallenge() == EZ_CHALLENGE_TIME;
+}
+#endif
+
 //---------------------------------------------------------
 //---------------------------------------------------------
 bool CHalfLife2::ShouldUseRobustRadiusDamage(CBaseEntity *pEntity)

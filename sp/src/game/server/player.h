@@ -740,6 +740,10 @@ public:
 	void	DecrementArmorValue( int nCount );
 #endif
 
+#ifdef MAPBASE
+	virtual bool	HidingBonusProgressHUD() { return false; }
+#endif
+
 	void	SetConnected( PlayerConnectedState iConnected ) { m_iConnected = iConnected; }
 	virtual void EquipSuit( bool bPlayEffects = true );
 	virtual void RemoveSuit( void );

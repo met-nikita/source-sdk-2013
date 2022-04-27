@@ -161,6 +161,9 @@ CTimedEventMgr g_NetworkPropertyEventMgr;
 
 ISaveRestoreBlockHandler *GetEventQueueSaveRestoreBlockHandler();
 ISaveRestoreBlockHandler *GetCommentarySaveRestoreBlockHandler();
+#ifdef MAPBASE
+ISaveRestoreBlockHandler *GetCustomBonusSaveRestoreBlockHandler();
+#endif
 #ifdef EZ2
 ISaveRestoreBlockHandler *GetXenRecipeSaveRestoreBlockHandler();
 #endif
@@ -702,6 +705,9 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetEventQueueSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetAchievementSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetVScriptSaveRestoreBlockHandler() );
+#ifdef MAPBASE
+	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetCustomBonusSaveRestoreBlockHandler() );
+#endif
 #ifdef EZ2
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetXenRecipeSaveRestoreBlockHandler() );
 #endif
@@ -792,6 +798,12 @@ void CServerGameDLL::DLLShutdown( void )
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetAISaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetPhysSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetEntitySaveRestoreBlockHandler() );
+#ifdef MAPBASE
+	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetCustomBonusSaveRestoreBlockHandler() );
+#endif
+#ifdef EZ2
+	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetXenRecipeSaveRestoreBlockHandler() );
+#endif
 
 	char *pFilename = g_TextStatsMgr.GetStatsFilename();
 	if ( !pFilename || !pFilename[0] )
