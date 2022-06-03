@@ -1945,7 +1945,6 @@ void CAI_BaseNPC::DoImpactEffect( trace_t &tr, int nDamageType )
 //-----------------------------------------------------------------------------
 // Purpose: Start all glow effects for this NPC.
 //		Based on Manhack eye glows
-//		1upD
 //-----------------------------------------------------------------------------
 void CAI_BaseNPC::StartEye(void)
 {
@@ -1966,8 +1965,8 @@ void CAI_BaseNPC::StartEye(void)
 		//Create our Eye sprite
 		if (sprite == NULL)
 		{
-			sprite = CSprite::SpriteCreate(glowData->spriteName, GetLocalOrigin(), false);
-			sprite->SetAttachment(this, LookupAttachment(glowData->attachment));
+			sprite = CSprite::SpriteCreate(STRING(glowData->spriteName), GetLocalOrigin(), false);
+			sprite->SetAttachment(this, LookupAttachment(STRING(glowData->attachment)));
 
 			sprite->SetTransparency(glowData->renderMode, glowData->red, glowData->green, glowData->blue, glowData->alpha, kRenderFxNoDissipation);
 			sprite->SetColor(glowData->red, glowData->green, glowData->blue);
@@ -2024,6 +2023,61 @@ void CAI_BaseNPC::SetGlowSpritePtr(int i, CSprite * sprite)
 		return;
 
 	m_pEyeGlow = sprite;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return the glow attributes for a given index
+//-----------------------------------------------------------------------------
+EyeGlow_t * CAI_BaseNPC::GetEyeGlowData( int i )
+{
+	// Only load from model data for 0 index
+	if (i != 0)
+		return NULL;
+
+	EyeGlow_t * eyeGlow = NULL;
+
+	KeyValues *modelKeyValues = new KeyValues( "" );
+	if (modelKeyValues->LoadFromBuffer( modelinfo->GetModelName( GetModel() ), modelinfo->GetModelKeyValueText( GetModel() ) ))
+	{
+		KeyValues *pkvGlowData = modelKeyValues->FindKey( "glow_data" );
+		if (pkvGlowData)
+		{
+			// Get all of the available glow skins
+			CUtlVector<KeyValues*> glowskins;
+			KeyValues *pSkin = pkvGlowData->GetFirstSubKey();
+			while (pSkin)
+			{
+				glowskins.AddToTail( pSkin );
+				pSkin = pSkin->GetNextKey();
+			}
+
+			if (glowskins.Count() > 0)
+			{
+				// Use modulus to get our desired skin
+				pSkin = glowskins[m_nSkin % glowskins.Count()];
+				if (pSkin)
+				{
+					eyeGlow = new EyeGlow_t();
+
+					Color color = pSkin->GetColor( "color" );
+					eyeGlow->red = color.r();
+					eyeGlow->green = color.g();
+					eyeGlow->blue = color.b();
+					eyeGlow->alpha = color.a();
+
+					eyeGlow->spriteName = AllocPooledString(pSkin->GetString( "spriteName", "sprites/light_glow02.vmt" ));
+					eyeGlow->attachment = AllocPooledString(pSkin->GetString( "attachment", "eyes" ));
+					eyeGlow->renderMode = (RenderMode_t)pSkin->GetInt( "renderMode", kRenderGlow );
+					eyeGlow->scale = pSkin->GetFloat( "scale", 0.3f );
+					eyeGlow->proxyScale = pSkin->GetFloat( "proxyScale", 3.0f );
+				}
+			}
+		}
+
+		modelKeyValues->deleteThis();
+	}
+
+	return eyeGlow;
 }
 #endif
 

@@ -6171,13 +6171,18 @@ void CNPC_MetroPolice::PrecriminalUse( CBaseEntity *pActivator, CBaseEntity *pCa
 //-----------------------------------------------------------------------------
 EyeGlow_t * CNPC_MetroPolice::GetEyeGlowData(int i)
 {
+	EyeGlow_t * eyeGlow = BaseClass::GetEyeGlowData( i );
+
+	if (eyeGlow != NULL)
+		return eyeGlow;
+
 	if (i != 0)
 		return NULL;
 
-	EyeGlow_t * eyeGlow = new EyeGlow_t();
+	eyeGlow = new EyeGlow_t();
 
-	eyeGlow->spriteName = "sprites/light_glow02.vmt";
-	eyeGlow->attachment = "eyes";
+	eyeGlow->spriteName = AllocPooledString("sprites/light_glow02.vmt");
+	eyeGlow->attachment = AllocPooledString("eyes");
 
 	eyeGlow->alpha = 100;
 	eyeGlow->red = 0;

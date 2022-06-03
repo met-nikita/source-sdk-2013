@@ -497,8 +497,8 @@ struct EyeGlow_t
 		renderMode = kRenderTransAdd;
 		brightness = 0;
 		proxyScale = 0.0f;
-		spriteName = NULL;
-		attachment = NULL;
+		spriteName = NULL_STRING;
+		attachment = NULL_STRING;
 	}
 
 	int red;
@@ -509,8 +509,8 @@ struct EyeGlow_t
 	float brightness;
 	float scale;
 	float proxyScale;
-	const char *spriteName;
-	const char *attachment;
+	string_t spriteName;
+	string_t attachment;
 };
 
 //=============================================================================
@@ -2468,7 +2468,7 @@ protected:
 
 	virtual CSprite		* GetGlowSpritePtr(int i);
 	virtual void		  SetGlowSpritePtr(int i, CSprite * sprite);
-	virtual EyeGlow_t	* GetEyeGlowData(int i) { return NULL; };
+	virtual EyeGlow_t	* GetEyeGlowData(int i);
 	virtual int			GetNumGlows() { return 1; };
 #endif
 };
