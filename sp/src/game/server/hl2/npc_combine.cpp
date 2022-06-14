@@ -64,6 +64,13 @@ ConVar npc_combine_new_cover_behavior( "npc_combine_new_cover_behavior", "1", FC
 ConVar npc_combine_give_enabled( "npc_combine_give_enabled", "1", FCVAR_NONE, "Allows players to \"give\" weapons to Combine soldiers in their squad by holding one in front of them for a few seconds." );
 ConVar npc_combine_give_stare_dist( "npc_combine_give_stare_dist", "112", FCVAR_NONE, "The distance needed for soldiers to consider the possibility the player wants to give them a weapon." );
 ConVar npc_combine_give_stare_time( "npc_combine_give_stare_time", "1", FCVAR_NONE, "The amount of time the player needs to be staring at a soldier in order for them to pick up a weapon they're holding." );
+
+ConVar	sv_squadmate_glow( "sv_squadmate_glow", "1", FCVAR_REPLICATED, "If 1, Combine soldier squadmates will glow when they are in the player's squad. The color of the glow represents their HP." );
+ConVar	sv_squadmate_glow_style( "sv_squadmate_glow_style", "1", FCVAR_REPLICATED, "Different colors for Combine squadmate glows. 0: Green means 100 HP, red means 0 HP\t1: White means 100 HP, red means 0 HP");
+ConVar	sv_squadmate_glow_alpha( "sv_squadmate_glow_alpha", "0.6", FCVAR_REPLICATED, "On a scale of 0-1, how much alpha should the squadmate glow have" );
+
+#define COMBINE_GLOW_STYLE_REDGREEN	0
+#define COMBINE_GLOW_STYLE_REDWHITE	1
 #endif
 
 #define COMBINE_SKIN_DEFAULT		0
@@ -659,6 +666,54 @@ void CNPC_Combine::FixupPlayerSquad()
 	m_bHoldPositionGoal = false;
 
 	ToggleSquadCommand();
+
+	UpdateSquadGlow();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Add or remove glow effects as necessary, then update the color
+//-----------------------------------------------------------------------------
+void CNPC_Combine::UpdateSquadGlow()
+{
+	bool shouldGlow = ShouldSquadGlow();
+	if ( !m_bGlowEnabled.Get() && shouldGlow )
+	{
+		AddGlowEffect();
+	}
+	else if ( m_bGlowEnabled.Get() && !shouldGlow )
+	{
+		RemoveGlowEffect();
+	}
+
+	if ( m_bGlowEnabled.Get() )
+	{
+		float healthPercentage = ((float)m_iHealth / ((float)m_iMaxHealth));
+
+		float red = 0;
+		float blue = 0;
+		float green = 0;
+
+		switch (sv_squadmate_glow_style.GetInt())
+		{
+		case COMBINE_GLOW_STYLE_REDGREEN:
+			red = 1.0f - healthPercentage;
+			green = healthPercentage;
+			blue = 0.0f;
+			break;
+		case COMBINE_GLOW_STYLE_REDWHITE:
+			red = 1.0f;
+			green = healthPercentage;
+			blue = healthPercentage;
+			break;
+		}
+
+		SetGlowColor( red, green, blue, sv_squadmate_glow_alpha.GetFloat() );
+	}
+}
+
+bool CNPC_Combine::ShouldSquadGlow()
+{
+	return sv_squadmate_glow.GetBool() && IsCommandable() && IsInPlayerSquad();
 }
 
 //-----------------------------------------------------------------------------
@@ -720,6 +775,8 @@ void CNPC_Combine::RemoveFromPlayerSquad()
 	{
 		SetCommandGoal( vec3_invalid );
 	}
+
+	UpdateSquadGlow();
 }
 
 //-----------------------------------------------------------------------------
@@ -1456,6 +1513,13 @@ void CNPC_Combine::PrescheduleThink()
 #ifdef EZ
 	// 1upD - Copied from citizen
 	UpdateFollowCommandPoint();
+
+
+	// Update glow if we are commandable
+	if ( ShouldSquadGlow() && ( !m_bGlowEnabled.Get() || ( GetHealth() < GetMaxHealth() && ShouldRegenerateHealth() ) ) )
+	{
+		UpdateSquadGlow();
+	}
 #endif
 
 	// Speak any queued sentences
@@ -2544,6 +2608,14 @@ bool CNPC_Combine::PassesDamageFilter( const CTakeDamageInfo &info )
 	}
 
 	return BaseClass::PassesDamageFilter(info);
+}
+
+// Overridden to update glow effects when taking damage
+int CNPC_Combine::OnTakeDamage_Alive( const CTakeDamageInfo & info )
+{
+	int ret = BaseClass::OnTakeDamage_Alive(info);
+	UpdateSquadGlow();
+	return ret;
 }
 #endif
 
