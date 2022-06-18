@@ -495,6 +495,7 @@ private:
 	bool			m_bTemporarilyNeedWeapon; // Soldiers who drop their weapons but aren't supposed to pick them up autonomously are given this so that they arm themselves again
 
 	float			m_flNextHealthSearchTime;
+	bool			m_bLookForItems;
 #endif
 
 	// Time Variables
