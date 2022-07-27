@@ -231,6 +231,7 @@ public:
 	void			MsgWillpower(const tchar* pMsg, int willpower);
 	int 			TranslateWillpowerSchedule(int scheduleType);
 	int				TranslateSuppressingFireSchedule(int scheduleType);
+	int				SelectRangeAttack2Schedule();
 	bool			FindDecoyObject(void);
 	bool			FindEnemyCoverTarget(void);
 	void			AimGun();
@@ -391,6 +392,7 @@ private:
 		COND_CIT_WILLPOWER_LOW,
 		COND_CIT_WILLPOWER_HIGH,
 		COND_CIT_ON_FIRE,
+		COND_CIT_DISARMED,
 		NEXT_CONDITION,
 #endif
 		
