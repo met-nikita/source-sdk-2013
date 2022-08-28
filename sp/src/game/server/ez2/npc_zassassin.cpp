@@ -490,6 +490,15 @@ void CNPC_Gonome::BuildScheduleTestBits()
 	{
 		SetCustomInterruptCondition( COND_PROVOKED );
 	}
+
+	if ( IsCurSchedule( SCHED_CHASE_ENEMY, true ) )
+	{
+		// Only interrupt by smell if we should eat in combat
+		if ( ShouldEatInCombat() )
+		{
+			SetCustomInterruptCondition( COND_SMELL );
+		}
+	}
 }
 
 //=========================================================
@@ -1129,7 +1138,7 @@ void CNPC_Gonome::InputGoHome( inputdata_t &inputdata )
 {
 	if (!m_BeastBehavior.CanSelectSchedule())
 	{
-		Warning("%s received GoHome input, but beast behavior can't run! (global might be off)\n");
+		Warning("%s received GoHome input, but beast behavior can't run! (global might be off)\n", GetDebugName());
 		return;
 	}
 
@@ -1143,7 +1152,7 @@ void CNPC_Gonome::InputGoHomeInstant( inputdata_t &inputdata )
 {
 	if (!m_BeastBehavior.CanSelectSchedule())
 	{
-		Warning("%s received GoHomeInstant input, but beast behavior can't run! (global might be off)\n");
+		Warning("%s received GoHomeInstant input, but beast behavior can't run! (global might be off)\n", GetDebugName());
 		return;
 	}
 
@@ -1506,7 +1515,7 @@ AI_BEGIN_CUSTOM_NPC( monster_gonome, CNPC_Gonome )
 		"		COND_HEAVY_DAMAGE"
 		"		COND_NEW_ENEMY"
 		"		COND_ENEMY_DEAD"
-		"		COND_SMELL"
+		//"		COND_SMELL"
 		//"		COND_CAN_RANGE_ATTACK1"
 		"		COND_CAN_MELEE_ATTACK1"
 		"		COND_CAN_MELEE_ATTACK2"
@@ -1595,7 +1604,7 @@ AI_BEGIN_CUSTOM_NPC( monster_gonome, CNPC_Gonome )
 		"		COND_HEAVY_DAMAGE"
 		"		COND_NEW_ENEMY"
 		"		COND_ENEMY_DEAD"
-		"		COND_SMELL"
+		//"		COND_SMELL"
 		//"		COND_CAN_RANGE_ATTACK1"
 		"		COND_CAN_MELEE_ATTACK1"
 		"		COND_CAN_MELEE_ATTACK2"
