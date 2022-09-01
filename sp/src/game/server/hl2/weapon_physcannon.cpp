@@ -1073,6 +1073,7 @@ void CPlayerPickupController::Init( CBasePlayer *pPlayer, CBaseEntity *pObject )
 	
 	m_pPlayer->m_Local.m_iHideHUD |= HIDEHUD_WEAPONSELECTION;
 	m_pPlayer->SetUseEntity( this );
+	m_pPlayer->m_Local.m_bHoldingItem = true;
 }
 
 
@@ -1112,6 +1113,7 @@ void CPlayerPickupController::Shutdown( bool bThrown )
 #endif
 
 		m_pPlayer->SetUseEntity( NULL );
+		m_pPlayer->m_Local.m_bHoldingItem = false;
 		if ( m_pPlayer->GetActiveWeapon() )
 		{
 			if ( !m_pPlayer->GetActiveWeapon()->Deploy() )

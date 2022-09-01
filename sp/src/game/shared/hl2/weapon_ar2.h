@@ -17,6 +17,11 @@
 #include "basegrenade_shared.h"
 #include "basehlcombatweapon.h"
 
+#ifdef CLIENT_DLL
+#define CWeaponAR2 C_WeaponAR2
+#define CWeaponAR2Proto C_WeaponAR2Proto
+#endif
+
 class CWeaponAR2 : public CHLMachineGun
 {
 public:
@@ -24,10 +29,12 @@ public:
 
 	CWeaponAR2();
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	void	ItemPostFrame( void );
 	void	Precache( void );
+	bool IsPredicted() const { return true; };
 
 #ifdef EZ1
 	void	PrimaryAttack(void); // Breadman
@@ -63,7 +70,11 @@ public:
 	bool	CanHolster( void );
 	bool	Reload( void );
 
+#ifndef CLIENT_DLL
 	int		CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
+#else
+	int		CapabilitiesGet(void) { return 0; }
+#endif
 
 	Activity	GetPrimaryAttackActivity( void );
 	
@@ -103,7 +114,9 @@ protected:
 #ifdef MAPBASE // Make act table accessible outside class
 public:
 #endif
+#ifndef CLIENT_DLL
 	DECLARE_ACTTABLE();
+#endif
 	DECLARE_DATADESC();
 };
 
@@ -115,7 +128,8 @@ public:
 
 	CWeaponAR2Proto();
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	void	PrimaryAttack(void); // Breadman
 	void	SecondaryAttack( void );

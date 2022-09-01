@@ -4223,7 +4223,11 @@ CBaseEntity *CSceneEntity::FindNamedEntity( const char *name, CBaseEntity *pActo
 
 	if ( !stricmp( name, "Player" ) || !stricmp( name, "!player" ))
 	{
-		entity = ( gpGlobals->maxClients == 1 ) ? ( CBaseEntity * )UTIL_GetLocalPlayer() : NULL;
+		if (!pActor)
+			entity = (CBaseEntity *)UTIL_GetLocalPlayer();
+		else
+			entity = (CBaseEntity *)UTIL_GetNearestPlayer(pActor);
+		return entity;
 	}
 	else if ( !stricmp( name, "!target1" ) )
 	{
@@ -4422,7 +4426,10 @@ CBaseEntity *CSceneEntity::FindNamedEntityClosest( const char *name, CBaseEntity
 	} 
 	else if ( !stricmp( name, "Player" ) || !stricmp( name, "!player" ))
 	{
-		entity = ( gpGlobals->maxClients == 1 ) ? ( CBaseEntity * )UTIL_GetLocalPlayer() : NULL;
+		if (!pActor)
+			entity = (CBaseEntity *)UTIL_GetLocalPlayer();
+		else
+			entity = (CBaseEntity *)UTIL_GetNearestPlayer(pActor);
 		return entity;
 	}
 	else if ( !stricmp( name, "!target1" ) )

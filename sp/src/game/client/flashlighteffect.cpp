@@ -14,6 +14,7 @@
 #include "tier0/vprof.h"
 #include "tier1/KeyValues.h"
 #include "toolframework_client.h"
+#include "view_scene.h"
 
 #ifdef HL2_CLIENT_DLL
 #include "c_basehlplayer.h"
@@ -29,7 +30,7 @@ extern ConVar r_flashlightdepthres;
 #include "tier0/memdbgon.h"
 
 extern ConVar r_flashlightdepthtexture;
-extern ConCommand Ez_Nvg_On; // Breadman - Probably don't need this.
+//extern ConCommand Ez_Nvg_On; // Breadman - Probably don't need this.
 
 void r_newflashlightCallback_f( IConVar *pConVar, const char *pOldString, float flOldValue );
 
@@ -144,7 +145,8 @@ CFlashlightEffect::~CFlashlightEffect()
 #ifdef EZ
 	if ( IsNVG() )
 	{
-		engine->ClientCmd( "Ez_Nvg_On" ); //Breadman - see View_scene.cpp for this Convar
+		ScreenOver_f();
+		//engine->ClientCmd( "Ez_Nvg_On" ); //Breadman - see View_scene.cpp for this Convar
 	}
 #endif
 }
@@ -160,7 +162,8 @@ void CFlashlightEffect::TurnOn()
 #ifdef EZ
 	if ( IsNVG() )
 	{
-		engine->ClientCmd( "Ez_Nvg_On" ); //Breadman - see View_scene.cpp for this Convar
+		ScreenOver_f();
+		//engine->ClientCmd( "Ez_Nvg_On" ); //Breadman - see View_scene.cpp for this Convar
 	}
 #endif
 }

@@ -10,14 +10,19 @@
 #include "cbase.h"
 #include "npcevent.h"
 #include "basehlcombatweapon_shared.h"
+#include "gamerules.h"		// For g_pGameRules
+#include "in_buttons.h"
+#include "vstdlib/random.h"
+#include "gamestats.h"
+#ifdef CLIENT_DLL
+#include "c_te_effect_dispatch.h"
+#else
+#include "te_effect_dispatch.h"
+#include "soundent.h"
 #include "basecombatcharacter.h"
 #include "ai_basenpc.h"
 #include "player.h"
-#include "gamerules.h"		// For g_pGameRules
-#include "in_buttons.h"
-#include "soundent.h"
-#include "vstdlib/random.h"
-#include "gamestats.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -29,13 +34,18 @@ extern ConVar sk_plr_num_shotgun_pellets_double;
 extern ConVar sk_npc_num_shotgun_pellets;
 #endif
 
+#ifdef CLIENT_DLL
+#define CWeaponShotgun C_WeaponShotgun
+#endif
+
 class CWeaponShotgun : public CBaseHLCombatWeapon
 {
 	DECLARE_DATADESC();
 public:
 	DECLARE_CLASS( CWeaponShotgun, CBaseHLCombatWeapon );
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 private:
 	bool	m_bNeedPump;		// When emptied completely
@@ -44,20 +54,24 @@ private:
 
 public:
 	void	Precache( void );
-
+#ifndef CLIENT_DLL
 	int CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
-
+#else
+	int CapabilitiesGet(void) { return 0; }
+#endif
+	bool IsPredicted() const { return true; };
 	virtual const Vector& GetBulletSpread( void )
 	{
 		static Vector vitalAllyCone = VECTOR_CONE_3DEGREES;
 		static Vector cone = VECTOR_CONE_10DEGREES;
-
+#ifndef CLIENT_DLL
 		if( GetOwner() && (GetOwner()->Classify() == CLASS_PLAYER_ALLY_VITAL) )
 		{
 			// Give Alyx's shotgun blasts more a more directed punch. She needs
 			// to be at least as deadly as she would be with her pistol to stay interesting (sjb)
 			return vitalAllyCone;
 		}
+#endif
 
 		return cone;
 	}
@@ -90,14 +104,20 @@ public:
 	void FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles );
 	void Operator_ForceNPCFire( CBaseCombatCharacter  *pOperator, bool bSecondary );
 	void Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
-
+#ifndef CLIENT_DLL
 	DECLARE_ACTTABLE();
+#endif
 
 	CWeaponShotgun(void);
 };
 
-IMPLEMENT_SERVERCLASS_ST(CWeaponShotgun, DT_WeaponShotgun)
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponShotgun, DT_WeaponShotgun)
+
+BEGIN_NETWORK_TABLE(CWeaponShotgun, DT_WeaponShotgun)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeaponShotgun)
+END_PREDICTION_DATA()
 
 LINK_ENTITY_TO_CLASS( weapon_shotgun, CWeaponShotgun );
 PRECACHE_WEAPON_REGISTER(weapon_shotgun);
@@ -110,6 +130,7 @@ BEGIN_DATADESC( CWeaponShotgun )
 
 END_DATADESC()
 
+#ifndef CLIENT_DLL
 acttable_t	CWeaponShotgun::m_acttable[] = 
 {
 #if EXPANDED_HL2_WEAPON_ACTIVITIES
@@ -258,6 +279,7 @@ int GetShotgunActtableCount()
 	return ARRAYSIZE(CWeaponShotgun::m_acttable);
 }
 #endif
+#endif
 
 void CWeaponShotgun::Precache( void )
 {
@@ -270,6 +292,7 @@ void CWeaponShotgun::Precache( void )
 //-----------------------------------------------------------------------------
 void CWeaponShotgun::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
 {
+#ifndef CLIENT_DLL
 	Vector vecShootOrigin, vecShootDir;
 	CAI_BaseNPC *npc = pOperator->MyNPCPointer();
 	ASSERT( npc != NULL );
@@ -294,6 +317,7 @@ void CWeaponShotgun::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool
 #else
 	pOperator->FireBullets( 8, vecShootOrigin, vecShootDir, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0 );
 #endif
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -301,10 +325,12 @@ void CWeaponShotgun::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool
 //-----------------------------------------------------------------------------
 void CWeaponShotgun::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool bSecondary )
 {
+#ifndef CLIENT_DLL
 	// Ensure we have enough rounds in the clip
 	m_iClip1++;
 
 	FireNPCPrimaryAttack( pOperator, true );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -314,6 +340,7 @@ void CWeaponShotgun::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, boo
 //-----------------------------------------------------------------------------
 void CWeaponShotgun::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator )
 {
+#ifndef CLIENT_DLL
 	switch( pEvent->event )
 	{
 		case EVENT_WEAPON_SHOTGUN_FIRE:
@@ -326,6 +353,7 @@ void CWeaponShotgun::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatC
 			CBaseCombatWeapon::Operator_HandleAnimEvent( pEvent, pOperator );
 			break;
 	}
+#endif
 }
 
 
@@ -343,6 +371,7 @@ void CWeaponShotgun::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatC
 //-----------------------------------------------------------------------------
 float CWeaponShotgun::GetMinRestTime()
 {
+#ifndef CLIENT_DLL
 #ifndef EZ2
 	if( hl2_episodic.GetBool() && GetOwner() && GetOwner()->Classify() == CLASS_COMBINE )
 #else
@@ -351,7 +380,7 @@ float CWeaponShotgun::GetMinRestTime()
 	{
 		return 1.2f;
 	}
-	
+#endif
 	return BaseClass::GetMinRestTime();
 }
 
@@ -359,6 +388,7 @@ float CWeaponShotgun::GetMinRestTime()
 //-----------------------------------------------------------------------------
 float CWeaponShotgun::GetMaxRestTime()
 {
+#ifndef CLIENT_DLL
 #ifndef EZ2
 	if( hl2_episodic.GetBool() && GetOwner() && GetOwner()->Classify() == CLASS_COMBINE )
 #else
@@ -367,7 +397,7 @@ float CWeaponShotgun::GetMaxRestTime()
 	{
 		return 1.5f;
 	}
-
+#endif
 	return BaseClass::GetMaxRestTime();
 }
 
@@ -377,6 +407,7 @@ float CWeaponShotgun::GetMaxRestTime()
 //-----------------------------------------------------------------------------
 float CWeaponShotgun::GetFireRate()
 {
+#ifndef CLIENT_DLL
 #ifndef EZ2
 	if( hl2_episodic.GetBool() && GetOwner() && GetOwner()->Classify() == CLASS_COMBINE )
 #else
@@ -385,7 +416,7 @@ float CWeaponShotgun::GetFireRate()
 	{
 		return 0.8f;
 	}
-
+#endif
 	return 0.7;
 }
 
@@ -590,13 +621,7 @@ Activity CWeaponShotgun::GetDrawActivity( void )
 //-----------------------------------------------------------------------------
 void CWeaponShotgun::PrimaryAttack( void )
 {
-	// Only the player fires this way so we can cast
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-
-	if (!pPlayer)
-	{
-		return;
-	}
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 
 	// MUST call sound before removing a round from the clip of a CMachineGun
 	WeaponSound(SINGLE);
@@ -618,19 +643,29 @@ void CWeaponShotgun::PrimaryAttack( void )
 
 	Vector	vecSrc		= pPlayer->Weapon_ShootPosition( );
 	Vector	vecAiming	= pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
-
+#ifndef CLIENT_DLL
 	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 1.0 );
-	
+#endif
+	FireBulletsInfo_t info;
+	info.m_iShots = sk_plr_num_shotgun_pellets.GetInt();
+	info.m_vecSrc = vecSrc;
+	info.m_vecDirShooting = vecAiming;
+	info.m_vecSpread = GetBulletSpread();
+	info.m_flDistance = MAX_TRACE_LENGTH;
+	info.m_iAmmoType = m_iPrimaryAmmoType;
+	info.m_iTracerFreq = 0;
+	info.m_nFlags = FIRE_BULLETS_FIRST_SHOT_ACCURATE;
 	// Fire the bullets, and force the first shot to be perfectly accuracy
-	pPlayer->FireBullets( sk_plr_num_shotgun_pellets.GetInt(), vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, true, true );
+	pPlayer->FireBullets( info );
 	
 #ifdef EZ
 	pPlayer->ViewPunch(QAngle(random->RandomFloat(-4, -2), random->RandomFloat(-4, 4), 0)); // Breadman - values doubled
 #else
 	pPlayer->ViewPunch( QAngle( random->RandomFloat( -2, -1 ), random->RandomFloat( -2, 2 ), 0 ) );
 #endif
-
+#ifndef CLIENT_DLL
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_SHOTGUN, 0.2, GetOwner() );
+#endif
 
 	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
 	{
@@ -645,7 +680,9 @@ void CWeaponShotgun::PrimaryAttack( void )
 	}
 
 	m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -655,13 +692,7 @@ void CWeaponShotgun::PrimaryAttack( void )
 //-----------------------------------------------------------------------------
 void CWeaponShotgun::SecondaryAttack( void )
 {
-	// Only the player fires this way so we can cast
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-
-	if (!pPlayer)
-	{
-		return;
-	}
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 
 	pPlayer->m_nButtons &= ~IN_ATTACK2;
 	// MUST call sound before removing a round from the clip of a CMachineGun
@@ -688,10 +719,18 @@ void CWeaponShotgun::SecondaryAttack( void )
 
 	Vector vecSrc	 = pPlayer->Weapon_ShootPosition();
 	Vector vecAiming = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
-
+	FireBulletsInfo_t info;
+	info.m_iShots = sk_plr_num_shotgun_pellets_double.GetInt();
+	info.m_vecSrc = vecSrc;
+	info.m_vecDirShooting = vecAiming;
+	info.m_vecSpread = GetBulletSpread();
+	info.m_flDistance = MAX_TRACE_LENGTH;
+	info.m_iAmmoType = m_iPrimaryAmmoType;
+	info.m_iTracerFreq = 0;
+	info.m_bPrimaryAttack = false;
 	// Fire the bullets
 #ifdef MAPBASE
-	pPlayer->FireBullets( sk_plr_num_shotgun_pellets_double.GetInt(), vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
+	pPlayer->FireBullets( info );
 #else
 	pPlayer->FireBullets( 12, vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
 #endif
@@ -700,10 +739,11 @@ void CWeaponShotgun::SecondaryAttack( void )
 #else
 	pPlayer->ViewPunch( QAngle(random->RandomFloat( -5, 5 ),0,0) );
 #endif
-
+#ifndef CLIENT_DLL
 	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 1.0 );
 
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_SHOTGUN, 0.2 );
+#endif
 
 	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
 	{
@@ -718,7 +758,9 @@ void CWeaponShotgun::SecondaryAttack( void )
 	}
 
 	m_iSecondaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+#endif
 }
 	
 //-----------------------------------------------------------------------------

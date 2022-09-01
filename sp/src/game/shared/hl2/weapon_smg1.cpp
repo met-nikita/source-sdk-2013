@@ -7,16 +7,21 @@
 #include "cbase.h"
 #include "basehlcombatweapon.h"
 #include "npcevent.h"
+#include "in_buttons.h"
+#include "rumble_shared.h"
+#include "gamestats.h"
+#ifdef CLIENT_DLL
+#include "c_te_effect_dispatch.h"
+#else
+#include "te_effect_dispatch.h"
+#include "grenade_ar2.h"
+#include "ai_memory.h"
+#include "soundent.h"
 #include "basecombatcharacter.h"
 #include "ai_basenpc.h"
 #include "player.h"
 #include "game.h"
-#include "in_buttons.h"
-#include "grenade_ar2.h"
-#include "ai_memory.h"
-#include "soundent.h"
-#include "rumble_shared.h"
-#include "gamestats.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -24,6 +29,10 @@
 extern ConVar    sk_plr_dmg_smg1_grenade;	
 #ifdef MAPBASE
 extern ConVar    sk_npc_dmg_smg1_grenade;
+#endif
+
+#ifdef CLIENT_DLL
+#define CWeaponSMG1 C_WeaponSMG1
 #endif
 
 class CWeaponSMG1 : public CHLSelectFireMachineGun
@@ -34,7 +43,8 @@ public:
 
 	CWeaponSMG1();
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 	
 	void	Precache( void );
 	void	AddViewKick( void );
@@ -50,8 +60,14 @@ public:
 	virtual void Equip( CBaseCombatCharacter *pOwner );
 	bool	Reload( void );
 
+	bool IsPredicted() const { return true; };
+
 	float	GetFireRate( void ) { return 0.075f; }	// 13.3hz
+#ifndef CLIENT_DLL
 	int		CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
+#else
+	int		CapabilitiesGet(void) { return 0; }
+#endif
 	int		WeaponRangeAttack2Condition( float flDot, float flDist );
 	Activity	GetPrimaryAttackActivity( void );
 
@@ -70,8 +86,9 @@ public:
 	void FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector &vecShootOrigin, Vector &vecShootDir );
 	void Operator_ForceNPCFire( CBaseCombatCharacter  *pOperator, bool bSecondary );
 	void Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
-
+#ifndef CLIENT_DLL
 	DECLARE_ACTTABLE();
+#endif
 
 protected:
 
@@ -79,8 +96,13 @@ protected:
 	float	m_flNextGrenadeCheck;
 };
 
-IMPLEMENT_SERVERCLASS_ST(CWeaponSMG1, DT_WeaponSMG1)
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponSMG1, DT_WeaponSMG1)
+
+BEGIN_NETWORK_TABLE(CWeaponSMG1, DT_WeaponSMG1)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeaponSMG1)
+END_PREDICTION_DATA()
 
 LINK_ENTITY_TO_CLASS( weapon_smg1, CWeaponSMG1 );
 PRECACHE_WEAPON_REGISTER(weapon_smg1);
@@ -92,6 +114,7 @@ BEGIN_DATADESC( CWeaponSMG1 )
 
 END_DATADESC()
 
+#ifndef CLIENT_DLL
 acttable_t	CWeaponSMG1::m_acttable[] = 
 {
 	{ ACT_RANGE_ATTACK1,			ACT_RANGE_ATTACK_SMG1,			true },
@@ -175,17 +198,26 @@ acttable_t	CWeaponSMG1::m_acttable[] =
 };
 
 IMPLEMENT_ACTTABLE(CWeaponSMG1);
+#endif
 
 #ifdef MAPBASE
 // Allows Weapon_BackupActivity() to access the SMG1's activity table.
 acttable_t *GetSMG1Acttable()
 {
+#ifndef CLIENT_DLL
 	return CWeaponSMG1::m_acttable;
+#else
+	return 0;
+#endif
 }
 
 int GetSMG1ActtableCount()
 {
+#ifndef CLIENT_DLL
 	return ARRAYSIZE(CWeaponSMG1::m_acttable);
+#else
+	return 0;
+#endif
 }
 #endif
 
@@ -213,6 +245,7 @@ void CWeaponSMG1::Precache( void )
 //-----------------------------------------------------------------------------
 void CWeaponSMG1::Equip( CBaseCombatCharacter *pOwner )
 {
+#ifndef CLIENT_DLL
 	if( pOwner->Classify() == CLASS_PLAYER_ALLY )
 	{
 		m_fMaxRange1 = 3000;
@@ -221,7 +254,7 @@ void CWeaponSMG1::Equip( CBaseCombatCharacter *pOwner )
 	{
 		m_fMaxRange1 = 1400;
 	}
-
+#endif
 	BaseClass::Equip( pOwner );
 }
 
@@ -230,6 +263,7 @@ void CWeaponSMG1::Equip( CBaseCombatCharacter *pOwner )
 //-----------------------------------------------------------------------------
 void CWeaponSMG1::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector &vecShootOrigin, Vector &vecShootDir )
 {
+#ifndef CLIENT_DLL
 	// FIXME: use the returned number of bullets to account for >10hz firerate
 	WeaponSoundRealtime( SINGLE_NPC );
 
@@ -243,6 +277,7 @@ void CWeaponSMG1::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector 
 
 	pOperator->DoMuzzleFlash();
 	m_iClip1 = m_iClip1 - 1;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -250,6 +285,7 @@ void CWeaponSMG1::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector 
 //-----------------------------------------------------------------------------
 void CWeaponSMG1::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool bSecondary )
 {
+#ifndef CLIENT_DLL
 	// Ensure we have enough rounds in the clip
 	m_iClip1++;
 
@@ -258,6 +294,7 @@ void CWeaponSMG1::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool b
 	GetAttachment( LookupAttachment( "muzzle" ), vecShootOrigin, angShootDir );
 	AngleVectors( angShootDir, &vecShootDir );
 	FireNPCPrimaryAttack( pOperator, vecShootOrigin, vecShootDir );
+#endif
 }
 
 #ifdef MAPBASE
@@ -269,6 +306,7 @@ float GetCurrentGravity( void );
 //-----------------------------------------------------------------------------
 void CWeaponSMG1::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator )
 {
+#ifndef CLIENT_DLL
 	switch( pEvent->event )
 	{
 	case EVENT_WEAPON_SMG1:
@@ -372,6 +410,7 @@ void CWeaponSMG1::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChar
 		BaseClass::Operator_HandleAnimEvent( pEvent, pOperator );
 		break;
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -442,11 +481,7 @@ void CWeaponSMG1::AddViewKick( void )
 //-----------------------------------------------------------------------------
 void CWeaponSMG1::SecondaryAttack( void )
 {
-	// Only the player fires this way so we can cast
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-	
-	if ( pPlayer == NULL )
-		return;
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 
 	//Must have ammo
 	if ( ( pPlayer->GetAmmoCount( m_iSecondaryAmmoType ) <= 0 ) || ( pPlayer->GetWaterLevel() == 3 ) )
@@ -463,7 +498,9 @@ void CWeaponSMG1::SecondaryAttack( void )
 	// MUST call sound before removing a round from the clip of a CMachineGun
 	BaseClass::WeaponSound( WPN_DOUBLE );
 
+#ifndef CLIENT_DLL
 	pPlayer->RumbleEffect( RUMBLE_357, 0, RUMBLE_FLAGS_NONE );
+
 
 	Vector vecSrc = pPlayer->Weapon_ShootPosition();
 	Vector	vecThrow;
@@ -485,6 +522,7 @@ void CWeaponSMG1::SecondaryAttack( void )
 	SendWeaponAnim( ACT_VM_SECONDARYATTACK );
 
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), 1000, 0.2, GetOwner(), SOUNDENT_CHANNEL_WEAPON );
+#endif
 
 	// player "shoot" animation
 #ifdef MAPBASE
@@ -501,12 +539,13 @@ void CWeaponSMG1::SecondaryAttack( void )
 
 	// Can blow up after a short delay (so have time to release mouse button)
 	m_flNextSecondaryAttack = gpGlobals->curtime + 1.0f;
-
+#ifndef CLIENT_DLL
 	// Register a muzzleflash for the AI.
 	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );	
 
 	m_iSecondaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+#endif
 }
 
 #define	COMBINE_MIN_GRENADE_CLEAR_DIST 256
@@ -519,6 +558,7 @@ void CWeaponSMG1::SecondaryAttack( void )
 //-----------------------------------------------------------------------------
 int CWeaponSMG1::WeaponRangeAttack2Condition( float flDot, float flDist )
 {
+#ifndef CLIENT_DLL
 	CAI_BaseNPC *npcOwner = GetOwner()->MyNPCPointer();
 
 	return COND_NONE;
@@ -615,6 +655,9 @@ int CWeaponSMG1::WeaponRangeAttack2Condition( float flDot, float flDist )
 		m_flNextGrenadeCheck = gpGlobals->curtime + 1; // one full second.
 		return COND_WEAPON_SIGHT_OCCLUDED;
 	}
+#else
+	return 0;
+#endif
 }
 
 //-----------------------------------------------------------------------------

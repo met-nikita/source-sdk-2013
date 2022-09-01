@@ -8,17 +8,21 @@
 #include "cbase.h"
 #include "npcevent.h"
 #include "basehlcombatweapon.h"
+#include "gamerules.h"
+#include "in_buttons.h"
+#include "vstdlib/random.h"
+#include "engine/IEngineSound.h"
+#include "gamestats.h"
+#ifdef CLIENT_DLL
+#include "c_te_effect_dispatch.h"
+#else
+#include "te_effect_dispatch.h"
+#include "soundent.h"
+#include "game.h"
 #include "basecombatcharacter.h"
 #include "ai_basenpc.h"
 #include "player.h"
-#include "gamerules.h"
-#include "in_buttons.h"
-#include "soundent.h"
-#include "game.h"
-#include "vstdlib/random.h"
-#include "engine/IEngineSound.h"
-#include "te_effect_dispatch.h"
-#include "gamestats.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -27,9 +31,13 @@
 // CWeapon357
 //-----------------------------------------------------------------------------
 
-#ifdef MAPBASE
+#if defined(MAPBASE) && !defined(CLIENT_DLL)
 extern acttable_t *GetPistolActtable();
 extern int GetPistolActtableCount();
+#endif
+
+#ifdef CLIENT_DLL
+#define CWeapon357 C_Weapon357
 #endif
 
 class CWeapon357 : public CBaseHLCombatWeapon
@@ -44,8 +52,14 @@ public:
 
 	float	WeaponAutoAimScale()	{ return 0.6f; }
 
+	bool IsPredicted() const { return true; };
+
 #ifdef MAPBASE
+#ifndef CLIENT_DLL
 	int		CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
+#else
+	int		CapabilitiesGet(void) { return 0; }
+#endif
 
 	virtual int	GetMinBurst() { return 1; }
 	virtual int	GetMaxBurst() { return 1; }
@@ -62,26 +76,31 @@ public:
 
 		static Vector AllyCone = VECTOR_CONE_2DEGREES;
 		static Vector NPCCone = VECTOR_CONE_5DEGREES;
-
+#ifndef CLIENT_DLL
 		if( GetOwner()->MyNPCPointer()->IsPlayerAlly() )
 		{
 			// 357 allies should be cooler
 			return AllyCone;
 		}
-
+#endif
 		return NPCCone;
 	}
 
 	void	FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector &vecShootOrigin, Vector &vecShootDir );
 	void	Operator_ForceNPCFire( CBaseCombatCharacter  *pOperator, bool bSecondary );
-
+#ifndef CLIENT_DLL
 	virtual acttable_t		*GetBackupActivityList() { return GetPistolActtable(); }
 	virtual int				GetBackupActivityListCount() { return GetPistolActtableCount(); }
+#else
+	virtual acttable_t		*GetBackupActivityList() { return 0; }
+	virtual int				GetBackupActivityListCount() { return 0; }
+#endif
 #endif
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 	DECLARE_DATADESC();
-#ifdef MAPBASE
+#if defined(MAPBASE) && !defined(CLIENT_DLL)
 	DECLARE_ACTTABLE();
 #endif
 };
@@ -90,13 +109,18 @@ LINK_ENTITY_TO_CLASS( weapon_357, CWeapon357 );
 
 PRECACHE_WEAPON_REGISTER( weapon_357 );
 
-IMPLEMENT_SERVERCLASS_ST( CWeapon357, DT_Weapon357 )
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(Weapon357, DT_Weapon357)
+
+BEGIN_NETWORK_TABLE(CWeapon357, DT_Weapon357)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeapon357)
+END_PREDICTION_DATA()
 
 BEGIN_DATADESC( CWeapon357 )
 END_DATADESC()
 
-#ifdef MAPBASE
+#if defined(MAPBASE) && !defined(CLIENT_DLL)
 acttable_t	CWeapon357::m_acttable[] =
 {
 #if EXPANDED_HL2_WEAPON_ACTIVITIES
@@ -259,6 +283,7 @@ CWeapon357::CWeapon357( void )
 //-----------------------------------------------------------------------------
 void CWeapon357::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator )
 {
+#ifndef CLIENT_DLL
 	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
 
 	switch( pEvent->event )
@@ -298,6 +323,7 @@ void CWeapon357::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChara
 			break;
 #endif
 	}
+#endif
 }
 
 #ifdef MAPBASE
@@ -306,12 +332,14 @@ void CWeapon357::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChara
 //-----------------------------------------------------------------------------
 void CWeapon357::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector &vecShootOrigin, Vector &vecShootDir )
 {
+#ifndef CLIENT_DLL
 	CSoundEnt::InsertSound( SOUND_COMBAT|SOUND_CONTEXT_GUNFIRE, pOperator->GetAbsOrigin(), SOUNDENT_VOLUME_PISTOL, 0.2, pOperator, SOUNDENT_CHANNEL_WEAPON, pOperator->GetEnemy() );
 
 	WeaponSound( SINGLE_NPC );
 	pOperator->FireBullets( 1, vecShootOrigin, vecShootDir, VECTOR_CONE_PRECALCULATED, MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 1 );
 	pOperator->DoMuzzleFlash();
 	m_iClip1 = m_iClip1 - 1;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -319,6 +347,7 @@ void CWeapon357::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector &
 //-----------------------------------------------------------------------------
 void CWeapon357::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool bSecondary )
 {
+#ifndef CLIENT_DLL
 	// Ensure we have enough rounds in the clip
 	m_iClip1++;
 
@@ -327,10 +356,11 @@ void CWeapon357::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool bS
 	GetAttachment( LookupAttachment( "muzzle" ), vecShootOrigin, angShootDir );
 	AngleVectors( angShootDir, &vecShootDir );
 	FireNPCPrimaryAttack( pOperator, vecShootOrigin, vecShootDir );
+#endif
 }
 #endif
 
-#ifdef EZ2
+#if defined(EZ2) && !defined(CLIENT_DLL)
 // Hack for 357 achievement (see achievements_EZ2.cpp)
 extern bool g_bEZ2357AchievementHack;
 #endif
@@ -340,13 +370,7 @@ extern bool g_bEZ2357AchievementHack;
 //-----------------------------------------------------------------------------
 void CWeapon357::PrimaryAttack( void )
 {
-	// Only the player fires this way so we can cast
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-
-	if ( !pPlayer )
-	{
-		return;
-	}
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 
 	if ( m_iClip1 <= 0 )
 	{
@@ -364,7 +388,9 @@ void CWeapon357::PrimaryAttack( void )
 	}
 
 	m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+#endif
 
 	WeaponSound( SINGLE );
 	pPlayer->DoMuzzleFlash();
@@ -380,18 +406,28 @@ void CWeapon357::PrimaryAttack( void )
 	Vector vecSrc		= pPlayer->Weapon_ShootPosition();
 	Vector vecAiming	= pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
 
-#ifdef EZ2
+#if defined(EZ2) && !defined(CLIENT_DLL)
 	// Hack for 357 achievement
 	g_bEZ2357AchievementHack = true;
 #endif
+	// Fire the bullets
+	FireBulletsInfo_t info;
+	info.m_iShots = 1;
+	info.m_vecSrc = vecSrc;
+	info.m_vecDirShooting = vecAiming;
+	info.m_vecSpread = vec3_origin;
+	info.m_flDistance = MAX_TRACE_LENGTH;
+	info.m_iAmmoType = m_iPrimaryAmmoType;
+	info.m_iTracerFreq = 0;
 
-	pPlayer->FireBullets( 1, vecSrc, vecAiming, vec3_origin, MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0 );
+	pPlayer->FireBullets( info );
 
-#ifdef EZ2
+#if defined(EZ2) && !defined(CLIENT_DLL)
 	// Hack for 357 achievement
 	g_bEZ2357AchievementHack = false;
 #endif
 
+#ifndef CLIENT_DLL
 	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
 
 	//Disorient the player
@@ -401,11 +437,13 @@ void CWeapon357::PrimaryAttack( void )
 	angles.y += random->RandomInt( -1, 1 );
 	angles.z = 0;
 
+
 	pPlayer->SnapEyeAngles( angles );
-
+#endif
 	pPlayer->ViewPunch( QAngle( -8, random->RandomFloat( -2, 2 ), 0 ) );
-
+#ifndef CLIENT_DLL
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), 600, 0.2, GetOwner() );
+#endif
 
 	if ( !m_iClip1 && pPlayer->GetAmmoCount( m_iPrimaryAmmoType ) <= 0 )
 	{

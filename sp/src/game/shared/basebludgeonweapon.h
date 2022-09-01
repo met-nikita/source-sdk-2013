@@ -13,6 +13,9 @@
 #ifndef BASEBLUDGEONWEAPON_H
 #define BASEBLUDGEONWEAPON_H
 
+#ifdef CLIENT_DLL
+#define CBaseHLBludgeonWeapon C_BaseHLBludgeonWeapon
+#endif
 //=========================================================
 // CBaseHLBludgeonWeapon 
 //=========================================================
@@ -22,7 +25,8 @@ class CBaseHLBludgeonWeapon : public CBaseHLCombatWeapon
 public:
 	CBaseHLBludgeonWeapon();
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	virtual	void	Spawn( void );
 	virtual	void	Precache( void );

@@ -14,6 +14,20 @@
 
 #if defined( CLIENT_DLL )
 #define CBaseHLCombatWeapon C_BaseHLCombatWeapon
+void UTIL_ClipPunchAngleOffset(QAngle &in, const QAngle &punch, const QAngle &clip);
+#endif
+
+#ifdef CLIENT_DLL
+#define ITEM_GRAB_PREDICTED_ATTACK_FIX CBasePlayer *pPlayer = ToBasePlayer(GetOwner());\
+if (!pPlayer \
+ \
+	|| pPlayer->m_Local.m_bHoldingItem \
+	) \
+	return;
+#else
+#define ITEM_GRAB_PREDICTED_ATTACK_FIX CBasePlayer *pPlayer = ToBasePlayer(GetOwner());\
+if (!pPlayer) \
+	return;
 #endif
 
 class CBaseHLCombatWeapon : public CBaseCombatWeapon

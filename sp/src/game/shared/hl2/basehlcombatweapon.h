@@ -12,6 +12,12 @@
 #pragma once
 #endif
 
+#if defined( CLIENT_DLL )
+#define CHLMachineGun C_HLMachineGun
+#define CHLSelectFireMachineGun C_HLSelectFireMachineGun
+#endif
+
+
 //=========================================================
 // Machine gun base class
 //=========================================================
@@ -23,14 +29,15 @@ public:
 
 	CHLMachineGun();
 	
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	void	PrimaryAttack( void );
 
 	// Default calls through to m_hOwner, but plasma weapons can override and shoot projectiles here.
 	virtual void	ItemPostFrame( void );
 	virtual void	FireBullets( const FireBulletsInfo_t &info );
-	virtual float	GetFireRate( void ) = 0;
+	virtual float	GetFireRate(void) { return 1.0f; };
 	virtual int		WeaponRangeAttack1Condition( float flDot, float flDist );
 	virtual bool	Deploy( void );
 
@@ -75,7 +82,8 @@ public:
 
 	CHLSelectFireMachineGun( void );
 	
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	virtual float	GetBurstCycleRate( void );
 	virtual float	GetFireRate( void );

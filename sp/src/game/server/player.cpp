@@ -5314,6 +5314,7 @@ void CBasePlayer::Spawn( void )
 	enginesound->SetPlayerDSP( user, 0, false );
 
 	CreateViewModel();
+	CreateViewModel(2);
 #ifdef MAPBASE
 	CreateHandModel();
 #endif

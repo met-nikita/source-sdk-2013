@@ -2,6 +2,7 @@
 #include "c_EZ2_player.h"
 #include "point_bonusmaps_accessor.h"
 #include "achievementmgr.h"
+#include "c_basehlcombatweapon.h"
 
 #if defined( CEZ2Player )
 	#undef CEZ2Player

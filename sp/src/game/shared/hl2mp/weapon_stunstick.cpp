@@ -13,6 +13,7 @@
 #endif
 #include "IEffects.h"
 #include "debugoverlay_shared.h"
+#include "in_buttons.h"
 
 #ifndef CLIENT_DLL
 	#include "npc_metropolice.h"
@@ -205,11 +206,12 @@ void CWeaponStunStick::ImpactEffect( trace_t &traceHit )
 	UTIL_ImpactTrace( &traceHit, DMG_CLUB );
 }
 
-#ifndef CLIENT_DLL
+
 
 
 int CWeaponStunStick::WeaponMeleeAttack1Condition( float flDot, float flDist )
 {
+#ifndef CLIENT_DLL
 	// Attempt to lead the target (needed because citizens can't hit manhacks with the crowbar!)
 	CAI_BaseNPC *pNPC	= GetOwner()->MyNPCPointer();
 	CBaseEntity *pEnemy = pNPC->GetEnemy();
@@ -277,11 +279,15 @@ int CWeaponStunStick::WeaponMeleeAttack1Condition( float flDot, float flDist )
 	}
 
 	return COND_CAN_MELEE_ATTACK1;
+#else
+	return 0;
+#endif
 }
 
 
 void CWeaponStunStick::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator )
 {
+#ifndef CLIENT_DLL
 	switch( pEvent->event )
 	{
 		case EVENT_WEAPON_MELEE_HIT:
@@ -414,6 +420,7 @@ void CWeaponStunStick::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseComba
 			BaseClass::Operator_HandleAnimEvent( pEvent, pOperator );
 			break;
 	}
+#endif
 }
 
 	#ifdef EZ
@@ -421,11 +428,13 @@ void CWeaponStunStick::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseComba
 // Purpose: Tells us we're always a translucent entity
 //	1upD - Moved from client to server because m_iActivity is not transmitted
 //-----------------------------------------------------------------------------
+#ifndef CLIENT_DLL
 bool CWeaponStunStick::InSwing(void)
 {
 	// If the alternate fire is charging up, glow
 	return m_flChargeAmount > 0.0f;
 }
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: After every frame, check and store if we are mid-swring
@@ -455,6 +464,7 @@ void CWeaponStunStick::ItemPostFrame(void)
 //-----------------------------------------------------------------------------
 void CWeaponStunStick::SecondaryAttack()
 {
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	// Increase charge
 	if (m_flLastChargeTime > 0.0f)
 	{
@@ -475,11 +485,13 @@ void CWeaponStunStick::SecondaryAttack()
 //------------------------------------------------------------------------------
 void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSecondary )
 {
+#ifndef CLIENT_DLL
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+#endif
 
 	//Do view kick
 	AddViewKick();
-
+#ifndef CLIENT_DLL
 	//Make sound for the AI
 	CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, traceHit.endpos, 400, 0.2f, pPlayer );
 
@@ -487,7 +499,6 @@ void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSe
 	pPlayer->RumbleEffect( RUMBLE_AR2, 0, RUMBLE_FLAG_RESTART );
 
 	CBaseEntity	*pHitEntity = traceHit.m_pEnt;
-
 	//Apply damage to a hit target
 	if (pHitEntity != NULL)
 	{
@@ -530,7 +541,7 @@ void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSe
 			gamestats->Event_WeaponHit( pPlayer, !bIsSecondary, GetClassname(), info );
 		}
 	}
-
+#endif
 	// Apply an impact effect
 	ImpactEffect( traceHit );
 }
@@ -541,7 +552,6 @@ BEGIN_DATADESC( CWeaponStunStick )
 END_DATADESC()
 
 	#endif
-#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Sets the state of the stun stick

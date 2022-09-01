@@ -4780,7 +4780,7 @@ void CHL2_Player::StartKickAnimation( void )
 	CBaseViewModel *vm = GetViewModel( 2 );
 	if ( vm == NULL )
 	{
-		CreateViewModel( 2 );
+		//CreateViewModel( 2 );
 		vm = GetViewModel( 2 );
 	}
 
@@ -4792,10 +4792,12 @@ void CHL2_Player::StartKickAnimation( void )
 
 		if ( idealSequence >= 0 )
 		{
+			vm->UseClientSideAnimation();
 			vm->SendViewModelMatchingSequence( idealSequence );
 			vm->SetPlaybackRate( 1.0f );
 		}
 	}
+	SetAnimation(PLAYER_KICK);
 }
 
 void CHL2_Player::HandleKickAnimation( void )
@@ -4813,7 +4815,7 @@ void CHL2_Player::HandleKickAnimation( void )
 			
 			// Destroy the kick viewmodel. 
 			// This should prevent the kick animation from firing off after level transitions.
-			pVM->SUB_Remove();
+			//pVM->SUB_Remove();
 		}
 	}
 }

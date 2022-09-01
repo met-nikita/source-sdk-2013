@@ -163,4 +163,29 @@ void ResetToneMapping(float value);
 
 void UpdateFullScreenDepthTexture( void );
 
+static void ScreenOver_f(void)
+{
+	IMaterial *pMaterial = materials->FindMaterial("Ezero/Mask_NvMap", TEXTURE_GROUP_OTHER, true);
+	//This is the texture we are going to use for the 'effect' - never use an ext on material files
+
+	{
+		static bool bDisplayed = false;
+
+		if (bDisplayed)
+		{
+			// turn it off
+			view->SetScreenOverlayMaterial(NULL);
+			//CLocalPlayerFilter filter;
+		}
+		else
+		{
+			// turn it on
+			view->SetScreenOverlayMaterial(pMaterial);
+			//CLocalPlayerFilter filter;
+		}
+
+		bDisplayed = !bDisplayed;
+	}
+}
+
 #endif // VIEW_SCENE_H

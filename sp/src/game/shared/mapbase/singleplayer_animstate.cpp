@@ -128,7 +128,7 @@ Activity CSinglePlayerAnimState::CalcMainActivity()
 			}
         }
 
-        return idealActivity;
+		return idealActivity;
     }
 
     //return m_pPlayer->GetActivity();
@@ -194,6 +194,26 @@ void CSinglePlayerAnimState::SetPlayerAnimation( PLAYER_ANIM playerAnim )
             m_bMiscNoOverride = false;
         }
     }
+	else if (playerAnim == PLAYER_KICK)
+	{
+		m_iMiscSequence = SelectWeightedSequence(ACT_GESTURE_MELEE_ATTACK2);
+		if (m_iMiscSequence != -1)
+		{
+			// clear other events that might be playing in our layer
+			m_bPlayingMisc = true;
+			m_bReloading = false;
+			m_bWeaponSwitching = false;
+			m_bFiring = false;
+			m_bJumping = false;
+			m_bMiscOnlyWhenStill = false;
+			m_bMiscHoldAtEnd = false;
+			m_flMiscCycle = 0;
+			m_flMiscBlendOut = 0.1f;
+			m_flMiscBlendIn = 0.1f;
+			m_fMiscPlaybackRate = 1.0f;
+			m_bMiscNoOverride = true;
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

@@ -1566,7 +1566,7 @@ int CProtoSniper::SelectSchedule ( void )
 		return SCHED_RELOAD;
 	}
 
-	if( !AI_GetSinglePlayer()->IsAlive() && m_bKilledPlayer )
+	if (AI_GetSinglePlayer() && !AI_GetSinglePlayer()->IsAlive() && m_bKilledPlayer)
 	{
 		if( HasCondition(COND_IN_PVS) )
 		{

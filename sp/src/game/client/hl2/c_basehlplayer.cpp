@@ -11,6 +11,9 @@
 #include "c_ai_basenpc.h"
 #include "in_buttons.h"
 #include "collisionutils.h"
+#include "c_basehlcombatweapon.h"
+#include "eventlist.h"
+#include "gamestringpool.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -117,7 +120,8 @@ float C_BaseHLPlayer::GetFOV()
 	float flFOVOffset = BaseClass::GetFOV() + GetZoom();
 
 	// Clamp FOV in MP
-	int min_fov = ( gpGlobals->maxClients == 1 ) ? 5 : default_fov.GetInt();
+	//don't
+	int min_fov = 5;
 	
 	// Don't let it go too low
 	flFOVOffset = MAX( min_fov, flFOVOffset );
@@ -150,6 +154,203 @@ float C_BaseHLPlayer::GetZoom( void )
 	}
 
 	return fFOV;
+}
+
+
+Vector C_BaseHLPlayer::GetAttackSpread(CBaseCombatWeapon *pWeapon, CBaseEntity *pTarget)
+{
+	if (pWeapon)
+		return pWeapon->GetBulletSpread(WEAPON_PROFICIENCY_PERFECT);
+
+	return VECTOR_CONE_15DEGREES;
+}
+ConVar sv_player_kick_default_modelname("sv_player_kick_default_modelname", "models/weapons/ez2/v_kick.mdl", FCVAR_REPLICATED, "Default filename of model to use for kick animation - can be overridden in map");
+void C_BaseHLPlayer::Precache(void)
+{
+	BaseClass::Precache();
+
+	if (m_LegModelName == NULL_STRING)
+	{
+		m_LegModelName = AllocPooledString(sv_player_kick_default_modelname.GetString());
+	}
+}
+ConVar sv_player_kick_attack_enabled("sv_player_kick_attack_enabled", "1", FCVAR_REPLICATED);
+void C_BaseHLPlayer::HandleKickAttack()
+{
+	if (!sv_player_kick_attack_enabled.GetBool() && !IsInAVehicle())
+		return;
+
+	// Door kick!
+	if (gpGlobals->curtime >= m_flNextAttack && gpGlobals->curtime >= m_flNextKickAttack && !IsInAVehicle() && m_nButtons & IN_ATTACK3)
+	{
+		// Viewpunch
+		QAngle punchAng;
+		punchAng.x = random->RandomFloat(2.0f, 3.0f);
+		punchAng.y = random->RandomFloat(-3.0f, -2.0f);
+		punchAng.z = 0.0f;
+		ViewPunch(punchAng);
+
+		// Prevent all attacks for 1 second
+		m_flNextKickAttack = gpGlobals->curtime + 1.0f;
+		CBaseCombatWeapon * pWeapon = GetActiveWeapon();
+		if (pWeapon)
+		{
+			pWeapon->m_flNextPrimaryAttack = MAX(GetActiveWeapon()->m_flNextPrimaryAttack.Get(), m_flNextKickAttack);
+			pWeapon->m_flNextSecondaryAttack = MAX(GetActiveWeapon()->m_flNextSecondaryAttack.Get(), m_flNextKickAttack);
+
+			CBaseHLCombatWeapon * pHLWeapon = dynamic_cast<CBaseHLCombatWeapon *>(pWeapon);
+
+			// Lower the weapon if possible
+			if (pHLWeapon)
+			{
+				if (pHLWeapon->CanLower() && !pHLWeapon->WeaponShouldBeLowered())
+				{
+					pHLWeapon->Lower();
+					m_bKickWeaponLowered = true;
+				}
+			}
+		}
+
+		EmitSound("EZ2Player.KickSwing");
+
+		StartKickAnimation();
+	}
+	else if (m_bKickWeaponLowered && gpGlobals->curtime <= m_flNextKickAttack)
+	{
+		CBaseHLCombatWeapon * pHLWeapon = dynamic_cast<CBaseHLCombatWeapon *>(GetActiveWeapon());
+
+		// Lower the weapon if possible
+		if (pHLWeapon && pHLWeapon->m_flNextPrimaryAttack <= gpGlobals->curtime)
+		{
+			pHLWeapon->Ready();
+			m_bKickWeaponLowered = false;
+		}
+	}
+}
+
+// Should these be separate from g_bludgeonMins and g_bludgeonMaxs in basebludgeonweapon?
+#define KICK_HULL_DIM		16
+static const Vector g_kickMins(-KICK_HULL_DIM, -KICK_HULL_DIM, -KICK_HULL_DIM);
+static const Vector g_kickMaxs(KICK_HULL_DIM, KICK_HULL_DIM, KICK_HULL_DIM);
+
+void C_BaseHLPlayer::TraceKickAttack(CBaseEntity* pKickedEntity)
+{
+	Vector vecSrc = GetFlags() & FL_DUCKING ? EyePosition() : EyePosition() - Vector(0, 0, 32);
+	Vector vecAim = BaseClass::GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
+	Vector vecEnd = EyePosition() + (vecAim * 80);
+
+	trace_t tr;
+
+	UTIL_TraceLine(vecSrc, vecEnd, MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &tr);
+
+	// If the ray trace didn't hit anything, use a hull trace based on bludgeon weapons
+	if (tr.fraction == 1.0)
+	{
+		float bludgeonHullRadius = 1.732f * KICK_HULL_DIM;  // hull is +/- 16, so use cuberoot of 2 to determine how big the hull is from center to the corner point
+		// Back off by hull "radius"
+		vecEnd -= vecAim * bludgeonHullRadius;
+
+		UTIL_TraceHull(vecSrc, vecEnd, g_kickMins, g_kickMaxs, MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &tr);
+		if (tr.fraction < 1.0 && tr.m_pEnt)
+		{
+			Vector vecToTarget = tr.m_pEnt->GetAbsOrigin() - vecSrc;
+			VectorNormalize(vecToTarget);
+
+			float dot = vecToTarget.Dot(vecAim);
+
+			// YWB:  Make sure they are sort of facing the guy at least...
+			if (dot < 0.70721f)
+			{
+				// Force amiss
+				tr.fraction = 1.0f;
+			}
+		}
+	}
+
+	if (pKickedEntity == NULL)
+	{
+		pKickedEntity = tr.m_pEnt;
+	}
+
+	if (pKickedEntity != NULL)
+	{
+		EmitSound("EZ2Player.KickHit");
+	}
+	else
+	{
+		EmitSound("EZ2Player.KickMiss");
+	}
+}
+
+void C_BaseHLPlayer::StartKickAnimation(void)
+{
+	/*
+	MDLCACHE_CRITICAL_SECTION();
+	CBaseViewModel *vm = GetViewModel(2);
+	if (vm == NULL)
+	{
+		//CreateViewModel(2);
+		vm = GetViewModel(2);
+	}
+
+	if (vm)
+	{
+		vm->SetWeaponModel(STRING(m_LegModelName), NULL);
+
+		int	idealSequence = vm->SelectWeightedSequence(ACT_VM_PRIMARYATTACK);
+
+		if (idealSequence >= 0)
+		{
+			vm->SetSequence(idealSequence);
+			vm->SetPlaybackRate(1.0f);
+		}
+	}
+	SetAnimation(PLAYER_KICK);
+	*/
+}
+
+void C_BaseHLPlayer::HandleKickAnimation(void)
+{
+	/*
+	CBaseViewModel *pVM = GetViewModel(2);
+
+	if (pVM)
+	{
+		pVM->SetPlaybackRate(1.0f);
+		pVM->StudioFrameAdvance();
+		//pVM->DispatchAnimEvents(this);
+		if (pVM->IsSequenceFinished())
+		{
+			pVM->SetPlaybackRate(0.0f);
+
+			// Destroy the kick viewmodel. 
+			// This should prevent the kick animation from firing off after level transitions.
+			//pVM->SUB_Remove();
+		}
+	}
+	*/
+}
+
+void C_BaseHLPlayer::ItemPostFrame()
+{
+	/*
+#ifdef EZ2
+	HandleKickAttack();
+#endif
+	*/
+
+	BaseClass::ItemPostFrame();
+
+}
+
+void C_BaseHLPlayer::HandleAnimEvent(animevent_t *pEvent)
+{
+	/*
+	if (pEvent->event == AE_KICKATTACK)
+	{
+		TraceKickAttack();
+	}
+	*/
 }
 
 //-----------------------------------------------------------------------------

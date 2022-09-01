@@ -7,14 +7,23 @@
 #include "cbase.h"
 #include "basehlcombatweapon.h"
 #include "NPCevent.h"
-#include "basecombatcharacter.h"
+#include "in_buttons.h"
+#ifdef CLIENT_DLL
+#include "c_te_effect_dispatch.h"
+#else
+#include "te_effect_dispatch.h"
 #include "ai_basenpc.h"
 #include "player.h"
 #include "game.h"
-#include "in_buttons.h"
+#include "basecombatcharacter.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
+
+#ifdef CLIENT_DLL
+#define CWeaponSMG2 C_WeaponSMG2
+#endif
 
 class CWeaponSMG2 : public CHLSelectFireMachineGun
 {
@@ -23,26 +32,42 @@ public:
 
 	CWeaponSMG2();
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	const Vector	&GetBulletSpread( void );
+
+	bool IsPredicted() const { return true; };
 
 	void			Precache( void );
 	void			AddViewKick( void );
 	void			Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
 
 	float			GetFireRate( void ) { return 0.1f; }
+#ifndef CLIENT_DLL
 	int				CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
+#else
+	int				CapabilitiesGet(void) { return 0; }
+#endif
 
+
+#ifndef CLIENT_DLL
 	DECLARE_ACTTABLE();
+#endif
 };
 
-IMPLEMENT_SERVERCLASS_ST(CWeaponSMG2, DT_WeaponSMG2)
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponSMG2, DT_WeaponSMG2)
+
+BEGIN_NETWORK_TABLE(CWeaponSMG2, DT_WeaponSMG2)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeaponSMG2)
+END_PREDICTION_DATA()
 
 LINK_ENTITY_TO_CLASS( weapon_smg2, CWeaponSMG2 );
 PRECACHE_WEAPON_REGISTER(weapon_smg2);
 
+#ifndef CLIENT_DLL
 acttable_t	CWeaponSMG2::m_acttable[] = 
 {
 	{ ACT_RANGE_ATTACK1, ACT_RANGE_ATTACK_SMG2, true },
@@ -120,6 +145,7 @@ acttable_t	CWeaponSMG2::m_acttable[] =
 };
 
 IMPLEMENT_ACTTABLE(CWeaponSMG2);
+#endif
 
 //=========================================================
 CWeaponSMG2::CWeaponSMG2( )
@@ -152,6 +178,7 @@ const Vector &CWeaponSMG2::GetBulletSpread( void )
 //-----------------------------------------------------------------------------
 void CWeaponSMG2::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator )
 {
+#ifndef CLIENT_DLL
 	switch( pEvent->event )
 	{
 		case EVENT_WEAPON_SMG2:
@@ -173,6 +200,7 @@ void CWeaponSMG2::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChar
 			BaseClass::Operator_HandleAnimEvent( pEvent, pOperator );
 			break;
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------

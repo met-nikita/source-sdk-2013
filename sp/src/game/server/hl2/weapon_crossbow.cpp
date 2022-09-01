@@ -251,7 +251,7 @@ void CCrossbowBolt::Precache( void )
 	PrecacheModel( "models/crossbow_bolt.mdl" );
 #else
 	if ( GetModelName() == NULL_STRING )
-		SetModel( "models/crossbow_bolt.mdl" );
+		SetModel( BOLT_MODEL );
 
 	PrecacheModel( STRING( GetModelName() ) );
 #endif

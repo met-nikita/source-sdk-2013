@@ -7,7 +7,6 @@
 #include "cbase.h"
 #include "baseviewmodel_shared.h"
 #include "datacache/imdlcache.h"
-
 #if defined( CLIENT_DLL )
 #include "iprediction.h"
 #include "prediction.h"
@@ -257,7 +256,7 @@ void CBaseViewModel::SetOwner( CBaseEntity *pEntity )
 	m_hOwner = pEntity;
 #if !defined( CLIENT_DLL )
 	// Make sure we're linked into hierarchy
-	//SetParent( pEntity );
+	SetParent( pEntity );
 #endif
 }
 

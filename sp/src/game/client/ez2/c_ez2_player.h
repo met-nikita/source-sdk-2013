@@ -5,6 +5,7 @@
 #endif
 
 #include "c_basehlplayer.h"
+#include "npcevent.h"
 
 class C_EZ2_Player : public C_BaseHLPlayer
 {

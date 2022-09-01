@@ -11,11 +11,7 @@
 #pragma once
 #endif
 
-#ifdef CLIENT_DLL
-#include "c_basehlcombatweapon.h"
-#else
 #include "basebludgeonweapon.h"
-#endif
 
 #define	STUNSTICK_RANGE				75.0f
 #define	STUNSTICK_REFIRE			0.8f
@@ -26,7 +22,6 @@
 
 #ifdef CLIENT_DLL
 #define CWeaponStunStick C_WeaponStunStick
-#define CBaseHLBludgeonWeapon C_BaseHLBludgeonWeapon
 
 #ifdef EZ
 #include "flashlighteffect.h"
@@ -51,13 +46,15 @@ public:
 	DECLARE_NETWORKCLASS(); 
 	DECLARE_PREDICTABLE();
 
-#ifndef CLIENT_DLL
+
 	#ifdef EZ
 		DECLARE_DATADESC();
 	#endif
+#ifndef CLIENT_DLL
 	DECLARE_ACTTABLE();
 #endif
 
+	bool IsPredicted() const { return true; };
 #ifdef CLIENT_DLL
 	virtual int				DrawModel( int flags );
 	virtual void			ClientThink( void );
@@ -99,7 +96,7 @@ public:
 	void		SetStunState( bool state );
 	bool		GetStunState( void );
 
-#ifndef CLIENT_DLL
+
 	#ifdef EZ
 		virtual void	ItemPostFrame( void );
 		void			SecondaryAttack( void );
@@ -111,7 +108,7 @@ public:
 	#endif
 	void		Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
 	int			WeaponMeleeAttack1Condition( float flDot, float flDist );
-#endif
+
 	
 	float		GetDamageForActivity( Activity hitActivity );
 

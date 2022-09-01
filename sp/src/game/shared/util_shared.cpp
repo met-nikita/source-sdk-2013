@@ -748,6 +748,7 @@ void UTIL_ParticleTracer( const char *pszTracerEffectName, const Vector &vecStar
 void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex, 
 				 int iAttachment, float flVelocity, bool bWhiz, const char *pCustomTracerName, int iParticleID )
 {
+	IPredictionSystem::SuppressHostEvents(NULL);
 	CEffectData data;
 	data.m_vStart = vecStart;
 	data.m_vOrigin = vecEnd;
@@ -785,6 +786,7 @@ void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex,
 
 void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, int amount )
 {
+	IPredictionSystem::SuppressHostEvents(NULL);
 	if ( !UTIL_ShouldShowBlood( color ) )
 		return;
 
@@ -869,6 +871,7 @@ bool UTIL_ShouldShowBlood( int color )
 //------------------------------------------------------------------------------
 void UTIL_DecalTrace( trace_t *pTrace, char const *decalName )
 {
+	IPredictionSystem::SuppressHostEvents(NULL);
 	if (pTrace->fraction == 1.0)
 		return;
 

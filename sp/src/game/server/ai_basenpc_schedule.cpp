@@ -3832,7 +3832,8 @@ void CAI_BaseNPC::RunTask( const Task_t *pTask )
 
 						if( pHint )
 						{
-							CBasePlayer *pPlayer = AI_GetSinglePlayer();
+							//CBasePlayer *pPlayer = AI_GetSinglePlayer();
+							CBasePlayer *pPlayer = UTIL_GetNearestPlayer(this);
 							Vector vecGoal = pHint->GetAbsOrigin();
 
 							if( vecGoal.DistToSqr(GetAbsOrigin()) < vecGoal.DistToSqr(pPlayer->GetAbsOrigin()) )

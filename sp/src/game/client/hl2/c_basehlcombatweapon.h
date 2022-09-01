@@ -5,13 +5,14 @@
 //=============================================================================//
 
 #include "basehlcombatweapon_shared.h"
-
+#include "basehlcombatweapon.h"
+#include "basebludgeonweapon.h"
 #ifndef C_BASEHLCOMBATWEAPON_H
 #define C_BASEHLCOMBATWEAPON_H
 #ifdef _WIN32
 #pragma once
 #endif
-
+/*
 class C_HLMachineGun : public C_BaseHLCombatWeapon
 {
 public:
@@ -26,11 +27,13 @@ public:
 	DECLARE_CLIENTCLASS();
 };
 
+
 class C_BaseHLBludgeonWeapon : public C_BaseHLCombatWeapon
 {
 public:
 	DECLARE_CLASS( C_BaseHLBludgeonWeapon, C_BaseHLCombatWeapon );
 	DECLARE_CLIENTCLASS();
 };
+*/
 
 #endif // C_BASEHLCOMBATWEAPON_H

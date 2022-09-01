@@ -52,6 +52,7 @@ public:
 	int						m_nStepside;
 	float					m_flFallVelocity;
 	int						m_nOldButtons;
+	bool					m_bHoldingItem;
 	// Base velocity that was passed in to server physics so 
 	//  client can predict conveyors correctly.  Server zeroes it, so we need to store here, too.
 	Vector					m_vecClientBaseVelocity;  

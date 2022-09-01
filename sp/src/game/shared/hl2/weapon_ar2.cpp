@@ -6,29 +6,33 @@
 //=============================================================================//
 
 #include "cbase.h"
-#include "basecombatweapon.h"
 #include "npcevent.h"
-#include "basecombatcharacter.h"
-#include "ai_basenpc.h"
-#include "player.h"
 #include "weapon_ar2.h"
-#include "grenade_ar2.h"
 #include "gamerules.h"
-#include "game.h"
 #include "in_buttons.h"
-#include "ai_memory.h"
-#include "soundent.h"
-#include "hl2_player.h"
-#include "EntityFlame.h"
-#include "weapon_flaregun.h"
-#include "te_effect_dispatch.h"
-#include "prop_combine_ball.h"
+#include "hl2_player_shared.h"
 #include "beam_shared.h"
-#include "npc_combine.h"
 #include "rumble_shared.h"
 #include "gamestats.h"
+#ifdef CLIENT_DLL
+#include "c_te_effect_dispatch.h"
+#else
+#include "te_effect_dispatch.h"
+#include "prop_combine_ball.h"
+#include "npc_combine.h"
+#include "EntityFlame.h"
+#include "weapon_flaregun.h"
+#include "ai_memory.h"
+#include "soundent.h"
+#include "game.h"
+#include "grenade_ar2.h"
+#include "player.h"
+#include "basecombatcharacter.h"
+#include "ai_basenpc.h"
+#include "basecombatweapon.h"
 #ifdef MAPBASE
 #include "npc_playercompanion.h"
+#endif
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -61,11 +65,19 @@ BEGIN_DATADESC( CWeaponAR2 )
 
 END_DATADESC()
 
-IMPLEMENT_SERVERCLASS_ST(CWeaponAR2, DT_WeaponAR2)
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponAR2, DT_WeaponAR2)
 
-LINK_ENTITY_TO_CLASS( weapon_ar2, CWeaponAR2 );
+BEGIN_NETWORK_TABLE(CWeaponAR2, DT_WeaponAR2)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeaponAR2)
+END_PREDICTION_DATA()
+
+LINK_ENTITY_TO_CLASS(weapon_ar2, CWeaponAR2);
 PRECACHE_WEAPON_REGISTER(weapon_ar2);
+
+
+#ifndef CLIENT_DLL
 
 acttable_t	CWeaponAR2::m_acttable[] = 
 {
@@ -202,16 +214,26 @@ acttable_t	CWeaponAR2::m_acttable[] =
 
 IMPLEMENT_ACTTABLE(CWeaponAR2);
 
+#endif
+
 #ifdef MAPBASE
 // Allows Weapon_BackupActivity() to access the AR2's activity table.
 acttable_t *GetAR2Acttable()
 {
+#ifndef CLIENT_DLL
 	return CWeaponAR2::m_acttable;
+#else
+	return 0;
+#endif
 }
 
 int GetAR2ActtableCount()
 {
+#ifndef CLIENT_DLL
 	return ARRAYSIZE(CWeaponAR2::m_acttable);
+#else
+	return 0;
+#endif
 }
 #endif
 
@@ -232,9 +254,10 @@ CWeaponAR2::CWeaponAR2( )
 void CWeaponAR2::Precache( void )
 {
 	BaseClass::Precache();
-
+#ifndef CLIENT_DLL
 	UTIL_PrecacheOther( "prop_combine_ball" );
 	UTIL_PrecacheOther( "env_entity_dissolver" );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -384,11 +407,15 @@ void CWeaponAR2::DelayedAttack( void )
 
 	// Register a muzzleflash for the AI
 	pOwner->DoMuzzleFlash();
+#ifndef CLIENT_DLL
 	pOwner->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+#endif
 	
 	WeaponSound( WPN_DOUBLE );
 
+#ifndef CLIENT_DLL
 	pOwner->RumbleEffect(RUMBLE_SHOTGUN_DOUBLE, 0, RUMBLE_FLAG_RESTART );
+#endif
 
 	// Fire the bullets
 	Vector vecSrc	 = pOwner->Weapon_ShootPosition( );
@@ -402,6 +429,7 @@ void CWeaponAR2::DelayedAttack( void )
 	Vector vecVelocity = vecAiming * 1000.0f;
 #endif
 
+#ifndef CLIENT_DLL
 	// Fire the combine ball
 	CreateCombineBall(	vecSrc, 
 						vecVelocity, 
@@ -413,6 +441,7 @@ void CWeaponAR2::DelayedAttack( void )
 	// View effects
 	color32 white = {255, 255, 255, 64};
 	UTIL_ScreenFade( pOwner, white, 0.1, 0, FFADE_IN  );
+
 	
 	//Disorient the player
 	QAngle angles = pOwner->GetLocalAngles();
@@ -422,7 +451,7 @@ void CWeaponAR2::DelayedAttack( void )
 	angles.z = 0;
 
 	pOwner->SnapEyeAngles( angles );
-	
+#endif
 	pOwner->ViewPunch( QAngle( random->RandomInt( -8, -12 ), random->RandomInt( 1, 2 ), 0 ) );
 
 #ifndef EZ1
@@ -454,6 +483,7 @@ void CWeaponAR2::DelayedAttack( void )
 //-----------------------------------------------------------------------------
 void CWeaponAR2::SecondaryAttack( void )
 {
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	if ( m_bShotDelayed )
 		return;
 
@@ -469,10 +499,12 @@ void CWeaponAR2::SecondaryAttack( void )
 	m_bShotDelayed = true;
 	m_flNextPrimaryAttack = m_flNextSecondaryAttack = m_flDelayedFire = gpGlobals->curtime + 0.5f;
 
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+	//CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 	if( pPlayer )
 	{
+#ifndef CLIENT_DLL
 		pPlayer->RumbleEffect(RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART );
+#endif
 #ifdef MAPBASE
 		pPlayer->SetAnimation( PLAYER_ATTACK2 );
 #endif
@@ -490,7 +522,9 @@ void CWeaponAR2::SecondaryAttack( void )
 #endif
 
 	m_iSecondaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -522,6 +556,7 @@ bool CWeaponAR2::Reload( void )
 //-----------------------------------------------------------------------------
 void CWeaponAR2::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
 {
+#ifndef CLIENT_DLL
 	Vector vecShootOrigin, vecShootDir;
 
 	CAI_BaseNPC *npc = pOperator->MyNPCPointer();
@@ -553,6 +588,7 @@ void CWeaponAR2::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUs
 	// pOperator->DoMuzzleFlash();
 
 	m_iClip1 = m_iClip1 - 1;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -560,6 +596,7 @@ void CWeaponAR2::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUs
 //-----------------------------------------------------------------------------
 void CWeaponAR2::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
 {
+#ifndef CLIENT_DLL
 	WeaponSound( WPN_DOUBLE );
 
 	if ( !GetOwner() )
@@ -646,6 +683,7 @@ void CWeaponAR2::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, bool b
 		flDuration,
 		pNPC );
 #endif
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -653,6 +691,7 @@ void CWeaponAR2::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, bool b
 //-----------------------------------------------------------------------------
 void CWeaponAR2::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool bSecondary )
 {
+#ifndef CLIENT_DLL
 	if ( bSecondary )
 	{
 		FireNPCSecondaryAttack( pOperator, true );
@@ -664,6 +703,7 @@ void CWeaponAR2::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool bS
 
 		FireNPCPrimaryAttack( pOperator, true );
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -673,6 +713,7 @@ void CWeaponAR2::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool bS
 //-----------------------------------------------------------------------------
 void CWeaponAR2::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator )
 {
+#ifndef CLIENT_DLL
 	switch( pEvent->event )
 	{ 
 		case EVENT_WEAPON_AR2:
@@ -691,6 +732,7 @@ void CWeaponAR2::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChara
 			CBaseCombatWeapon::Operator_HandleAnimEvent( pEvent, pOperator );
 			break;
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -717,7 +759,7 @@ void CWeaponAR2::AddViewKick( void )
 		return;
 
 	float flDuration = m_fFireDuration;
-
+#ifndef CLIENT_DLL
 	if( g_pGameRules->GetAutoAimMode() == AUTOAIM_ON_CONSOLE )
 	{
 		// On the 360 (or in any configuration using the 360 aiming scheme), don't let the
@@ -726,6 +768,7 @@ void CWeaponAR2::AddViewKick( void )
 		// firing for very long.
 		flDuration = MIN( flDuration, 0.75f );
 	}
+#endif
 
 	DoMachineGunKick( pPlayer, EASY_DAMPEN, MAX_VERTICAL_KICK, flDuration, SLIDE_LIMIT );
 }
@@ -759,11 +802,16 @@ BEGIN_DATADESC( CWeaponAR2Proto )
 
 END_DATADESC()
 
-IMPLEMENT_SERVERCLASS_ST( CWeaponAR2Proto, DT_WeaponAR2Proto )
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponAR2Proto, DT_WeaponAR2Proto)
 
-LINK_ENTITY_TO_CLASS( weapon_ar2_proto, CWeaponAR2Proto );
-PRECACHE_WEAPON_REGISTER( weapon_ar2_proto );
+BEGIN_NETWORK_TABLE(CWeaponAR2Proto, DT_WeaponAR2Proto)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeaponAR2Proto)
+END_PREDICTION_DATA()
+
+LINK_ENTITY_TO_CLASS(weapon_ar2_proto, CWeaponAR2Proto);
+PRECACHE_WEAPON_REGISTER(weapon_ar2_proto);
 
 CWeaponAR2Proto::CWeaponAR2Proto()
 {
@@ -790,7 +838,9 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 			info.m_iShots = 1;
 			info.m_vecSrc = pPlayer->Weapon_ShootPosition();
 			info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+#ifndef CLIENT_DLL
 			info.m_vecSpread = pPlayer->GetAttackSpread( this );
+#endif
 			info.m_flDistance = MAX_TRACE_LENGTH;
 			info.m_iAmmoType = m_iPrimaryAmmoType;
 			info.m_iTracerFreq = 2;
@@ -810,7 +860,9 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 			info.m_iShots = 2;
 			info.m_vecSrc = pPlayer->Weapon_ShootPosition();
 			info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+#ifndef CLIENT_DLL
 			info.m_vecSpread = pPlayer->GetAttackSpread( this );
+#endif
 			info.m_flDistance = MAX_TRACE_LENGTH;
 			info.m_iAmmoType = m_iPrimaryAmmoType;
 			info.m_iTracerFreq = 2;
@@ -827,7 +879,9 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 		m_flNextPrimaryAttack = gpGlobals->curtime + 0.09f;
 
 		m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
 		gamestats->Event_WeaponFired(pPlayer, false, GetClassname());
+#endif
 
 		m_iClip1 = m_iClip1 - 1;
 
@@ -871,11 +925,14 @@ void CWeaponAR2Proto::DelayedAttack( void )
 
 	// Register a muzzleflash for the AI
 	pOwner->DoMuzzleFlash();
+#ifndef CLIENT_DLL
 	pOwner->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+#endif
 	
 	WeaponSound( WPN_DOUBLE );
-
+#ifndef CLIENT_DLL
 	pOwner->RumbleEffect(RUMBLE_SHOTGUN_DOUBLE, 0, RUMBLE_FLAG_RESTART );
+#endif
 
 	// Fire the bullets
 	Vector vecSrc	 = pOwner->Weapon_ShootPosition( );
@@ -885,6 +942,7 @@ void CWeaponAR2Proto::DelayedAttack( void )
 	// Fire the bullets
 	Vector vecVelocity = vecAiming * 1500.0f; // Breadman was 1000
 
+#ifndef CLIENT_DLL
 	// Fire the combine ball
 	CreateCombineBall(	vecSrc, 
 						vecVelocity, 
@@ -896,6 +954,7 @@ void CWeaponAR2Proto::DelayedAttack( void )
 	// View effects
 	color32 white = {255, 255, 255, 64};
 	UTIL_ScreenFade( pOwner, white, 0.1, 0, FFADE_IN  );
+#endif
 	
 	//Disorient the player
 	QAngle angles = pOwner->GetLocalAngles();
@@ -904,7 +963,9 @@ void CWeaponAR2Proto::DelayedAttack( void )
 	angles.y += random->RandomInt( -4, 4 );
 	angles.z = 0;
 
+#ifndef CLIENT_DLL
 	pOwner->SnapEyeAngles( angles );
+#endif
 	
 	pOwner->ViewPunch( QAngle( random->RandomInt( -8, -12 ), random->RandomInt( 1, 2 ), 0 ) );
 
@@ -940,12 +1001,13 @@ void CWeaponAR2Proto::SecondaryAttack( void )
 
 	m_bShotDelayed = true;
 	m_flNextPrimaryAttack = m_flNextSecondaryAttack = m_flDelayedFire = gpGlobals->curtime + 0.5f;
-
+#ifndef CLIENT_DLL
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 	if( pPlayer )
 	{
 		pPlayer->RumbleEffect(RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART );
 	}
+#endif
 
 	SendWeaponAnim( ACT_VM_FIDGET );
 	WeaponSound( SPECIAL1 );
@@ -957,7 +1019,9 @@ void CWeaponAR2Proto::SecondaryAttack( void )
 	pOwner->RemoveAmmo(1, m_iSecondaryAmmoType);
 
 	m_iSecondaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -966,6 +1030,7 @@ void CWeaponAR2Proto::SecondaryAttack( void )
 //-----------------------------------------------------------------------------
 void CWeaponAR2Proto::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
 {
+#ifndef CLIENT_DLL
 	Vector vecShootOrigin, vecShootDir;
 
 	CAI_BaseNPC *npc = pOperator->MyNPCPointer();
@@ -1006,6 +1071,7 @@ void CWeaponAR2Proto::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, boo
 	// pOperator->DoMuzzleFlash();
 
 	m_iClip1 = m_iClip1 - 1;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1013,6 +1079,7 @@ void CWeaponAR2Proto::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, boo
 //-----------------------------------------------------------------------------
 void CWeaponAR2Proto::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
 {
+#ifndef CLIENT_DLL
 	// Clamp
 	if (m_nBurstMax > 3) { m_nBurstMax = 3; };
 
@@ -1088,6 +1155,7 @@ void CWeaponAR2Proto::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, b
 
 	// Fire the next round
 	CWeaponAR2Proto::FireNPCSecondaryAttack(pOperator, bUseWeaponAngles);
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1107,6 +1175,7 @@ void CWeaponAR2Proto::AddViewKick( void )
 
 	float flDuration = m_fFireDuration;
 
+#ifndef CLIENT_DLL
 	if( g_pGameRules->GetAutoAimMode() == AUTOAIM_ON_CONSOLE )
 	{
 		// On the 360 (or in any configuration using the 360 aiming scheme), don't let the
@@ -1115,6 +1184,7 @@ void CWeaponAR2Proto::AddViewKick( void )
 		// firing for very long.
 		flDuration = MIN( flDuration, 0.75f );
 	}
+#endif
 
 	DoMachineGunKick( pPlayer, PROTO_EASY_DAMPEN, PROTO_MAX_VERTICAL_KICK, flDuration, PROTO_SLIDE_LIMIT );
 }

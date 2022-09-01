@@ -14,6 +14,7 @@
 
 #include "c_baseplayer.h"
 #include "c_hl2_playerlocaldata.h"
+#include "npcevent.h"
 
 #if !defined( HL2MP ) && defined ( MAPBASE )
 #include "mapbase/singleplayer_animstate.h"
@@ -30,6 +31,8 @@ public:
 
 	virtual void		OnDataChanged( DataUpdateType_t updateType );
 
+	virtual void		Precache(void);
+
 	void				Weapon_DropPrimary( void );
 		
 	float				GetFOV();
@@ -41,6 +44,8 @@ public:
 	bool				IsSprintActive( void ) { return m_HL2Local.m_bitsActiveDevices & bits_SUIT_DEVICE_SPRINT; }
 	bool				IsFlashlightActive( void ) { return m_HL2Local.m_bitsActiveDevices & bits_SUIT_DEVICE_FLASHLIGHT; }
 	bool				IsBreatherActive( void ) { return m_HL2Local.m_bitsActiveDevices & bits_SUIT_DEVICE_BREATHER; }
+
+	Vector GetAttackSpread(CBaseCombatWeapon *pWeapon, CBaseEntity *pTarget = NULL);
 
 #ifdef MAPBASE
 	bool				IsCustomDevice0Active( void ) { return m_HL2Local.m_bitsActiveDevices & bits_SUIT_DEVICE_CUSTOM0; }
@@ -94,7 +99,22 @@ private:
 	QAngle				m_angAnimRender;
 #endif
 
+	float				m_flNextKickAttack;
+	bool				m_bKickWeaponLowered;
+
+	string_t		    m_LegModelName;
+
 friend class CHL2GameMovement;
+
+protected:
+	virtual void		ItemPostFrame();
+	virtual void		HandleKickAttack();
+	virtual void		TraceKickAttack(CBaseEntity* pKickedEntity = NULL);
+
+	void  HandleKickAnimation(void);
+	void  StartKickAnimation(void);
+
+	virtual void HandleAnimEvent(animevent_t *pEvent);
 };
 
 

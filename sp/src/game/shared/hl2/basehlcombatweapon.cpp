@@ -6,20 +6,27 @@
 
 #include "cbase.h"
 #include "basehlcombatweapon.h"
+#include "hl2_player_shared.h"
+#ifndef CLIENT_DLL
 #include "soundent.h"
 #include "ai_basenpc.h"
 #include "game.h"
+#endif
 #include "in_buttons.h"
 #include "gamestats.h"
 #ifdef CSS_WEAPONS_IN_HL2
 #include "ammodef.h"
 #endif
-
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-IMPLEMENT_SERVERCLASS_ST( CHLMachineGun, DT_HLMachineGun )
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(HLMachineGun, DT_HLMachineGun)
+
+BEGIN_NETWORK_TABLE(CHLMachineGun, DT_HLMachineGun)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CHLMachineGun)
+END_PREDICTION_DATA()
 
 //=========================================================
 //	>> CHLSelectFireMachineGun
@@ -52,10 +59,7 @@ const Vector &CHLMachineGun::GetBulletSpread( void )
 //-----------------------------------------------------------------------------
 void CHLMachineGun::PrimaryAttack( void )
 {
-	// Only the player fires this way so we can cast
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-	if (!pPlayer)
-		return;
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	
 	// Abort here to handle burst and auto fire modes
 	if ( (UsesClipsForAmmo1() && m_iClip1 == 0) || ( !UsesClipsForAmmo1() && !pPlayer->GetAmmoCount(m_iPrimaryAmmoType) ) )
@@ -87,14 +91,17 @@ void CHLMachineGun::PrimaryAttack( void )
 	}
 
 	m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+#endif
 
+	CHL2_Player *pHLPlayer = dynamic_cast<CHL2_Player *> (pPlayer);
 	// Fire the bullets
 	FireBulletsInfo_t info;
 	info.m_iShots = iBulletsToFire;
-	info.m_vecSrc = pPlayer->Weapon_ShootPosition( );
-	info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
-	info.m_vecSpread = pPlayer->GetAttackSpread( this );
+	info.m_vecSrc = pPlayer->Weapon_ShootPosition();
+	info.m_vecDirShooting = pPlayer->GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
+	info.m_vecSpread = pHLPlayer->GetAttackSpread(this);
 	info.m_flDistance = MAX_TRACE_LENGTH;
 	info.m_iAmmoType = m_iPrimaryAmmoType;
 #ifdef EZ
@@ -113,24 +120,26 @@ void CHLMachineGun::PrimaryAttack( void )
 
 	//Factor in the view kick
 	AddViewKick();
-
+#ifndef CLIENT_DLL
 #ifdef CSS_WEAPONS_IN_HL2
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), IsSilenced() ? SOUNDENT_VOLUME_MACHINEGUN / 3.0 : SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
 #else
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
 #endif
+#endif
 	
 	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
 	{
 		// HEV suit - indicate out of ammo condition
-		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0); 
+		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 	}
 
 	SendWeaponAnim( GetPrimaryAttackActivity() );
-	pPlayer->SetAnimation( PLAYER_ATTACK1 );
-
+	pPlayer->SetAnimation(PLAYER_ATTACK1);
+#ifndef CLIENT_DLL
 	// Register a muzzleflash for the AI
-	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+	pPlayer->SetMuzzleFlashTime(gpGlobals->curtime + 0.5);
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -150,6 +159,7 @@ void CHLMachineGun::FireBullets( const FireBulletsInfo_t &info )
 //-----------------------------------------------------------------------------
 int CHLMachineGun::WeaponRangeAttack1Condition( float flDot, float flDist )
 {
+#ifndef CLIENT_DLL
 	if ( m_iClip1 <=0 )
 	{
 		return COND_NO_PRIMARY_AMMO;
@@ -168,6 +178,9 @@ int CHLMachineGun::WeaponRangeAttack1Condition( float flDot, float flDist )
 	}
 
 	return COND_CAN_RANGE_ATTACK1;
+#else
+	return 0;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -175,6 +188,7 @@ int CHLMachineGun::WeaponRangeAttack1Condition( float flDot, float flDist )
 //-----------------------------------------------------------------------------
 void CHLMachineGun::DoMachineGunKick( CBasePlayer *pPlayer, float dampEasy, float maxVerticleKickAngle, float fireDurationTime, float slideLimitTime )
 {
+
 	#define	KICK_MIN_X			0.2f	//Degrees
 	#define	KICK_MIN_Y			0.2f	//Degrees
 	#define	KICK_MIN_Z			0.1f	//Degrees
@@ -200,7 +214,7 @@ void CHLMachineGun::DoMachineGunKick( CBasePlayer *pPlayer, float dampEasy, floa
 	//Wobble up and down
 	if ( random->RandomInt( -1, 1 ) >= 0 )
 		vecScratch.z *= -1;
-
+#ifndef CLIENT_DLL
 	//If we're in easy, dampen the effect a bit
 	if ( g_pGameRules->IsSkillLevel( SKILL_EASY ) )
 	{
@@ -209,7 +223,7 @@ void CHLMachineGun::DoMachineGunKick( CBasePlayer *pPlayer, float dampEasy, floa
 			vecScratch[i] *= dampEasy;
 		}
 	}
-
+#endif
 	//Clip this to our desired min/max
 	UTIL_ClipPunchAngleOffset( vecScratch, pPlayer->m_Local.m_vecPunchAngle, QAngle( 24.0f, 3.0f, 1.0f ) );
 
@@ -236,6 +250,7 @@ bool CHLMachineGun::Deploy( void )
 //-----------------------------------------------------------------------------
 int CHLMachineGun::WeaponSoundRealtime( WeaponSound_t shoot_type )
 {
+#ifndef CLIENT_DLL
 	int numBullets = 0;
 
 	// ran out of time, clamp to current
@@ -260,6 +275,9 @@ int CHLMachineGun::WeaponSoundRealtime( WeaponSound_t shoot_type )
 	}
 
 	return numBullets;
+#else
+	return 0;
+#endif
 }
 
 
@@ -284,8 +302,13 @@ void CHLMachineGun::ItemPostFrame( void )
 	BaseClass::ItemPostFrame();
 }
 
-IMPLEMENT_SERVERCLASS_ST( CHLSelectFireMachineGun, DT_HLSelectFireMachineGun )
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(HLSelectFireMachineGun, DT_HLSelectFireMachineGun)
+
+BEGIN_NETWORK_TABLE(CHLSelectFireMachineGun, DT_HLSelectFireMachineGun)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CHLSelectFireMachineGun)
+END_PREDICTION_DATA()
 
 //=========================================================
 //	>> CHLSelectFireMachineGun
@@ -296,7 +319,9 @@ BEGIN_DATADESC( CHLSelectFireMachineGun )
 	DEFINE_FIELD( m_iFireMode,		FIELD_INTEGER ),
 	
 	// Function pinters
+#ifndef CLIENT_DLL
 	DEFINE_FUNCTION( BurstThink ),
+#endif
 
 END_DATADESC()
 
@@ -345,6 +370,7 @@ bool CHLSelectFireMachineGun::Deploy( void )
 //-----------------------------------------------------------------------------
 void CHLSelectFireMachineGun::PrimaryAttack( void )
 {
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	if (m_bFireOnEmpty)
 	{
 		return;
@@ -371,11 +397,13 @@ void CHLSelectFireMachineGun::PrimaryAttack( void )
 		break;
 	}
 
-	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
-	if ( pOwner )
+	//CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+	if ( pPlayer )
 	{
 		m_iPrimaryAttacks++;
-		gamestats->Event_WeaponFired( pOwner, true, GetClassname() );
+#ifndef CLIENT_DLL
+		gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+#endif
 	}
 }
 
@@ -386,6 +414,7 @@ void CHLSelectFireMachineGun::PrimaryAttack( void )
 //-----------------------------------------------------------------------------
 void CHLSelectFireMachineGun::SecondaryAttack( void )
 {
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	// change fire modes.
 
 	switch( m_iFireMode )
@@ -407,14 +436,15 @@ void CHLSelectFireMachineGun::SecondaryAttack( void )
 
 	m_flNextSecondaryAttack = gpGlobals->curtime + 0.3;
 
-	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
-	if ( pOwner )
+	//CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+	if ( pPlayer )
 	{
 		m_iSecondaryAttacks++;
-		gamestats->Event_WeaponFired( pOwner, false, GetClassname() );
-
+#ifndef CLIENT_DLL
+		gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+#endif
 #ifdef MAPBASE
-		pOwner->SetAnimation( PLAYER_ATTACK2 );
+		pPlayer->SetAnimation( PLAYER_ATTACK2 );
 #endif
 	}
 }
@@ -483,6 +513,7 @@ void CHLSelectFireMachineGun::WeaponSound( WeaponSound_t shoot_type, float sound
 //-----------------------------------------------------------------------------
 int CHLSelectFireMachineGun::WeaponRangeAttack1Condition( float flDot, float flDist )
 {
+#ifndef CLIENT_DLL
 	if (m_iClip1 <=0)
 	{
 		return COND_NO_PRIMARY_AMMO;
@@ -501,11 +532,15 @@ int CHLSelectFireMachineGun::WeaponRangeAttack1Condition( float flDot, float flD
 	}
 
 	return COND_CAN_RANGE_ATTACK1;
+#else
+	return 0;
+#endif
 }
 
 //-----------------------------------------------------------------------------
 int CHLSelectFireMachineGun::WeaponRangeAttack2Condition( float flDot, float flDist )
 {
+#ifndef CLIENT_DLL
 	return COND_NONE; // FIXME: disabled for now
 
 	// m_iClip2 == -1 when no secondary clip is used
@@ -529,6 +564,9 @@ int CHLSelectFireMachineGun::WeaponRangeAttack2Condition( float flDot, float flD
 	}
 
 	return COND_CAN_RANGE_ATTACK2;
+#else
+	return 0;
+#endif
 }
 
 //-----------------------------------------------------------------------------

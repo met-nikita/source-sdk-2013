@@ -437,3 +437,26 @@ const WeaponProficiencyInfo_t *CBaseHLCombatWeapon::GetDefaultProficiencyValues(
 }
 
 #endif
+
+#if defined( CLIENT_DLL )
+void UTIL_ClipPunchAngleOffset(QAngle &in, const QAngle &punch, const QAngle &clip)
+{
+	QAngle	final = in + punch;
+
+	//Clip each component
+	for (int i = 0; i < 3; i++)
+	{
+		if (final[i] > clip[i])
+		{
+			final[i] = clip[i];
+		}
+		else if (final[i] < -clip[i])
+		{
+			final[i] = -clip[i];
+		}
+
+		//Return the result
+		in[i] = final[i] - punch[i];
+	}
+}
+#endif

@@ -32,6 +32,19 @@ $Project "Client (Entropy Zero 2)"
 			$File	"Human_Error\c_vehicle_drivable_apc.cpp"
 			$File	"Human_Error\c_weapon_sniperrifle.cpp"
 		}
+		$Folder "CoopFixes"
+		{
+			$File	"$SRCDIR\game\shared\basebludgeonweapon.cpp"
+			$File	"$SRCDIR\game\shared\basebludgeonweapon.h"
+			$File	"$SRCDIR\game\shared\hl2\basehlcombatweapon.cpp"
+			$File	"$SRCDIR\game\shared\hl2\basehlcombatweapon.h"
+			$File	"$SRCDIR\game\shared\hl2\weapon_357.cpp"
+			$File	"$SRCDIR\game\shared\hl2\weapon_ar2.cpp"
+			$File	"$SRCDIR\game\shared\hl2\weapon_ar2.h"
+			$File	"$SRCDIR\game\shared\hl2\weapon_shotgun.cpp"
+			$File	"$SRCDIR\game\shared\hl2\weapon_smg1.cpp"
+			$File	"$SRCDIR\game\shared\hl2\weapon_smg2.cpp"
+		}
 		$Folder "EZ2 DLL"
 		{
 			$File	"ez2\c_ez2_player.cpp"

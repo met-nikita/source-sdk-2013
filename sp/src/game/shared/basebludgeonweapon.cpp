@@ -8,25 +8,35 @@
 
 #include "cbase.h"
 #include "basehlcombatweapon.h"
-#include "player.h"
 #include "gamerules.h"
 #include "ammodef.h"
 #include "mathlib/mathlib.h"
 #include "in_buttons.h"
-#include "soundent.h"
 #include "animation.h"
-#include "ai_condition.h"
 #include "basebludgeonweapon.h"
-#include "ndebugoverlay.h"
+
+#ifdef CLIENT_DLL
+#include "c_te_effect_dispatch.h"
+#else
 #include "te_effect_dispatch.h"
+#include "ndebugoverlay.h"
+#include "ai_condition.h"
+#include "soundent.h"
+#include "player.h"
+#endif
 #include "rumble_shared.h"
 #include "gamestats.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-IMPLEMENT_SERVERCLASS_ST( CBaseHLBludgeonWeapon, DT_BaseHLBludgeonWeapon )
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(BaseHLBludgeonWeapon, DT_BaseHLBludgeonWeapon)
+
+BEGIN_NETWORK_TABLE(CBaseHLBludgeonWeapon, DT_BaseHLBludgeonWeapon)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CBaseHLBludgeonWeapon)
+END_PREDICTION_DATA()
 
 #define BLUDGEON_HULL_DIM		16
 
@@ -65,12 +75,17 @@ void CBaseHLBludgeonWeapon::Precache( void )
 
 int CBaseHLBludgeonWeapon::CapabilitiesGet()
 { 
+#ifndef CLIENT_DLL
 	return bits_CAP_WEAPON_MELEE_ATTACK1; 
+#else
+	return 0;
+#endif
 }
 
 
 int CBaseHLBludgeonWeapon::WeaponMeleeAttack1Condition( float flDot, float flDist )
 {
+#ifndef CLIENT_DLL
 	if (flDist > 64)
 	{
 		return COND_TOO_FAR_TO_ATTACK;
@@ -81,6 +96,9 @@ int CBaseHLBludgeonWeapon::WeaponMeleeAttack1Condition( float flDot, float flDis
 	}
 
 	return COND_CAN_MELEE_ATTACK1;
+#else
+	return 0;
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -123,6 +141,7 @@ void CBaseHLBludgeonWeapon::ItemPostFrame( void )
 //------------------------------------------------------------------------------
 void CBaseHLBludgeonWeapon::PrimaryAttack()
 {
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	Swing( false );
 }
 
@@ -133,6 +152,7 @@ void CBaseHLBludgeonWeapon::PrimaryAttack()
 //------------------------------------------------------------------------------
 void CBaseHLBludgeonWeapon::SecondaryAttack()
 {
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	Swing( true );
 }
 
@@ -142,11 +162,13 @@ void CBaseHLBludgeonWeapon::SecondaryAttack()
 //------------------------------------------------------------------------------
 void CBaseHLBludgeonWeapon::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSecondary )
 {
+#ifndef CLIENT_DLL
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+#endif
 	
 	//Do view kick
 	AddViewKick();
-
+#ifndef CLIENT_DLL
 	//Make sound for the AI
 	CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, traceHit.endpos, 400, 0.2f, pPlayer );
 
@@ -183,6 +205,7 @@ void CBaseHLBludgeonWeapon::Hit( trace_t &traceHit, Activity nHitActivity, bool 
 			gamestats->Event_WeaponHit( pPlayer, !bIsSecondary, GetClassname(), info );
 		}
 	}
+#endif
 
 	// Apply an impact effect
 	ImpactEffect( traceHit );
@@ -305,24 +328,30 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
 	if ( !pOwner )
 		return;
-
+#ifndef CLIENT_DLL
 	pOwner->RumbleEffect( RUMBLE_CROWBAR_SWING, 0, RUMBLE_FLAG_RESTART );
+#endif
 
 	Vector swingStart = pOwner->Weapon_ShootPosition( );
 	Vector forward;
 
-	forward = pOwner->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT, GetRange() );
+	forward = pOwner->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT
+#ifndef CLIENT_DLL
+		, GetRange()
+#endif
+		);
 
 	Vector swingEnd = swingStart + forward * GetRange();
 	UTIL_TraceLine( swingStart, swingEnd, MASK_SHOT_HULL, pOwner, COLLISION_GROUP_NONE, &traceHit );
 	Activity nHitActivity = ACT_VM_HITCENTER;
 
+#ifndef CLIENT_DLL
 	// Like bullets, bludgeon traces have to trace against triggers.
 	CTakeDamageInfo triggerInfo( GetOwner(), GetOwner(), GetDamageForActivity( nHitActivity ), DMG_CLUB );
 	triggerInfo.SetDamagePosition( traceHit.startpos );
 	triggerInfo.SetDamageForce( forward );
 	TraceAttackToTriggers( triggerInfo, traceHit.startpos, traceHit.endpos, forward );
-
+#endif
 	if ( traceHit.fraction == 1.0 )
 	{
 		float bludgeonHullRadius = 1.732f * BLUDGEON_HULL_DIM;  // hull is +/- 16, so use cuberoot of 2 to determine how big the hull is from center to the corner point
@@ -359,8 +388,9 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 	{
 		m_iSecondaryAttacks++;
 	}
-
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pOwner, !bIsSecondary, GetClassname() );
+#endif
 
 	// -------------------------
 	//	Miss
@@ -386,7 +416,11 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 		// Other melee sounds
 		if (traceHit.m_pEnt && traceHit.m_pEnt->IsWorld())
 			WeaponSound(MELEE_HIT_WORLD);
-		else if (traceHit.m_pEnt && !traceHit.m_pEnt->PassesDamageFilter(triggerInfo))
+		else if (traceHit.m_pEnt 
+#ifndef CLIENT_DLL
+			&& !traceHit.m_pEnt->PassesDamageFilter(triggerInfo)
+#endif
+			)
 			WeaponSound(MELEE_MISS);
 		else
 			WeaponSound(MELEE_HIT);

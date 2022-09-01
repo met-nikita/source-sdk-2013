@@ -4480,7 +4480,7 @@ CBaseEntity *CBaseCombatCharacter::FindNamedEntity( const char *szName, IEntityF
 
 	if ( !stricmp( name, "player" ))
 	{
-		return AI_GetSinglePlayer();
+		return UTIL_GetNearestPlayer(this);
 	}
 	else if ( !stricmp( name, "enemy" ) )
 	{
