@@ -214,6 +214,30 @@ void CSinglePlayerAnimState::SetPlayerAnimation( PLAYER_ANIM playerAnim )
 			m_bMiscNoOverride = true;
 		}
 	}
+	else if (playerAnim == PLAYER_SIGNAL_REGROUP)
+	{
+		m_iReloadSequence = SelectWeightedSequence(TranslateActivity(ACT_GESTURE_SIGNAL_GROUP));
+		if (m_iReloadSequence != -1)
+		{
+			// clear other events that might be playing in our layer
+			m_bWeaponSwitching = false;
+			m_fReloadPlaybackRate = 1.0f;
+			m_bReloading = true;
+			m_flReloadCycle = 0;
+		}
+	}
+	else if (playerAnim == PLAYER_SIGNAL_FORWARD)
+	{
+		m_iReloadSequence = SelectWeightedSequence(TranslateActivity(ACT_GESTURE_SIGNAL_FORWARD));
+		if (m_iReloadSequence != -1)
+		{
+			// clear other events that might be playing in our layer
+			m_bWeaponSwitching = false;
+			m_fReloadPlaybackRate = 1.0f;
+			m_bReloading = true;
+			m_flReloadCycle = 0;
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

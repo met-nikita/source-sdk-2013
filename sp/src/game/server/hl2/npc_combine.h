@@ -473,6 +473,8 @@ private:
 		}
 	};
 
+	CBasePlayer* m_pLastCommandingPlayer = NULL;
+
 #ifdef EZ
 	// Blixibon -- Special Combine follow behavior stub since follow behavior overrides a few important schedules.
 	class CCombineFollowBehavior : public CAI_FollowBehavior

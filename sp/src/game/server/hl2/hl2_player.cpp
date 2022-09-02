@@ -2199,6 +2199,7 @@ bool CHL2_Player::CommanderExecuteOne( CAI_BaseNPC *pNpc, const commandgoal_t &g
 		if ( GetActiveWeapon() && goal.m_pGoalEntity == this && sv_command_viewmodel_anims.GetBool()) {
 			GetActiveWeapon()->SendWeaponAnim( ACT_VM_COMMAND_RECALL );
 		}
+		SetAnimation(PLAYER_SIGNAL_REGROUP);
 		
 		// 1upD - Fire player proxy output
 		helperFireSquadCommandOuput("OnPlayerRecallSquad", Allies);
@@ -2213,6 +2214,7 @@ bool CHL2_Player::CommanderExecuteOne( CAI_BaseNPC *pNpc, const commandgoal_t &g
 		if (GetActiveWeapon() && sv_command_viewmodel_anims.GetBool()) {
 			GetActiveWeapon()->SendWeaponAnim( ACT_VM_COMMAND_SEND );
 		}
+		SetAnimation(PLAYER_SIGNAL_FORWARD);
 
 		// 1upD - Fire player proxy output
 		helperFireSquadCommandOuput("OnPlayerSendSquad", Allies);
@@ -2264,8 +2266,11 @@ void CHL2_Player::CommanderExecute( CommanderCommand_t command )
 	}
 	else
 	{
-		if ( command == CC_FOLLOW && pPlayerSquadLeader->GetCommandGoal() == vec3_invalid )
+		//any player can summon AI anytime
+		/*
+		if (command == CC_FOLLOW && pPlayerSquadLeader->GetCommandGoal() == vec3_invalid)
 			return;
+			*/
 	}
 
 	if ( command == CC_FOLLOW )

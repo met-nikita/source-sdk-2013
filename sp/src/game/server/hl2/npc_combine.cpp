@@ -386,7 +386,7 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 	}
 #endif
 
-	if (pActivator == UTIL_GetLocalPlayer() && IsCommandable())
+	if (pActivator && pActivator->IsPlayer() /*== UTIL_GetLocalPlayer()*/ && IsCommandable())
 	{
 		bool isInPlayerSquad = IsInPlayerSquad();
 		bool bSpoken = false;
@@ -401,6 +401,7 @@ void CNPC_Combine::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE u
 			else
 			{
 				bSpoken = badcop->HandleAddToPlayerSquad(this);
+				m_pLastCommandingPlayer = badcop;
 			}
 		}
 #endif
@@ -495,9 +496,10 @@ bool CNPC_Combine::ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior )
 CAI_BaseNPC * CNPC_Combine::GetSquadCommandRepresentative()
 {
     // Blixibon - Port of npc_citizen code
+	/*
 	if ( !AI_IsSinglePlayer() )
 		return NULL;
-
+		*/
 	if ( IsInPlayerSquad() )
 	{
 		static float lastTime;
@@ -509,7 +511,7 @@ CAI_BaseNPC * CNPC_Combine::GetSquadCommandRepresentative()
 			hCurrent = NULL;
 
 			CUtlVectorFixed<SquadMemberInfo_t, MAX_SQUAD_MEMBERS> candidates;
-			CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+			CBasePlayer *pPlayer = UTIL_GetNearestPlayer(this);//UTIL_GetLocalPlayer();
 
 			if ( pPlayer )
 			{
@@ -561,6 +563,7 @@ bool CNPC_Combine::TargetOrder(CBaseEntity *pTarget, CAI_BaseNPC **Allies, int n
 {
 	if (pTarget && pTarget->IsPlayer())
 	{
+		m_pLastCommandingPlayer = ToBasePlayer(pTarget);
 		ToggleSquadCommand();
 	}
 
@@ -597,7 +600,7 @@ void CNPC_Combine::MoveOrder(const Vector & vecDest, CAI_BaseNPC ** Allies, int 
 void CNPC_Combine::ToggleSquadCommand()
 {
 	// Get the player
-	CBasePlayer * pPlayer = UTIL_GetLocalPlayer();
+	CBasePlayer * pPlayer = m_pLastCommandingPlayer;//UTIL_GetLocalPlayer();
 
 	// I'm the target! Toggle follow!
 	if (IsInPlayerSquad() && m_FollowBehavior.GetFollowTarget() != pPlayer)
@@ -820,8 +823,10 @@ bool CNPC_Combine::IsFollowingCommandPoint()
 //-----------------------------------------------------------------------------
 void CNPC_Combine::UpdateFollowCommandPoint()
 {
+	/*
 	if (!AI_IsSinglePlayer())
 		return;
+		*/
 
 	if (IsInPlayerSquad())
 	{
@@ -852,10 +857,10 @@ void CNPC_Combine::UpdateFollowCommandPoint()
 		{
 			if (IsFollowingCommandPoint())
 				ClearFollowTarget();
-			if (m_FollowBehavior.GetFollowTarget() != UTIL_GetLocalPlayer())
+			if (m_FollowBehavior.GetFollowTarget() != m_pLastCommandingPlayer)
 			{
 				DevMsg("Expected to be following player, but not\n");
-				m_FollowBehavior.SetFollowTarget(UTIL_GetLocalPlayer());
+				m_FollowBehavior.SetFollowTarget(m_pLastCommandingPlayer);
 				m_FollowBehavior.SetParameters(AIF_SIMPLE);
 			}
 		}
@@ -949,7 +954,7 @@ bool CNPC_Combine::ShouldLookForHealthItem()
 			return false;
 
 		// Player is hurt, don't steal their health.
-		if( AI_IsSinglePlayer() && UTIL_GetLocalPlayer()->GetHealth() <= UTIL_GetLocalPlayer()->GetHealth() * 0.75f )
+		if( /*AI_IsSinglePlayer() && */UTIL_GetLocalPlayer()->GetHealth() <= UTIL_GetLocalPlayer()->GetHealth() * 0.75f )
 			return false;
 	}
 	else
