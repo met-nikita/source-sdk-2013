@@ -8,17 +8,29 @@
 #include "cbase.h"
 #include "npcevent.h"
 #include "basehlcombatweapon.h"
+#include "ammodef.h"
+#include "gamerules.h"
+#include "in_buttons.h"
+#include "vstdlib/random.h"
+#include "gamestats.h"
+#include "hl2_player_shared.h"
+#ifdef CLIENT_DLL
+#include "c_te_effect_dispatch.h"
+#include "sprite.h"
+#include "takedamageinfo.h"
+#include "proxyentity.h"
+#include "materialsystem/imaterial.h"
+#include "materialsystem/imaterialvar.h"
+#include "baseviewmodel_shared.h"
+#include "prediction.h"
+#else
+#include "soundent.h"
+#include "game.h"
+#include "te_effect_dispatch.h"
 #include "basecombatcharacter.h"
 #include "ai_basenpc.h"
 #include "player.h"
-#include "ammodef.h"
-#include "te_effect_dispatch.h"
-#include "gamerules.h"
-#include "in_buttons.h"
-#include "soundent.h"
-#include "game.h"
-#include "vstdlib/random.h"
-#include "gamestats.h"
+#endif
 
 #ifdef EZ
 #include "beam_shared.h"
@@ -35,6 +47,11 @@
 
 ConVar	pistol_use_new_accuracy( "pistol_use_new_accuracy", "1" );
 
+#ifdef CLIENT_DLL
+#define CWeaponPistol C_WeaponPistol
+#define CWeaponPulsePistol C_WeaponPulsePistol
+#endif
+
 //-----------------------------------------------------------------------------
 // CWeaponPistol
 //-----------------------------------------------------------------------------
@@ -48,7 +65,8 @@ public:
 
 	CWeaponPistol(void);
 
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	void	Precache( void );
 #ifndef EZ
@@ -57,19 +75,23 @@ public:
 	virtual void	ItemPostFrame( void );
 #endif
 	void	ItemPreFrame( void );
+	virtual bool IsPredicted() const { return true; };
 	void	ItemBusyFrame( void );
 	void	PrimaryAttack( void );
 	void	AddViewKick( void );
 	void	DryFire( void );
+#ifndef CLIENT_DLL
 	void	Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
 #ifdef MAPBASE
 	void	FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector &vecShootOrigin, Vector &vecShootDir );
 	void	Operator_ForceNPCFire( CBaseCombatCharacter  *pOperator, bool bSecondary );
 #endif
-
+#endif
 	void	UpdatePenaltyTime( void );
 
+#ifndef CLIENT_DLL
 	int		CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
+#endif
 	Activity	GetPrimaryAttackActivity( void );
 
 	virtual bool Reload( void );
@@ -117,7 +139,7 @@ public:
 	{
 		return 0.5f; 
 	}
-
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 	// Pistols are their own backup activities
 	virtual acttable_t		*GetBackupActivityList() { return NULL; }
@@ -125,6 +147,7 @@ public:
 #endif
 
 	DECLARE_ACTTABLE();
+#endif
 
 protected:
 	float	m_flSoonestPrimaryAttack;
@@ -134,8 +157,13 @@ protected:
 };
 
 
-IMPLEMENT_SERVERCLASS_ST(CWeaponPistol, DT_WeaponPistol)
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponPistol, DT_WeaponPistol)
+
+BEGIN_NETWORK_TABLE(CWeaponPistol, DT_WeaponPistol)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeaponPistol)
+END_PREDICTION_DATA()
 
 LINK_ENTITY_TO_CLASS( weapon_pistol, CWeaponPistol );
 PRECACHE_WEAPON_REGISTER( weapon_pistol );
@@ -149,6 +177,7 @@ BEGIN_DATADESC( CWeaponPistol )
 
 END_DATADESC()
 
+#ifndef CLIENT_DLL
 acttable_t	CWeaponPistol::m_acttable[] = 
 {
 	{ ACT_IDLE,						ACT_IDLE_PISTOL,				true },
@@ -299,7 +328,7 @@ int GetPistolActtableCount()
 	return ARRAYSIZE(CWeaponPistol::m_acttable);
 }
 #endif
-
+#endif
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
@@ -323,7 +352,7 @@ void CWeaponPistol::Precache( void )
 {
 	BaseClass::Precache();
 }
-
+#ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Purpose:
 // Input  :
@@ -400,7 +429,7 @@ void CWeaponPistol::Operator_ForceNPCFire( CBaseCombatCharacter *pOperator, bool
 	FireNPCPrimaryAttack( pOperator, vecShootOrigin, vecShootDir );
 }
 #endif
-
+#endif
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -429,7 +458,9 @@ void CWeaponPistol::PrimaryAttack( void )
 
 	m_flLastAttackTime = gpGlobals->curtime;
 	m_flSoonestPrimaryAttack = gpGlobals->curtime + PISTOL_FASTEST_REFIRE_TIME;
+#ifndef CLIENT_DLL
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_PISTOL, 0.2, GetOwner() );
+#endif
 
 	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
 
@@ -448,7 +479,9 @@ void CWeaponPistol::PrimaryAttack( void )
 	m_flAccuracyPenalty += PISTOL_ACCURACY_SHOT_PENALTY_TIME;
 
 	m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pOwner, true, GetClassname() );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -579,13 +612,13 @@ enum PulsePistolStyle
 	SELECT_FIRE
 };
 
-ConVar sk_plr_dmg_pulse_lance( "sk_plr_dmg_pulse_lance", "15" );
-ConVar sv_pulse_pistol_style( "sv_pulse_pistol_style", "0", FCVAR_NONE, "Style of pulse pistol altfire: 0) Default 1) Charge 2) Lance" );
-ConVar sv_pulse_lance_style( "sv_pulse_lance_style", "0", FCVAR_NONE, "Style of pulse lance: 0) Vortigaunt 1) Stalker" );
-ConVar sv_pulse_pistol_charge_per_extra_shot( "sv_pulse_pistol_charge_per_extra_shot", "5", FCVAR_NONE, "How many ammo charges equals one bullet" );
-ConVar sv_pulse_pistol_slide_return_charge( "sv_pulse_pistol_slide_return_charge", "10", FCVAR_NONE, "How much charge to restore when racking the slide on the pulse pistol" );
-ConVar sv_pulse_pistol_no_charge_hold( "sv_pulse_pistol_no_charge_hold", "0", FCVAR_NONE, "If 1, fully charged shots will fire automatically" );
-ConVar sv_pulse_pistol_max_charge( "sv_pulse_pistol_max_charge", "40", FCVAR_NONE, "Maximum ammo to charge in one shot. For a 50 charge pulse pistol, it should be 40" );
+ConVar sk_plr_dmg_pulse_lance("sk_plr_dmg_pulse_lance", "15", FCVAR_REPLICATED);
+ConVar sv_pulse_pistol_style( "sv_pulse_pistol_style", "0", FCVAR_REPLICATED, "Style of pulse pistol altfire: 0) Default 1) Charge 2) Lance" );
+ConVar sv_pulse_lance_style("sv_pulse_lance_style", "0", FCVAR_REPLICATED, "Style of pulse lance: 0) Vortigaunt 1) Stalker");
+ConVar sv_pulse_pistol_charge_per_extra_shot("sv_pulse_pistol_charge_per_extra_shot", "5", FCVAR_REPLICATED, "How many ammo charges equals one bullet");
+ConVar sv_pulse_pistol_slide_return_charge("sv_pulse_pistol_slide_return_charge", "10", FCVAR_REPLICATED, "How much charge to restore when racking the slide on the pulse pistol");
+ConVar sv_pulse_pistol_no_charge_hold("sv_pulse_pistol_no_charge_hold", "0", FCVAR_REPLICATED, "If 1, fully charged shots will fire automatically");
+ConVar sv_pulse_pistol_max_charge("sv_pulse_pistol_max_charge", "40", FCVAR_REPLICATED, "Maximum ammo to charge in one shot. For a 50 charge pulse pistol, it should be 40");
 
 //-----------------------------------------------------------------------------
 // CWeaponPulsePistol, the famous melee replacement taken to a separate class.
@@ -595,12 +628,14 @@ class CWeaponPulsePistol : public CWeaponPistol
 	DECLARE_DATADESC();
 public:
 	DECLARE_CLASS(CWeaponPulsePistol, CWeaponPistol);
-	DECLARE_SERVERCLASS();
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	CWeaponPulsePistol();
 
 	void	Activate( void );
 	void	Precache();
+	bool IsPredicted() const { return true; };
 	bool	IsChargePressed( int chargeButton, CBasePlayer * pOwner );
 	void	ItemPostFrame( void );
 	void	PrimaryAttack( void );
@@ -608,9 +643,9 @@ public:
 	void	ChargeAttack( void );
 	void	AddViewKick( void );
 	void	DryFire( void );
-
+#ifndef CLIENT_DLL
 	void	Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
-
+#endif
 	virtual bool Reload( void ) { return false; } // The pulse pistol does not reload
 
 	virtual int GetMaxClip2( void ) const { int iBase = BaseClass::GetMaxClip2(); return iBase > 0 ? iBase : sv_pulse_pistol_max_charge.GetInt(); }
@@ -801,6 +836,7 @@ void CWeaponPulsePistol::DryFire( void )
 // TODO Replace AE_WPN_INCREMENTAMMO with AE_SLIDERETURN in the model and remove this section.
 #define	AE_WPN_INCREMENTAMMO LAST_SHARED_ANIMEVENT + 79
 
+#ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Purpose: Override AE_WPN_INCREMENTAMMO to make sure one pulse round is
 //		'chambered' and play the reload sound
@@ -818,7 +854,7 @@ void CWeaponPulsePistol::Operator_HandleAnimEvent( animevent_t * pEvent, CBaseCo
 
 	BaseClass::Operator_HandleAnimEvent( pEvent, pOperator );
 }
-
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Recharge ammo before handling weapon deploy
@@ -919,17 +955,18 @@ void CWeaponPulsePistol::MakeTracer( const Vector &vecTracerSrc, const trace_t &
 //-----------------------------------------------------------------------------
 void CWeaponPulsePistol::PrimaryAttack( void )
 {
+	//this fixes shooting effect sometimes missing when holding charge button to the end
+#if defined( CLIENT_DLL )
+	if (prediction->InPrediction() && !prediction->IsFirstTimePredicted())
+		return;
+#endif
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	if (m_iClip1 < 10) // Don't allow firing if we only have one shot left
 	{
 		DryFire();
 	}
 	else
 	{
-		// Only the player fires this way so we can cast
-		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-		if (!pPlayer)
-			return;
-
 		// Abort here to handle burst and auto fire modes
 		if ((UsesClipsForAmmo1() && m_iClip1 == 0) || (!UsesClipsForAmmo1() && !pPlayer->GetAmmoCount( m_iPrimaryAmmoType )))
 			return;
@@ -978,7 +1015,9 @@ void CWeaponPulsePistol::PrimaryAttack( void )
 		m_iClip2 = 0;
 
 		m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
 		gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+#endif
 
 		//int	bulletType = GetAmmoDef()->Index("AR2");
 
@@ -987,7 +1026,8 @@ void CWeaponPulsePistol::PrimaryAttack( void )
 		info.m_iShots = iBulletsToFire;
 		info.m_vecSrc = pPlayer->Weapon_ShootPosition();
 		info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
-		info.m_vecSpread = pPlayer->GetAttackSpread(this);
+		CHL2_Player *pHLPlayer = dynamic_cast<CHL2_Player *> (pPlayer);
+		info.m_vecSpread = pHLPlayer->GetAttackSpread(this);
 		info.m_flDistance = MAX_TRACE_LENGTH;
 		info.m_iAmmoType = m_iPrimaryAmmoType;
 		info.m_iTracerFreq = 1;
@@ -997,9 +1037,9 @@ void CWeaponPulsePistol::PrimaryAttack( void )
 		AddViewKick();
 
 		DoMuzzleFlash();
-
+#ifndef CLIENT_DLL
 		CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
-
+#endif
 		if (!m_iClip1 && pPlayer->GetAmmoCount( m_iPrimaryAmmoType ) <= 0)
 		{
 			// HEV suit - indicate out of ammo condition
@@ -1008,16 +1048,17 @@ void CWeaponPulsePistol::PrimaryAttack( void )
 
 		SendWeaponAnim( GetPrimaryAttackActivity() );
 		pPlayer->SetAnimation( PLAYER_ATTACK1 );
-
+#ifndef CLIENT_DLL
 		// Register a muzzleflash for the AI
 		pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
-
+#endif
 		// Add to the accuracy penalty just like standard pistol
 		m_flAccuracyPenalty += PISTOL_ACCURACY_SHOT_PENALTY_TIME;
 
 		m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
 		gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
-
+#endif
 		m_flSoonestPrimaryAttack = gpGlobals->curtime + PULSE_PISTOL_FASTEST_REFIRE_TIME;
 		m_flNextPrimaryAttack = gpGlobals->curtime + PULSE_PISTOL_FASTEST_REFIRE_TIME;
 	}
@@ -1126,7 +1167,11 @@ void CWeaponPulsePistol::DoMuzzleFlash( void )
 		return;
 
 	CEffectData data;
+#ifndef CLIENT_DLL
 	data.m_nEntIndex = pViewModel->entindex();
+#else
+	data.m_hEntity = pViewModel->entindex();
+#endif
 	data.m_nAttachmentIndex = 1;
 	data.m_flScale = 0.25f; // The pistol is much smaller than a Hunter-Chopper ( ._.)
 	DispatchEffect( "ChopperMuzzleFlash", data );
@@ -1155,14 +1200,24 @@ void CWeaponPulsePistol::StartChargeEffects()
 	//Create the charge glow
 	if (pOwner != NULL && m_hChargeSprite == NULL)
 	{
-		m_hChargeSprite = CSprite::SpriteCreate( "effects/fluttercore.vmt", GetAbsOrigin(), false );
-
-		m_hChargeSprite->SetAsTemporary();
-		m_hChargeSprite->SetAttachment( pOwner->GetViewModel(), 1 );
-		m_hChargeSprite->SetTransparency( kRenderTransAdd, 255, 255, 255, 255, kRenderFxNone );
-		m_hChargeSprite->SetBrightness( 0, 0.1f );
-		m_hChargeSprite->SetScale( 0.05f, 0.05f );
-		m_hChargeSprite->TurnOn();
+#ifdef CLIENT_DLL
+		m_hChargeSprite = SPRITE_CREATE_PREDICTABLE("effects/fluttercore.vmt", GetAbsOrigin(), false);
+		if (m_hChargeSprite)
+		{
+			m_hChargeSprite->SetOwnerEntity(pOwner);
+			m_hChargeSprite->SetPlayerSimulated(pOwner);
+#else
+		m_hChargeSprite = CSprite::SpriteCreate("effects/fluttercore.vmt", GetAbsOrigin(), false);
+		if(m_hChargeSprite)
+		{
+			m_hChargeSprite->SetAsTemporary();
+#endif
+			m_hChargeSprite->SetAttachment(pOwner->GetViewModel(), 1);
+			m_hChargeSprite->SetTransparency(kRenderTransAdd, 255, 255, 255, 255, kRenderFxNone);
+			m_hChargeSprite->SetBrightness(0, 0.1f);
+			m_hChargeSprite->SetScale(0.05f, 0.05f);
+			m_hChargeSprite->TurnOn();
+		}
 	}
 }
 
@@ -1184,7 +1239,11 @@ void CWeaponPulsePistol::KillChargeEffects()
 {
 	if (m_hChargeSprite != NULL)
 	{
+#ifndef CLIENT_DLL
 		UTIL_Remove( m_hChargeSprite );
+#else
+		m_hChargeSprite->Remove();
+#endif
 		m_hChargeSprite = NULL;
 	}
 }
@@ -1195,16 +1254,14 @@ void CWeaponPulsePistol::KillChargeEffects()
 //-----------------------------------------------------------------------------
 void CWeaponPulsePistol::SecondaryAttack()
 {
-	CBasePlayer *pPlayer  = ToBasePlayer( GetOwner() );
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 
 	float refireModifier = sv_pulse_lance_style.GetInt() == 1 ? 0.25 : 1;
 
-	if (pPlayer == NULL)
-		return;
-
 	//DoMuzzleFlash();
-
+#ifndef CLIENT_DLL
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
+#endif
 
 	if (!m_iClip1 && pPlayer->GetAmmoCount( m_iPrimaryAmmoType ) <= 0)
 	{
@@ -1214,12 +1271,15 @@ void CWeaponPulsePistol::SecondaryAttack()
 
 	SendWeaponAnim( GetPrimaryAttackActivity() );
 	pPlayer->SetAnimation( PLAYER_ATTACK1 );
-
+#ifndef CLIENT_DLL
 	// Register a muzzleflash for the AI
 	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+#endif
 
 	m_iSecondaryAttacks++;
+#ifndef CLIENT_DLL
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+#endif
 
 	m_flNextSecondaryAttack = gpGlobals->curtime + ( PULSE_PISTOL_FASTEST_REFIRE_TIME * refireModifier );
 
@@ -1236,7 +1296,7 @@ void CWeaponPulsePistol::SecondaryAttack()
 
 	trace_t tr;
 
-	AI_TraceLine( vecSrc, vecSrc + (vecAim * maxRange), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
+	UTIL_TraceLine( vecSrc, vecSrc + (vecAim * maxRange), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
 
 	// Check to store off our view model index
 	CBeam *pBeam = CBeam::BeamCreate( "sprites/laser.vmt", 2.0 );
@@ -1281,7 +1341,11 @@ void CWeaponPulsePistol::SecondaryAttack()
 //-----------------------------------------------------------------------------
 void CWeaponPulsePistol::CreateBeamBlast( const Vector &vecOrigin )
 {
+#ifdef CLIENT_DLL
+	CSprite *pBlastSprite = SPRITE_CREATE_PREDICTABLE("sprites/redglow1.vmt", GetAbsOrigin(), FALSE);
+#else
 	CSprite *pBlastSprite = CSprite::SpriteCreate( "sprites/redglow1.vmt", GetAbsOrigin(), FALSE );
+#endif
 	if (pBlastSprite != NULL)
 	{
 		pBlastSprite->SetTransparency( kRenderTransAddFrameBlend, 255, 255, 255, 255, kRenderFxNone );
@@ -1299,15 +1363,101 @@ void CWeaponPulsePistol::CreateBeamBlast( const Vector &vecOrigin )
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-IMPLEMENT_SERVERCLASS_ST(CWeaponPulsePistol, DT_WeaponPulsePistol)
-END_SEND_TABLE()
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponPulsePistol, DT_WeaponPulsePistol)
 
-LINK_ENTITY_TO_CLASS( weapon_pulsepistol, CWeaponPulsePistol );
-PRECACHE_WEAPON_REGISTER( weapon_pulsepistol );
+BEGIN_NETWORK_TABLE(CWeaponPulsePistol, DT_WeaponPulsePistol)
+END_NETWORK_TABLE()
+
+#ifdef CLIENT_DLL
+BEGIN_PREDICTION_DATA(CWeaponPulsePistol)
+DEFINE_PRED_FIELD_TOL(m_flDrainRemainder, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
+DEFINE_PRED_FIELD_TOL(m_flChargeRemainder, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
+DEFINE_PRED_FIELD_TOL(m_flLastChargeTime, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
+END_PREDICTION_DATA()
+#endif
 
 BEGIN_DATADESC( CWeaponPulsePistol )
 	DEFINE_FIELD( m_flLastChargeTime, FIELD_TIME ),
 	DEFINE_FIELD( m_flLastChargeSoundTime, FIELD_TIME ),
 	DEFINE_FIELD( m_hChargeSprite, FIELD_EHANDLE )
 END_DATADESC()
+
+LINK_ENTITY_TO_CLASS(weapon_pulsepistol, CWeaponPulsePistol);
+#endif
+
+#ifdef CLIENT_DLL
+//-----------------------------------------------------------------------------
+// Apply effects when the pulse pistol is charging
+//-----------------------------------------------------------------------------
+class CPulsePistolMaterialProxy : public CEntityMaterialProxy
+{
+public:
+	CPulsePistolMaterialProxy() { m_ChargeVar = NULL; }
+	virtual ~CPulsePistolMaterialProxy() {}
+	virtual bool Init(IMaterial *pMaterial, KeyValues *pKeyValues);
+	virtual void OnBind(C_BaseEntity *pEntity);
+	virtual IMaterial *GetMaterial();
+
+private:
+	IMaterialVar *m_ChargeVar;
+	//IMaterialVar *m_FullyChargedVar;
+};
+
+bool CPulsePistolMaterialProxy::Init(IMaterial *pMaterial, KeyValues *pKeyValues)
+{
+	bool foundAnyVar = false;
+	bool foundVar;
+
+	const char *pszChargeVar = pKeyValues->GetString("outputCharge");
+	m_ChargeVar = pMaterial->FindVar(pszChargeVar, &foundVar, true);
+	if (foundVar)
+		foundAnyVar = true;
+
+	//const char *pszFullyChargedVar = pKeyValues->GetString( "outputFullyCharged" );
+	//m_FullyChargedVar = pMaterial->FindVar( pszFullyChargedVar, &foundVar, true );
+	//if (foundVar)
+	//	foundAnyVar = true;
+
+	return foundAnyVar;
+}
+
+void CPulsePistolMaterialProxy::OnBind(C_BaseEntity *pEnt)
+{
+	if (!m_ChargeVar)
+		return;
+
+	C_WeaponPulsePistol *pPistol = NULL;
+	if (pEnt->IsBaseCombatWeapon())
+		pPistol = assert_cast<C_WeaponPulsePistol*>(pEnt);
+	else
+	{
+		C_BaseViewModel *pVM = dynamic_cast<C_BaseViewModel*>(pEnt);
+		if (pVM)
+			pPistol = assert_cast<C_WeaponPulsePistol*>(pVM->GetOwningWeapon());
+	}
+
+	if (pPistol)
+	{
+		// Keep synced with the max in weapon_pistol.cpp
+		const float flMaxCharge = 40.0f;
+		m_ChargeVar->SetFloatValue(((float)pPistol->m_iClip2) / flMaxCharge);
+
+		//m_FullyChargedVar->SetFloatValue( pPistol->m_iClip2 == flMaxCharge ? 1.0f : 0.0f );
+	}
+	else
+	{
+		m_ChargeVar->SetFloatValue(0.0f);
+	}
+}
+
+IMaterial *CPulsePistolMaterialProxy::GetMaterial()
+{
+	if (!m_ChargeVar)
+		return NULL;
+
+	return m_ChargeVar->GetOwningMaterial();
+}
+
+EXPOSE_INTERFACE(CPulsePistolMaterialProxy, IMaterialProxy, "PulsePistolCharge" IMATERIAL_PROXY_INTERFACE_VERSION);
+
 #endif

@@ -28,6 +28,7 @@ public:
 	bool					IsMoving( void ){ return m_bIsMoving; }
 	bool					ShouldAvoidObstacle( void ){ return m_bPerformAvoidance; }
 	virtual bool			AddRagdollToFadeQueue( void ) { return m_bFadeCorpse; }
+	virtual void Spawn(void) { m_takedamage = DAMAGE_YES; }; //client side predicted blood fix
 
 	virtual void			GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matrix3x4_t *pDeltaBones1, matrix3x4_t *pCurrentBones, float boneDt );
 

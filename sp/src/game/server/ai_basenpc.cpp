@@ -13295,6 +13295,7 @@ CAI_BaseNPC::CAI_BaseNPC(void)
 
 	m_FakeSequenceGestureLayer = -1;
 #endif
+	m_LagTrack = new CUtlFixedLinkedList< LagRecordNPC >();
 }
 
 //-----------------------------------------------------------------------------
@@ -13304,6 +13305,8 @@ CAI_BaseNPC::CAI_BaseNPC(void)
 //-----------------------------------------------------------------------------
 CAI_BaseNPC::~CAI_BaseNPC(void)
 {
+	m_LagTrack->Purge();
+	delete m_LagTrack;
 	g_AI_Manager.RemoveAI( this );
 
 	delete m_pLockedBestSound;

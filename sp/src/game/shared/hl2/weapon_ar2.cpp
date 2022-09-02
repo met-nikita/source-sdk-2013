@@ -839,9 +839,8 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 			info.m_iShots = 1;
 			info.m_vecSrc = pPlayer->Weapon_ShootPosition();
 			info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
-#ifndef CLIENT_DLL
-			info.m_vecSpread = pPlayer->GetAttackSpread( this );
-#endif
+			CHL2_Player *pHLPlayer = dynamic_cast<CHL2_Player *> (pPlayer);
+			info.m_vecSpread = pHLPlayer->GetAttackSpread(this);
 			info.m_flDistance = MAX_TRACE_LENGTH;
 			info.m_iAmmoType = m_iPrimaryAmmoType;
 			info.m_iTracerFreq = 2;
@@ -861,9 +860,8 @@ void CWeaponAR2Proto::PrimaryAttack( void )
 			info.m_iShots = 2;
 			info.m_vecSrc = pPlayer->Weapon_ShootPosition();
 			info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
-#ifndef CLIENT_DLL
-			info.m_vecSpread = pPlayer->GetAttackSpread( this );
-#endif
+			CHL2_Player *pHLPlayer = dynamic_cast<CHL2_Player *> (pPlayer);
+			info.m_vecSpread = pHLPlayer->GetAttackSpread(this);
 			info.m_flDistance = MAX_TRACE_LENGTH;
 			info.m_iAmmoType = m_iPrimaryAmmoType;
 			info.m_iTracerFreq = 2;
@@ -1004,7 +1002,6 @@ void CWeaponAR2Proto::SecondaryAttack( void )
 	m_bShotDelayed = true;
 	m_flNextPrimaryAttack = m_flNextSecondaryAttack = m_flDelayedFire = gpGlobals->curtime + 0.5f;
 #ifndef CLIENT_DLL
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 	if( pPlayer )
 	{
 		pPlayer->RumbleEffect(RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART );

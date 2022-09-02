@@ -27,7 +27,8 @@
 #endif
 
 #ifdef CLIENT_DLL
-	
+	#include "c_ai_basenpc.h"
+	#include "takedamageinfo.h"
 	#include "iviewrender_beams.h"
 	#include "beam_shared.h"
 	#include "materialsystem/imaterial.h"
@@ -485,9 +486,7 @@ void CWeaponStunStick::SecondaryAttack()
 //------------------------------------------------------------------------------
 void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSecondary )
 {
-#ifndef CLIENT_DLL
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-#endif
 
 	//Do view kick
 	AddViewKick();
@@ -497,6 +496,7 @@ void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSe
 
 	// This isn't great, but it's something for when the crowbar hits.
 	pPlayer->RumbleEffect( RUMBLE_AR2, 0, RUMBLE_FLAG_RESTART );
+#endif
 
 	CBaseEntity	*pHitEntity = traceHit.m_pEnt;
 	//Apply damage to a hit target
@@ -522,6 +522,7 @@ void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSe
 		CalculateMeleeDamageForce( &info, hitDirection, traceHit.endpos );
 
 		// If the hit object is an NPC, and that NPC is now dead - become a server ragdoll and electrify!
+#ifndef CLIENT_DLL
 		CAI_BaseNPC * pNPC = pHitEntity->MyNPCPointer();
 		if ( flDamage > flBaseDamage && pHitEntity->IsNPC() && pNPC != NULL && pNPC->CanBecomeServerRagdoll() && !pNPC->IsEFlagSet( EFL_NO_MEGAPHYSCANNON_RAGDOLL ) && pNPC->m_iHealth - info.GetDamage() <= 0.0f)
 		{
@@ -532,7 +533,11 @@ void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSe
 			pHitEntity->DispatchTraceAttack( info, hitDirection, &traceHit );
 			ApplyMultiDamage();
 		}
-
+#else
+		pHitEntity->DispatchTraceAttack(info, hitDirection, &traceHit);
+		ApplyMultiDamage();
+#endif
+#ifndef CLIENT_DLL
 		// Now hit all triggers along the ray that... 
 		TraceAttackToTriggers( info, traceHit.startpos, traceHit.endpos, hitDirection );
 
@@ -540,8 +545,8 @@ void CWeaponStunStick::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSe
 		{
 			gamestats->Event_WeaponHit( pPlayer, !bIsSecondary, GetClassname(), info );
 		}
-	}
 #endif
+	}
 	// Apply an impact effect
 	ImpactEffect( traceHit );
 }

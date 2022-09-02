@@ -17,6 +17,8 @@
 
 #ifdef CLIENT_DLL
 #include "c_te_effect_dispatch.h"
+#include "takedamageinfo.h"
+#include "prediction.h"
 #else
 #include "te_effect_dispatch.h"
 #include "ndebugoverlay.h"
@@ -141,6 +143,11 @@ void CBaseHLBludgeonWeapon::ItemPostFrame( void )
 //------------------------------------------------------------------------------
 void CBaseHLBludgeonWeapon::PrimaryAttack()
 {
+	//this fixes shooting effect sometimes missing when holding charge button to the end
+#if defined( CLIENT_DLL )
+	if (prediction->InPrediction() && !prediction->IsFirstTimePredicted())
+		return;
+#endif
 	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	Swing( false );
 }
@@ -162,19 +169,16 @@ void CBaseHLBludgeonWeapon::SecondaryAttack()
 //------------------------------------------------------------------------------
 void CBaseHLBludgeonWeapon::Hit( trace_t &traceHit, Activity nHitActivity, bool bIsSecondary )
 {
-#ifndef CLIENT_DLL
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-#endif
 	
 	//Do view kick
 	AddViewKick();
-#ifndef CLIENT_DLL
 	//Make sound for the AI
+#ifndef CLIENT_DLL
 	CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, traceHit.endpos, 400, 0.2f, pPlayer );
-
 	// This isn't great, but it's something for when the crowbar hits.
 	pPlayer->RumbleEffect( RUMBLE_AR2, 0, RUMBLE_FLAG_RESTART );
-
+#endif
 	CBaseEntity	*pHitEntity = traceHit.m_pEnt;
 
 	//Apply damage to a hit target
@@ -185,18 +189,16 @@ void CBaseHLBludgeonWeapon::Hit( trace_t &traceHit, Activity nHitActivity, bool 
 		VectorNormalize( hitDirection );
 
 		CTakeDamageInfo info( GetOwner(), GetOwner(), GetDamageForActivity( nHitActivity ), DMG_CLUB );
-
 		if( pPlayer && pHitEntity->IsNPC() )
 		{
 			// If bonking an NPC, adjust damage.
 			info.AdjustPlayerDamageInflictedForSkillLevel();
 		}
-
 		CalculateMeleeDamageForce( &info, hitDirection, traceHit.endpos );
 
 		pHitEntity->DispatchTraceAttack( info, hitDirection, &traceHit ); 
 		ApplyMultiDamage();
-
+#ifndef CLIENT_DLL
 		// Now hit all triggers along the ray that... 
 		TraceAttackToTriggers( info, traceHit.startpos, traceHit.endpos, hitDirection );
 
@@ -204,8 +206,8 @@ void CBaseHLBludgeonWeapon::Hit( trace_t &traceHit, Activity nHitActivity, bool 
 		{
 			gamestats->Event_WeaponHit( pPlayer, !bIsSecondary, GetClassname(), info );
 		}
-	}
 #endif
+	}
 
 	// Apply an impact effect
 	ImpactEffect( traceHit );
