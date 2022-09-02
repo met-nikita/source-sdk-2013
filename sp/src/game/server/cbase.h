@@ -23,7 +23,10 @@
 #ifdef _DEBUG
 #define DEBUG 1
 #endif
-
+#define ENGINE_DLL_HACK 0
+#if ENGINE_DLL_HACK == 1
+#define DISABLE_PROTECTED_THINGS
+#endif
 // Misc C-runtime library headers
 #include <math.h>
 

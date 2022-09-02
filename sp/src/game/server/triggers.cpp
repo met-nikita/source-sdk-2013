@@ -3,7 +3,6 @@
 // Purpose: Spawn and use functions for editor-placed triggers.
 //
 //===========================================================================//
-
 #include "cbase.h"
 #include "ai_basenpc.h"
 #include "player.h"
@@ -44,6 +43,11 @@
 
 #ifdef EZ2
 #include "npc_turret_floor.h"
+#endif
+
+#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
+#define WIN_32_LEAN_AND_MEAN
+#include <windows.h>
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -1463,6 +1467,8 @@ class CChangeLevel : public CBaseTrigger
 public:
 	DECLARE_CLASS( CChangeLevel, CBaseTrigger );
 
+	~CChangeLevel();
+
 	void Spawn( void );
 	void Activate( void );
 	bool KeyValue( const char *szKeyName, const char *szValue );
@@ -1506,6 +1512,8 @@ private:
 	char m_szMapName[cchMapNameMost];		// trigger_changelevel only:  next map
 	char m_szLandmarkName[cchMapNameMost];		// trigger_changelevel only:  landmark on next map
 	bool m_bTouched;
+
+	CUtlVector< CBasePlayer *> m_aPlayersInside;
 
 	// Outputs
 	COutputEvent m_OnChangeLevel;
@@ -1852,7 +1860,18 @@ void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 	// If we're debugging, don't actually change level
 	if ( g_debug_transitions.GetInt() == 0 )
 	{
-		engine->ChangeLevel( st_szNextMap, NULL );
+#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
+		//going to hell for this
+		//trick engine into thinking it's singleplayer so it can execute changelevel2
+		//override maxclients variable
+		DWORD BaseAddress = (DWORD)GetModuleHandle("engine.dll");
+		DWORD FinalPointer = BaseAddress + 0x5C798C;
+		int one = 1;
+		memcpy((void*)FinalPointer, &one, sizeof(int));
+		engine->ChangeLevel(st_szNextMap, st_szNextSpot);
+#else
+		engine->ChangeLevel(st_szNextMap, NULL);
+#endif
 	}
 	else
 	{
@@ -1869,6 +1888,17 @@ void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 	}
 }
 
+CChangeLevel::~CChangeLevel()
+{
+#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
+	DWORD BaseAddress = (DWORD)GetModuleHandle("engine.dll");
+	DWORD FinalPointer = BaseAddress + 0x5C798C;
+	int maxorig = gpGlobals->maxClients;
+	memcpy((void*)FinalPointer, &maxorig, sizeof(int));
+#endif
+}
+
+ConVar sv_wait_at_changelevel("sv_wait_at_changelevel", "0", FCVAR_REPLICATED, "Set to 1 to make changelevel trigger wait for all players to be in it before actually changing the level");
 //
 // GLOBALS ASSUMED SET:  st_szNextMap
 //
@@ -1877,7 +1907,31 @@ void CChangeLevel::TouchChangeLevel( CBaseEntity *pOther )
 	CBasePlayer *pPlayer = ToBasePlayer(pOther);
 	if ( !pPlayer )
 		return;
+	if (sv_wait_at_changelevel.GetInt() == 1)
+	{
+		if (m_aPlayersInside.Find(pPlayer) == m_aPlayersInside.InvalidIndex()){
+			pPlayer->AddFlag(FL_FROZEN);
+			m_aPlayersInside.AddToTail(pPlayer);
+		}
 
+		bool allPlayersIn = true;
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBasePlayer *pPlayer2 = UTIL_PlayerByIndex(i);
+
+			if (!pPlayer2){
+				continue;
+			}
+
+			if (m_aPlayersInside.Find(pPlayer2) == m_aPlayersInside.InvalidIndex()){
+				allPlayersIn = false;
+				break;
+			}
+		}
+
+		if (!allPlayersIn)
+			return;
+	}
 	if( pPlayer->IsSinglePlayerGameEnding() )
 	{
 		// Some semblance of deceleration, but allow player to fall normally.
@@ -1896,6 +1950,12 @@ void CChangeLevel::TouchChangeLevel( CBaseEntity *pOther )
 		return;
 	}
 
+	for (int i = 0; i < m_aPlayersInside.Count(); i++)
+	{
+		CBasePlayer *player = m_aPlayersInside.Element(i);
+		if (player)
+			pPlayer->RemoveFlag(FL_FROZEN);
+	}
 	ChangeLevelNow( pOther );
 }
 
