@@ -824,7 +824,8 @@ CWeaponAR2Proto::CWeaponAR2Proto()
 //-----------------------------------------------------------------------------
 void CWeaponAR2Proto::PrimaryAttack( void )
 {
-	if (CBasePlayer *pPlayer = ToBasePlayer(GetOwner()))
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
+	if (pPlayer)
 	{
 		SendWeaponAnim( GetPrimaryAttackActivity() );
 		WeaponSound( SINGLE );
@@ -987,6 +988,7 @@ void CWeaponAR2Proto::DelayedAttack( void )
 //-----------------------------------------------------------------------------
 void CWeaponAR2Proto::SecondaryAttack( void )
 {
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
 	if ( m_bShotDelayed )
 		return;
 
@@ -1012,11 +1014,11 @@ void CWeaponAR2Proto::SecondaryAttack( void )
 	SendWeaponAnim( ACT_VM_FIDGET );
 	WeaponSound( SPECIAL1 );
 
-	CBasePlayer *pOwner = ToBasePlayer(GetOwner());
+	//CBasePlayer *pOwner = ToBasePlayer(GetOwner());
 
 	// Decrease ammo - trying this down here.
 	//Msg("\n DEDUCTING AR2 ORB \n");
-	pOwner->RemoveAmmo(1, m_iSecondaryAmmoType);
+	pPlayer->RemoveAmmo(1, m_iSecondaryAmmoType);
 
 	m_iSecondaryAttacks++;
 #ifndef CLIENT_DLL

@@ -5681,12 +5681,19 @@ bool CNPC_Hunter::SuppressUnseenHunterSounds()
 	if ( !hunter_suppress_sounds_while_unseen.GetBool() )
 		return false;
 
-	CBaseEntity * pPlayer = UTIL_GetLocalPlayer();
+	CBaseEntity * pPlayer = UTIL_GetNearestPlayer(this);
 
-	trace_t	playerTr;
-	UTIL_TraceLine( WorldSpaceCenter(), pPlayer->EyePosition(), MASK_BLOCKLOS, pPlayer, COLLISION_GROUP_NONE, &playerTr );
+	if (pPlayer)
+	{
+		trace_t	playerTr;
+		UTIL_TraceLine(WorldSpaceCenter(), pPlayer->EyePosition(), MASK_BLOCKLOS, pPlayer, COLLISION_GROUP_NONE, &playerTr);
 
-	return !HasCondition( COND_IN_PVS ) || (playerTr.fraction != 1.0f && abs( WorldSpaceCenter().DistTo( pPlayer->EyePosition() ) ) > 512.0f);
+		return !HasCondition(COND_IN_PVS) || (playerTr.fraction != 1.0f && abs(WorldSpaceCenter().DistTo(pPlayer->EyePosition())) > 512.0f);
+	}
+	else
+	{
+		return true; //no players, no one can hear anyway
+	}
 }
 #endif
 
