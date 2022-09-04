@@ -146,12 +146,24 @@ void CPointTeleport::TeleportEntity( CBaseEntity *pTarget, const Vector &vecPosi
 	pTarget->Teleport( &vecPosition, &angAngles, NULL );
 }
 #endif
-
 //------------------------------------------------------------------------------
 // Purpose:
 //------------------------------------------------------------------------------
 void CPointTeleport::InputTeleport( inputdata_t &inputdata )
 {
+	if (FStrEq(m_target.ToCStr(), "!player"))
+	{
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBasePlayer *pPlayer = UTIL_PlayerByIndex(i);
+
+			if (!pPlayer){
+				continue;
+			}
+			TeleportEntity(pPlayer, m_vSaveOrigin, m_vSaveAngles);
+			pPlayer->DisablePlayerCollision(); //obviously players will be stuck so disable collision preemptively
+		}
+	}
 	// Attempt to find the entity in question
 	CBaseEntity *pTarget = gEntList.FindEntityByName( NULL, m_target, this, inputdata.pActivator, inputdata.pCaller );
 	if ( pTarget == NULL )

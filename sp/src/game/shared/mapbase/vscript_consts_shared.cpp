@@ -203,6 +203,8 @@ void RegisterSharedScriptConstants()
 	ScriptRegisterConstant( g_pScriptVM, COLLISION_GROUP_PUSHAWAY, "Collision group used in GetCollisionGroup(), etc." );
 	ScriptRegisterConstant( g_pScriptVM, COLLISION_GROUP_NPC_ACTOR, "Collision group used in GetCollisionGroup(), etc." );
 	ScriptRegisterConstant( g_pScriptVM, COLLISION_GROUP_NPC_SCRIPTED, "Collision group used in GetCollisionGroup(), etc." );
+	ScriptRegisterConstant( g_pScriptVM, COLLISION_GROUP_PLAYER_MOVEMENT_ALT, "Collision group used in GetCollisionGroup(), etc.");
+	ScriptRegisterConstant(g_pScriptVM, COLLISION_GROUP_PLAYER_MOVEMENT_ALT2, "Collision group used in GetCollisionGroup(), etc.");
 
 	// 
 	// Flags

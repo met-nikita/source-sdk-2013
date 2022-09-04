@@ -73,6 +73,7 @@
 #include "dt_utlvector_send.h"
 #include "vote_controller.h"
 #include "ai_speech.h"
+#include "coopmanager.h"
 
 #if defined USES_ECON_ITEMS
 #include "econ_wearable.h"
@@ -169,6 +170,7 @@ extern CServerGameDLL g_ServerGameDLL;
 #define VPHYS_MAX_DISTSQR		(VPHYS_MAX_DISTANCE*VPHYS_MAX_DISTANCE)
 #define VPHYS_MAX_VELSQR		(VPHYS_MAX_VEL*VPHYS_MAX_VEL)
 
+#define COLLISION_GROUP_PLAYER_MOVEMENT PlayerCollisionDisabled() ? COLLISION_GROUP_PLAYER_MOVEMENT_ALT : COLLISION_GROUP_PLAYER_MOVEMENT
 
 extern bool		g_fDrawLines;
 int				gEvilImpulse101;
@@ -4647,7 +4649,7 @@ void FixPlayerCrouchStuck( CBasePlayer *pPlayer )
 	for ( i = 0; i < 18; i++ )
 	{
 		UTIL_TraceHull( pPlayer->GetAbsOrigin(), pPlayer->GetAbsOrigin(), 
-			VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, MASK_PLAYERSOLID, pPlayer, COLLISION_GROUP_PLAYER_MOVEMENT, &trace );
+			VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, MASK_PLAYERSOLID, pPlayer, pPlayer->COLLISION_GROUP_PLAYER_MOVEMENT, &trace );
 		if ( trace.startsolid )
 		{
 			Vector origin = pPlayer->GetAbsOrigin();
@@ -4663,7 +4665,7 @@ void FixPlayerCrouchStuck( CBasePlayer *pPlayer )
 	for ( i = 0; i < 18; i++ )
 	{
 		UTIL_TraceHull( pPlayer->GetAbsOrigin(), pPlayer->GetAbsOrigin(), 
-			VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, MASK_PLAYERSOLID, pPlayer, COLLISION_GROUP_PLAYER_MOVEMENT, &trace );
+			VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, MASK_PLAYERSOLID, pPlayer, pPlayer->COLLISION_GROUP_PLAYER_MOVEMENT, &trace);
 		if ( trace.startsolid )
 		{
 			Vector origin = pPlayer->GetAbsOrigin();
@@ -5058,6 +5060,17 @@ CBaseEntity *CBasePlayer::EntSelectSpawnPoint()
 	edict_t		*player;
 
 	player = edict();
+
+	CBaseEntity *pEntity = gEntList.FindEntityByClassname(NULL, "coop_manager");
+	if (pEntity)
+	{
+		CCoopManager *pCoopMngr = (CCoopManager *)pEntity;
+		if (pCoopMngr->IsSpawnSet())
+		{
+			pSpot = pCoopMngr->GetSpawnSpot();
+			goto ReturnSpot;
+		}
+	}
 
 // choose a info_player_deathmatch point
 	if (g_pGameRules->IsCoOp())

@@ -269,6 +269,9 @@ public:
 	CBaseViewModel			*GetViewModel( int viewmodelindex = 0, bool bObserverOK = true );
 	void					HideViewModels( void );
 	void					DestroyViewModels( void );
+	bool	PlayerCollisionDisabled() { return m_Local.m_bPlayerCollisionDisabled; };
+	void	DisablePlayerCollision() { m_Local.m_bPlayerCollisionDisabled = true; };
+	void	EnablePlayerCollision() { m_Local.m_bPlayerCollisionDisabled = false; };
 
 #ifdef MAPBASE
 	virtual void			CreateHandModel( int viewmodelindex = 1, int iOtherVm = 0 );
@@ -871,6 +874,8 @@ public:
 private:
 	// How much of a movement time buffer can we process from this user?
 	float				m_flMovementTimeForUserCmdProcessingRemaining;
+
+	bool m_bPlayerCollisionDisabled = false;
 
 	// For queueing up CUserCmds and running them from PhysicsSimulate
 	int					GetCommandContextCount( void ) const;
@@ -1664,5 +1669,38 @@ enum
 	VEHICLE_ANALOG_BIAS_FORWARD,
 	VEHICLE_ANALOG_BIAS_REVERSE,
 };
+
+//------------------------------------------------------------------------------
+// A small wrapper around SV_Move that never clips against the supplied entity.
+//------------------------------------------------------------------------------
+static bool TestEntityPosition(CBasePlayer *pPlayer)
+{
+	trace_t	trace;
+	UTIL_TraceEntity(pPlayer, pPlayer->GetAbsOrigin(), pPlayer->GetAbsOrigin(), MASK_PLAYERSOLID, &trace);
+	return (trace.startsolid == 0);
+}
+
+
+//------------------------------------------------------------------------------
+// Searches along the direction ray in steps of "step" to see if 
+// the entity position is passible.
+// Used for putting the player in valid space when toggling off noclip mode.
+//------------------------------------------------------------------------------
+static int FindPassableSpace(CBasePlayer *pPlayer, const Vector& direction, float step, Vector& oldorigin)
+{
+	int i;
+	for (i = 0; i < 100; i++)
+	{
+		Vector origin = pPlayer->GetAbsOrigin();
+		VectorMA(origin, step, direction, origin);
+		pPlayer->SetAbsOrigin(origin);
+		if (TestEntityPosition(pPlayer))
+		{
+			VectorCopy(pPlayer->GetAbsOrigin(), oldorigin);
+			return 1;
+		}
+	}
+	return 0;
+}
 
 #endif // PLAYER_H

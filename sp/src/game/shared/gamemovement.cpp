@@ -36,6 +36,8 @@ extern IFileSystem *filesystem;
 #endif
 
 
+#define COLLISION_GROUP_PLAYER_MOVEMENT player->PlayerCollisionDisabled() ? COLLISION_GROUP_PLAYER_MOVEMENT_ALT : COLLISION_GROUP_PLAYER_MOVEMENT
+
 // tickcount currently isn't set during prediction, although gpGlobals->curtime and
 // gpGlobals->frametime are. We should probably set tickcount (to player->m_nTickBase),
 // but we're REALLY close to shipping, so we can change that later and people can use
@@ -3389,13 +3391,29 @@ int CGameMovement::CheckStuck( void )
 	trace_t traceresult;
 
 	CreateStuckTable();
-
+#undef COLLISION_GROUP_PLAYER_MOVEMENT
+#ifndef CLIENT_DLL
+	if (player->PlayerCollisionDisabled())
+	{
+		hitent = TestPlayerPosition(mv->GetAbsOrigin(), COLLISION_GROUP_PLAYER_MOVEMENT_ALT2, traceresult);
+		if (hitent == INVALID_ENTITY_HANDLE)
+		{
+			player->EnablePlayerCollision();
+		}
+	}
+#endif
 	hitent = TestPlayerPosition( mv->GetAbsOrigin(), COLLISION_GROUP_PLAYER_MOVEMENT, traceresult );
 	if ( hitent == INVALID_ENTITY_HANDLE )
 	{
 		ResetStuckOffsets( player );
 		return 0;
 	}
+#ifndef CLIENT_DLL
+	CBaseEntity* pEntity = UTIL_EntityByIndex(hitent.GetEntryIndex());
+	if (pEntity && pEntity->IsPlayer())
+		player->DisablePlayerCollision();
+#endif
+#define COLLISION_GROUP_PLAYER_MOVEMENT player->PlayerCollisionDisabled() ? COLLISION_GROUP_PLAYER_MOVEMENT_ALT : COLLISION_GROUP_PLAYER_MOVEMENT
 
 	// Deal with stuckness...
 #ifndef DEDICATED

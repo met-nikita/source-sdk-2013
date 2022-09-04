@@ -35,6 +35,7 @@ ConVar mapedit_enabled("mapedit_enabled", "1", FCVAR_ARCHIVE, "Is automatic MapE
 ConVar mapedit_stack("mapedit_stack", "1", FCVAR_ARCHIVE, "If multiple MapEdit scripts are loaded, should they stack or replace each other?");
 ConVar mapedit_debug("mapedit_debug", "0", FCVAR_NONE, "Should MapEdit give debug messages?");
 
+/*
 inline void DebugMsg(const tchar *pMsg, ...)
 {
 	if (mapedit_debug.GetBool() == true)
@@ -42,6 +43,9 @@ inline void DebugMsg(const tchar *pMsg, ...)
 		Msg("%s", pMsg);
 	}
 }
+*/
+
+#define DebugMsg(text, ...) if (mapedit_debug.GetBool() == true) Msg(text, __VA_ARGS__);
 
 //bool g_bMapEditAvailable;
 bool g_bMapEditLoaded = false;
@@ -128,7 +132,7 @@ public:
 
 					pszValue = szTmp;
 				}
-
+#if 0
 				char cOperatorChar = pszValue[0];
 				if (cOperatorChar == '+')
 				{
@@ -164,7 +168,7 @@ public:
 						pszValue = UTIL_VarArgs("%i", iResult);
 					}
 				}
-
+#endif
 				pNode->KeyValue(pkvNodeData->GetName(), pszValue);
 			}
 
@@ -396,7 +400,7 @@ public:
 					if (pNode)
 					{
 						ParseEntKVBlock(pNode, pkvClassname);
-
+						pNode->Activate();
 						EHANDLE hHandle;
 						hHandle = pNode;
 						m_hSpawnedEntities.AddToTail(hHandle);
@@ -413,23 +417,27 @@ public:
 			else if (FStrEq(pNodeName, "edit"))
 			{
 				KeyValues *pName = pkvNode->GetFirstSubKey();
-				while (pName)
+				if (pName)
 				{
 					pNodeName = pName->GetName();
 
 					CBaseEntity *pNode = NULL;
 
 					pNode = FindMapEditEntity(NULL, pNodeName, pName->GetString());
-
-					while (pNode)
+					if (pNode)
 					{
 						DebugMsg("MapEdit Debug: Editing %s (%s)\n", pNodeName, pNode->GetDebugName());
-
-						ParseEntKVBlock(pNode, pName);
-						pNode = FindMapEditEntity(pNode, pNodeName, pName->GetString());
+						pName = pName->GetNextKey();
+						while (pName)
+						{
+							if (FStrEq(pName->GetName(), "values"))
+							{
+								DebugMsg("MapEdit Debug: Editing %s (%s) with values\n", pNodeName, pNode->GetDebugName());
+								ParseEntKVBlock(pNode, pName);
+							}
+							pName = pName->GetNextKey();
+						}
 					}
-
-					pName = pName->GetNextKey();
 				}
 			}
 			else if (FStrEq(pNodeName, "delete"))

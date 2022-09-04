@@ -28,6 +28,11 @@ $Project "Server (Entropy Zero 2)"
 		{
 			$File	"ez1\weapon_ManhackToss.cpp"
 		}
+		$Folder	"CoopFixes"
+		{
+			$File	"coopmanager.cpp"
+			$File	"coopmanager.h"
+		}
 		$Folder	"HE DLL"
 		{
 			$File	"Human_Error\vehicle_drivable_apc.h"

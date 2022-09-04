@@ -2357,7 +2357,7 @@ bool CHalfLife2::ShouldCollide( int collisionGroup0, int collisionGroup1 )
 		collisionGroup0 = collisionGroup1;
 		collisionGroup1 = tmp;
 	}
-	
+
 	// Prevent the player movement from colliding with spit globs (caused the player to jump on top of globs while in water)
 	if ( collisionGroup0 == COLLISION_GROUP_PLAYER_MOVEMENT && collisionGroup1 == HL2COLLISION_GROUP_SPIT )
 		return false;
@@ -2369,6 +2369,28 @@ bool CHalfLife2::ShouldCollide( int collisionGroup0, int collisionGroup1 )
 	}
 
 	if( collisionGroup1 == COLLISION_GROUP_PLAYER_MOVEMENT )
+	{
+		collisionGroup1 = COLLISION_GROUP_PLAYER;
+	}
+
+	if (((collisionGroup0 == COLLISION_GROUP_PLAYER) || (collisionGroup0 == COLLISION_GROUP_PLAYER_MOVEMENT_ALT)) &&
+		collisionGroup1 == COLLISION_GROUP_PLAYER_MOVEMENT_ALT2)
+	{
+		return true;
+	}
+
+	if (((collisionGroup0 == COLLISION_GROUP_PLAYER) || (collisionGroup0 == COLLISION_GROUP_PLAYER_MOVEMENT_ALT)) &&
+		collisionGroup1 == COLLISION_GROUP_PLAYER_MOVEMENT_ALT)
+	{
+		return false;
+	}
+
+	if (collisionGroup0 == COLLISION_GROUP_PLAYER_MOVEMENT_ALT)
+	{
+		collisionGroup0 = COLLISION_GROUP_PLAYER;
+	}
+
+	if (collisionGroup1 == COLLISION_GROUP_PLAYER_MOVEMENT_ALT)
 	{
 		collisionGroup1 = COLLISION_GROUP_PLAYER;
 	}
