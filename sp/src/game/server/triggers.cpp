@@ -1780,6 +1780,10 @@ void CChangeLevel::WarnAboutActiveLead( void )
 	}
 }
 
+#if ENGINE_DLL_HACK == 1
+ConVar sv_coop_smooth_transitions("sv_coop_smooth_transitions", "1", FCVAR_REPLICATED, "Enables smooth single-player like level transitions");
+#endif
+
 void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 {
 	CBaseEntity	*pLandmark;
@@ -1864,11 +1868,26 @@ void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 		//going to hell for this
 		//trick engine into thinking it's singleplayer so it can execute changelevel2
 		//override maxclients variable
-		DWORD BaseAddress = (DWORD)GetModuleHandle("engine.dll");
-		DWORD FinalPointer = BaseAddress + 0x5C798C;
-		int one = 1;
-		memcpy((void*)FinalPointer, &one, sizeof(int));
-		engine->ChangeLevel(st_szNextMap, st_szNextSpot);
+		if (sv_coop_smooth_transitions.GetInt() == 1)
+		{
+			DWORD BaseAddress = (DWORD)GetModuleHandle("engine.dll");
+			DWORD FinalPointer = BaseAddress + 0x5C798C;
+			int one = 1;
+			memcpy((void*)FinalPointer, &one, sizeof(int));
+			//delete all player entities except listen server player to avoid issues
+			for (int i = 2; i <= gpGlobals->maxClients; i++)
+			{
+				CBasePlayer *pPlayer = UTIL_PlayerByIndex(i);
+				if (!pPlayer)
+					continue;
+				UTIL_RemoveImmediate(pPlayer);
+			}
+			engine->ChangeLevel(st_szNextMap, st_szNextSpot);
+		}
+		else
+		{
+			engine->ChangeLevel(st_szNextMap, NULL);
+		}
 #else
 		engine->ChangeLevel(st_szNextMap, NULL);
 #endif

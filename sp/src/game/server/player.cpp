@@ -5061,6 +5061,17 @@ CBaseEntity *CBasePlayer::EntSelectSpawnPoint()
 
 	player = edict();
 
+	//try to spawn on alive player if any
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *pPlayer = UTIL_PlayerByIndex(i);
+		if (!pPlayer || pPlayer->edict() == player || !pPlayer->IsAlive())
+			continue;
+		pSpot = pPlayer;
+		goto ReturnSpot;
+	}
+
+	//get checkpoint from coop manager
 	CBaseEntity *pEntity = gEntList.FindEntityByClassname(NULL, "coop_manager");
 	if (pEntity)
 	{
