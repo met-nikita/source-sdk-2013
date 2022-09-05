@@ -727,6 +727,8 @@ void CBaseCombatWeapon::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_
 	
 	if ( pPlayer )
 	{
+		if (m_eForcedPickup.Get() != pPlayer)
+			return;
 		m_OnPlayerUse.FireOutput( pActivator, pCaller );
 
 #ifdef MAPBASE

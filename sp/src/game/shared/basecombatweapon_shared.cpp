@@ -947,9 +947,9 @@ void CBaseCombatWeapon::MakeTracer( const Vector &vecTracerSrc, const trace_t &t
 	}
 }
 
-void CBaseCombatWeapon::GiveTo( CBaseEntity *pOther )
+void CBaseCombatWeapon::GiveTo( CBaseEntity *pOther)
 {
-	DefaultTouch( pOther );
+	DefaultTouch( pOther);
 }
 
 //-----------------------------------------------------------------------------
@@ -957,7 +957,7 @@ void CBaseCombatWeapon::GiveTo( CBaseEntity *pOther )
 // Input  : pOther - the entity that touched me
 // Output :
 //-----------------------------------------------------------------------------
-void CBaseCombatWeapon::DefaultTouch( CBaseEntity *pOther )
+void CBaseCombatWeapon::DefaultTouch( CBaseEntity *pOther)
 {
 #if !defined( CLIENT_DLL )
 	// Can't pick up dissolving weapons
@@ -967,6 +967,9 @@ void CBaseCombatWeapon::DefaultTouch( CBaseEntity *pOther )
 	// if it's not a player, ignore
 	CBasePlayer *pPlayer = ToBasePlayer(pOther);
 	if ( !pPlayer )
+		return;
+
+	if (m_eForcedPickup.Get() && m_eForcedPickup.Get() != pPlayer) //not for us
 		return;
 
 	if( UTIL_ItemCanBeTouchedByPlayer(this, pPlayer) )

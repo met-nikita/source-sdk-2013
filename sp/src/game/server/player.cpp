@@ -6062,13 +6062,14 @@ CBaseEntity	*CBasePlayer::GiveNamedItem( const char *pszName, int iSubType )
 		return NULL;
 	}
 
-	pent->SetLocalOrigin( GetLocalOrigin() );
+	pent->SetLocalOrigin(GetLocalOrigin());
 	pent->AddSpawnFlags( SF_NORESPAWN );
 
 	CBaseCombatWeapon *pWeapon = dynamic_cast<CBaseCombatWeapon*>( (CBaseEntity*)pent );
 	if ( pWeapon )
 	{
 		pWeapon->SetSubType( iSubType );
+		pWeapon->m_eForcedPickup = this;
 	}
 
 	DispatchSpawn( pent );
@@ -7117,7 +7118,7 @@ extern bool UTIL_ItemCanBeTouchedByPlayer( CBaseEntity *pItem, CBasePlayer *pPla
 // Input  : pWeapon - the weapon that the player bumped into.
 // Output : Returns true if player picked up the weapon
 //-----------------------------------------------------------------------------
-bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon )
+bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon)
 {
 	CBaseCombatCharacter *pOwner = pWeapon->GetOwner();
 
@@ -7147,7 +7148,7 @@ bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon )
 #ifdef MAPBASE
 		if( (pWeapon->FVisible( this, MASK_SOLID ) == false && !(GetFlags() & FL_NOTARGET)) && !HasSpawnFlags(SF_WEAPON_ALWAYS_TOUCHABLE) )
 #else
-		if( pWeapon->FVisible( this, MASK_SOLID ) == false && !(GetFlags() & FL_NOTARGET) )
+		if (pWeapon->FVisible(this, MASK_SOLID) == false && !(GetFlags() & FL_NOTARGET))
 #endif
 			return false;
 	}

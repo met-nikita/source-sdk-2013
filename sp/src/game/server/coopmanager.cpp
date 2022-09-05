@@ -23,6 +23,7 @@ BEGIN_DATADESC(CCoopManager)
 DEFINE_FIELD(m_eSpawnSpot, FIELD_EDICT),
 
 DEFINE_INPUTFUNC(FIELD_STRING, "MoveSpawn", InputMoveSpawn),
+DEFINE_INPUTFUNC(FIELD_STRING, "AddRespawnWeapon", InputAddRespawnWeapon),
 
 END_DATADESC()
 
@@ -44,4 +45,27 @@ void CCoopManager::InputMoveSpawn(inputdata_t &inputdata)
 	{
 		m_eSpawnSpot = pEntity;
 	}
+}
+
+//------------------------------------------------------------------------------
+// Purpose:
+//------------------------------------------------------------------------------
+void CCoopManager::InputAddRespawnWeapon(inputdata_t &inputdata)
+{
+	CBaseEntity *pEntity = gEntList.FindEntityByClassname(NULL, "game_player_equip");
+	if (!pEntity)
+		pEntity = CreateEntityByName("game_player_equip");
+	if (!pEntity)
+		return;
+	char key[64];
+	char value[64];
+	const char *szValue = inputdata.value.String();
+	// Separate key from value
+	char *delimiter = Q_strstr(szValue, " ");
+	if (delimiter)
+	{
+		Q_strncpy(key, szValue, MIN((delimiter - szValue) + 1, sizeof(key)));
+		Q_strncpy(value, delimiter + 1, sizeof(value));
+	}
+	pEntity->KeyValue(key, value);
 }

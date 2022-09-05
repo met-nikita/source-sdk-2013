@@ -10,6 +10,7 @@ public:
 	void	Activate(void);
 
 	void InputMoveSpawn(inputdata_t &inputdata);
+	void InputAddRespawnWeapon(inputdata_t &inputdata);
 
 	bool IsSpawnSet() { return m_eSpawnSpot?true:false; };
 

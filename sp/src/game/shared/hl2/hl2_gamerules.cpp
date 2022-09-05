@@ -531,6 +531,18 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 	//-----------------------------------------------------------------------------
 	void CHalfLife2::PlayerSpawn( CBasePlayer *pPlayer )
 	{
+		bool		addDefault;
+		CBaseEntity	*pWeaponEntity = NULL;
+
+		//pPlayer->EquipSuit();
+
+		addDefault = true;
+
+		while ((pWeaponEntity = gEntList.FindEntityByClassname(pWeaponEntity, "game_player_equip")) != NULL)
+		{
+			pWeaponEntity->Touch(pPlayer);
+			addDefault = false;
+		}
 	}
 
 	//-----------------------------------------------------------------------------

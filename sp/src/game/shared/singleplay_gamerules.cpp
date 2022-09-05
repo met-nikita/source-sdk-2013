@@ -301,9 +301,6 @@ bool CSingleplayRules::Damage_ShouldNotBleed( int iDmgType )
 	//=========================================================
 	void CSingleplayRules::PlayerSpawn( CBasePlayer *pPlayer )
 	{
-		// Player no longer gets all weapons to start.
-		// He has to pick them up now.  Use impulse 101
-		// to give him all weapons
 	}
 
 	//=========================================================

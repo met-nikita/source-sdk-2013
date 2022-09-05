@@ -745,10 +745,13 @@ void CGamePlayerEquip::EquipPlayer( CBaseEntity *pEntity )
 	{
 		if ( !m_weaponNames[i] )
 			break;
+		if (!FStrEq(STRING(m_weaponNames[i]), "item_suit"))
 		for ( int j = 0; j < m_weaponCount[i]; j++ )
 		{
- 			pPlayer->GiveNamedItem( STRING(m_weaponNames[i]) );
+				pPlayer->GiveNamedItem(STRING(m_weaponNames[i]));
 		}
+		else
+			pPlayer->EquipSuit();
 	}
 }
 
