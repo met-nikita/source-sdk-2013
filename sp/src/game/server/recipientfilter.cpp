@@ -263,7 +263,7 @@ void CRecipientFilter::RemoveRecipientsByPVS( const Vector& origin )
 
 void CRecipientFilter::AddRecipientsByPAS( const Vector& origin )
 {
-	if ( gpGlobals->maxClients == 1 )
+	if ( true /*gpGlobals->maxClients == 1*/ )
 	{
 		AddAllPlayers();
 	}

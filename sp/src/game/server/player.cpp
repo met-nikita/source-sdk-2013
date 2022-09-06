@@ -6064,6 +6064,7 @@ CBaseEntity	*CBasePlayer::GiveNamedItem( const char *pszName, int iSubType )
 
 	pent->SetLocalOrigin(GetLocalOrigin());
 	pent->AddSpawnFlags( SF_NORESPAWN );
+	pent->AddSpawnFlags(SF_WEAPON_ALWAYS_TOUCHABLE);
 
 	CBaseCombatWeapon *pWeapon = dynamic_cast<CBaseCombatWeapon*>( (CBaseEntity*)pent );
 	if ( pWeapon )
