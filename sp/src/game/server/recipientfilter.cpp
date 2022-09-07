@@ -367,7 +367,7 @@ CTeamRecipientFilter::CTeamRecipientFilter( int team, bool isReliable )
 void CPASAttenuationFilter::Filter( const Vector& origin, float attenuation /*= ATTN_NORM*/ )
 {
 	// Don't crop for attenuation in single player
-	if ( gpGlobals->maxClients == 1 )
+	if ( true /*gpGlobals->maxClients == 1*/ )
 		return;
 
 	// CPASFilter adds them by pure PVS in constructor
