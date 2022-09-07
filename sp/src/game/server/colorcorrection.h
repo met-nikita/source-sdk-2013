@@ -65,6 +65,8 @@ public:
 #ifdef MAPBASE
 	void	InputSetMinFalloff( inputdata_t &inputdata );
 	void	InputSetMaxFalloff( inputdata_t &inputdata );
+
+	void SetTargetHandle(EHANDLE handle) { m_hTargetHandle = handle; };
 #endif
 
 private:
@@ -101,6 +103,7 @@ private:
 	CNetworkVar( bool, m_bClientSide );
 	CNetworkVar( bool, m_bExclusive );
 #endif
+	CNetworkVar(EHANDLE, m_hTargetHandle);
 
 	CNetworkVar( float, m_MinFalloff );
 	CNetworkVar( float, m_MaxFalloff );

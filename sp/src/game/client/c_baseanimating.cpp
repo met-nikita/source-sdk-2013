@@ -5190,7 +5190,7 @@ void C_BaseAnimating::OnDataChanged( DataUpdateType_t updateType )
 			 AddEffects( EF_NODRAW );
 	}
 
-	if ( m_pRagdoll && m_nRenderFX != kRenderFxRagdoll )
+	if (m_pRagdoll && m_nRenderFX != kRenderFxRagdoll)
 	{
 		ClearRagdoll();
 	}

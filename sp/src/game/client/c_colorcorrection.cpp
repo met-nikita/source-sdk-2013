@@ -37,9 +37,9 @@ IMPLEMENT_CLIENTCLASS_DT(C_ColorCorrection, DT_ColorCorrection, CColorCorrection
 #ifdef MAPBASE // From Alien Swarm SDK
 	RecvPropBool(   RECVINFO(m_bMaster) ),
 	RecvPropBool(   RECVINFO(m_bClientSide) ),
-	RecvPropBool(	RECVINFO(m_bExclusive) )
+	RecvPropBool(	RECVINFO(m_bExclusive) ),
 #endif
-
+	RecvPropEHandle(RECVINFO(m_hTargetHandle))
 END_RECV_TABLE()
 
 
@@ -95,6 +95,9 @@ void C_ColorCorrection::OnDataChanged(DataUpdateType_t updateType)
 {
 	BaseClass::OnDataChanged( updateType );
 
+	if (m_hTargetHandle.IsValid() && m_hTargetHandle != C_BasePlayer::GetLocalPlayer())
+		return;
+
 	if ( updateType == DATA_UPDATE_CREATED )
 	{
 		if ( m_CCHandle == INVALID_CLIENT_CCHANDLE )
@@ -130,7 +133,6 @@ bool C_ColorCorrection::ShouldDraw()
 void C_ColorCorrection::Update( C_BasePlayer *pPlayer, float ccScale )
 {
 	Assert( m_CCHandle != INVALID_CLIENT_CCHANDLE );
-
 	if ( mat_colcorrection_disableentities.GetInt() )
 	{
 		// Allow the colorcorrectionui panel (or user) to turn off color-correction entities

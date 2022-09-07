@@ -76,6 +76,8 @@ private:
 	bool	m_bClientSide;
 	bool	m_bExclusive;
 
+	EHANDLE m_hTargetHandle;
+
 	bool	m_bFadingIn;
 	float	m_flFadeStartWeight;
 	float	m_flFadeStartTime;

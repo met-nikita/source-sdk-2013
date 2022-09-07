@@ -29,6 +29,8 @@ BEGIN_DATADESC( CColorCorrection )
 	DEFINE_FIELD( m_flStartFadeInWeight,  FIELD_FLOAT ),
 	DEFINE_FIELD( m_flStartFadeOutWeight, FIELD_FLOAT ),
 
+	DEFINE_FIELD(m_hTargetHandle, FIELD_EHANDLE),
+
 	DEFINE_KEYFIELD( m_MinFalloff,		  FIELD_FLOAT,   "minfalloff" ),
 	DEFINE_KEYFIELD( m_MaxFalloff,		  FIELD_FLOAT,   "maxfalloff" ),
 	DEFINE_KEYFIELD( m_flMaxWeight,		  FIELD_FLOAT,	 "maxweight" ),
@@ -72,6 +74,7 @@ IMPLEMENT_SERVERCLASS_ST_NOBASE(CColorCorrection, DT_ColorCorrection)
 	SendPropBool( SENDINFO(m_bClientSide) ),
 	SendPropBool( SENDINFO(m_bExclusive) ),
 #endif
+	SendPropEHandle(SENDINFO(m_hTargetHandle)),
 END_SEND_TABLE()
 
 

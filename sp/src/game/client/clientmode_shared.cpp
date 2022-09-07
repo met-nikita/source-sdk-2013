@@ -647,6 +647,8 @@ void ClientModeShared::OnColorCorrectionWeightsReset( void )
 	C_ColorCorrection *pNewColorCorrection = NULL;
 	C_ColorCorrection *pOldColorCorrection = m_pCurrentColorCorrection;
 	C_BasePlayer* pPlayer = C_BasePlayer::GetLocalPlayer();
+	if (pPlayer && pNewColorCorrection && pNewColorCorrection->GetOwnerEntity() && pNewColorCorrection->GetOwnerEntity() != pPlayer)
+		return;
 	if ( pPlayer )
 	{
 		pNewColorCorrection = pPlayer->GetActiveColorCorrection();

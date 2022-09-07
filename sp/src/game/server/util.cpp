@@ -694,7 +694,7 @@ CBasePlayer *UTIL_GetLocalPlayer( void )
 //
 CBasePlayer *UTIL_GetNearestPlayer(CBaseEntity *pLooker, bool bNeedsLOS)
 {
-	float flFinalDistance = 999999.0f;
+	float flFinalDistance = 3.40282e+038;
 	CBasePlayer *pFinalPlayer = NULL;
 
 	for (int i = 1; i < gpGlobals->maxClients; i++)

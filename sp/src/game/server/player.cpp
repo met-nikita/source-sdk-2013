@@ -5235,7 +5235,6 @@ void CBasePlayer::Spawn( void )
 
 	//Tony; make sure tonemap params is cleared.
 	ClearTonemapParams();
-
 	SetClassname( "player" );
 
 	// Shared spawning code..

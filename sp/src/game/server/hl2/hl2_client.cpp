@@ -141,14 +141,14 @@ void respawn( CBaseEntity *pEdict, bool fCopyCorpse )
 {
 	if (gpGlobals->coop || gpGlobals->deathmatch)
 	{
+		CBasePlayer *pPlayer = (CBasePlayer*)pEdict;
 		if ( fCopyCorpse )
 		{
 			// make a copy of the dead body for appearances sake
-			((CHL2_Player *)pEdict)->CreateCorpse();
+			pPlayer->CreateCorpse();
 		}
-
 		// respawn player
-		pEdict->Spawn();
+		pPlayer->Spawn();
 	}
 #ifdef MAPBASE
 	else if (g_pGameRules->AllowSPRespawn())
