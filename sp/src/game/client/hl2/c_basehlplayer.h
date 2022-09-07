@@ -34,11 +34,16 @@ public:
 	virtual void		Precache(void);
 
 	void				Weapon_DropPrimary( void );
+
+	virtual C_BaseAnimating *BecomeRagdollOnClient();
+	IRagdoll* GetRepresentativeRagdoll() const;
 		
 	float				GetFOV();
 	void				Zoom( float FOVOffset, float time );
 	float				GetZoom( void );
 	bool				IsZoomed( void )	{ return m_HL2Local.m_bZooming; }
+	virtual bool ShouldDraw(void);
+	virtual void CalcView(Vector &eyeOrigin, QAngle &eyeAngles, float &zNear, float &zFar, float &fov);
 
 	//Tony; minor cosmetic really, fix confusion by simply renaming this one; everything calls IsSprinting(), and this isn't really even used.
 	bool				IsSprintActive( void ) { return m_HL2Local.m_bitsActiveDevices & bits_SUIT_DEVICE_SPRINT; }
@@ -91,6 +96,8 @@ private:
 	bool				m_bPlayUseDenySound;		// Signaled by PlayerUse, but can be unset by HL2 ladder code...
 	float				m_flSpeedMod;
 	float				m_flExitSpeedMod;
+
+	EHANDLE	m_hRagdoll;
 	
 #ifdef SP_ANIM_STATE
 	// At the moment, we network the render angles since almost none of the player anim stuff is done on the client in SP.
@@ -115,6 +122,38 @@ protected:
 	void  StartKickAnimation(void);
 
 	virtual void HandleAnimEvent(animevent_t *pEvent);
+};
+
+class C_EZ2MPRagdoll : public C_BaseAnimatingOverlay
+{
+public:
+	DECLARE_CLASS(C_EZ2MPRagdoll, C_BaseAnimatingOverlay);
+	DECLARE_CLIENTCLASS();
+
+	C_EZ2MPRagdoll();
+	~C_EZ2MPRagdoll();
+
+	virtual void OnDataChanged(DataUpdateType_t type);
+
+	int GetPlayerEntIndex() const;
+	IRagdoll* GetIRagdoll() const;
+
+	void ImpactTrace(trace_t *pTrace, int iDamageType, const char *pCustomImpactName);
+	void UpdateOnRemove(void);
+	virtual void SetupWeights(const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights, float *pFlexDelayedWeights);
+
+private:
+
+	C_EZ2MPRagdoll(const C_EZ2MPRagdoll &) {}
+
+	void Interp_Copy(C_BaseAnimatingOverlay *pDestinationEntity);
+	void CreateEZ2MPRagdoll(void);
+
+private:
+
+	EHANDLE	m_hPlayer;
+	CNetworkVector(m_vecRagdollVelocity);
+	CNetworkVector(m_vecRagdollOrigin);
 };
 
 

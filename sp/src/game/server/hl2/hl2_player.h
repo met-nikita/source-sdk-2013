@@ -133,6 +133,14 @@ public:
 	virtual void		StopLoopingSounds( void );
 	virtual void		Splash( void );
 	virtual void 		ModifyOrAppendPlayerCriteria( AI_CriteriaSet& set );
+	virtual void UpdateOnRemove(void);
+
+	void CreateRagdollEntity(void);
+
+	Vector m_vecTotalBulletForce;
+
+	// Tracks our ragdoll entity.
+	CNetworkHandle(CBaseEntity, m_hRagdoll);	// networked entity handle
 
 #ifdef MAPBASE
 	// For the logic_playerproxy output
@@ -315,6 +323,8 @@ public:
 	virtual bool		Weapon_Ready( void );
 	virtual bool		Weapon_Switch( CBaseCombatWeapon *pWeapon, int viewmodelindex = 0 );
 	virtual bool		Weapon_CanSwitchTo( CBaseCombatWeapon *pWeapon );
+
+	virtual bool BecomeRagdollOnClient(const Vector &force) { return true; };
 
 	void FirePlayerProxyOutput( const char *pszOutputName, variant_t variant, CBaseEntity *pActivator, CBaseEntity *pCaller );
 

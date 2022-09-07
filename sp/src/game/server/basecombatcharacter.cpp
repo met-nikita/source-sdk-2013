@@ -1899,8 +1899,8 @@ void CBaseCombatCharacter::Event_Killed( const CTakeDamageInfo &info )
 	}
 	SendOnKilledGameEvent( info );
 
-	// Ragdoll unless we've gibbed
-	if ( ShouldGib( info ) == false )
+	// Ragdoll unless we've gibbed or player
+	if ( ShouldGib( info ) == false && !IsPlayer())
 	{
 		bool bRagdollCreated = false;
 		if ( (info.GetDamageType() & DMG_DISSOLVE) && CanBecomeRagdoll() )

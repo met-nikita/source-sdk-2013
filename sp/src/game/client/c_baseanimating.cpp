@@ -5043,10 +5043,10 @@ C_BaseAnimating *C_BaseAnimating::BecomeRagdollOnClient()
 	return m_pClientsideRagdoll;
 }
 
-bool C_BaseAnimating::InitAsClientRagdoll( const matrix3x4_t *pDeltaBones0, const matrix3x4_t *pDeltaBones1, const matrix3x4_t *pCurrentBonePosition, float boneDt, bool bFixedConstraints )
+bool C_BaseAnimating::InitAsClientRagdoll(const matrix3x4_t *pDeltaBones0, const matrix3x4_t *pDeltaBones1, const matrix3x4_t *pCurrentBonePosition, float boneDt, bool bFixedConstraints)
 {
 	CStudioHdr *hdr = GetModelPtr();
-	if ( !hdr || m_pRagdoll || m_builtRagdoll )
+	if (!hdr || m_pRagdoll || m_builtRagdoll)
 		return false;
 
 	m_builtRagdoll = true;
@@ -5058,12 +5058,12 @@ bool C_BaseAnimating::InitAsClientRagdoll( const matrix3x4_t *pDeltaBones0, cons
 
 	// Force MOVETYPE_STEP interpolation
 	MoveType_t savedMovetype = GetMoveType();
-	SetMoveType( MOVETYPE_STEP );
+	SetMoveType(MOVETYPE_STEP);
 
 	// HACKHACK: force time to last interpolation position
 	m_flPlaybackRate = 1;
-	
-	m_pRagdoll = CreateRagdoll( this, hdr, m_vecForce, m_nForceBone, pDeltaBones0, pDeltaBones1, pCurrentBonePosition, boneDt, bFixedConstraints );
+
+	m_pRagdoll = CreateRagdoll(this, hdr, m_vecForce, m_nForceBone, pDeltaBones0, pDeltaBones1, pCurrentBonePosition, boneDt, bFixedConstraints);
 
 	// Cause the entity to recompute its shadow	type and make a
 	// version which only updates when physics state changes
@@ -5073,25 +5073,25 @@ bool C_BaseAnimating::InitAsClientRagdoll( const matrix3x4_t *pDeltaBones0, cons
 	CreateShadow();
 
 	// Cache off ragdoll bone positions/quaternions
-	if ( m_bStoreRagdollInfo && m_pRagdoll )
+	if (m_bStoreRagdollInfo && m_pRagdoll)
 	{
 		matrix3x4_t parentTransform;
-		AngleMatrix( GetAbsAngles(), GetAbsOrigin(), parentTransform );
+		AngleMatrix(GetAbsAngles(), GetAbsOrigin(), parentTransform);
 		// FIXME/CHECK:  This might be too expensive to do every frame???
-		SaveRagdollInfo( hdr->numbones(), parentTransform, m_BoneAccessor );
+		SaveRagdollInfo(hdr->numbones(), parentTransform, m_BoneAccessor);
 	}
-	
-	SetMoveType( savedMovetype );
+
+	SetMoveType(savedMovetype);
 
 	// Now set the dieragdoll sequence to get transforms for all
 	// non-simulated bones
 	m_nRestoreSequence = GetSequence();
-    SetSequence( SelectWeightedSequence( ACT_DIERAGDOLL ) );
+	SetSequence(SelectWeightedSequence(ACT_DIERAGDOLL));
 	m_nPrevSequence = GetSequence();
 	m_flPlaybackRate = 0;
 	UpdatePartitionListEntry();
 
-	NoteRagdollCreationTick( this );
+	NoteRagdollCreationTick(this);
 
 	UpdateVisibility();
 

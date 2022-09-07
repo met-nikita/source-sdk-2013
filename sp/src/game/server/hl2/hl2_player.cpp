@@ -745,6 +745,7 @@ CSuitPowerDevice SuitDeviceCustom[] =
 IMPLEMENT_SERVERCLASS_ST(CHL2_Player, DT_HL2_Player)
 	SendPropDataTable(SENDINFO_DT(m_HL2Local), &REFERENCE_SEND_TABLE(DT_HL2Local), SendProxy_SendLocalDataTable),
 	SendPropBool( SENDINFO(m_fIsSprinting) ),
+	SendPropEHandle(SENDINFO(m_hRagdoll)),
 #ifdef SP_ANIM_STATE
 	SendPropFloat( SENDINFO(m_flAnimRenderYaw), 0, SPROP_NOSCALE ),
 #endif
@@ -794,6 +795,17 @@ void CHL2_Player::Precache( void )
 	}
 
 #endif
+}
+
+void CHL2_Player::UpdateOnRemove(void)
+{
+	if (m_hRagdoll)
+	{
+		UTIL_RemoveImmediate(m_hRagdoll);
+		m_hRagdoll = NULL;
+	}
+
+	BaseClass::UpdateOnRemove();
 }
 
 //-----------------------------------------------------------------------------
@@ -1261,6 +1273,8 @@ void CHL2_Player::PreThink(void)
 			}
 		}
 	}
+	//Reset bullet force accumulator, only lasts one frame
+	m_vecTotalBulletForce = vec3_origin;
 }
 
 void CHL2_Player::PostThink( void )
@@ -3164,6 +3178,8 @@ int	CHL2_Player::OnTakeDamage( const CTakeDamageInfo &info )
 	if ( GlobalEntity_GetState( "gordon_invulnerable" ) == GLOBAL_ON )
 		return 0;
 
+	m_vecTotalBulletForce += info.GetDamageForce();
+
 	// ignore fall damage if instructed to do so by input
 	if ( ( info.GetDamageType() & DMG_FALL ) && m_flTimeIgnoreFallDamage > gpGlobals->curtime )
 	{
@@ -3339,8 +3355,11 @@ void CHL2_Player::Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo
 //-----------------------------------------------------------------------------
 void CHL2_Player::Event_Killed( const CTakeDamageInfo &info )
 {
+	CTakeDamageInfo subinfo = info;
+	subinfo.SetDamageForce(m_vecTotalBulletForce);
+	CreateRagdollEntity();
 	BaseClass::Event_Killed( info );
-
+	AddEffects(EF_NODRAW);
 #ifdef EZ
 	// The player smells like food to nearby predators
 	if ( sv_player_death_smell.GetBool() )
@@ -3353,6 +3372,15 @@ void CHL2_Player::Event_Killed( const CTakeDamageInfo &info )
 #ifdef MAPBASE
 	FirePlayerProxyOutput( "PlayerDied", variant_t(), info.GetAttacker(), this );
 
+
+	if (info.GetDamageType() & DMG_DISSOLVE)
+	{
+		if (m_hRagdoll)
+		{
+			m_hRagdoll->GetBaseAnimating()->Dissolve(NULL, gpGlobals->curtime, false, ENTITY_DISSOLVE_NORMAL);
+		}
+	}
+
 	if (IsSuitEquipped())
 	{
 		// Make sure all devices are deactivated (for respawn)
@@ -3364,6 +3392,11 @@ void CHL2_Player::Event_Killed( const CTakeDamageInfo &info )
 	FirePlayerProxyOutput( "PlayerDied", variant_t(), this, this );
 #endif
 	NotifyScriptsOfDeath();
+
+	m_lifeState = LIFE_DEAD;
+
+	//RemoveEffects(EF_NODRAW);	// still draw player body
+	StopZooming();
 }
 
 //-----------------------------------------------------------------------------
@@ -5107,6 +5140,74 @@ void CHL2_Player::Splash( void )
 		data.m_flScale = random->RandomFloat( 6, 8 );
 		DispatchEffect( "watersplash", data );
 	}
+}
+
+// -------------------------------------------------------------------------------- //
+// Ragdoll entities.
+// -------------------------------------------------------------------------------- //
+
+class CEZ2MPRagdoll : public CBaseAnimatingOverlay
+{
+public:
+	DECLARE_CLASS(CEZ2MPRagdoll, CBaseAnimatingOverlay);
+	DECLARE_SERVERCLASS();
+
+	// Transmit ragdolls to everyone.
+	virtual int UpdateTransmitState()
+	{
+		return SetTransmitState(FL_EDICT_ALWAYS);
+	}
+
+public:
+	// In case the client has the player entity, we transmit the player index.
+	// In case the client doesn't have it, we transmit the player's model index, origin, and angles
+	// so they can create a ragdoll in the right place.
+	CNetworkHandle(CBaseEntity, m_hPlayer);	// networked entity handle 
+	CNetworkVector(m_vecRagdollVelocity);
+	CNetworkVector(m_vecRagdollOrigin);
+};
+
+LINK_ENTITY_TO_CLASS(ez2mp_ragdoll, CEZ2MPRagdoll);
+
+IMPLEMENT_SERVERCLASS_ST_NOBASE(CEZ2MPRagdoll, DT_EZ2MPRagdoll)
+SendPropVector(SENDINFO(m_vecRagdollOrigin), -1, SPROP_COORD),
+SendPropEHandle(SENDINFO(m_hPlayer)),
+SendPropModelIndex(SENDINFO(m_nModelIndex)),
+SendPropInt(SENDINFO(m_nForceBone), 8, 0),
+SendPropVector(SENDINFO(m_vecForce), -1, SPROP_NOSCALE),
+SendPropVector(SENDINFO(m_vecRagdollVelocity))
+END_SEND_TABLE()
+
+void CHL2_Player::CreateRagdollEntity(void)
+{
+	if (m_hRagdoll)
+	{
+		UTIL_RemoveImmediate(m_hRagdoll);
+		m_hRagdoll = NULL;
+	}
+
+	// If we already have a ragdoll, don't make another one.
+	CEZ2MPRagdoll *pRagdoll = dynamic_cast< CEZ2MPRagdoll* >(m_hRagdoll.Get());
+
+	if (!pRagdoll)
+	{
+		// create a new one
+		pRagdoll = dynamic_cast< CEZ2MPRagdoll* >(CreateEntityByName("EZ2mp_ragdoll"));
+	}
+
+	if (pRagdoll)
+	{
+		pRagdoll->m_hPlayer = this;
+		pRagdoll->m_vecRagdollOrigin = GetAbsOrigin();
+		pRagdoll->m_vecRagdollVelocity = GetAbsVelocity();
+		pRagdoll->m_nModelIndex = m_nModelIndex;
+		pRagdoll->m_nForceBone = m_nForceBone;
+		pRagdoll->m_vecForce = m_vecTotalBulletForce;
+		pRagdoll->SetAbsOrigin(GetAbsOrigin());
+	}
+
+	// ragdolls will be removed on round restart automatically
+	m_hRagdoll = pRagdoll;
 }
 
 CLogicPlayerProxy *CHL2_Player::GetPlayerProxy( void )

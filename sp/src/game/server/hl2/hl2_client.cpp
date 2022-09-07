@@ -139,6 +139,14 @@ void ClientGamePrecache( void )
 // called by ClientKill and DeadThink
 void respawn( CBaseEntity *pEdict, bool fCopyCorpse )
 {
+	CHL2_Player *pPlayer = (CHL2_Player*)(pEdict);
+
+	if (pPlayer)
+	{
+		// respawn player
+		pPlayer->Spawn();
+	}
+	/*
 	if (gpGlobals->coop || gpGlobals->deathmatch)
 	{
 		CBasePlayer *pPlayer = (CBasePlayer*)pEdict;
@@ -169,6 +177,7 @@ void respawn( CBaseEntity *pEdict, bool fCopyCorpse )
 	{       // restart the entire server
 		engine->ServerCommand("reload\n");
 	}
+	*/
 }
 
 void GameStartFrame( void )
