@@ -31,6 +31,7 @@ void Pickup_ForcePlayerToDropThisObject( CBaseEntity *pTarget )
 			if (!pPlayer || GetPlayerHeldEntity(pPlayer) != pTarget)
 				continue;
 			pPlayer->ForceDropOfCarriedPhysObjects(pTarget);
+			break;
 		}
 	}
 }
