@@ -1078,7 +1078,7 @@ int CNPC_Combine::SelectScheduleRetrieveItem()
 //-----------------------------------------------------------------------------
 bool CNPC_Combine::IgnorePlayerPushing( void )
 {
-	CBasePlayer *pPlayer = AI_GetSinglePlayer();
+	CBasePlayer *pPlayer = UTIL_GetNearestPlayer(this);
 	if ( pPlayer )
 	{
 		if ( IsCommandable() && !IsInAScript() && npc_combine_give_enabled.GetBool() )

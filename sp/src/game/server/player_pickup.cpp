@@ -7,6 +7,7 @@
 //=============================================================================//
 #include "cbase.h"
 #include "player_pickup.h"
+#include "weapon_physcannon.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -24,8 +25,13 @@ void Pickup_ForcePlayerToDropThisObject( CBaseEntity *pTarget )
 
 	if ( pPhysics->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
 	{
-		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
-		pPlayer->ForceDropOfCarriedPhysObjects( pTarget );
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBasePlayer *pPlayer = UTIL_PlayerByIndex(i);
+			if (!pPlayer || GetPlayerHeldEntity(pPlayer) != pTarget)
+				continue;
+			pPlayer->ForceDropOfCarriedPhysObjects(pTarget);
+		}
 	}
 }
 
