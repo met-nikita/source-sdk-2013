@@ -2489,6 +2489,36 @@ bool CHalfLife2::ShouldCollide( int collisionGroup0, int collisionGroup1 )
 	return BaseClass::ShouldCollide( collisionGroup0, collisionGroup1 ); 
 }
 
+void CHalfLife2::ClientSettingsChanged(CBasePlayer *pPlayer)
+{
+#ifndef CLIENT_DLL
+
+	CHL2_Player *pHL2Player = (CHL2_Player*)(pPlayer);
+
+	if (pHL2Player == NULL)
+		return;
+
+	const char *pCurrentModel = modelinfo->GetModelName(pPlayer->GetModel());
+	const char *szModelName = engine->GetClientConVarValue(engine->IndexOfEdict(pPlayer->edict()), "cl_playermodel");
+
+	//If we're different.
+	if (stricmp(szModelName, pCurrentModel))
+	{
+		pHL2Player->SetPlayerModel();
+
+		const char *pszCurrentModelName = modelinfo->GetModelName(pHL2Player->GetModel());
+
+		char szReturnString[128];
+		Q_snprintf(szReturnString, sizeof(szReturnString), "Your player model is: %s\n", pszCurrentModelName);
+
+		ClientPrint(pHL2Player, HUD_PRINTTALK, szReturnString);
+	}
+
+	BaseClass::ClientSettingsChanged(pPlayer);
+#endif
+
+}
+
 #ifndef CLIENT_DLL
 //---------------------------------------------------------
 //---------------------------------------------------------

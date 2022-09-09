@@ -1866,6 +1866,20 @@ void CHL2_Player::StartZooming( void )
 	}
 }
 
+void CHL2_Player::SetPlayerModel(void)
+{
+	const char *szModelName = NULL;
+
+	szModelName = engine->GetClientConVarValue(engine->IndexOfEdict(edict()), "cl_playermodel");
+
+	char szReturnString[512];
+
+	Q_snprintf(szReturnString, sizeof(szReturnString), "cl_playermodel %s\n", szModelName);
+	engine->ClientCommand(edict(), szReturnString);
+
+	SetModel(szModelName);
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------

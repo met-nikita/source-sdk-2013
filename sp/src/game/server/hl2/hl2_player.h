@@ -136,6 +136,7 @@ public:
 	virtual void UpdateOnRemove(void);
 
 	void CreateRagdollEntity(void);
+	void SetPlayerModel(void);
 
 	Vector m_vecTotalBulletForce;
 

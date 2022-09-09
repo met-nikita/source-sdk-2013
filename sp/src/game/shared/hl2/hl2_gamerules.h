@@ -81,6 +81,8 @@ public:
 	virtual void			LevelInitPreEntity();
 #endif
 
+	virtual void ClientSettingsChanged(CBasePlayer *pPlayer);
+
 #ifdef MAPBASE_VSCRIPT
 	virtual void			RegisterScriptFunctions( void );
 #endif
