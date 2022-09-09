@@ -503,7 +503,11 @@ void CEZ2_Player::Spawn( void )
 
 	BaseClass::Spawn();
 
-	SetModel( "models/bad_cop.mdl" );
+	const char *szModelName = NULL;
+
+	szModelName = engine->GetClientConVarValue(engine->IndexOfEdict(edict()), "cl_playermodel");
+
+	SetModel(szModelName);
 
 	Activate();
 
