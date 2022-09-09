@@ -45,11 +45,6 @@
 #include "npc_turret_floor.h"
 #endif
 
-#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
-#define WIN_32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
-
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -1865,15 +1860,8 @@ void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 	if ( g_debug_transitions.GetInt() == 0 )
 	{
 #if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
-		//going to hell for this
-		//trick engine into thinking it's singleplayer so it can execute changelevel2
-		//override maxclients variable
 		if (sv_coop_smooth_transitions.GetInt() == 1)
 		{
-			DWORD BaseAddress = (DWORD)GetModuleHandle("engine.dll");
-			DWORD FinalPointer = BaseAddress + 0x5C798C;
-			int one = 1;
-			memcpy((void*)FinalPointer, &one, sizeof(int));
 			//delete all player entities except listen server player to avoid issues
 			for (int i = 2; i <= gpGlobals->maxClients; i++)
 			{
@@ -1909,12 +1897,6 @@ void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 
 CChangeLevel::~CChangeLevel()
 {
-#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
-	DWORD BaseAddress = (DWORD)GetModuleHandle("engine.dll");
-	DWORD FinalPointer = BaseAddress + 0x5C798C;
-	int maxorig = gpGlobals->maxClients;
-	memcpy((void*)FinalPointer, &maxorig, sizeof(int));
-#endif
 }
 
 ConVar sv_wait_at_changelevel("sv_wait_at_changelevel", "0", FCVAR_REPLICATED, "Set to 1 to make changelevel trigger wait for all players to be in it before actually changing the level");

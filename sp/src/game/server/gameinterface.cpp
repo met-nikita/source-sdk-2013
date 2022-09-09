@@ -154,6 +154,13 @@ CSteamGameServerAPIContext *steamgameserverapicontext = &s_SteamGameServerAPICon
 
 IUploadGameStats *gamestatsuploader = NULL;
 
+#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
+#define WIN_32_LEAN_AND_MEAN
+#undef INVALID_HANDLE_VALUE
+#include <windows.h>
+#undef CreateEvent
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -773,6 +780,17 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 
 	// init the gamestatsupload connection
 	gamestatsuploader->InitConnection();
+#endif
+
+#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
+	//0x1A2FFA - 0x1A3006 - assembly code block that doesn't allow changelevel2 in MP //0x5C798C - maxClient variable
+	DWORD BaseAddress = (DWORD)GetModuleHandle("engine.dll");
+	DWORD StartPointer = BaseAddress + 0x1A2FFA;
+	DWORD oldprotect;
+	VirtualProtect((void*)StartPointer, 13, PAGE_EXECUTE_READWRITE, &oldprotect);
+	byte nop[13] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+	memcpy((void*)StartPointer, nop, 13);
+	VirtualProtect((void*)StartPointer, 13, oldprotect, &oldprotect);
 #endif
 
 	return true;
