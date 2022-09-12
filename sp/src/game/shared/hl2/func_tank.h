@@ -212,6 +212,7 @@ public:
 	CNetworkVar(float,					m_flYawPoseCenter);
 	CNetworkVar(float,					m_flPitchPoseCenter);
 	CNetworkVar(bool,					m_bUsePoseParameters);
+	CNetworkVar(int,						m_spread);		// firing spread
 #ifndef CLIENT_DLL
 	CNetworkVar(string_t,				m_iszYawPoseParam);
 	CNetworkVar(string_t,				m_iszPitchPoseParam);
@@ -359,7 +360,6 @@ protected:
 #endif // !AMMOTYPE_MOVED
 
 
-	int						m_spread;		// firing spread
 
 	EntityMatrix			m_parentMatrix;
 

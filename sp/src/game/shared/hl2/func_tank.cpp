@@ -132,6 +132,7 @@ SendPropBool(SENDINFO(m_bUsePoseParameters)),
 SendPropStringT(SENDINFO(m_iszYawPoseParam)),
 SendPropStringT(SENDINFO(m_iszPitchPoseParam)),
 SendPropInt(SENDINFO(m_iEffectHandling)),
+SendPropInt(SENDINFO(m_spread)),
 #else
 RecvPropEHandle(RECVINFO(m_hController)),
 RecvPropInt(RECVINFO(m_iAmmoCount)),
@@ -146,6 +147,7 @@ RecvPropBool(RECVINFO(m_bUsePoseParameters)),
 RecvPropString(RECVINFO(m_iszYawPoseParam)),
 RecvPropString(RECVINFO(m_iszPitchPoseParam)),
 RecvPropInt(RECVINFO(m_iEffectHandling)),
+RecvPropInt(RECVINFO(m_spread)),
 #endif
 END_NETWORK_TABLE()
 
