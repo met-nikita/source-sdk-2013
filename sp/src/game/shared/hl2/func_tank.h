@@ -138,7 +138,7 @@ public:
 #else
 	int UpdateTransmitState()	// always send to all clients
 	{
-		return SetTransmitState(FL_EDICT_ALWAYS);
+		return SetTransmitState(FL_EDICT_PVSCHECK);
 	}
 #endif
 	bool	KeyValue( const char *szKeyName, const char *szValue );
