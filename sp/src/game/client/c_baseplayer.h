@@ -312,6 +312,7 @@ public:
 
 	// Vehicles...
 	IClientVehicle			*GetVehicle();
+	CBaseEntity			*GetVehicleEntity() { return m_hVehicle.Get(); };
 
 	bool			IsInAVehicle() const	{ return ( NULL != m_hVehicle.Get() ) ? true : false; }
 	virtual void	SetVehicleRole( int nRole );

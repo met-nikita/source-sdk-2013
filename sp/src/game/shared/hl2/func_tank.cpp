@@ -7,41 +7,53 @@
 #include "cbase.h"
 #include "func_tank.h"
 #include "Sprite.h"
+#include "gamerules.h"
+#include "ammodef.h"
+#include "in_buttons.h"
+#include "vstdlib/random.h"
+#include "engine/IEngineSound.h"
+#include "decals.h"
+#include "shake.h"
+#include "IEffects.h"
+#include "soundenvelope.h"
+#include "effect_dispatch_data.h"
+#include "rumble_shared.h"
+#include "particle_parse.h"
+#ifndef CLIENT_DLL
+#include "effects.h"
 #include "EnvLaser.h"
 #include "basecombatweapon.h"
 #include "explode.h"
 #include "eventqueue.h"
-#include "gamerules.h"
-#include "ammodef.h"
-#include "in_buttons.h"
 #include "soundent.h"
 #include "ndebugoverlay.h"
 #include "grenade_beam.h"
-#include "vstdlib/random.h"
-#include "engine/IEngineSound.h"
 #include "physics_cannister.h"
-#include "decals.h"
-#include "shake.h"
 #include "particle_smokegrenade.h"
 #include "player.h"
 #include "entitylist.h"
-#include "IEffects.h"
 #include "ai_basenpc.h"
 #include "ai_behavior_functank.h"
 #include "weapon_rpg.h"
-#include "effects.h"
 #include "iservervehicle.h"
-#include "soundenvelope.h"
-#include "effect_dispatch_data.h"
 #include "te_effect_dispatch.h"
 #include "props.h"
-#include "rumble_shared.h"
-#include "particle_parse.h"
-// NVNT turret recoil
+#ifdef MAPBASE
+#include "filters.h"
+#endif
 #include "haptics/haptic_utils.h"
+#else
+#include "c_te_effect_dispatch.h"
+#include "c_props.h"
+#include "gamestringpool.h"
+#include "util_shared.h"
+#define GetParent GetMoveParent
+#define UTIL_AngleDistance AngleDistance
+#endif
+// NVNT turret recoil
+
 #ifdef MAPBASE
 #include "shot_manipulator.h"
-#include "filters.h"
 #endif
 
 #ifdef HL2_DLL
@@ -55,6 +67,46 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+#ifdef CLIENT_DLL
+void EntityMatrix::InitFromEntity(CBaseEntity *pEntity, int iAttachment)
+{
+	if (!pEntity)
+	{
+		Identity();
+		return;
+	}
+
+	// Get an attachment's matrix?
+	if (iAttachment != 0)
+	{
+		CBaseAnimating *pAnimating = pEntity->GetBaseAnimating();
+		if (pAnimating && pAnimating->GetModelPtr())
+		{
+			Vector vOrigin;
+			QAngle vAngles;
+			if (pAnimating->GetAttachment(iAttachment, vOrigin, vAngles))
+			{
+				((VMatrix *)this)->SetupMatrixOrgAngles(vOrigin, vAngles);
+				return;
+			}
+		}
+	}
+
+	((VMatrix *)this)->SetupMatrixOrgAngles(pEntity->GetAbsOrigin(), pEntity->GetAbsAngles());
+}
+
+
+void EntityMatrix::InitFromEntityLocal(CBaseEntity *entity)
+{
+	if (!entity || !entity->entindex())
+	{
+		Identity();
+		return;
+	}
+	((VMatrix *)this)->SetupMatrixOrgAngles(entity->GetLocalOrigin(), entity->GetLocalAngles());
+}
+#endif
+
 extern Vector PointOnLineNearestPoint(const Vector& vStartPos, const Vector& vEndPos, const Vector& vPoint);
 
 #ifdef MAPBASE
@@ -62,6 +114,37 @@ extern ConVar ai_debug_shoot_positions;
 #endif
 
 ConVar mortar_visualize("mortar_visualize", "0" );
+
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTank, DT_FuncTank)
+
+BEGIN_NETWORK_TABLE(CFuncTank, DT_FuncTank)
+#ifndef CLIENT_DLL
+SendPropEHandle( SENDINFO(m_hController) ),
+SendPropInt(SENDINFO(m_iAmmoCount)),
+SendPropInt(SENDINFO(m_spawnflags), 8, SPROP_UNSIGNED),
+SendPropFloat(SENDINFO(m_flNextAttack)),
+SendPropInt(SENDINFO(m_nBarrelAttachment)),
+SendPropFloat(SENDINFO(m_fireRate)),
+SendPropFloat(SENDINFO(m_fireLast)),
+#else
+RecvPropEHandle(RECVINFO(m_hController)),
+RecvPropInt(RECVINFO(m_iAmmoCount)),
+RecvPropInt(RECVINFO(m_spawnflags)),
+RecvPropFloat(RECVINFO(m_flNextAttack)),
+RecvPropInt(RECVINFO(m_nBarrelAttachment)),
+RecvPropFloat(RECVINFO(m_fireRate)),
+RecvPropFloat(RECVINFO(m_fireLast)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTank)
+#ifdef CLIENT_DLL
+DEFINE_PRED_FIELD(m_hController, FIELD_EHANDLE, FTYPEDESC_INSENDTABLE),
+DEFINE_PRED_FIELD(m_iAmmoCount, FIELD_INTEGER, FTYPEDESC_INSENDTABLE),
+DEFINE_PRED_FIELD_TOL(m_flNextAttack, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
+DEFINE_PRED_FIELD_TOL(m_fireLast, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
+#endif
+END_PREDICTION_DATA()
 
 BEGIN_DATADESC( CFuncTank )
 	DEFINE_KEYFIELD( m_yawRate, FIELD_FLOAT, "yawrate" ),
@@ -172,7 +255,7 @@ BEGIN_DATADESC( CFuncTank )
 
 	DEFINE_KEYFIELD( m_flPlayerBBoxDist, FIELD_FLOAT, "PlayerBBoxDist" ),
 #endif
-
+#ifndef CLIENT_DLL
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Activate", InputActivate ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Deactivate", InputDeactivate ),
@@ -203,6 +286,7 @@ BEGIN_DATADESC( CFuncTank )
 	DEFINE_OUTPUT(m_OnGotPlayerController,	"OnGotPlayerController"),
 	DEFINE_OUTPUT(m_OnLostPlayerController,	"OnLostPlayerController"),
 	DEFINE_OUTPUT(m_OnReadyToFire,			"OnReadyToFire"),
+#endif
 END_DATADESC()
 
 //-----------------------------------------------------------------------------
@@ -210,6 +294,8 @@ END_DATADESC()
 //-----------------------------------------------------------------------------
 CFuncTank::CFuncTank()
 {
+	SetPredictionEligible(true);
+
 	m_nBulletCount = 0;
 
 	m_bNPCInRoute = false;
@@ -232,6 +318,29 @@ CFuncTank::~CFuncTank( void )
 	}
 }
 
+#ifdef CLIENT_DLL
+void CFuncTank::OnDataChanged(DataUpdateType_t updateType)
+{
+	BaseClass::OnDataChanged(updateType);
+
+	// Only think when sapping
+	SetNextClientThink(CLIENT_THINK_ALWAYS);
+	if (updateType == DATA_UPDATE_CREATED)
+	{
+
+	}
+}
+
+void CFuncTank::ClientThink(void)
+{
+	BaseClass::ClientThink();
+
+	FuncTankPreThink();
+	Think();
+	FuncTankPostThink();
+	ControllerPostFrame();
+}
+#endif
 
 //------------------------------------------------------------------------------
 // Purpose:
@@ -261,6 +370,7 @@ inline bool CFuncTank::CanFire( void )
 	return false;
 }
 
+#ifndef CLIENT_DLL
 //------------------------------------------------------------------------------
 // Purpose: Input handler for activating the tank.
 //------------------------------------------------------------------------------
@@ -268,7 +378,7 @@ void CFuncTank::InputActivate( inputdata_t &inputdata )
 {	
 	TankActivate();
 }
-
+#endif
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -278,7 +388,7 @@ void CFuncTank::TankActivate( void )
 	SetNextThink( gpGlobals->curtime + 0.1f ); 
 	m_fireLast = gpGlobals->curtime;
 }
-
+#ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Purpose: Input handler for deactivating the tank.
 //-----------------------------------------------------------------------------
@@ -286,7 +396,7 @@ void CFuncTank::InputDeactivate( inputdata_t &inputdata )
 {
 	TankDeactivate();
 }
-
+#endif
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -296,7 +406,7 @@ void CFuncTank::TankDeactivate( void )
 	m_fireLast = 0; 
 	StopRotSound();
 }
-
+#ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Purpose: Input handler for changing the name of the tank's target entity.
 //-----------------------------------------------------------------------------
@@ -599,12 +709,13 @@ void CFuncTank::InputSetMaxRange( inputdata_t &inputdata )
 	m_maxRange = inputdata.value.Float();
 	m_flMaxRange2 = m_maxRange * m_maxRange;
 }
-
+#endif
 //-----------------------------------------------------------------------------
 // Purpose: Find the closest NPC with the func_tank behavior.
 //-----------------------------------------------------------------------------
 void CFuncTank::NPC_FindController( void )
 {
+#ifndef CLIENT_DLL
 	// Not NPC controllable or controllable on by specified npc's return.
 	if ( !IsNPCControllable() || IsNPCSetController() )
 		return;
@@ -692,6 +803,7 @@ void CFuncTank::NPC_FindController( void )
 		pClosestBehavior->SetFuncTank( this );
 		NPC_SetInRoute( true );
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -700,6 +812,7 @@ void CFuncTank::NPC_FindController( void )
 //-----------------------------------------------------------------------------
 int CFuncTank::DrawDebugTextOverlays(void) 
 {
+#ifndef CLIENT_DLL
 	int text_offset = BaseClass::DrawDebugTextOverlays();
 
 	if (m_debugOverlays & OVERLAY_TEXT_BIT) 
@@ -757,6 +870,9 @@ int CFuncTank::DrawDebugTextOverlays(void)
 
 	}
 	return text_offset;
+#else
+	return 0;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -766,6 +882,7 @@ int CFuncTank::DrawDebugTextOverlays(void)
 //-----------------------------------------------------------------------------
 void CFuncTank::DrawDebugGeometryOverlays(void) 
 {
+#ifndef CLIENT_DLL
 	// Center
 	QAngle angCenter;
 	Vector vecForward;
@@ -790,6 +907,7 @@ void CFuncTank::DrawDebugGeometryOverlays(void)
 	NDebugOverlay::Line( GetAbsOrigin(), GetAbsOrigin() + (vecForward * 128), 255,0,0, true, 0.1);
 
 	BaseClass::DrawDebugGeometryOverlays();
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -854,7 +972,11 @@ void CFuncTank::TraceAttack( CBaseEntity *pAttacker, float flDamage, const Vecto
 //-----------------------------------------------------------------------------
 CBaseEntity *CFuncTank::FindTarget( string_t targetName, CBaseEntity *pActivator ) 
 {
+#ifndef CLIENT_DLL
 	return gEntList.FindEntityGenericNearest( STRING( targetName ), GetAbsOrigin(), 0, this, pActivator );
+#else
+	return NULL;
+#endif
 }
 
 
@@ -1029,11 +1151,12 @@ void CFuncTank::Spawn( void )
 	m_flIgnoreGraceUpto *= m_flIgnoreGraceUpto;
 
 	m_flLastSawNonPlayer = 0;
-
+#ifndef CLIENT_DLL
 	if( IsActive() )
 	{
 		m_OnReadyToFire.FireOutput( this, this );
 	}
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1056,9 +1179,11 @@ void CFuncTank::Activate( void )
 #ifdef MAPBASE
 	if ( m_iszTraceFilter != NULL_STRING )
 	{
+#ifndef CLIENT_DLL
 		m_hTraceFilter = dynamic_cast<CBaseFilter*>(gEntList.FindEntityByName( NULL, STRING(m_iszTraceFilter) ));
 		if (!m_hTraceFilter)
 			Warning("WARNING: %s trace filter %s is not a filter!\n", GetDebugName(), STRING(m_iszTraceFilter));
+#endif
 	}
 #endif
 }
@@ -1166,7 +1291,7 @@ bool CFuncTank::OnControls( CBaseEntity *pTest )
 	// Is the tank controllable.
 	if ( !IsControllable() )
 		return false;
-
+#ifndef CLIENT_DLL
 	if ( !m_hControlVolume )
 	{
 		// Find our control volume
@@ -1186,6 +1311,9 @@ bool CFuncTank::OnControls( CBaseEntity *pTest )
 		return true;
 	
 	return false;
+#else
+	return true;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1196,22 +1324,22 @@ bool CFuncTank::StartControl( CBaseCombatCharacter *pController )
 	// Check to see if we have a controller.
 	if ( HasController() && GetController() != pController )
 		return false;
-
+#ifndef CLIENT_DLL
 	// Team only or disabled?
 	if ( m_iszMaster != NULL_STRING )
 	{
 		if ( !UTIL_IsMasterTriggered( m_iszMaster, pController ) )
 			return false;
 	}
-
+#endif
 	// Set func_tank as manned by player/npc.
 	m_hController = pController;
 	if ( pController->IsPlayer() )
 	{
 		m_spawnflags |= SF_TANK_PLAYER; 
-
 		CBasePlayer *pPlayer = static_cast<CBasePlayer*>( m_hController.Get() );
 		pPlayer->m_Local.m_iHideHUD |= HIDEHUD_WEAPONSELECTION;
+		SetPredictionPlayer(pPlayer);
 	}
 	else
 	{
@@ -1233,6 +1361,7 @@ bool CFuncTank::StartControl( CBaseCombatCharacter *pController )
 	SetNextThink( gpGlobals->curtime + 0.1f );
 	
 	// Let the map maker know a controller has been found
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 	if ( m_hController->IsPlayer() )
 	{
@@ -1252,7 +1381,7 @@ bool CFuncTank::StartControl( CBaseCombatCharacter *pController )
 		m_OnGotController.FireOutput( this, this );
 	}
 #endif
-
+#endif
 	OnStartControlled();
 	return true;
 }
@@ -1268,7 +1397,7 @@ void CFuncTank::StopControl()
 		return;
 
 	OnStopControlled();
-
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 	// Arm player/npc weapon if they're not in a vehicle.
 	if ( !m_hController->IsInAVehicle() && m_hController->GetActiveWeapon() )
@@ -1279,17 +1408,25 @@ void CFuncTank::StopControl()
 	{
 		m_hController->GetActiveWeapon()->Deploy();
 	}
-
+#endif
 	if ( m_hController->IsPlayer() )
 	{
 		CBasePlayer *pPlayer = static_cast<CBasePlayer*>( m_hController.Get() );
 		pPlayer->m_Local.m_iHideHUD &= ~HIDEHUD_WEAPONSELECTION;
+		SetPredictionPlayer(NULL);
+#ifdef CLIENT_DLL
+		if (!pPlayer->IsInAVehicle() && pPlayer->GetActiveWeapon())
+		{
+			pPlayer->GetActiveWeapon()->Deploy();
+		}
+#endif
 	}
 
 	// Stop thinking.
 	SetNextThink( TICK_NEVER_THINK );
 	
 	// Let the map maker know a controller has been lost.
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 	if ( m_hController->IsPlayer() )
 	{
@@ -1309,7 +1446,7 @@ void CFuncTank::StopControl()
 		m_OnLostController.FireOutput( this, this );
 	}
 #endif
-
+#endif
 	// Reset the func_tank as unmanned (player/npc).
 	if ( m_hController->IsPlayer() )
 	{
@@ -1390,14 +1527,14 @@ void CFuncTank::ControllerPostFrame( void )
 	}
 	
 	Fire( bulletCount, WorldBarrelPosition(), forward, pPlayer, false );
- 
+#ifndef CLIENT_DLL 
 #if defined( WIN32 ) && !defined( _X360 ) 
 	// NVNT apply a punch on the player each time fired
 	HapticPunch(pPlayer,0,0,hap_turret_mag.GetFloat());
 #endif	
 	// HACKHACK -- make some noise (that the AI can hear)
 	CSoundEnt::InsertSound( SOUND_COMBAT, WorldSpaceCenter(), FUNCTANK_FIREVOLUME, 0.2 );
-	
+#endif		
 	if( m_iAmmoCount > -1 )
 	{
 		if( !(m_iAmmoCount % 10) )
@@ -1408,15 +1545,16 @@ void CFuncTank::ControllerPostFrame( void )
 		if( --m_iAmmoCount == 0 )
 		{
 			// Kick the player off the gun, and make myself not usable.
+#ifndef CLIENT_DLL 
 #ifdef MAPBASE
 			m_OnAmmoDepleted.FireOutput(pPlayer, this);
+#endif
 #endif
 			m_spawnflags &= ~SF_TANK_CANCONTROL;
 			StopControl();
 			return;				
 		}
-	}
-	
+	}	
 	SetNextAttack( gpGlobals->curtime + (1/m_fireRate) );
 }
 
@@ -1444,6 +1582,7 @@ CBaseCombatCharacter *CFuncTank::GetController( void )
 //-----------------------------------------------------------------------------
 bool CFuncTank::NPC_FindManPoint( Vector &vecPos )
 {
+#ifndef CLIENT_DLL
 	if ( m_iszNPCManPoint != NULL_STRING )
 	{	
 		CBaseEntity *pEntity = gEntList.FindEntityByName( NULL, m_iszNPCManPoint );
@@ -1453,7 +1592,7 @@ bool CFuncTank::NPC_FindManPoint( Vector &vecPos )
 			return true;
 		}
 	}
-
+#endif
 	return false; 
 }
 
@@ -1470,6 +1609,7 @@ void CFuncTank::NPC_JustSawPlayer( CBaseEntity *pTarget )
 //-----------------------------------------------------------------------------
 void CFuncTank::NPC_Fire( void )
 {
+#ifndef CLIENT_DLL
 	// Control the firing rate.
 	if ( gpGlobals->curtime < m_flNextAttack )
 		return;
@@ -1562,6 +1702,7 @@ void CFuncTank::NPC_Fire( void )
 	// This is now needed in some cases
 	m_fireLast = gpGlobals->curtime;
 #endif
+#endif
 }
 
 
@@ -1570,6 +1711,7 @@ void CFuncTank::NPC_Fire( void )
 //-----------------------------------------------------------------------------
 bool CFuncTank::NPC_HasEnemy( void )
 {
+#ifndef CLIENT_DLL
 	if ( !IsNPCManned() )
 		return false;
 
@@ -1577,6 +1719,9 @@ bool CFuncTank::NPC_HasEnemy( void )
 	Assert( pNPC );
 
 	return ( pNPC->GetEnemy() != NULL );
+#else
+	return false;
+#endif
 }
 
 
@@ -1585,6 +1730,7 @@ bool CFuncTank::NPC_HasEnemy( void )
 //-----------------------------------------------------------------------------
 void CFuncTank::NPC_InterruptRoute( void )
 {
+#ifndef CLIENT_DLL
 	if ( !m_hController )
 		return;
 
@@ -1612,6 +1758,7 @@ void CFuncTank::NPC_InterruptRoute( void )
 		// Start thinking to find controllers again
 		SetNextThink( m_flNextControllerSearch );
 	}
+#endif
 }
 
 
@@ -1620,6 +1767,7 @@ void CFuncTank::NPC_InterruptRoute( void )
 //-----------------------------------------------------------------------------
 bool CFuncTank::NPC_InterruptController( void )
 {
+#ifndef CLIENT_DLL
 	// If we don't have a controller - then the gun should be free.
 	if ( !m_hController )
 		return true;
@@ -1635,6 +1783,7 @@ bool CFuncTank::NPC_InterruptController( void )
 	}
 
 	m_hController = NULL;
+#endif
 	return true;
 }
 
@@ -1681,7 +1830,8 @@ void CFuncTank::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE use
 	{
 		ControllerPostFrame();
 	}
-	else if ( m_hController != pPlayer && useType != USE_OFF )
+#ifndef CLIENT_DLL
+	else if ( m_hController.Get() != pPlayer && useType != USE_OFF )
 	{
 		// The player must be within the func_tank controls
 		if ( !m_hControlVolume )
@@ -1719,6 +1869,7 @@ void CFuncTank::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE use
 		pPlayer->SetUseEntity( this );
 		StartControl( pPlayer );
 	}
+#endif
 	else 
 	{
 		StopControl();
@@ -1931,7 +2082,7 @@ void CFuncTank::CalcPlayerCrosshairTarget( Vector *pVecTarget )
 	trace_t	tr;
 	
 	vecStart = pPlayer->EyePosition();
-
+#ifndef CLIENT_DLL
 	if ( !IsX360() )
 	{
 		vecDir = pPlayer->EyeDirection3D();
@@ -1941,6 +2092,9 @@ void CFuncTank::CalcPlayerCrosshairTarget( Vector *pVecTarget )
 		// Use autoaim as the eye dir.
 		vecDir = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
 	}
+#else
+	vecDir = pPlayer->GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
+#endif
 	
 #ifdef MAPBASE
 	CTraceFilterSimple traceFilter = GetTraceFilter();
@@ -1970,6 +2124,7 @@ void CFuncTank::AimBarrelAtPlayerCrosshair( QAngle *pAngles )
 //-----------------------------------------------------------------------------
 void CFuncTank::CalcNPCEnemyTarget( Vector *pVecTarget )
 {
+#ifndef CLIENT_DLL
 	Vector vecTarget;
 	CAI_BaseNPC *pNPC = m_hController->MyNPCPointer();
 
@@ -1998,6 +2153,7 @@ void CFuncTank::CalcNPCEnemyTarget( Vector *pVecTarget )
 			*pVecTarget = tr.endpos;
 		}
 	}
+#endif
 }
 
 	
@@ -2068,10 +2224,12 @@ void CFuncTank::LostTarget( CBaseEntity *pTarget )
 {
 	if (m_fireLast != 0)
 	{
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 		m_OnLoseTarget.Set(pTarget, pTarget, this);
 #else
 		m_OnLoseTarget.FireOutput(this, this);
+#endif
 #endif
 		m_fireLast = 0;
 	}
@@ -2083,6 +2241,7 @@ void CFuncTank::LostTarget( CBaseEntity *pTarget )
 //-----------------------------------------------------------------------------
 void CFuncTank::ComputeLeadingPosition( const Vector &vecShootPosition, CBaseEntity *pTarget, Vector *pLeadPosition )
 {
+#ifndef CLIENT_DLL
 	Vector vecTarget = pTarget->BodyTarget( vecShootPosition, false );
 	float flShotSpeed = GetShotSpeed();
 	if ( flShotSpeed == 0 )
@@ -2144,6 +2303,7 @@ void CFuncTank::ComputeLeadingPosition( const Vector &vecShootPosition, CBaseEnt
 	}
 
 	VectorMA( vecTarget, flTargetSpeed * t, vecVelocity, *pLeadPosition );
+#endif
 }
 
 
@@ -2152,6 +2312,7 @@ void CFuncTank::ComputeLeadingPosition( const Vector &vecShootPosition, CBaseEnt
 //-----------------------------------------------------------------------------
 void CFuncTank::AimFuncTankAtTarget( void )
 {
+#ifndef CLIENT_DLL
 	// Get world target position
 	CBaseEntity *pTarget = NULL;
 	trace_t tr;
@@ -2333,6 +2494,7 @@ void CFuncTank::AimFuncTankAtTarget( void )
 		LostTarget();
 #endif
 	}
+#endif
 }
 
 
@@ -2345,7 +2507,9 @@ void CFuncTank::TrackTarget( void )
 
 	if( !m_bReadyToFire && m_flNextAttack <= gpGlobals->curtime )
 	{
+#ifndef CLIENT_DLL
 		m_OnReadyToFire.FireOutput( this, this );
+#endif
 		m_bReadyToFire = true;
 	}
 
@@ -2354,7 +2518,9 @@ void CFuncTank::TrackTarget( void )
 		AimBarrelAtPlayerCrosshair( &angles );
 		RotateTankToAngles( angles );
 		SetNextThink( gpGlobals->curtime + 0.05f );
+#ifndef CLIENT_DLL
 		SetMoveDoneTime( 0.1 );
+#endif
 		return;
 	}
 
@@ -2363,7 +2529,9 @@ void CFuncTank::TrackTarget( void )
 		AimBarrelAtNPCEnemy( &angles );
 		RotateTankToAngles( angles );
 		SetNextThink( gpGlobals->curtime + 0.05f );
+#ifndef CLIENT_DLL
 		SetMoveDoneTime( 0.1 );
+#endif
 		return;
 	}
 
@@ -2425,15 +2593,22 @@ void CFuncTank::DoMuzzleFlash( void )
 		{
 			CEffectData data;
 			data.m_nAttachmentIndex = m_nBarrelAttachment;
+#ifndef CLIENT_DLL
 			data.m_nEntIndex = pAnim->entindex();
-			
+#else
+			data.m_hEntity = pAnim->entindex();
+#endif
 			// FIXME: Create a custom entry here!
 			DispatchEffect( "ChopperMuzzleFlash", data );
 		}
 		else
 		{
 			CEffectData data;
+#ifndef CLIENT_DLL
 			data.m_nEntIndex = pAnim->entindex();
+#else
+			data.m_hEntity = pAnim->entindex();
+#endif
 			data.m_nAttachmentIndex = m_nBarrelAttachment;
 			data.m_flScale = 1.0f;
 			data.m_fFlags = MUZZLEFLASH_COMBINE;
@@ -2478,7 +2653,11 @@ void CFuncTank::Fire( int bulletCount, const Vector &barrelEnd, const Vector &fo
 	{
 		if (bSpriteSmoke)
 		{
+#ifndef CLIENT_DLL
 			CSprite *pSmoke = CSprite::SpriteCreate( STRING(m_iszSpriteSmoke), barrelEnd, TRUE );
+#else
+			CSprite *pSmoke = CSprite::SpriteCreatePredictable(__FILE__,__LINE__,STRING(m_iszSpriteSmoke), barrelEnd, TRUE);
+#endif
 			pSmoke->AnimateAndDie( random->RandomFloat( 15.0, 20.0 ) );
 			pSmoke->SetTransparency( kRenderTransAlpha, m_clrRender->r, m_clrRender->g, m_clrRender->b, 255, kRenderFxNone );
 
@@ -2489,7 +2668,11 @@ void CFuncTank::Fire( int bulletCount, const Vector &barrelEnd, const Vector &fo
 
 		if (bSpriteFlash)
 		{
+#ifndef CLIENT_DLL
 			CSprite *pFlash = CSprite::SpriteCreate( STRING(m_iszSpriteFlash), barrelEnd, TRUE );
+#else
+			CSprite *pFlash = CSprite::SpriteCreatePredictable(__FILE__,__LINE__,STRING(m_iszSpriteFlash), barrelEnd, TRUE);
+#endif
 			pFlash->AnimateAndDie( 5 );
 			pFlash->SetTransparency( kRenderTransAdd, 255, 255, 255, 255, kRenderFxNoDissipation );
 			pFlash->SetScale( m_spriteScale );
@@ -2555,7 +2738,7 @@ void CFuncTank::Fire( int bulletCount, const Vector &barrelEnd, const Vector &fo
 		}
 	}
 #endif
-
+#ifndef CLIENT_DLL
 	if( pAttacker && pAttacker->IsPlayer() )
 	{
 		if ( IsX360() )
@@ -2573,6 +2756,7 @@ void CFuncTank::Fire( int bulletCount, const Vector &barrelEnd, const Vector &fo
 	m_OnFire.FireOutput(pAttacker, this);
 #else
 	m_OnFire.FireOutput(this, this);
+#endif
 #endif
 	m_bReadyToFire = false;
 }
@@ -2726,11 +2910,10 @@ public:
 		// Our base is telling us to hit. If it passes the filter, don't.
 		if ( base && m_pFilter )
 		{
+#ifndef CLIENT_DLL
 			CBaseEntity *pEntity = EntityFromEntityHandle( pHandleEntity );
 			return !m_pFilter->PassesFilter(m_pCaller, pEntity);
-
-			// TODO: Should we use this code from CBulletsTraceFilter?
-			/*
+#else
 			CBaseEntity *pEntity = EntityFromEntityHandle( pHandleEntity );
 			CBaseEntity *pPassEntity = EntityFromEntityHandle( m_PassEntities[0] );
 			if ( pEntity && pPassEntity && pEntity->GetOwnerEntity() == pPassEntity && 
@@ -2740,13 +2923,16 @@ public:
 				// It's a bone follower of the entity to ignore (toml 8/3/2007)
 				return false;
 			}
-			*/
+#endif
 		}
 
 		return base;
 	}
-
+#ifndef CLIENT_DLL
 	CBaseFilter *m_pFilter;
+#else
+	CTraceFilter *m_pFilter;
+#endif
 	CBaseEntity *m_pCaller;
 
 };
@@ -2788,6 +2974,7 @@ CTraceFilterSimple CFuncTank::GetTraceFilter()
 //-----------------------------------------------------------------------------
 bool CFuncTank::HasLOSTo( CBaseEntity *pEntity )
 {
+#ifndef CLIENT_DLL
 	if ( !pEntity )
 		return false;
 
@@ -2821,6 +3008,9 @@ bool CFuncTank::HasLOSTo( CBaseEntity *pEntity )
 	}
 
 	return ( tr.fraction == 1.0 || tr.m_pEnt == pEntity );
+#else
+	return false;
+#endif
 }
 
 // #############################################################################
@@ -2830,12 +3020,14 @@ class CFuncTankGun : public CFuncTank
 {
 public:
 	DECLARE_CLASS( CFuncTankGun, CFuncTank );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 #ifdef AMMOTYPE_MOVED
 	DECLARE_DATADESC();
 
 	string_t				m_iszAmmoType;		// The name of the ammodef that we use when we fire. Bullet damage still comes from keyvalues.
-	int						m_iAmmoType;		// The cached index of the ammodef that we use when we fire.
+	CNetworkVar(int, m_iAmmoType);		// The cached index of the ammodef that we use when we fire.
 #endif // !AMMOTYPE_MOVED
 
 #ifdef AMMOTYPE_MOVED
@@ -2846,6 +3038,23 @@ public:
 
 	void Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread );
 };
+
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankGun, DT_FuncTankGun)
+
+BEGIN_NETWORK_TABLE(CFuncTankGun, DT_FuncTankGun)
+#ifndef CLIENT_DLL
+SendPropEHandle(SENDINFO(m_hController)),
+SendPropInt(SENDINFO(m_spawnflags), 8, SPROP_UNSIGNED),
+SendPropInt(SENDINFO(m_iAmmoType)),
+#else
+RecvPropEHandle(RECVINFO(m_hController)),
+RecvPropInt(RECVINFO(m_spawnflags)),
+RecvPropInt(RECVINFO(m_iAmmoType)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankGun)
+END_PREDICTION_DATA()
 
 #ifdef AMMOTYPE_MOVED
 BEGIN_DATADESC(CFuncTankGun)
@@ -2937,12 +3146,22 @@ void CFuncTankGun::Fire( int bulletCount, const Vector &barrelEnd, const Vector 
 		{
 			ignorelist.AddToTail(pAttacker);
 		}
-
+#ifndef CLIENT_DLL
 		// Ignore any vehicle our controller is in
 		if (pAttacker->MyCombatCharacterPointer() && pAttacker->MyCombatCharacterPointer()->IsInAVehicle())
 		{
 			ignorelist.AddToTail(pAttacker->MyCombatCharacterPointer()->GetVehicleEntity());
 		}
+#else
+		if (pAttacker->IsPlayer())
+		{
+			CBasePlayer *pPlayer = (CBasePlayer*)pAttacker;
+			if (pPlayer && pPlayer->IsInAVehicle())
+			{
+				ignorelist.AddToTail(pPlayer->GetVehicleEntity());
+			}
+		}
+#endif
 	}
 
 	info.m_pIgnoreEntList = &ignorelist;
@@ -2983,7 +3202,7 @@ void CFuncTankGun::Fire( int bulletCount, const Vector &barrelEnd, const Vector 
 		}
 	}
 #endif // HL2_EPISODIC
-
+#ifndef CLIENT_DLL
 #ifdef EZ
 	if (pAttacker && pAttacker->IsPlayer())
 	{
@@ -2993,6 +3212,7 @@ void CFuncTankGun::Fire( int bulletCount, const Vector &barrelEnd, const Vector 
 			pPlayer->SetBonusProgress( pPlayer->GetBonusProgress() + info.m_iShots );
 		}
 	}
+#endif
 #endif
 
 	CFuncTank::Fire( bulletCount, barrelEnd, forward, pAttacker, bIgnoreSpread );
@@ -3005,6 +3225,8 @@ class CFuncTankPulseLaser : public CFuncTankGun
 {
 public:
 	DECLARE_CLASS( CFuncTankPulseLaser, CFuncTankGun );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 	DECLARE_DATADESC();
 
 	void Precache();
@@ -3021,6 +3243,22 @@ public:
 	string_t	m_sPulseFireSound;
 #endif
 };
+
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankPulseLaser, DT_FuncTankPulseLaser)
+
+BEGIN_NETWORK_TABLE(CFuncTankPulseLaser, DT_FuncTankPulseLaser)
+#ifndef CLIENT_DLL
+SendPropEHandle(SENDINFO(m_hController)),
+SendPropInt(SENDINFO(m_spawnflags), 8, SPROP_UNSIGNED),
+#else
+RecvPropEHandle(RECVINFO(m_hController)),
+RecvPropInt(RECVINFO(m_spawnflags)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankPulseLaser)
+END_PREDICTION_DATA()
+
 LINK_ENTITY_TO_CLASS( func_tankpulselaser, CFuncTankPulseLaser );
 
 BEGIN_DATADESC( CFuncTankPulseLaser )
@@ -3075,11 +3313,11 @@ void CFuncTankPulseLaser::Fire( int bulletCount, const Vector &barrelEnd, const 
 		} while (z > 1);
 
 		Vector vecDir = vecForward + x * gTankSpread[m_spread].x * vecRight + y * gTankSpread[m_spread].y * vecUp;
-
+#ifndef CLIENT_DLL
 		CGrenadeBeam *pPulse =  CGrenadeBeam::Create( pAttacker, barrelEnd);
 		pPulse->Format(m_flPulseColor, m_flPulseWidth);
 		pPulse->Shoot(vecDir,m_flPulseSpeed,m_flPulseLife,m_flPulseLag,m_iBulletDamage);
-
+#endif
 		if ( m_sPulseFireSound != NULL_STRING )
 		{
 			CPASAttenuationFilter filter( this, 0.6f );
@@ -3103,26 +3341,49 @@ void CFuncTankPulseLaser::Fire( int bulletCount, const Vector &barrelEnd, const 
 class CFuncTankLaser : public CFuncTank
 {
 	DECLARE_CLASS( CFuncTankLaser, CFuncTank );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 public:
 	void	Activate( void );
 	void	Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread );
 	void	Think( void );
+#ifndef CLIENT_DLL
 	CEnvLaser *GetLaser( void );
+#endif
 
 	DECLARE_DATADESC();
 
 private:
+#ifndef CLIENT_DLL
 	CEnvLaser	*m_pLaser;
+#endif
 	float	m_laserTime;
 	string_t m_iszLaserName;
 };
+
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankLaser, DT_FuncTankLaser)
+
+BEGIN_NETWORK_TABLE(CFuncTankLaser, DT_FuncTankLaser)
+#ifndef CLIENT_DLL
+SendPropEHandle(SENDINFO(m_hController)),
+SendPropInt(SENDINFO(m_spawnflags), 8, SPROP_UNSIGNED),
+#else
+RecvPropEHandle(RECVINFO(m_hController)),
+RecvPropInt(RECVINFO(m_spawnflags)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankLaser)
+END_PREDICTION_DATA()
+
 LINK_ENTITY_TO_CLASS( func_tanklaser, CFuncTankLaser );
 
 BEGIN_DATADESC( CFuncTankLaser )
 
 	DEFINE_KEYFIELD( m_iszLaserName, FIELD_STRING, "laserentity" ),
-
+#ifndef CLIENT_DLL
 	DEFINE_FIELD( m_pLaser, FIELD_CLASSPTR ),
+#endif
 	DEFINE_FIELD( m_laserTime, FIELD_TIME ),
 
 END_DATADESC()
@@ -3131,7 +3392,7 @@ END_DATADESC()
 void CFuncTankLaser::Activate( void )
 {
 	BaseClass::Activate();
-
+#ifndef CLIENT_DLL
 	if ( !GetLaser() )
 	{
 		UTIL_Remove(this);
@@ -3141,9 +3402,10 @@ void CFuncTankLaser::Activate( void )
 	{
 		m_pLaser->TurnOff();
 	}
+#endif
 }
 
-
+#ifndef CLIENT_DLL
 CEnvLaser *CFuncTankLaser::GetLaser( void )
 {
 	if ( m_pLaser )
@@ -3166,19 +3428,21 @@ CEnvLaser *CFuncTankLaser::GetLaser( void )
 
 	return m_pLaser;
 }
-
+#endif
 
 void CFuncTankLaser::Think( void )
 {
+#ifndef CLIENT_DLL
 	if ( m_pLaser && (gpGlobals->curtime > m_laserTime) )
 		m_pLaser->TurnOff();
-
+#endif
 	CFuncTank::Think();
 }
 
 
 void CFuncTankLaser::Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread )
 {
+#ifndef CLIENT_DLL
 	int i;
 	trace_t tr;
 
@@ -3197,8 +3461,9 @@ void CFuncTankLaser::Fire( int bulletCount, const Vector &barrelEnd, const Vecto
 		}
 		CFuncTank::Fire( bulletCount, barrelEnd, forward, this, bIgnoreSpread );
 	}
+#endif
 }
-
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 //-----------------------------------------------------------------------------
 // Missile for func_tankrocket so kills are credited properly and don't kill friendlies
@@ -3274,11 +3539,13 @@ void CFuncTankMissile::FTnkMissileTouch( CBaseEntity *pOther )
 	Explode();
 }
 #endif
-
+#endif
 class CFuncTankRocket : public CFuncTank
 {
 public:
 	DECLARE_CLASS( CFuncTankRocket, CFuncTank );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	void Precache( void );
 	void Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread );
@@ -3289,6 +3556,21 @@ protected:
 
 	DECLARE_DATADESC();
 };
+
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankRocket, DT_FuncTankRocket)
+
+BEGIN_NETWORK_TABLE(CFuncTankRocket, DT_FuncTankRocket)
+#ifndef CLIENT_DLL
+SendPropEHandle(SENDINFO(m_hController)),
+SendPropInt(SENDINFO(m_spawnflags), 8, SPROP_UNSIGNED),
+#else
+RecvPropEHandle(RECVINFO(m_hController)),
+RecvPropInt(RECVINFO(m_spawnflags)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankRocket)
+END_PREDICTION_DATA()
 
 BEGIN_DATADESC( CFuncTankRocket )
 
@@ -3310,6 +3592,7 @@ void CFuncTankRocket::Precache( void )
 
 void CFuncTankRocket::Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread )
 {
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 	CFuncTankMissile *pRocket = (CFuncTankMissile*)CBaseEntity::Create( "func_tankrocket_missile", barrelEnd, GetAbsAngles(), GetController() );
 	pRocket->AddEffects( EF_NOSHADOW );
@@ -3329,7 +3612,7 @@ void CFuncTankRocket::Fire( int bulletCount, const Vector &barrelEnd, const Vect
 	{
 		pRocket->SetDamage( m_iBulletDamageVsPlayer );
 	}
-
+#endif
 	CFuncTank::Fire( bulletCount, barrelEnd, forward, this, bIgnoreSpread );
 }
 
@@ -3344,6 +3627,8 @@ class CFuncTankAirboatGun : public CFuncTank
 {
 public:
 	DECLARE_CLASS( CFuncTankAirboatGun, CFuncTank );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
  	DECLARE_DATADESC();
 
 #ifdef MAPBASE
@@ -3370,7 +3655,12 @@ public:
 	virtual Vector WorldBarrelPosition( void );
 	virtual void DoImpactEffect( trace_t &tr, int nDamageType );
 #ifdef MAPBASE
-	virtual void StopLoopingSounds() { DestroySounds(); BaseClass::StopLoopingSounds(); }
+	virtual void StopLoopingSounds() {
+		DestroySounds();
+#ifndef CLIENT_DLL
+		BaseClass::StopLoopingSounds(); 
+#endif
+	}
 #endif
 
 private:
@@ -3385,8 +3675,8 @@ private:
 	bool		m_bIsFiring;
 
 	string_t	m_iszAirboatGunModel;
-	CHandle<CBaseAnimating> m_hAirboatGunModel;
-	int			m_nGunBarrelAttachment;
+	CNetworkHandle(CBaseAnimating, m_hAirboatGunModel);
+	CNetworkVar(int, m_nGunBarrelAttachment);
 	float		m_flLastImpactEffectTime;
 
 #ifdef MAPBASE
@@ -3396,7 +3686,24 @@ private:
 #endif
 };
 
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankAirboatGun, DT_FuncTankAirboatGun)
 
+BEGIN_NETWORK_TABLE(CFuncTankAirboatGun, DT_FuncTankAirboatGun)
+#ifndef CLIENT_DLL
+SendPropEHandle(SENDINFO(m_hController)),
+SendPropInt(SENDINFO(m_spawnflags), 8, SPROP_UNSIGNED),
+SendPropEHandle(SENDINFO(m_hAirboatGunModel)),
+SendPropInt(SENDINFO(m_nGunBarrelAttachment)),
+#else
+RecvPropEHandle(RECVINFO(m_hController)),
+RecvPropInt(RECVINFO(m_spawnflags)),
+RecvPropEHandle(RECVINFO(m_hAirboatGunModel)),
+RecvPropInt(RECVINFO(m_nGunBarrelAttachment)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankAirboatGun)
+END_PREDICTION_DATA()
 //-----------------------------------------------------------------------------
 // Save/load: 
 //-----------------------------------------------------------------------------
@@ -3414,9 +3721,10 @@ BEGIN_DATADESC( CFuncTankAirboatGun )
 	DEFINE_KEYFIELD( m_iHeavyShotSpread,	FIELD_INTEGER, "heavy_shot_spread" ),
 	DEFINE_KEYFIELD( m_bUseDamageKV,		FIELD_BOOLEAN, "use_damage_kv" ),
 #endif
-
+#ifndef CLIENT_DLL
 #ifdef MAPBASE
 	DEFINE_THINKFUNC( FuncTankAirboatGunThink ),
+#endif
 #endif
 
 END_DATADESC()
@@ -3470,11 +3778,13 @@ void CFuncTankAirboatGun::Activate()
 
 	if ( m_iszAirboatGunModel != NULL_STRING )
 	{
+#ifndef CLIENT_DLL
 		m_hAirboatGunModel = dynamic_cast<CBaseAnimating*>( gEntList.FindEntityByName( NULL, m_iszAirboatGunModel ) );
 		if ( m_hAirboatGunModel )
 		{
 			m_nGunBarrelAttachment = m_hAirboatGunModel->LookupAttachment( "muzzle" );
 		}
+#endif
 	}
 #ifdef MAPBASE
 	else if (GetParent() && GetParent()->GetBaseAnimating())
@@ -3671,7 +3981,11 @@ void CFuncTankAirboatGun::DoMuzzleFlash( void )
 	if ( m_hAirboatGunModel && (m_nGunBarrelAttachment != 0) )
 	{
 		CEffectData data;
+#ifndef CLIENT_DLL
 		data.m_nEntIndex = m_hAirboatGunModel->entindex();
+#else
+		data.m_hEntity = m_hAirboatGunModel->entindex();
+#endif
 		data.m_nAttachmentIndex = m_nGunBarrelAttachment;
 		data.m_flScale = 1.0f;
 		DispatchEffect( "AirboatMuzzleFlash", data );
@@ -3760,6 +4074,7 @@ void CFuncTankAirboatGun::Fire( int bulletCount, const Vector &barrelEnd, const 
 	}
 
 #ifdef MAPBASE
+#ifndef CLIENT_DLL
 	// Things from CFuncTank::Fire().
 	// We can't use everything because it overrides a few things.
 	if( pAttacker && pAttacker->IsPlayer() )
@@ -3777,6 +4092,7 @@ void CFuncTankAirboatGun::Fire( int bulletCount, const Vector &barrelEnd, const 
 	}
 
 	m_OnFire.FireOutput(pAttacker, this);
+#endif
 	m_bReadyToFire = false;
 #endif
 }
@@ -3793,6 +4109,8 @@ class CFuncTankAPCRocket : public CFuncTank
 {
 public:
 	DECLARE_CLASS( CFuncTankAPCRocket, CFuncTank );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	void Precache( void );
 	virtual void Spawn();
@@ -3802,10 +4120,12 @@ public:
 	virtual float GetShotSpeed() { return m_flRocketSpeed; }
 
 protected:
+#ifndef CLIENT_DLL
 	void InputDeathVolley( inputdata_t &inputdata );
+#endif
 	void FireDying( const Vector &barrelEnd );
 
-	EHANDLE	m_hLaserDot;
+	CNetworkHandle(CBaseEntity,m_hLaserDot);
 	float	m_flRocketSpeed;
 	int 	m_nSide;
 	int		m_nBurstCount;
@@ -3814,6 +4134,22 @@ protected:
 	DECLARE_DATADESC();
 };
 
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankAPCRocket, DT_FuncTankAPCRocket)
+
+BEGIN_NETWORK_TABLE(CFuncTankAPCRocket, DT_FuncTankAPCRocket)
+#ifndef CLIENT_DLL
+SendPropEHandle(SENDINFO(m_hController)),
+SendPropInt(SENDINFO(m_spawnflags), 8, SPROP_UNSIGNED),
+SendPropEHandle(SENDINFO(m_hLaserDot)),
+#else
+RecvPropEHandle(RECVINFO(m_hController)),
+RecvPropInt(RECVINFO(m_spawnflags)),
+RecvPropEHandle(RECVINFO(m_hLaserDot)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankAPCRocket)
+END_PREDICTION_DATA()
 
 BEGIN_DATADESC( CFuncTankAPCRocket )
 
@@ -3822,9 +4158,9 @@ BEGIN_DATADESC( CFuncTankAPCRocket )
 	DEFINE_FIELD( m_nSide, FIELD_INTEGER ),
 	DEFINE_KEYFIELD( m_nBurstCount, FIELD_INTEGER, "burstcount" ),
 	DEFINE_FIELD( m_bDying, FIELD_BOOLEAN ),
-
+#ifndef CLIENT_DLL
 	DEFINE_INPUTFUNC( FIELD_VOID, "DeathVolley", InputDeathVolley ),
-
+#endif
 END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( func_tankapcrocket, CFuncTankAPCRocket );
@@ -3844,7 +4180,9 @@ void CFuncTankAPCRocket::Spawn( void )
 	AddEffects( EF_NODRAW );
 	m_nSide = 0;
 	m_bDying = false;
+#ifndef CLIENT_DLL
 	m_hLaserDot = CreateLaserDot( GetAbsOrigin(), this, false );
+#endif
 	m_nBulletCount = m_nBurstCount;
 	SetSolid( SOLID_NONE );
 	SetLocalVelocity( vec3_origin );
@@ -3852,16 +4190,19 @@ void CFuncTankAPCRocket::Spawn( void )
 
 void CFuncTankAPCRocket::UpdateOnRemove( void )
 {
+#ifndef CLIENT_DLL
 	if ( m_hLaserDot )
 	{
 		UTIL_Remove( m_hLaserDot );
 		m_hLaserDot = NULL;
 	}
 	BaseClass::UpdateOnRemove();
+#endif
 }
 
 void CFuncTankAPCRocket::FireDying( const Vector &barrelEnd )
 {
+#ifndef CLIENT_DLL
 	Vector vecDir;
 	vecDir.Random( -1.0f, 1.0f );
 	if ( vecDir.z < 0.0f )
@@ -3894,6 +4235,7 @@ void CFuncTankAPCRocket::FireDying( const Vector &barrelEnd )
 	{
 		UTIL_Remove( this );
 	}
+#endif
 }
 
 void CFuncTankAPCRocket::Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread )
@@ -3917,10 +4259,10 @@ void CFuncTankAPCRocket::Fire( int bulletCount, const Vector &barrelEnd, const V
 
 	QAngle angles;
 	VectorAngles( vecDir, angles );
-
+#ifndef CLIENT_DLL
 	CAPCMissile *pRocket = (CAPCMissile *) CAPCMissile::Create( barrelEnd, angles, vecVelocity, this );
 	pRocket->IgniteDelay();
-
+#endif
 	CFuncTank::Fire( bulletCount, barrelEnd, forward, this, bIgnoreSpread );
 
 	if ( --m_nBulletCount <= 0 )
@@ -3944,8 +4286,10 @@ void CFuncTankAPCRocket::Think()
 
 	BaseClass::Think();
 	m_hLaserDot->SetAbsOrigin( m_sightOrigin );
+#ifndef CLIENT_DLL
 	SetLaserDotTarget( m_hLaserDot, m_hFuncTankTarget );
 	EnableLaserDot( m_hLaserDot, m_hFuncTankTarget != NULL );
+#endif
 
 	if ( m_bDying )
 	{
@@ -3954,7 +4298,7 @@ void CFuncTankAPCRocket::Think()
 	}
 }
 
-
+#ifndef CLIENT_DLL
 void CFuncTankAPCRocket::InputDeathVolley( inputdata_t &inputdata )
 {
 	if ( !m_bDying )
@@ -3965,8 +4309,8 @@ void CFuncTankAPCRocket::InputDeathVolley( inputdata_t &inputdata )
 		m_bDying = true;
 	}
 }
-
-
+#endif
+#ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Mortar shell
 //-----------------------------------------------------------------------------
@@ -4540,13 +4884,15 @@ void CMortarShell::FadeThink( void )
 		UTIL_Remove( this );
 	}
 }
-
+#endif
 //=========================================================
 //=========================================================
 class CFuncTankMortar : public CFuncTank
 {
 public:
 	DECLARE_CLASS( CFuncTankMortar, CFuncTank );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	CFuncTankMortar() { m_fLastShotMissed = false; }
 
@@ -4556,10 +4902,11 @@ public:
 	void ShootGun(void);
 	void Spawn();
 	void SetNextAttack( float flWait );
-	
+#ifndef CLIENT_DLL
 	// Input handlers.
 	void InputShootGun( inputdata_t &inputdata );
 	void InputFireAtWill( inputdata_t &inputdata );
+#endif
 
 	DECLARE_DATADESC();
 
@@ -4587,6 +4934,19 @@ public:
 	CBaseEntity *m_pAttacker;
 };
 
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankMortar, DT_FuncTankMortar)
+
+BEGIN_NETWORK_TABLE(CFuncTankMortar, DT_FuncTankMortar)
+#ifndef CLIENT_DLL
+
+#else
+
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankMortar)
+END_PREDICTION_DATA()
+
 LINK_ENTITY_TO_CLASS( func_tankmortar, CFuncTankMortar );
 
 BEGIN_DATADESC( CFuncTankMortar )
@@ -4607,10 +4967,11 @@ BEGIN_DATADESC( CFuncTankMortar )
 #endif
 
 	DEFINE_FIELD( m_pAttacker, FIELD_CLASSPTR ),
-
+#ifndef CLIENT_DLL
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "ShootGun", InputShootGun ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "FireAtWill", InputFireAtWill ),
+#endif
 END_DATADESC()
 
 
@@ -4641,7 +5002,7 @@ void CFuncTankMortar::SetNextAttack( float flWait )
 		flWait += random->RandomFloat( -m_flFireVariance, m_flFireVariance );
 	BaseClass::SetNextAttack( flWait );
 }
-
+#ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Purpose: Input handler to make the tank shoot.
 //-----------------------------------------------------------------------------
@@ -4660,7 +5021,7 @@ void CFuncTankMortar::InputFireAtWill( inputdata_t &inputdata )
 {
 	SetNextAttack( gpGlobals->curtime );
 }
-
+#endif
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -4691,6 +5052,7 @@ void CFuncTankMortar::FiringSequence( const Vector &barrelEnd, const Vector &for
 
 void CFuncTankMortar::Fire( int bulletCount, const Vector &barrelEnd, const Vector &vecForward, CBaseEntity *pAttacker, bool bIgnoreSpread )
 {
+#ifndef CLIENT_DLL
 	Vector vecProjectedPosition = vec3_invalid;
 	trace_t tr;
 
@@ -4788,6 +5150,7 @@ void CFuncTankMortar::Fire( int bulletCount, const Vector &barrelEnd, const Vect
 	CMortarShell::Create( barrelEnd, tr.endpos, vecFinalDir, m_fireDelay, m_flWarningTime, m_incomingSound );
 #endif
 	BaseClass::Fire( bulletCount, barrelEnd, vecForward, this, bIgnoreSpread );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -4797,22 +5160,39 @@ class CFuncTankPhysCannister : public CFuncTank
 {
 public:
 	DECLARE_CLASS( CFuncTankPhysCannister, CFuncTank );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 	DECLARE_DATADESC();
 
 	void Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread );
 
 protected:
+#ifndef CLIENT_DLL
 	string_t				m_iszBarrelVolume;
 	CHandle<CBaseTrigger>	m_hBarrelVolume;
+#endif
 };
 
 LINK_ENTITY_TO_CLASS( func_tankphyscannister, CFuncTankPhysCannister );
 
-BEGIN_DATADESC( CFuncTankPhysCannister )
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankPhysCannister, DT_FuncTankPhysCannister)
 
+BEGIN_NETWORK_TABLE(CFuncTankPhysCannister, DT_FuncTankPhysCannister)
+#ifndef CLIENT_DLL
+
+#else
+
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankPhysCannister)
+END_PREDICTION_DATA()
+
+BEGIN_DATADESC( CFuncTankPhysCannister )
+#ifndef CLIENT_DLL
 	DEFINE_KEYFIELD( m_iszBarrelVolume, FIELD_STRING, "barrel_volume" ),
 	DEFINE_FIELD( m_hBarrelVolume, FIELD_EHANDLE ),
-
+#endif
 END_DATADESC()
 
 //-----------------------------------------------------------------------------
@@ -4820,6 +5200,7 @@ END_DATADESC()
 //-----------------------------------------------------------------------------
 void CFuncTankPhysCannister::Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread )
 {
+#ifndef CLIENT_DLL
 	// Find our barrel volume
 	if ( !m_hBarrelVolume )
 	{
@@ -4845,6 +5226,7 @@ void CFuncTankPhysCannister::Fire( int bulletCount, const Vector &barrelEnd, con
 
 	// Fire the cannister!
 	pCannister->CannisterFire( pAttacker );
+#endif
 }
 
 //=========================================================
@@ -4856,6 +5238,8 @@ static const char *s_pUpdateBeamThinkContext = "UpdateBeamThinkContext";
 class CFuncTankCombineCannon : public CFuncTankGun
 {
 	DECLARE_CLASS( CFuncTankCombineCannon, CFuncTankGun );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 	void Precache();
 	void Spawn();
@@ -4873,10 +5257,13 @@ class CFuncTankCombineCannon : public CFuncTankGun
 
 	void InputEnableHarrass( inputdata_t &inputdata );
 	void InputDisableHarrass( inputdata_t &inputdata );
-
+#ifndef CLIENT_DLL
 	COutputEvent m_OnShotAtPlayer;
 
-	CHandle<CBeam>	m_hBeam;
+	CNetworkHandle(CBeam, m_hBeam);
+#else
+	EHANDLE m_hBeam;
+#endif
 
 	DECLARE_DATADESC();
 
@@ -4892,9 +5279,24 @@ private:
 #endif
 };
 
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankCombineCannon, DT_FuncTankCombineCannon)
+
+BEGIN_NETWORK_TABLE(CFuncTankCombineCannon, DT_FuncTankCombineCannon)
+#ifndef CLIENT_DLL
+SendPropEHandle(SENDINFO(m_hBeam)),
+#else
+RecvPropEHandle(RECVINFO(m_hBeam)),
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankCombineCannon)
+END_PREDICTION_DATA()
+
 BEGIN_DATADESC( CFuncTankCombineCannon )
 	DEFINE_FIELD( m_originalFireRate, FIELD_FLOAT ),
+#ifndef CLIENT_DLL
 	DEFINE_THINKFUNC( UpdateBeamThink ),
+#endif
 	DEFINE_FIELD( m_flTimeNextSweep, FIELD_TIME ),
 	DEFINE_FIELD( m_flTimeBeamOn, FIELD_TIME ),
 	DEFINE_FIELD( m_hBeam, FIELD_EHANDLE ),
@@ -4904,12 +5306,12 @@ BEGIN_DATADESC( CFuncTankCombineCannon )
 #ifdef MAPBASE
 	DEFINE_KEYFIELD( m_bControllableVersion, FIELD_BOOLEAN, "ControllableVersion" ),
 #endif
-
+#ifndef CLIENT_DLL
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableHarrass", InputEnableHarrass ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableHarrass", InputDisableHarrass ),
 
 	DEFINE_OUTPUT( m_OnShotAtPlayer, "OnShotAtPlayer" ),
-
+#endif
 END_DATADESC()
 
 //---------------------------------------------------------
@@ -4949,9 +5351,11 @@ void CFuncTankCombineCannon::CreateBeam()
 {
 	if (!m_hBeam && gpGlobals->curtime >= m_flTimeBeamOn )
 	{
+#ifndef CLIENT_DLL
 		m_hBeam = CBeam::BeamCreate( COMBINE_CANNON_BEAM, 1.0f );
 		m_hBeam->SetColor( 255, 255, 255 );
 		SetContextThink( &CFuncTankCombineCannon::UpdateBeamThink, gpGlobals->curtime, s_pUpdateBeamThinkContext );
+#endif
 	}
 	else
 	{
@@ -4962,7 +5366,7 @@ void CFuncTankCombineCannon::CreateBeam()
 	Vector vecInitialAim;
 
 	AngleVectors( GetAbsAngles(), &vecInitialAim, NULL, NULL );
-
+#ifndef CLIENT_DLL
 	m_hBeam->PointsInit( WorldBarrelPosition(), WorldBarrelPosition() + vecInitialAim );
 	m_hBeam->SetBrightness( 255 );
 	m_hBeam->SetNoise( 0 );
@@ -4972,6 +5376,7 @@ void CFuncTankCombineCannon::CreateBeam()
 	m_hBeam->SetFadeLength( 60 ); // five feet to fade out
 	//m_hBeam->SetHaloTexture( sHaloSprite );
 	m_hBeam->SetHaloScale( 4.0f );
+#endif
 }
 
 //---------------------------------------------------------
@@ -4980,7 +5385,9 @@ void CFuncTankCombineCannon::DestroyBeam()
 {
 	if( m_hBeam )
 	{
+#ifndef CLIENT_DLL
 		UTIL_Remove( m_hBeam );
+#endif
 		m_hBeam.Set(NULL);
 	}
 }
@@ -5023,7 +5430,7 @@ void CFuncTankCombineCannon::UpdateBeamThink()
 
 	if( !m_hBeam )
 		return;
-
+#ifndef CLIENT_DLL
 	trace_t trBeam;
 	trace_t trShot;
 	trace_t trBlockLOS;
@@ -5041,6 +5448,7 @@ void CFuncTankCombineCannon::UpdateBeamThink()
 	{
 		SetTargetPosition( trBeam.endpos );
 	}
+#endif
 }
 
 //---------------------------------------------------------
@@ -5062,7 +5470,11 @@ void CFuncTankCombineCannon::FuncTankPostThink()
 			AddSpawnFlags( SF_TANK_AIM_AT_POS );
 
 			Vector vecTargetPosition = GetTargetPosition();
+#ifndef CLIENT_DLL
 			CBasePlayer *pPlayer = AI_GetSinglePlayer();
+#else
+			CBasePlayer *pPlayer = CBasePlayer::GetLocalPlayer();
+#endif
 			Vector vecToPlayer = pPlayer->WorldSpaceCenter() - GetAbsOrigin();
 			vecToPlayer.NormalizeInPlace();
 
@@ -5115,8 +5527,13 @@ void CFuncTankCombineCannon::FuncTankPostThink()
 #else
 				CTraceFilterSkipTwoEntities traceFilter( this, GetParent(), COLLISION_GROUP_NONE );
 #endif
+#ifndef CLIENT_DLL
 				AI_TraceLine( vecBarrelEnd, vecTest, MASK_BLOCKLOS_AND_NPCS, &traceFilter, &trLOS );
 				AI_TraceLine( vecBarrelEnd, vecTest, MASK_SHOT, &traceFilter, &trShoot );
+#else
+				UTIL_TraceLine(vecBarrelEnd, vecTest, MASK_BLOCKLOS_AND_NPCS, &traceFilter, &trLOS);
+				UTIL_TraceLine(vecBarrelEnd, vecTest, MASK_SHOT, &traceFilter, &trShoot);
+#endif
 
 				if( trLOS.fraction < trShoot.fraction )
 				{
@@ -5189,6 +5606,7 @@ void CFuncTankCombineCannon::Fire( int bulletCount, const Vector &barrelEnd, con
 	if( m_hTarget != NULL )
 #endif
 	{
+#ifndef CLIENT_DLL
 		Vector vecToTarget = m_hTarget->BodyTarget( barrelEnd, false ) - barrelEnd;
 		VectorNormalize( vecToTarget );
 
@@ -5206,6 +5624,7 @@ void CFuncTankCombineCannon::Fire( int bulletCount, const Vector &barrelEnd, con
 
 		if( m_hTarget->IsPlayer() )
 			m_OnShotAtPlayer.FireOutput( this, this );
+#endif
 	}
 
 	BaseClass::Fire( bulletCount, barrelEnd, vecAdjustedForward, pAttacker, bIgnoreSpread );
@@ -5223,6 +5642,7 @@ void CFuncTankCombineCannon::Fire( int bulletCount, const Vector &barrelEnd, con
 void CFuncTankCombineCannon::MakeTracer( const Vector &vecTracerSrc, const trace_t &tr, int iTracerType )
 {
 	// If the shot passed near the player, shake the screen.
+#ifndef CLIENT_DLL
 	if( AI_IsSinglePlayer() )
 	{
 		Vector vecPlayer = AI_GetSinglePlayer()->EyePosition();
@@ -5237,7 +5657,7 @@ void CFuncTankCombineCannon::MakeTracer( const Vector &vecTracerSrc, const trace
 			UTIL_ScreenShake( vecNearestPoint, 10, 60, 0.3, 120.0f, SHAKE_START, false );
 		}
 	}
-
+#endif
 	// Send the railgun effect
 	DispatchParticleEffect( "Weapon_Combine_Ion_Cannon", vecTracerSrc, tr.endpos, vec3_angle, NULL );
 }
@@ -5252,7 +5672,7 @@ void CFuncTankCombineCannon::TankDeactivate()
 
 	BaseClass::TankDeactivate();
 }
-
+#ifndef CLIENT_DLL
 //---------------------------------------------------------
 //---------------------------------------------------------
 void CFuncTankCombineCannon::InputSetTargetEntity( inputdata_t &inputdata )
@@ -5287,7 +5707,7 @@ void CFuncTankCombineCannon::InputDisableHarrass( inputdata_t &inputdata )
 {
 	m_bShouldHarrass = false;
 }
-
+#endif
 
 LINK_ENTITY_TO_CLASS( func_tank_combine_cannon, CFuncTankCombineCannon );
 
@@ -5299,6 +5719,8 @@ class CFuncTankLogic : public CFuncTank
 {
 public:
 	DECLARE_CLASS(CFuncTankLogic, CFuncTank);
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 	DECLARE_DATADESC();
 
 	CFuncTankLogic();
@@ -5308,23 +5730,38 @@ public:
 protected:
 
 	bool					m_bShootsThroughWater;
-
+#ifndef CLIENT_DLL
 	COutputVector			m_OnFire_BarrelPos;
 	COutputVector			m_OnFire_BarrelAng;
 	COutputVector			m_OnFire_ShootPos;
 	COutputEHANDLE			m_OnFire_FirstEnt;
+#endif
 };
 
 LINK_ENTITY_TO_CLASS(func_tanklogic, CFuncTankLogic);
 
+IMPLEMENT_NETWORKCLASS_ALIASED(FuncTankLogic, DT_FuncTankLogic)
+
+BEGIN_NETWORK_TABLE(CFuncTankLogic, DT_FuncTankLogic)
+#ifndef CLIENT_DLL
+
+#else
+
+#endif
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CFuncTankLogic)
+END_PREDICTION_DATA()
+
 BEGIN_DATADESC(CFuncTankLogic)
 
 	//DEFINE_KEYFIELD( m_bDontHitController, FIELD_BOOLEAN, "DontHitController" ),
-
+#ifndef CLIENT_DLL
 	DEFINE_OUTPUT( m_OnFire_BarrelPos, "OnFire_BarrelPos" ),
 	DEFINE_OUTPUT( m_OnFire_BarrelAng, "OnFire_BarrelAng" ),
 	DEFINE_OUTPUT( m_OnFire_ShootPos, "OnFire_ShootPos" ),
 	DEFINE_OUTPUT( m_OnFire_FirstEnt, "OnFire_FirstEnt" ),
+#endif
 
 END_DATADESC()
 
@@ -5342,6 +5779,7 @@ CFuncTankLogic::CFuncTankLogic()
 //-----------------------------------------------------------------------------
 void CFuncTankLogic::Fire(int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread)
 {
+#ifndef CLIENT_DLL
 	// A bunch of stuff from FireBullets() to replicate firing a regular func_tank.
 	// It mostly just has the trace stuff.
 	Vector vecDir;
@@ -5377,6 +5815,6 @@ void CFuncTankLogic::Fire(int bulletCount, const Vector &barrelEnd, const Vector
 	m_OnFire_BarrelAng.Set(forward, pAttacker, this);
 	m_OnFire_ShootPos.Set(tr.endpos, pAttacker, this);
 	m_OnFire_FirstEnt.Set(tr.m_pEnt, tr.m_pEnt, this);
+#endif
 }
 #endif // MAPBASE
-

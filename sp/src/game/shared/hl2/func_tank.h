@@ -10,8 +10,21 @@
 #pragma once
 #endif
 
+#ifndef CLIENT_DLL
 #include "triggers.h"
-
+#else
+#define CFuncTankGun C_FuncTankGun
+#define CFuncTankPulseLaser C_FuncTankPulseLaser
+#define CFuncTankLaser C_FuncTankLaser
+#define CFuncTankRocket C_FuncTankRocket
+#define CFuncTankAirboatGun C_FuncTankAirboatGun
+#define CFuncTankAPCRocket C_FuncTankAPCRocket
+#define CFuncTank C_FuncTank
+#define CFuncTankMortar C_FuncTankMortar
+#define CFuncTankPhysCannister C_FuncTankPhysCannister
+#define CFuncTankCombineCannon C_FuncTankCombineCannon
+#define CFuncTankLogic C_FuncTankLogic
+#endif
 #define SF_TANK_ACTIVE						0x0001
 #define SF_TANK_PLAYER						0x0002
 #define SF_TANK_HUMANS						0x0004
@@ -69,6 +82,35 @@ enum TANKBULLET
 class CTraceFilterSimple;
 #endif
 
+#ifdef CLIENT_DLL
+class EntityMatrix : public VMatrix
+{
+public:
+	void InitFromEntity(CBaseEntity *pEntity, int iAttachment = 0);
+	void InitFromEntityLocal(CBaseEntity *entity);
+
+	inline Vector LocalToWorld(const Vector &vVec) const
+	{
+		return VMul4x3(vVec);
+	}
+
+	inline Vector WorldToLocal(const Vector &vVec) const
+	{
+		return VMul4x3Transpose(vVec);
+	}
+
+	inline Vector LocalToWorldRotation(const Vector &vVec) const
+	{
+		return VMul3x3(vVec);
+	}
+
+	inline Vector WorldToLocalRotation(const Vector &vVec) const
+	{
+		return VMul3x3Transpose(vVec);
+	}
+};
+#endif
+
 
 //			Custom damage
 //			env_laser (duration is 0.5 rate of fire)
@@ -77,10 +119,10 @@ class CTraceFilterSimple;
 
 class CFuncTank : public CBaseEntity
 {
-
-	DECLARE_CLASS( CFuncTank, CBaseEntity );
-
 public:
+	DECLARE_CLASS( CFuncTank, CBaseEntity );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
 
 			CFuncTank();
 			~CFuncTank();
@@ -88,6 +130,17 @@ public:
 	void	Activate( void );
 	void	Precache( void );
 	bool	CreateVPhysics( void );
+
+#ifdef CLIENT_DLL
+	virtual bool ShouldPredict() { return m_hController.Get() == CBasePlayer::GetLocalPlayer(); };
+	virtual void	ClientThink(void);
+	virtual void	OnDataChanged(DataUpdateType_t updateType);
+#else
+	int UpdateTransmitState()	// always send to all clients
+	{
+		return SetTransmitState(FL_EDICT_ALWAYS);
+	}
+#endif
 	bool	KeyValue( const char *szKeyName, const char *szValue );
 	void	UpdateOnRemove();
 
@@ -144,6 +197,20 @@ public:
 	inline bool IsActive( void )			{ return ( m_spawnflags & SF_TANK_ACTIVE ) ? true : false; }
 	inline bool IsNPCControllable( void )	{ return ( m_spawnflags & SF_TANK_NPC_CONTROLLABLE ) ? true : false; }
 	inline bool IsNPCSetController( void )	{ return ( m_spawnflags & SF_TANK_NPC_SET_CONTROLLER ) ? true : false; }
+	CNetworkHandle(CBaseCombatCharacter, m_hController);
+	CNetworkVar(float,					m_flNextAttack);
+	CNetworkVar(int,						m_iAmmoCount);	// ammo 
+	CNetworkVar(int, m_nBarrelAttachment);
+	CNetworkVar(float, m_fireLast);		// Last time I fired
+	CNetworkVar(float, m_fireRate);		// How many rounds/second
+#ifdef CLIENT_DLL
+	int				m_spawnflags;
+
+	inline bool		HasSpawnFlags(int flags) { return (m_spawnflags & flags) != 0; }
+	inline void		RemoveSpawnFlags(int flags) { m_spawnflags &= ~flags; }
+	inline void		AddSpawnFlags(int flags) { m_spawnflags |= flags; }
+	inline int		GetSpawnFlags() {return m_spawnflags; }
+#endif
 
 	virtual void DoMuzzleFlash( void );
 	virtual const char *GetTracerType( void );
@@ -184,7 +251,7 @@ private:
 
 	void	StartRotSound( void );
 	void	StopRotSound( void );
-
+#ifndef CLIENT_DLL
 	// Input handlers.
 	void InputActivate( inputdata_t &inputdata );
 	void InputDeactivate( inputdata_t &inputdata );
@@ -208,7 +275,7 @@ private:
 	void InputStartFindingNPCs( inputdata_t &inputdata );
 	void InputForceNPCOff( inputdata_t &inputdata );
 	void InputSetMaxRange( inputdata_t &inputdata );
-
+#endif
 	inline bool CanFire( void );
 	bool		InRange( float range );
 	bool		InRange2( float flRange2 );
@@ -257,9 +324,6 @@ protected:
 	virtual void TankActivate(void);
 	virtual void TankDeactivate(void);
 
-	float					m_fireLast;		// Last time I fired
-	float					m_fireRate;		// How many rounds/second
-
 	EHANDLE					m_hTarget;
 
 	TANKBULLET				m_bulletType;	// Bullet type
@@ -290,7 +354,11 @@ protected:
 #ifdef MAPBASE
 	bool					m_bDontHitController;
 	string_t				m_iszTraceFilter;
+#ifndef CLIENT_DLL
 	CHandle<CBaseFilter>	m_hTraceFilter;
+#else
+	CHandle<CTraceFilter>	m_hTraceFilter;
+#endif
 
 	// Created to nullify aiming problems when the func_tank is on a vehicle or the player is too close to the barrel
 	float					m_flPlayerBBoxDist;
@@ -300,9 +368,7 @@ private:
 
 	// This is either the player manning the func_tank, or an NPC. The NPC is either manning the tank, or running
 	// to the man point. If he's en-route, m_bNPCInRoute will be true. 
-	CHandle<CBaseCombatCharacter> m_hController;
 
-	float					m_flNextAttack;
 	Vector					m_vecControllerUsePos;
 	
 	float					m_yawCenter;	// "Center" yaw
@@ -327,7 +393,6 @@ private:
 	float					m_maxRange;		// Max range to aim/track
 	float					m_flMinRange2;
 	float					m_flMaxRange2;
-	int						m_iAmmoCount;	// ammo 
 
 	Vector					m_barrelPos;	// Length of the freakin barrel
 	float					m_spriteScale;	// Scale of any sprites we shoot
@@ -364,7 +429,7 @@ private:
 
 	// Used for when the gun is attached to another entity
 	string_t				m_iszBarrelAttachment;
-	int						m_nBarrelAttachment;
+	
 	string_t				m_iszBaseAttachment;
 
 	// Used when the gun is actually a part of the parent entity, and pose params aim it
@@ -381,8 +446,9 @@ private:
 	float					m_flNextLeadFactor;
 	float					m_flNextLeadFactorTime;
 
-#ifdef MAPBASE
 public:
+#ifndef CLIENT_DLL
+#ifdef MAPBASE
 	COutputEvent			m_OnFire;
 	COutputEHANDLE			m_OnLoseTarget;
 	COutputEHANDLE			m_OnAquireTarget;
@@ -399,6 +465,9 @@ public:
 	COutputEvent			m_OnReadyToFire;
 
 	CHandle<CBaseTrigger>	m_hControlVolume;
+#else
+	EHANDLE m_hControlVolume;
+#endif
 	string_t				m_iszControlVolume;
 
 	float					m_flNextControllerSearch;
