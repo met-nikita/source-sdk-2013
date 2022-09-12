@@ -47,6 +47,7 @@
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "decals.h"
 #include "obstacle_pushaway.h"
+#include "func_tank.h"
 #ifdef SIXENSE
 #include "sixense/in_sixense.h"
 #endif
@@ -262,11 +263,23 @@ void CBasePlayer::ItemPostFrame()
 	// check if the player is using something
 	if ( m_hUseEntity != NULL )
 	{
-#if !defined( CLIENT_DLL )
-		Assert( !IsInAVehicle() );
-		ImpulseCommands();// this will call playerUse
+		Assert(!IsInAVehicle());
+		if (m_hUseEntity->IsFuncTank())
+		{
+			CFuncTank *pFuncTank = (CFuncTank*) m_hUseEntity.Get();
+#if defined( CLIENT_DLL )
+			if (pFuncTank->IsPredicted())
 #endif
-		return;
+			{
+				pFuncTank->ControllerPostFrame();
+			}
+		}
+
+#if !defined( CLIENT_DLL )	
+			ImpulseCommands();// this will call playerUse
+#endif
+			return;
+
 	}
 
     if ( gpGlobals->curtime < m_flNextAttack )

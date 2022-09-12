@@ -47,6 +47,7 @@
 #include "c_props.h"
 #include "gamestringpool.h"
 #include "util_shared.h"
+#include "prediction.h"
 #define GetParent GetMoveParent
 #define UTIL_AngleDistance AngleDistance
 #endif
@@ -116,7 +117,6 @@ extern ConVar ai_debug_shoot_positions;
 ConVar mortar_visualize("mortar_visualize", "0" );
 
 IMPLEMENT_NETWORKCLASS_ALIASED(FuncTank, DT_FuncTank)
-
 BEGIN_NETWORK_TABLE(CFuncTank, DT_FuncTank)
 #ifndef CLIENT_DLL
 SendPropEHandle( SENDINFO(m_hController) ),
@@ -126,6 +126,12 @@ SendPropFloat(SENDINFO(m_flNextAttack)),
 SendPropInt(SENDINFO(m_nBarrelAttachment)),
 SendPropFloat(SENDINFO(m_fireRate)),
 SendPropFloat(SENDINFO(m_fireLast)),
+SendPropFloat(SENDINFO(m_flYawPoseCenter)),
+SendPropFloat(SENDINFO(m_flPitchPoseCenter)),
+SendPropBool(SENDINFO(m_bUsePoseParameters)),
+SendPropStringT(SENDINFO(m_iszYawPoseParam)),
+SendPropStringT(SENDINFO(m_iszPitchPoseParam)),
+SendPropInt(SENDINFO(m_iEffectHandling)),
 #else
 RecvPropEHandle(RECVINFO(m_hController)),
 RecvPropInt(RECVINFO(m_iAmmoCount)),
@@ -134,12 +140,18 @@ RecvPropFloat(RECVINFO(m_flNextAttack)),
 RecvPropInt(RECVINFO(m_nBarrelAttachment)),
 RecvPropFloat(RECVINFO(m_fireRate)),
 RecvPropFloat(RECVINFO(m_fireLast)),
+RecvPropFloat(RECVINFO(m_flYawPoseCenter)),
+RecvPropFloat(RECVINFO(m_flPitchPoseCenter)),
+RecvPropBool(RECVINFO(m_bUsePoseParameters)),
+RecvPropString(RECVINFO(m_iszYawPoseParam)),
+RecvPropString(RECVINFO(m_iszPitchPoseParam)),
+RecvPropInt(RECVINFO(m_iEffectHandling)),
 #endif
 END_NETWORK_TABLE()
 
 BEGIN_PREDICTION_DATA(CFuncTank)
 #ifdef CLIENT_DLL
-DEFINE_PRED_FIELD(m_hController, FIELD_EHANDLE, FTYPEDESC_INSENDTABLE),
+//DEFINE_PRED_FIELD(m_hController, FIELD_EHANDLE, FTYPEDESC_INSENDTABLE),
 DEFINE_PRED_FIELD(m_iAmmoCount, FIELD_INTEGER, FTYPEDESC_INSENDTABLE),
 DEFINE_PRED_FIELD_TOL(m_flNextAttack, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
 DEFINE_PRED_FIELD_TOL(m_fireLast, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
@@ -324,7 +336,7 @@ void CFuncTank::OnDataChanged(DataUpdateType_t updateType)
 	BaseClass::OnDataChanged(updateType);
 
 	// Only think when sapping
-	SetNextClientThink(CLIENT_THINK_ALWAYS);
+	//SetNextClientThink(CLIENT_THINK_ALWAYS);
 	if (updateType == DATA_UPDATE_CREATED)
 	{
 
@@ -334,11 +346,8 @@ void CFuncTank::OnDataChanged(DataUpdateType_t updateType)
 void CFuncTank::ClientThink(void)
 {
 	BaseClass::ClientThink();
-
-	FuncTankPreThink();
-	Think();
-	FuncTankPostThink();
-	ControllerPostFrame();
+	//Think();
+	//ControllerPostFrame();
 }
 #endif
 
@@ -1064,15 +1073,23 @@ void CFuncTank::Spawn( void )
 				SetLocalAngles( vec3_angle );
 			}
 		}
-
+#ifndef CLIENT_DLL
+		m_bUsePoseParameters = (m_iszYawPoseParam.Get() != NULL_STRING) && (m_iszPitchPoseParam.Get() != NULL_STRING);
+#else
 		m_bUsePoseParameters = (m_iszYawPoseParam != NULL_STRING) && (m_iszPitchPoseParam != NULL_STRING);
+#endif
 
 		if ( m_iszBarrelAttachment != NULL_STRING )
 		{
 			if ( m_bUsePoseParameters )
 			{
-				pAnim->SetPoseParameter( STRING( m_iszYawPoseParam ), 0 );
-				pAnim->SetPoseParameter( STRING( m_iszPitchPoseParam ), 0 );
+#ifndef CLIENT_DLL
+				pAnim->SetPoseParameter( STRING( m_iszYawPoseParam.Get() ), 0 );
+				pAnim->SetPoseParameter( STRING( m_iszPitchPoseParam.Get() ), 0 );
+#else
+				pAnim->SetPoseParameter(STRING(m_iszYawPoseParam), 0);
+				pAnim->SetPoseParameter(STRING(m_iszPitchPoseParam), 0);
+#endif
 				pAnim->InvalidateBoneCache();
 			}
 
@@ -1272,8 +1289,13 @@ void CFuncTank::PhysicsSimulate( void )
 	{
 		const QAngle &angles = GetLocalAngles();
 		CBaseAnimating *pAnim = GetParent()->GetBaseAnimating();
-		pAnim->SetPoseParameter( STRING( m_iszYawPoseParam ), angles.y );
-		pAnim->SetPoseParameter( STRING( m_iszPitchPoseParam ), angles.x );
+#ifndef CLIENT_DLL
+		pAnim->SetPoseParameter( STRING( m_iszYawPoseParam.Get() ), angles.y );
+		pAnim->SetPoseParameter( STRING( m_iszPitchPoseParam.Get() ), angles.x );
+#else
+		pAnim->SetPoseParameter(STRING(m_iszYawPoseParam), angles.y);
+		pAnim->SetPoseParameter(STRING(m_iszPitchPoseParam), angles.x);
+#endif
 		pAnim->StudioFrameAdvance();
 	}
 }
@@ -1828,7 +1850,7 @@ void CFuncTank::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE use
 
 	if ( value == 2 && useType == USE_SET )
 	{
-		ControllerPostFrame();
+		//ControllerPostFrame();
 	}
 #ifndef CLIENT_DLL
 	else if ( m_hController.Get() != pPlayer && useType != USE_OFF )

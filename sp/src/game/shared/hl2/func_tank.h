@@ -192,6 +192,12 @@ public:
 	virtual void OnStartControlled() {}
 	virtual void OnStopControlled() {}
 
+	virtual bool IsFuncTank(){
+		return true;
+	}
+
+	bool IsPredicted() const { return true; }
+	virtual void ControllerPostFrame(void);
 	// SF Tests.
 	inline bool IsControllable( void )		{ return ( m_spawnflags & SF_TANK_CANCONTROL ) ? true : false; }
 	inline bool IsActive( void )			{ return ( m_spawnflags & SF_TANK_ACTIVE ) ? true : false; }
@@ -203,6 +209,17 @@ public:
 	CNetworkVar(int, m_nBarrelAttachment);
 	CNetworkVar(float, m_fireLast);		// Last time I fired
 	CNetworkVar(float, m_fireRate);		// How many rounds/second
+	CNetworkVar(float,					m_flYawPoseCenter);
+	CNetworkVar(float,					m_flPitchPoseCenter);
+	CNetworkVar(bool,					m_bUsePoseParameters);
+#ifndef CLIENT_DLL
+	CNetworkVar(string_t,				m_iszYawPoseParam);
+	CNetworkVar(string_t,				m_iszPitchPoseParam);
+#else
+	char m_iszYawPoseParam[64];
+	char m_iszPitchPoseParam[64];
+#endif
+	CNetworkVar(int, m_iEffectHandling);
 #ifdef CLIENT_DLL
 	int				m_spawnflags;
 
@@ -319,7 +336,7 @@ private:
 	void ComputeLeadingPosition( const Vector &vecShootPosition, CBaseEntity *pTarget, Vector *pLeadPosition );
 
 protected:
-	virtual void ControllerPostFrame( void );
+	
 
 	virtual void TankActivate(void);
 	virtual void TankDeactivate(void);
@@ -433,11 +450,6 @@ private:
 	string_t				m_iszBaseAttachment;
 
 	// Used when the gun is actually a part of the parent entity, and pose params aim it
-	string_t				m_iszYawPoseParam;
-	string_t				m_iszPitchPoseParam;
-	float					m_flYawPoseCenter;
-	float					m_flPitchPoseCenter;
-	bool					m_bUsePoseParameters;
 
 	// Lead the target?
 	bool					m_bPerformLeading;
@@ -477,7 +489,7 @@ public:
 
 	bool					m_bReadyToFire;
 
-	int						m_iEffectHandling;
+	
 };
 
 #endif // FUNC_TANK_H
