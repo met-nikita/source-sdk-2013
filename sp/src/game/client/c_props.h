@@ -33,10 +33,11 @@ public:
 	bool TestBoneFollowers( const Ray_t &ray, unsigned int fContentsMask, trace_t& tr );
 	bool TestCollision( const Ray_t &ray, unsigned int fContentsMask, trace_t& tr );
 
+	bool	m_bUseHitboxesForRenderBox;
+
 private:
 	C_DynamicProp( const C_DynamicProp & );
 
-	bool	m_bUseHitboxesForRenderBox;
 	int		m_iCachedFrameCount;
 	Vector	m_vecCachedRenderMins;
 	Vector	m_vecCachedRenderMaxs;

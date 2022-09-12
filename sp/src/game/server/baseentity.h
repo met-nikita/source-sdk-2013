@@ -500,6 +500,10 @@ public:
 	// Is the entity floating?
 	bool					IsFloating();
 
+	virtual bool IsFuncTank(){
+		return false;
+	}
+
 	// Called by physics to see if we should avoid a collision test....
 	virtual	bool			ShouldCollide( int collisionGroup, int contentsMask ) const;
 

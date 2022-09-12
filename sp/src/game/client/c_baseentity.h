@@ -226,6 +226,10 @@ public:
 	virtual void					Precache( void );
 	virtual void					Activate();
 
+	virtual bool IsFuncTank(){
+		return false;
+	}
+
 	virtual void					ParseMapData( CEntityMapData *mapData );
 	virtual bool					KeyValue( const char *szKeyName, const char *szValue );
 	virtual bool					KeyValue( const char *szKeyName, float flValue );
