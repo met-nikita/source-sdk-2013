@@ -336,7 +336,7 @@ void CFuncTank::OnDataChanged(DataUpdateType_t updateType)
 	BaseClass::OnDataChanged(updateType);
 
 	// Only think when sapping
-	//SetNextClientThink(CLIENT_THINK_ALWAYS);
+	SetNextClientThink(CLIENT_THINK_ALWAYS);
 	if (updateType == DATA_UPDATE_CREATED)
 	{
 
@@ -346,7 +346,7 @@ void CFuncTank::OnDataChanged(DataUpdateType_t updateType)
 void CFuncTank::ClientThink(void)
 {
 	BaseClass::ClientThink();
-	//Think();
+	Think();
 	//ControllerPostFrame();
 }
 #endif
@@ -2618,7 +2618,7 @@ void CFuncTank::DoMuzzleFlash( void )
 #ifndef CLIENT_DLL
 			data.m_nEntIndex = pAnim->entindex();
 #else
-			data.m_hEntity = pAnim->entindex();
+			data.m_hEntity = pAnim->GetClientHandle();
 #endif
 			// FIXME: Create a custom entry here!
 			DispatchEffect( "ChopperMuzzleFlash", data );
@@ -2629,7 +2629,7 @@ void CFuncTank::DoMuzzleFlash( void )
 #ifndef CLIENT_DLL
 			data.m_nEntIndex = pAnim->entindex();
 #else
-			data.m_hEntity = pAnim->entindex();
+			data.m_hEntity = pAnim->GetClientHandle();
 #endif
 			data.m_nAttachmentIndex = m_nBarrelAttachment;
 			data.m_flScale = 1.0f;
@@ -2667,6 +2667,13 @@ const char *CFuncTank::GetTracerType( void )
 //-----------------------------------------------------------------------------
 void CFuncTank::Fire( int bulletCount, const Vector &barrelEnd, const Vector &forward, CBaseEntity *pAttacker, bool bIgnoreSpread )
 {
+#ifndef CLIENT_DLL
+	CBasePlayer *pPlayer = NULL;
+	if (m_hController->IsPlayer())
+		pPlayer = (CBasePlayer *)m_hController.Get();
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(pPlayer);
+#endif
 #ifdef MAPBASE
 	bool bSpriteSmoke = m_iszSpriteSmoke != NULL_STRING;
 	bool bSpriteFlash = m_iszSpriteFlash != NULL_STRING;
@@ -2779,6 +2786,10 @@ void CFuncTank::Fire( int bulletCount, const Vector &barrelEnd, const Vector &fo
 #else
 	m_OnFire.FireOutput(this, this);
 #endif
+#endif
+#ifndef CLIENT_DLL
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(NULL);
 #endif
 	m_bReadyToFire = false;
 }
