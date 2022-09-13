@@ -100,11 +100,14 @@ public:
 	virtual void	PrimaryAttack( void );
 	virtual void	SecondaryAttack( void );
 
+	virtual void	ItemPostFrame(void);
+	void BurstAttack(void);
+
 	virtual int		WeaponRangeAttack1Condition( float flDot, float flDist );
 	virtual int		WeaponRangeAttack2Condition( float flDot, float flDist );
 
-protected:
-	int m_iBurstSize;
-	int	m_iFireMode;
+	CNetworkVar(int, m_iBurstSize);
+	CNetworkVar(int,	m_iFireMode);
+	CNetworkVar(float, m_flNextBurstShot);
 };
 #endif // BASEHLCOMBATWEAPON_H

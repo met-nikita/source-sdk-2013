@@ -305,9 +305,22 @@ void CHLMachineGun::ItemPostFrame( void )
 IMPLEMENT_NETWORKCLASS_ALIASED(HLSelectFireMachineGun, DT_HLSelectFireMachineGun)
 
 BEGIN_NETWORK_TABLE(CHLSelectFireMachineGun, DT_HLSelectFireMachineGun)
+#ifndef CLIENT_DLL
+SendPropInt(SENDINFO(m_iBurstSize)),
+SendPropInt(SENDINFO(m_iFireMode)),
+SendPropFloat(SENDINFO(m_flNextBurstShot)),
+#else
+RecvPropInt(RECVINFO(m_iBurstSize)),
+RecvPropInt(RECVINFO(m_iFireMode)),
+RecvPropFloat(RECVINFO(m_flNextBurstShot)),
+#endif
 END_NETWORK_TABLE()
 
 BEGIN_PREDICTION_DATA(CHLSelectFireMachineGun)
+#ifdef CLIENT_DLL
+DEFINE_PRED_FIELD(m_iBurstSize, FIELD_INTEGER, FTYPEDESC_INSENDTABLE),
+DEFINE_PRED_FIELD_TOL(m_flNextBurstShot, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE),
+#endif
 END_PREDICTION_DATA()
 
 //=========================================================
@@ -362,6 +375,16 @@ bool CHLSelectFireMachineGun::Deploy( void )
 	return BaseClass::Deploy();
 }
 
+void CHLSelectFireMachineGun::ItemPostFrame(void)
+{
+	BaseClass::ItemPostFrame();
+
+	if (m_iBurstSize > 0 && m_flNextBurstShot <= gpGlobals->curtime)
+	{
+		BurstThink();
+	}
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -387,13 +410,10 @@ void CHLSelectFireMachineGun::PrimaryAttack( void )
 		m_iBurstSize = GetBurstSize();
 		
 		// Call the think function directly so that the first round gets fired immediately.
+		m_flNextBurstShot = gpGlobals->curtime;
 		BurstThink();
-		SetThink( &CHLSelectFireMachineGun::BurstThink );
 		m_flNextPrimaryAttack = gpGlobals->curtime + GetBurstCycleRate();
 		m_flNextSecondaryAttack = gpGlobals->curtime + GetBurstCycleRate();
-
-		// Pick up the rest of the burst through the think function.
-		SetNextThink( gpGlobals->curtime + GetFireRate() );
 		break;
 	}
 
@@ -449,6 +469,96 @@ void CHLSelectFireMachineGun::SecondaryAttack( void )
 	}
 }
 
+void CHLSelectFireMachineGun::BurstAttack(void)
+{
+	ITEM_GRAB_PREDICTED_ATTACK_FIX
+
+		// Abort here to handle burst and auto fire modes
+		if ((UsesClipsForAmmo1() && m_iClip1 == 0) || (!UsesClipsForAmmo1() && !pPlayer->GetAmmoCount(m_iPrimaryAmmoType)))
+		{
+			m_iBurstSize = 0;
+			return;
+		}
+			
+
+	m_nShotsFired++;
+
+	pPlayer->DoMuzzleFlash();
+
+	// To make the firing framerate independent, we may have to fire more than one bullet here on low-framerate systems, 
+	// especially if the weapon we're firing has a really fast rate of fire.
+	int iBulletsToFire = 0;
+	float fireRate = GetFireRate();
+
+	// MUST call sound before removing a round from the clip of a CHLMachineGun
+	while (m_flNextBurstShot <= gpGlobals->curtime && m_iBurstSize>0)
+	{
+		WeaponSound(SINGLE, m_flNextBurstShot);
+		m_flNextBurstShot = m_flNextBurstShot + fireRate;
+		iBulletsToFire++;
+		m_iBurstSize--;
+	}
+
+	// Make sure we don't fire more than the amount in the clip, if this weapon uses clips
+	if (UsesClipsForAmmo1())
+	{
+		if (iBulletsToFire > m_iClip1)
+			iBulletsToFire = m_iClip1;
+		m_iClip1 -= iBulletsToFire;
+	}
+
+	m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
+	gamestats->Event_WeaponFired(pPlayer, true, GetClassname());
+#endif
+
+	CHL2_Player *pHLPlayer = dynamic_cast<CHL2_Player *> (pPlayer);
+	// Fire the bullets
+	FireBulletsInfo_t info;
+	info.m_iShots = iBulletsToFire;
+	info.m_vecSrc = pPlayer->Weapon_ShootPosition();
+	info.m_vecDirShooting = pPlayer->GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
+	info.m_vecSpread = pHLPlayer->GetAttackSpread(this);
+	info.m_flDistance = MAX_TRACE_LENGTH;
+	info.m_iAmmoType = m_iPrimaryAmmoType;
+#ifdef EZ
+	info.m_iTracerFreq = 1;
+#else
+	info.m_iTracerFreq = 2;
+#endif
+
+#ifdef CSS_WEAPONS_IN_HL2
+	if (GetDamageMultiplier() != 1.0f)
+	{
+		info.m_flDamage = round(GetAmmoDef()->PlrDamage(info.m_iAmmoType) * GetDamageMultiplier());
+	}
+#endif
+	FireBullets(info);
+
+	//Factor in the view kick
+	AddViewKick();
+#ifndef CLIENT_DLL
+#ifdef CSS_WEAPONS_IN_HL2
+	CSoundEnt::InsertSound(SOUND_COMBAT, GetAbsOrigin(), IsSilenced() ? SOUNDENT_VOLUME_MACHINEGUN / 3.0 : SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer);
+#else
+	CSoundEnt::InsertSound(SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer);
+#endif
+#endif
+
+	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
+	{
+		// HEV suit - indicate out of ammo condition
+		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
+	}
+
+	SendWeaponAnim(GetPrimaryAttackActivity());
+	pPlayer->SetAnimation(PLAYER_ATTACK1);
+#ifndef CLIENT_DLL
+	// Register a muzzleflash for the AI
+	pPlayer->SetMuzzleFlashTime(gpGlobals->curtime + 0.5);
+#endif
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //
@@ -456,21 +566,15 @@ void CHLSelectFireMachineGun::SecondaryAttack( void )
 //-----------------------------------------------------------------------------
 void CHLSelectFireMachineGun::BurstThink( void )
 {
-	CHLMachineGun::PrimaryAttack();
+	BurstAttack();
 
-	m_iBurstSize--;
-
-	if( m_iBurstSize == 0 )
+	if( m_iBurstSize <= 0 )
 	{
-		// The burst is over!
-		SetThink(NULL);
-
 		// idle immediately to stop the firing animation
 		SetWeaponIdleTime( gpGlobals->curtime );
 		return;
 	}
-
-	SetNextThink( gpGlobals->curtime + GetFireRate() );
+	m_flNextBurstShot = gpGlobals->curtime + GetFireRate();
 }
 
 //-----------------------------------------------------------------------------

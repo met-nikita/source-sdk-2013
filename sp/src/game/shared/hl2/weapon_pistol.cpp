@@ -714,9 +714,17 @@ CWeaponPulsePistol::CWeaponPulsePistol()
 void CWeaponPulsePistol::Activate( void )
 {
 	BaseClass::Activate();
-
+#ifndef CLIENT_DLL
+	CBasePlayer *pPlayer = ToBasePlayer(GetOwner());
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(pPlayer);
+#endif
 	// Charge up and fire attack
 	StartChargeEffects();
+#ifndef CLIENT_DLL
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(NULL);
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1109,9 +1117,18 @@ void CWeaponPulsePistol::ChargeAttack( void )
 		m_flChargeRemainder = 0.0f;
 	}
 
+#ifndef CLIENT_DLL
+	CBasePlayer *pPlayer = ToBasePlayer(GetOwner());
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(pPlayer);
+#endif
 	// Display the charge sprite
 	StartChargeEffects();
 	SetChargeEffectBrightness( m_iClip2 );
+#ifndef CLIENT_DLL
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(NULL);
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1200,16 +1217,13 @@ void CWeaponPulsePistol::StartChargeEffects()
 	//Create the charge glow
 	if (pOwner != NULL && m_hChargeSprite == NULL)
 	{
-#ifdef CLIENT_DLL
+
 		m_hChargeSprite = SPRITE_CREATE_PREDICTABLE("effects/fluttercore.vmt", GetAbsOrigin(), false);
 		if (m_hChargeSprite)
 		{
 			m_hChargeSprite->SetOwnerEntity(pOwner);
 			m_hChargeSprite->SetPlayerSimulated(pOwner);
-#else
-		m_hChargeSprite = CSprite::SpriteCreate("effects/fluttercore.vmt", GetAbsOrigin(), false);
-		if(m_hChargeSprite)
-		{
+#ifndef CLIENT_DLL
 			m_hChargeSprite->SetAsTemporary();
 #endif
 			m_hChargeSprite->SetAttachment(pOwner->GetViewModel(), 1);
@@ -1297,9 +1311,13 @@ void CWeaponPulsePistol::SecondaryAttack()
 	trace_t tr;
 
 	UTIL_TraceLine( vecSrc, vecSrc + (vecAim * maxRange), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
-
+#ifndef CLIENT_DLL
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(pPlayer);
+#endif
 	// Check to store off our view model index
-	CBeam *pBeam = CBeam::BeamCreate( "sprites/laser.vmt", 2.0 );
+	CBeam *pBeam = CBeam::BeamCreatePredictable(__FILE__, __LINE__, false, "sprites/laser.vmt", 2.0, pPlayer);
+
 
 	if (pBeam != NULL)
 	{
@@ -1333,6 +1351,10 @@ void CWeaponPulsePistol::SecondaryAttack()
 
 	// Create a cover for the end of the beam
 	CreateBeamBlast( tr.endpos );
+#ifndef CLIENT_DLL
+	if (pPlayer && pPlayer->IsPredictingWeapons())
+		IPredictionSystem::SuppressHostEvents(NULL);
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1341,11 +1363,7 @@ void CWeaponPulsePistol::SecondaryAttack()
 //-----------------------------------------------------------------------------
 void CWeaponPulsePistol::CreateBeamBlast( const Vector &vecOrigin )
 {
-#ifdef CLIENT_DLL
 	CSprite *pBlastSprite = SPRITE_CREATE_PREDICTABLE("sprites/redglow1.vmt", GetAbsOrigin(), FALSE);
-#else
-	CSprite *pBlastSprite = CSprite::SpriteCreate( "sprites/redglow1.vmt", GetAbsOrigin(), FALSE );
-#endif
 	if (pBlastSprite != NULL)
 	{
 		pBlastSprite->SetTransparency( kRenderTransAddFrameBlend, 255, 255, 255, 255, kRenderFxNone );
