@@ -885,14 +885,6 @@ int CBasePlayer::ShouldTransmit( const CCheckTransmitInfo *pInfo )
 
 bool CBasePlayer::WantsLagCompensationOnEntity( const CBaseEntity *pEntity, const CUserCmd *pCmd, const CBitVec<MAX_EDICTS> *pEntityTransmitBits ) const
 {
-	//Tony; only check teams in teamplay
-	if ( gpGlobals->teamplay )
-	{
-		// Team members shouldn't be adjusted unless friendly fire is on.
-		if (!friendlyfire.GetInt() && pEntity->GetTeamNumber() == GetTeamNumber())
-			return false;
-	}
-
 	// If this entity hasn't been transmitted to us and acked, then don't bother lag compensating it.
 	if (pEntityTransmitBits && !pEntityTransmitBits->Get(pEntity->entindex()))
 		return false;

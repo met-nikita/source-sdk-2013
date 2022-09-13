@@ -25,6 +25,8 @@
 #include "ai_condition.h"
 #include "soundent.h"
 #include "player.h"
+#include "ilagcompensationmanager.h"
+#include "hl2_player.h"
 #endif
 #include "rumble_shared.h"
 #include "gamestats.h"
@@ -149,7 +151,13 @@ void CBaseHLBludgeonWeapon::PrimaryAttack()
 		return;
 #endif
 	ITEM_GRAB_PREDICTED_ATTACK_FIX
+#ifndef CLIENT_DLL
+	lagcompensation->StartLagCompensation(pPlayer, pPlayer->GetCurrentCommand());
+#endif
 	Swing( false );
+#ifndef CLIENT_DLL
+	lagcompensation->FinishLagCompensation(pPlayer);
+#endif
 }
 
 //------------------------------------------------------------------------------

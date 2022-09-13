@@ -138,6 +138,10 @@ public:
 	void CreateRagdollEntity(void);
 	void SetPlayerModel(void);
 
+	virtual bool			WantsLagCompensationOnEntity(const CBaseEntity	*pEntity, const CUserCmd *pCmd, const CBitVec<MAX_EDICTS> *pEntityTransmitBits) const;
+	void NoteWeaponFired(void);
+	virtual void FireBullets(const FireBulletsInfo_t &info);
+
 	Vector m_vecTotalBulletForce;
 
 	// Tracks our ragdoll entity.
@@ -451,6 +455,8 @@ protected:	// Jeep: Portal_Player needs access to this variable to overload Play
 	bool				m_bPlayUseDenySound;		// Signaled by PlayerUse, but can be unset by HL2 ladder code...
 
 private:
+
+	int m_iLastWeaponFireUsercmd;
 
 	CAI_Squad *			m_pPlayerAISquad;
 	CSimpleSimTimer		m_CommanderUpdateTimer;

@@ -46,6 +46,7 @@
 #include "gamestats.h"
 #include "filters.h"
 #include "tier0/icommandline.h"
+#include "ilagcompensationmanager.h"
 
 #ifdef HL2_EPISODIC
 #include "npc_alyx_episodic.h"
@@ -1878,6 +1879,36 @@ void CHL2_Player::SetPlayerModel(void)
 	engine->ClientCommand(edict(), szReturnString);
 
 	SetModel(szModelName);
+}
+
+void CHL2_Player::FireBullets(const FireBulletsInfo_t &info)
+{
+	// Move other players back to history positions based on local player's lag
+	lagcompensation->StartLagCompensation(this, this->GetCurrentCommand());
+
+	NoteWeaponFired();
+
+	BaseClass::FireBullets(info);
+
+	// Move other players back to history positions based on local player's lag
+	lagcompensation->FinishLagCompensation(this);
+}
+
+void CHL2_Player::NoteWeaponFired(void)
+{
+	Assert(m_pCurrentCommand);
+	if (m_pCurrentCommand)
+	{
+		m_iLastWeaponFireUsercmd = m_pCurrentCommand->command_number;
+	}
+}
+
+bool CHL2_Player::WantsLagCompensationOnEntity(const CBaseEntity *pEntity, const CUserCmd *pCmd, const CBitVec<MAX_EDICTS> *pEntityTransmitBits) const
+{
+	if (!(pCmd->buttons & IN_ATTACK) && (pCmd->command_number - m_iLastWeaponFireUsercmd > 5))
+		return false;
+
+	return BaseClass::WantsLagCompensationOnEntity(pEntity, pCmd, pEntityTransmitBits);
 }
 
 //-----------------------------------------------------------------------------
