@@ -252,8 +252,10 @@ BEGIN_DATADESC( CFuncTank )
 //	DEFINE_FIELD( m_nBarrelAttachment, FIELD_INTEGER ),
 
 	// Used when the gun is actually a part of the parent entity, and pose params aim it
+#ifndef CLIENT_DLL
 	DEFINE_KEYFIELD( m_iszYawPoseParam, FIELD_STRING, "gun_yaw_pose_param" ),
 	DEFINE_KEYFIELD( m_iszPitchPoseParam, FIELD_STRING, "gun_pitch_pose_param" ),
+#endif
 	DEFINE_KEYFIELD( m_flYawPoseCenter, FIELD_FLOAT, "gun_yaw_pose_center" ),
 	DEFINE_KEYFIELD( m_flPitchPoseCenter, FIELD_FLOAT, "gun_pitch_pose_center" ),
 	DEFINE_FIELD( m_bUsePoseParameters, FIELD_BOOLEAN ),
