@@ -714,6 +714,7 @@ CWeaponPulsePistol::CWeaponPulsePistol()
 void CWeaponPulsePistol::Activate( void )
 {
 	BaseClass::Activate();
+	/*
 #ifndef CLIENT_DLL
 	CBasePlayer *pPlayer = ToBasePlayer(GetOwner());
 	if (pPlayer && pPlayer->IsPredictingWeapons())
@@ -725,6 +726,7 @@ void CWeaponPulsePistol::Activate( void )
 	if (pPlayer && pPlayer->IsPredictingWeapons())
 		IPredictionSystem::SuppressHostEvents(NULL);
 #endif
+		*/
 }
 
 //-----------------------------------------------------------------------------

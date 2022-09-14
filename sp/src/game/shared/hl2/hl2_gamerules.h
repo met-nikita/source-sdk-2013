@@ -79,6 +79,7 @@ public:
 	virtual float			GetAutoAimScale( CBasePlayer *pPlayer );
 	virtual float			GetAmmoQuantityScale( int iAmmoIndex );
 	virtual void			LevelInitPreEntity();
+	virtual bool FPlayerCanTakeDamage(CBasePlayer *pPlayer, CBaseEntity *pAttacker, const CTakeDamageInfo &info);
 #endif
 
 	virtual void ClientSettingsChanged(CBasePlayer *pPlayer);
