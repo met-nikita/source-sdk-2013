@@ -1933,6 +1933,16 @@ void CChangeLevel::TouchChangeLevel( CBaseEntity *pOther )
 		if (!allPlayersIn)
 			return;
 	}
+#if ENGINE_DLL_HACK == 1
+	else
+	{
+		if (sv_coop_smooth_transitions.GetInt() == 1)
+		{
+			if (pPlayer->entindex() != 1) //host player MUST be the one inside changelevel trigger
+				return;
+		}
+	}
+#endif
 	if( pPlayer->IsSinglePlayerGameEnding() )
 	{
 		// Some semblance of deceleration, but allow player to fall normally.
