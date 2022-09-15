@@ -47,6 +47,7 @@ $Project "Client (Entropy Zero 2)"
 			$File	"$SRCDIR\game\shared\hl2\weapon_pistol.cpp"
 			$File	"$SRCDIR\game\shared\hl2\func_tank.cpp"
 			$File	"$SRCDIR\game\shared\hl2\func_tank.h"
+			$File	"hl2\hl2_hud_target_id.cpp"
 		}
 		$Folder "EZ2 DLL"
 		{

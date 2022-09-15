@@ -35,6 +35,10 @@ public:
 
 	void				Weapon_DropPrimary( void );
 
+	virtual void	ClientThink(void);
+	void UpdateIDTarget();
+	int		GetIDTarget() const;
+
 	virtual C_BaseAnimating *BecomeRagdollOnClient();
 	IRagdoll* GetRepresentativeRagdoll() const;
 		
@@ -96,6 +100,7 @@ private:
 	bool				m_bPlayUseDenySound;		// Signaled by PlayerUse, but can be unset by HL2 ladder code...
 	float				m_flSpeedMod;
 	float				m_flExitSpeedMod;
+	int	  m_iIDEntIndex;
 
 	EHANDLE	m_hRagdoll;
 	

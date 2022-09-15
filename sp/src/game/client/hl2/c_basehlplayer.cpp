@@ -14,6 +14,7 @@
 #include "c_basehlcombatweapon.h"
 #include "eventlist.h"
 #include "gamestringpool.h"
+#include "view.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -79,6 +80,7 @@ C_BaseHLPlayer::C_BaseHLPlayer()
 	m_flZoomRate		= 0.0f;
 	m_flZoomStartTime	= 0.0f;
 	m_flSpeedMod		= cl_forwardspeed.GetFloat();
+	m_iIDEntIndex = 0;
 
 #ifdef MAPBASE
 	ConVarRef scissor("r_flashlightscissor");
@@ -106,6 +108,48 @@ void C_BaseHLPlayer::OnDataChanged( DataUpdateType_t updateType )
 #endif
 
 	BaseClass::OnDataChanged( updateType );
+}
+
+void C_BaseHLPlayer::ClientThink()
+{
+	BaseClass::ClientThink();
+
+	UpdateIDTarget();
+}
+
+int C_BaseHLPlayer::GetIDTarget() const
+{
+	return m_iIDEntIndex;
+}
+
+void C_BaseHLPlayer::UpdateIDTarget()
+{
+	if (!IsLocalPlayer())
+		return;
+
+	// Clear old target and find a new one
+	m_iIDEntIndex = 0;
+
+	// don't show IDs in chase spec mode
+	if (GetObserverMode() == OBS_MODE_CHASE ||
+		GetObserverMode() == OBS_MODE_DEATHCAM)
+		return;
+
+	trace_t tr;
+	Vector vecStart, vecEnd;
+	VectorMA(MainViewOrigin(), 1500, MainViewForward(), vecEnd);
+	VectorMA(MainViewOrigin(), 10, MainViewForward(), vecStart);
+	UTIL_TraceLine(vecStart, vecEnd, MASK_SOLID, this, COLLISION_GROUP_NONE, &tr);
+
+	if (!tr.startsolid && tr.DidHitNonWorldEntity())
+	{
+		C_BaseEntity *pEntity = tr.m_pEnt;
+
+		if (pEntity && (pEntity != this))
+		{
+			m_iIDEntIndex = pEntity->entindex();
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

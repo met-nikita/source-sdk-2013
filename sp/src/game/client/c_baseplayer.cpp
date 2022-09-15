@@ -741,6 +741,17 @@ void C_BasePlayer::SetViewAngles( const QAngle& ang )
 	SetNetworkAngles( ang );
 }
 
+void C_BasePlayer::DoImpactEffect(trace_t &tr, int nDamageType)
+{
+	if (GetActiveWeapon())
+	{
+		GetActiveWeapon()->DoImpactEffect(tr, nDamageType);
+		return;
+	}
+
+	BaseClass::DoImpactEffect(tr, nDamageType);
+}
+
 
 surfacedata_t* C_BasePlayer::GetGroundSurface()
 {

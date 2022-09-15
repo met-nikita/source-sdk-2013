@@ -103,6 +103,8 @@ public:
 
 	virtual void	MakeTracer( const Vector &vecTracerSrc, const trace_t &tr, int iTracerType );
 
+	virtual void			DoImpactEffect(trace_t &tr, int nDamageType);
+
 	virtual void	GetToolRecordingState( KeyValues *msg );
 
 	virtual float GetPlayerMaxSpeed();
