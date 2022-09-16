@@ -2360,7 +2360,8 @@ void CProtoSniper::RunTask( const Task_t *pTask )
 		}
 		else
 		{
-			PaintTarget( m_hSweepTarget->GetAbsOrigin(), 4.0f );
+			if (m_hSweepTarget.IsValid())
+				PaintTarget( m_hSweepTarget->GetAbsOrigin(), 4.0f );
 		}
 		break;
 

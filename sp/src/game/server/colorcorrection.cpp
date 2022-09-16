@@ -165,6 +165,17 @@ void CColorCorrection::FadeIn ( void )
 	SetNextThink ( gpGlobals->curtime + COLOR_CORRECTION_ENT_THINK_RATE, s_pFadeInContextThink );
 }
 
+int CColorCorrection::Save(ISave &save)
+{
+	//non-host players need some different way of saving
+	if (m_hTargetHandle->IsValid() && m_hTargetHandle->ToInt() != 1)
+		return 0;
+	if (!BaseClass::Save(save))
+		return 0;
+
+	return 1;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Sets up internal vars needed for fade out lerping
 //-----------------------------------------------------------------------------

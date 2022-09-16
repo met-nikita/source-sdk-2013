@@ -67,6 +67,7 @@ public:
 	void	InputSetMaxFalloff( inputdata_t &inputdata );
 
 	void SetTargetHandle(EHANDLE handle) { m_hTargetHandle = handle; };
+	int Save(ISave &save);
 #endif
 
 private:

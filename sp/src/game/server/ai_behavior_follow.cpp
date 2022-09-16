@@ -368,7 +368,7 @@ void CAI_FollowBehavior::SetFollowTarget( CBaseEntity *pLeader, bool fFinishCurS
 		}
 	}
 
-	if ( pLeader ) 
+	if (pLeader != NULL)
 	{
 		if ( g_AIFollowManager.AddFollower( pLeader, GetOuter(), m_params.formation, &m_hFollowManagerInfo ) )
 		{

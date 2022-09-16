@@ -370,6 +370,14 @@ public:
 		return BaseClass::Deploy();
 	}
 
+	float GetBurstCycleRate(void)
+	{
+		// this is the time it takes to fire an entire 
+		// burst, plus whatever amount of delay we want
+		// to have between bursts.
+		return 0.5f;
+	}
+
 	void PrimaryAttack( void )
 	{
 		if (this->m_bFireOnEmpty)
@@ -387,12 +395,9 @@ public:
 
 			this->m_iBurstSize = this->GetBurstSize();
 
-			// Call the think function directly so that the first round gets fired immediately.
-			this->BurstThink();
-			SetThink( &CBase_CSS_HL2_BurstableWeapon<BASE_WEAPON>::BurstThink );
-
-			// Pick up the rest of the burst through the think function.
-			this->SetNextThink( gpGlobals->curtime + GetFireRate() );
+			m_flNextPrimaryAttack = gpGlobals->curtime;
+			BurstThink();
+			m_flNextSecondaryAttack = gpGlobals->curtime + GetBurstCycleRate();
 		}
 		else
 		{
@@ -432,28 +437,6 @@ public:
 		//this->m_flSoonestPrimaryAttack = gpGlobals->curtime + this->SequenceDuration(); // TODO: Proper cooldown?
 	}
 
-	void BurstThink( void )
-	{
-		this->m_flNextPrimaryAttack = gpGlobals->curtime; // HACK?
-		BaseClass::PrimaryAttack();
-
-		this->m_iBurstSize--;
-
-		if( this->m_iBurstSize == 0 )
-		{
-			// The burst is over!
-			SetThink(NULL);
-
-			FinishBurst();
-
-			// idle immediately to stop the firing animation
-			//SetWeaponIdleTime( gpGlobals->curtime );
-			return;
-		}
-
-		SetNextThink( gpGlobals->curtime + this->GetFireRate() );
-	}
-
 	void InputSetBurstMode( inputdata_t &inputdata )
 	{
 		m_bInBurstMode = inputdata.value.Bool();
@@ -462,6 +445,30 @@ public:
 	void InputToggleBurstMode( inputdata_t &inputdata )
 	{
 		m_bInBurstMode = !m_bInBurstMode;
+	}
+
+	virtual void ItemPostFrame(void)
+	{
+		BaseClass::ItemPostFrame();
+
+		if (m_iBurstSize > 0 && m_flNextPrimaryAttack <= gpGlobals->curtime)
+		{
+			BurstThink();
+		}
+	}
+
+	void BurstThink(void)
+	{
+		BaseClass::PrimaryAttack();
+
+		if (--m_iBurstSize <= 0)
+		{
+			// idle immediately to stop the firing animation
+			SetWeaponIdleTime(gpGlobals->curtime);
+			FinishBurst();
+			return;
+		}
+		m_flNextPrimaryAttack = gpGlobals->curtime + GetFireRate();
 	}
 
 public:
