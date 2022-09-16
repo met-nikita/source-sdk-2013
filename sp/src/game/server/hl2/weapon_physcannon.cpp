@@ -1031,6 +1031,16 @@ public:
 	void Shutdown( bool bThrown = false );
 	bool OnControls( CBaseEntity *pControls ) { return true; }
 	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
+	virtual int Save(ISave &save)
+	{
+		//non-host players need some different way of saving
+		if (!m_pPlayer || m_pPlayer->entindex() != 1)
+			return 0;
+		if (!BaseClass::Save(save))
+			return 0;
+
+		return 1;
+	}
 	void OnRestore()
 	{
 		m_grabController.OnRestore();
