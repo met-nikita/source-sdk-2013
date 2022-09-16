@@ -5502,6 +5502,9 @@ void CBasePlayer::ForceRespawn( void )
 
 int CBasePlayer::Save( ISave &save )
 {
+	//non-host players need some different way of saving
+	if (entindex() != 1)
+		return 0;
 	if ( !BaseClass::Save(save) )
 		return 0;
 

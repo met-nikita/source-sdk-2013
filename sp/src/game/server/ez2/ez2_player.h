@@ -346,6 +346,7 @@ public:
 	bool	UpdateEnemyMemory( CBaseEntity *pEnemy, const Vector &position, CBaseEntity *pInformer = NULL );
 
 	void	DrawDebugGeometryOverlays( void );
+	virtual int				Save(ISave &save);
 
 	// Special handling for info_remarkable
 	void	OnSeeEntity( CBaseEntity *pEntity );

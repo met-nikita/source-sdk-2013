@@ -791,6 +791,22 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 	byte nop[13] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
 	memcpy((void*)StartPointer, nop, 13);
 	VirtualProtect((void*)StartPointer, 13, oldprotect, &oldprotect);
+
+	StartPointer = BaseAddress + 0x1AA5E5;
+	VirtualProtect((void*)StartPointer, 1, PAGE_EXECUTE_READWRITE, &oldprotect);
+	byte jmp[1] = { 0xEB };
+	memcpy((void*)StartPointer, jmp, 1);
+	VirtualProtect((void*)StartPointer, 1, oldprotect, &oldprotect);
+
+	StartPointer = BaseAddress + 0x1A4BFB;
+	VirtualProtect((void*)StartPointer, 13, PAGE_EXECUTE_READWRITE, &oldprotect);
+	memcpy((void*)StartPointer, nop, 13);
+	VirtualProtect((void*)StartPointer, 13, oldprotect, &oldprotect);
+
+	StartPointer = BaseAddress + 0x1A9CD3;
+	VirtualProtect((void*)StartPointer, 1, PAGE_EXECUTE_READWRITE, &oldprotect);
+	memcpy((void*)StartPointer, jmp, 1);
+	VirtualProtect((void*)StartPointer, 1, oldprotect, &oldprotect);
 #endif
 
 	return true;
