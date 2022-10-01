@@ -32,7 +32,7 @@
 #endif
 
 #ifdef EZ
-#include "ieffects.h"
+#include "IEffects.h"
 #include "particle_parse.h"
 #include "RagdollBoogie.h"
 #endif

@@ -15,6 +15,9 @@
 #include "simtimer.h"
 #include "soundenvelope.h"
 #ifdef EZ
+#include "ai_basenpc.h"
+#include "ai_condition.h"
+#include "ai_npcstate.h"
 #include "ai_squad.h"
 #endif
 
