@@ -1756,7 +1756,7 @@ bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool 
 	CHL2_Player *pPlayer = (CHL2_Player *)UTIL_GetLocalPlayer();
 	if ( pPredator == NULL && pPlayer != NULL )
 	{
-		DevMsg( "Updating xenpc '%s' enemy memory \n", baseNPC->GetDebugName(), squadname );
+		DevMsg( "Updating xenpc '%s' enemy memory \n", baseNPC->GetDebugName() );
 		baseNPC->UpdateEnemyMemory( pPlayer, pPlayer->GetAbsOrigin(), this );
 	}
 

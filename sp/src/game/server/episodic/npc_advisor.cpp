@@ -1990,7 +1990,7 @@ void CNPC_Advisor::RunTask( const Task_t *pTask )
 		{	
 			if (m_iStagingNum > m_hvStagingPositions.Count())
 			{
-				Warning( "Advisor tries to stage %d objects but only has %d positions named %s! Overriding.\n", m_iStagingNum, m_hvStagingPositions.Count(), m_iszStagingEntities );
+				Warning( "Advisor tries to stage %d objects but only has %d positions named %s! Overriding.\n", m_iStagingNum, m_hvStagingPositions.Count(), STRING( m_iszStagingEntities ) );
 				m_iStagingNum = m_hvStagingPositions.Count() ;
 			}
 
