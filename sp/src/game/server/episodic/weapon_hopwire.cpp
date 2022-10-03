@@ -496,6 +496,9 @@ void CWeaponHopwire::ThrowGrenade( CBasePlayer *pPlayer )
 		pEZ2Player->Event_ThrewGrenade(this);
 	}
 #endif
+#ifdef MAPBASE
+	pPlayer->SetAnimation(PLAYER_ATTACK1);
+#endif
 	m_iPrimaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
 }
@@ -519,6 +522,10 @@ void CWeaponHopwire::LobGrenade( CBasePlayer *pPlayer )
 	m_hActiveHopWire = static_cast<CGrenadeHopwire *> (HopWire_Create( vecSrc, vec3_angle, vecThrow, AngularImpulse(200,random->RandomInt(-600,600),0), pPlayer, GRENADE_TIMER, GetWorldModel(), GetSecondaryWorldModel()));
 
 	WeaponSound( WPN_DOUBLE );
+
+#ifdef MAPBASE
+	pPlayer->SetAnimation(PLAYER_ATTACK2);
+#endif
 
 	m_bRedraw = true;
 
@@ -563,6 +570,10 @@ void CWeaponHopwire::RollGrenade( CBasePlayer *pPlayer )
 	m_hActiveHopWire = static_cast<CGrenadeHopwire *> (HopWire_Create( vecSrc, orientation, vecThrow, rotSpeed, pPlayer, GRENADE_TIMER, GetWorldModel(), GetSecondaryWorldModel()));
 
 	WeaponSound( SPECIAL1 );
+
+#ifdef MAPBASE
+	pPlayer->SetAnimation(PLAYER_ATTACK2);
+#endif
 
 	m_bRedraw = true;
 
