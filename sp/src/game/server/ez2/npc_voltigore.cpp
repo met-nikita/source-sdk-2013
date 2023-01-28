@@ -100,7 +100,7 @@ void CVoltigoreProjectile::Shoot( CBaseEntity *pOwner, Vector vecStart, Vector v
 	UTIL_SetOrigin( pSpit, vecStart );
 	pSpit->SetAbsVelocity( vecVelocity );
 	pSpit->SetOwnerEntity( pOwner );
-	pSpit->SetRenderColor( 231, 62, 2555 );
+	pSpit->SetRenderColor( 231, 62, 255 );
 
 	CSprite * pSprite = CSprite::SpriteCreate( "sprites/glow01.spr", pOwner->GetAbsOrigin(), true );
 	pSpit->SetSprite( pSprite );
