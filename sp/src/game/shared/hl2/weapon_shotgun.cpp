@@ -22,6 +22,15 @@
 #include "basecombatcharacter.h"
 #include "ai_basenpc.h"
 #include "player.h"
+#include "gamerules.h"		// For g_pGameRules
+#include "in_buttons.h"
+#include "soundent.h"
+#include "vstdlib/random.h"
+#include "gamestats.h"
+#ifdef EZ2
+#include "shot_manipulator.h"
+#include "npc_hunter.h"
+#endif
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -36,6 +45,7 @@ extern ConVar sk_npc_num_shotgun_pellets;
 
 #ifdef CLIENT_DLL
 #define CWeaponShotgun C_WeaponShotgun
+#define CWeaponFlechetteShotgun C_WeaponFlechetteShotgun
 #endif
 
 class CWeaponShotgun : public CBaseHLCombatWeapon
@@ -47,8 +57,9 @@ public:
 	DECLARE_NETWORKCLASS();
 	DECLARE_PREDICTABLE();
 
-private:
+protected:
 	bool	m_bNeedPump;		// When emptied completely
+private:
 	bool	m_bDelayedFire1;	// Fire primary when finished reloading
 	bool	m_bDelayedFire2;	// Fire secondary when finished reloading
 
@@ -101,6 +112,9 @@ public:
 	virtual Activity GetDrawActivity( void );
 #endif
 
+#ifdef EZ2
+	virtual
+#endif
 	void FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles );
 	void Operator_ForceNPCFire( CBaseCombatCharacter  *pOperator, bool bSecondary );
 	void Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
@@ -1013,3 +1027,267 @@ void CWeaponShotgun::WeaponIdle( void )
 	}
 }
 */
+
+#ifdef EZ2
+//-----------------------------------------------------------------------------
+// CWeaponFlechetteShotgun
+//-----------------------------------------------------------------------------
+
+ConVar	sk_plr_flechette_shotgun_num_pellets( "sk_plr_flechette_shotgun_num_pellets","6", FCVAR_REPLICATED);
+ConVar	sk_plr_flechette_shotgun_num_pellets_double( "sk_plr_flechette_shotgun_num_pellets_double","9", FCVAR_REPLICATED);
+ConVar	sk_npc_flechette_shotgun_num_pellets( "sk_npc_flechette_shotgun_num_pellets","6", FCVAR_REPLICATED);
+
+ConVar	sk_plr_flechette_shotgun_speed_min( "sk_plr_flechette_shotgun_speed_min","1750", FCVAR_REPLICATED);
+ConVar	sk_plr_flechette_shotgun_speed_max( "sk_plr_flechette_shotgun_speed_max","2100", FCVAR_REPLICATED);
+ConVar	sk_npc_flechette_shotgun_speed_min( "sk_npc_flechette_shotgun_speed_min","1000", FCVAR_REPLICATED);
+ConVar	sk_npc_flechette_shotgun_speed_max( "sk_npc_flechette_shotgun_speed_max","1250", FCVAR_REPLICATED);
+
+ConVar	sk_plr_dmg_flechette( "sk_plr_dmg_flechette", "4.0" );
+ConVar	sk_plr_flechette_shotgun_explode_dmg( "sk_plr_flechette_shotgun_explode_dmg", "13.0" );
+ConVar	sk_plr_flechette_shotgun_explode_radius( "sk_plr_flechette_shotgun_explode_radius", "128.0" );
+ConVar	sk_npc_dmg_flechette( "sk_npc_dmg_flechette", "6.0" );
+ConVar	sk_npc_flechette_shotgun_explode_dmg( "sk_npc_flechette_shotgun_explode_dmg", "11.0" );
+ConVar	sk_npc_flechette_shotgun_explode_radius( "sk_npc_flechette_shotgun_explode_radius", "128.0" );
+
+ConVar	sk_plr_flechette_shotgun_explode_delay( "sk_plr_flechette_shotgun_explode_delay", "0" );
+ConVar	sk_npc_flechette_shotgun_explode_delay( "sk_npc_flechette_shotgun_explode_delay", "0" );
+
+ConVar	sk_plr_flechette_shotgun_explode_warn_duration( "sk_plr_flechette_shotgun_explode_warn_duration", "0.25" );
+ConVar	sk_npc_flechette_shotgun_explode_warn_duration( "sk_npc_flechette_shotgun_explode_warn_duration", "0.5" );
+
+class CWeaponFlechetteShotgun : public CWeaponShotgun
+{
+public:
+	DECLARE_CLASS( CWeaponFlechetteShotgun, CWeaponShotgun );
+	DECLARE_NETWORKCLASS();
+	DECLARE_PREDICTABLE();
+
+public:
+	void	Precache( void );
+
+#ifndef CLIENT_DLL
+	int CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
+#endif
+
+	virtual const Vector& GetBulletSpread( void )
+	{
+		static Vector npcCone = VECTOR_CONE_7DEGREES;
+		if ( GetOwner() && GetOwner()->IsNPC() )
+			return npcCone;
+
+		static Vector cone = VECTOR_CONE_6DEGREES;
+		return cone;
+	}
+
+	void PrimaryAttack( void );
+	void SecondaryAttack( void );
+#ifndef CLIENT_DLL
+	void FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles );
+#endif
+
+	//DECLARE_ACTTABLE();
+
+	//CWeaponFlechetteShotgun(void);
+};
+
+LINK_ENTITY_TO_CLASS( weapon_flechette_shotgun, CWeaponFlechetteShotgun );
+//PRECACHE_WEAPON_REGISTER( weapon_flechette_shotgun );
+
+IMPLEMENT_NETWORKCLASS_ALIASED(WeaponFlechetteShotgun, DT_WeaponFlechetteShotgun)
+
+BEGIN_NETWORK_TABLE(CWeaponFlechetteShotgun, DT_WeaponFlechetteShotgun)
+END_NETWORK_TABLE()
+
+BEGIN_PREDICTION_DATA(CWeaponFlechetteShotgun)
+END_PREDICTION_DATA()
+
+void CWeaponFlechetteShotgun::Precache( void )
+{
+	BaseClass::Precache();
+	UTIL_PrecacheOther( "shotgun_flechette" );
+}
+
+#ifndef CLIENT_DLL
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *pOperator - 
+//-----------------------------------------------------------------------------
+void CWeaponFlechetteShotgun::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
+{
+	Vector vecShootOrigin, vecShootDir;
+	CAI_BaseNPC *npc = pOperator->MyNPCPointer();
+	ASSERT( npc != NULL );
+	WeaponSound( SINGLE_NPC );
+	pOperator->DoMuzzleFlash();
+	m_iClip1 = m_iClip1 - 1;
+
+	if ( bUseWeaponAngles )
+	{
+		QAngle	angShootDir;
+		GetAttachment( LookupAttachment( "muzzle" ), vecShootOrigin, angShootDir );
+		AngleVectors( angShootDir, &vecShootDir );
+	}
+	else 
+	{
+		vecShootOrigin = pOperator->Weapon_ShootPosition();
+		vecShootDir = npc->GetActualShootTrajectory( vecShootOrigin );
+	}
+
+	CShotManipulator Manipulator( vecShootDir );
+	Vector vecDir;
+	static const Vector vecCone = VECTOR_CONE_10DEGREES;
+
+	for (int i = 0; i < sk_npc_flechette_shotgun_num_pellets.GetInt(); i++)
+	{
+		vecDir = Manipulator.ApplySpread( vecCone );
+
+		FlechetteShotgun_CreateFlechette( vecShootOrigin, vecDir * RandomFloat( sk_npc_flechette_shotgun_speed_min.GetFloat(), sk_npc_flechette_shotgun_speed_max.GetFloat() ), npc);
+	}
+}
+#endif
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CWeaponFlechetteShotgun::PrimaryAttack( void )
+{
+	// Only the player fires this way so we can cast
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if (!pPlayer)
+	{
+		return;
+	}
+
+	// MUST call sound before removing a round from the clip of a CMachineGun
+	WeaponSound(SINGLE);
+
+	pPlayer->DoMuzzleFlash();
+
+	SendWeaponAnim( ACT_VM_PRIMARYATTACK );
+
+	// player "shoot" animation
+	pPlayer->SetAnimation( PLAYER_ATTACK1 );
+
+	// Don't fire again until fire animation has completed
+	m_flNextPrimaryAttack = gpGlobals->curtime + GetViewModelSequenceDuration();
+	m_iClip1 -= 1;
+
+	Vector	vecSrc		= pPlayer->Weapon_ShootPosition( );
+	Vector	vecAiming	= pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
+#ifndef CLIENT_DLL
+	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 1.0 );
+
+	// Fire the flechettes
+	CShotManipulator Manipulator( vecAiming );
+	Vector vecDir;
+
+	for (int i = 0; i < sk_plr_flechette_shotgun_num_pellets.GetInt(); i++)
+	{
+		if ( i == 0 )
+		{
+			// Force the first shot to be perfectly accurate and at max speed
+			vecDir = Manipulator.GetShotDirection();
+
+			FlechetteShotgun_CreateFlechette( vecSrc, vecDir * sk_plr_flechette_shotgun_speed_max.GetFloat(), pPlayer );
+		}
+		else
+		{
+			vecDir = Manipulator.ApplySpread( GetBulletSpread() );
+
+			FlechetteShotgun_CreateFlechette( vecSrc, vecDir * RandomFloat( sk_plr_flechette_shotgun_speed_min.GetFloat(), sk_plr_flechette_shotgun_speed_max.GetFloat() ), pPlayer );
+		}
+	}
+#endif
+
+	pPlayer->ViewPunch(QAngle(random->RandomFloat(-4, -2), random->RandomFloat(-4, 4), 0)); // Breadman - values doubled
+
+#ifndef CLIENT_DLL
+	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_SHOTGUN, 0.2, GetOwner() );
+#endif
+
+	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
+	{
+		// HEV suit - indicate out of ammo condition
+		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0); 
+	}
+
+	if( m_iClip1 )
+	{
+		// pump so long as some rounds are left.
+		m_bNeedPump = true;
+	}
+
+	m_iPrimaryAttacks++;
+#ifndef CLIENT_DLL
+	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+#endif
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CWeaponFlechetteShotgun::SecondaryAttack( void )
+{
+	// Only the player fires this way so we can cast
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if (!pPlayer)
+	{
+		return;
+	}
+
+	pPlayer->m_nButtons &= ~IN_ATTACK2;
+	// MUST call sound before removing a round from the clip of a CMachineGun
+	WeaponSound(WPN_DOUBLE);
+
+	pPlayer->DoMuzzleFlash();
+
+	SendWeaponAnim( ACT_VM_SECONDARYATTACK );
+
+	// player "shoot" animation
+	pPlayer->SetAnimation( PLAYER_ATTACK2 );
+
+	// Don't fire again until fire animation has completed
+	m_flNextPrimaryAttack = gpGlobals->curtime + GetViewModelSequenceDuration();
+	m_iClip1 -= 2;	// Shotgun uses same clip for primary and secondary attacks
+#ifndef CLIENT_DLL
+	Vector vecSrc	 = pPlayer->Weapon_ShootPosition();
+	Vector vecAiming = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
+
+	// Fire the flechettes
+	CShotManipulator Manipulator( vecAiming );
+	Vector vecDir;
+
+	for (int i = 0; i < sk_plr_flechette_shotgun_num_pellets_double.GetInt(); i++)
+	{
+		// Use a wider spread for the secondary
+		vecDir = Manipulator.ApplySpread( VECTOR_CONE_10DEGREES );
+
+		FlechetteShotgun_CreateFlechette( vecSrc, vecDir * RandomFloat( sk_plr_flechette_shotgun_speed_min.GetFloat(), sk_plr_flechette_shotgun_speed_max.GetFloat() ), pPlayer);
+	}
+#endif
+	pPlayer->ViewPunch(QAngle(random->RandomFloat(-7, -7), random->RandomFloat(-6, 6), 0)); // Breadman - was 5 5 and second bit wasn't present
+#ifndef CLIENT_DLL
+	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 1.0 );
+
+	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_SHOTGUN, 0.2 );
+#endif
+	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
+	{
+		// HEV suit - indicate out of ammo condition
+		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0); 
+	}
+
+	if( m_iClip1 )
+	{
+		// pump so long as some rounds are left.
+		m_bNeedPump = true;
+	}
+
+	m_iSecondaryAttacks++;
+#ifndef CLIENT_DLL
+	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+#endif
+}
+#endif
