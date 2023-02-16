@@ -28,12 +28,12 @@ on:
         - mp
       game:
         description: 'Name of the game to build (if relevant)'
-        default: 'episodic'
+        default: 'ez2'
         required: false
         type: choice
         options:
-        - episodic
-        - hl2
+        - ez2
+        - ez1
       project-group:
         description: 'Which group of projects to compile'
         required: true
