@@ -41,6 +41,8 @@ $Project "Client (Entropy Zero 2)"
 			$File	"ez2\c_weapon_pulse_pistol.cpp"
 			$File	"ez2\zombiegooproxy.cpp"
 			$File	"ez2\hud_slamstatus.cpp"
+
+			$File	"workshop_publish.cpp" [!$NO_STEAM]
 		}
 		$Folder	"HL2 DLL"
 		{
@@ -94,8 +96,6 @@ $Project "Client (Entropy Zero 2)"
 			$File	"hl2\c_weapon_crossbow.cpp"
 			$File	"episodic\c_weapon_hopwire.cpp"
 			$File	"hl2\c_weapon_physcannon.cpp"
-			$File	"$SRCDIR\game\shared\hl2mp\weapon_stunstick.cpp"
-			$File	"$SRCDIR\game\shared\hl2mp\weapon_stunstick.h"
 			$File	"$SRCDIR\game\shared\hl2\citadel_effects_shared.h"
 			$File	"hl2\clientmode_hlnormal.cpp"
 			$File	"hl2\clientmode_hlnormal.h"
