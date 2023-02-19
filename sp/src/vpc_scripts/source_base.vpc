@@ -65,3 +65,5 @@ $Configuration "Release"
 		$PreprocessorDefinitions		"$BASE;MAPBASE"		[$MAPBASE]
 	}
 }
+
+$Include "$SRCDIR\vpc_scripts\steamworks_update.vpc"

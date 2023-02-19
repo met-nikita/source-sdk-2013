@@ -23,6 +23,7 @@ $Group "game"
 	"tier1"
 	"vgui_controls"
 	"vscript"
+	"expanded_steam"
 	"responserules"
 }
 
@@ -65,6 +66,7 @@ $Group "everything"
 	"vtfdiff"
 	"vvis_dll"
 	"vvis_launcher"
+	"expanded_steam"
 }
 
 $Group "dedicated"
