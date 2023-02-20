@@ -876,7 +876,7 @@ public:
 	void	AnimateIconAlpha( int flags, int *alpha, float fadeStart );
 
 #ifdef STEAM_INPUT
-	vgui::HFont *GetButtonFont() { return &m_hButtonFont; }
+	vgui::HFont GetButtonFont() { return m_hButtonFont; }
 #endif
 
 private:
