@@ -561,6 +561,7 @@ $Project
 				"in_mouse.cpp"										\
 				"mumble.cpp"						\
 				"$SRCDIR\public\renamed_recvtable_compat.cpp"		\
+				"$SRCDIR\common\img_png_loader.cpp"					\
 				"rendertexture.cpp"									
 				{
 					$Configuration
@@ -889,6 +890,7 @@ $Project
 		$File	"weapons_resource.h"
 		$File	"vgui_video.h"
 		$File   "vgui_video_player.h"
+		$File	"$SRCDIR\common\img_png_loader.h"
 	}
 
 	$Folder	"Public Header Files"

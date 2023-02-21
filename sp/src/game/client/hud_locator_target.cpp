@@ -24,6 +24,7 @@
 #ifdef STEAM_INPUT
 #include "expanded_steam/isteaminput.h"
 #include "fmtstr.h"
+#include "img_png_loader.h"
 #endif
 
 #include "hud_macros.h"
@@ -614,14 +615,18 @@ void CLocatorTarget::SetBinding( const char *pszBinding )
 			{
 				for (int i = 0; i < iButtonIconCount; i++)
 				{
+					iButtonIcons.AddToTail( vgui::surface()->CreateNewTextureID( true ) );
+
 					CUtlMemory< byte > image;
-					if ( !g_pSteamInput->GetPNGBufferFromFile( szStringList[i], image ) )
+					int w, h;
+					if ( !PNGtoRGBA( g_pFullFileSystem, szStringList[i], image, w, h ) )
 					{
 						Warning( "Can't find PNG buffer for %s\n", szStringList[i] );
 					}
-
-					iButtonIcons.AddToTail( vgui::surface()->CreateNewTextureID( true ) );
-					vgui::surface()->DrawSetTextureRGBA( iButtonIcons[i], image.Base(), iRealSize, iRealSize, true, false );
+					else
+					{
+						vgui::surface()->DrawSetTextureRGBA( iButtonIcons[i], image.Base(), w, h, true, false );
+					}
 
 					//Msg( "Hint PNG: \"%s\" (%i)\n", szStringList[i], iButtonIcons[i] );
 				}

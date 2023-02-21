@@ -88,6 +88,14 @@ public:
 
 	//-----------------------------------------------------------------------------
 
+	virtual bool ShowGamepadTextInput( const char *pszDescription, uint32 nMaxChars, bool bMultiline = false, const char *pszExistingText = "" ) = 0;
+	virtual bool ShowFloatingGamepadTextInput( bool bMultiline, int nX, int nY, int nW, int nH ) = 0;
+
+	virtual bool GetEnteredGamepadTextInput( char *pszText, uint32 nTextSize ) = 0;
+	virtual uint32 GetEnteredGamepadTextLength() = 0;
+
+	//-----------------------------------------------------------------------------
+
 	virtual bool UsingJoysticks() = 0;
 	virtual void GetJoystickValues( float &flForward, float &flSide, float &flPitch, float &flYaw,
 		bool &bRelativeForward, bool &bRelativeSide, bool &bRelativePitch, bool &bRelativeYaw ) = 0;
@@ -107,8 +115,6 @@ public:
 
 	virtual void GetGlyphPNGsForCommand( CUtlVector<const char*> &szImgList, const char *pszCommand, int &iSize, int iStyle = 0 ) = 0;
 	virtual void GetGlyphSVGsForCommand( CUtlVector<const char*> &szImgList, const char *pszCommand ) = 0;
-
-	virtual bool GetPNGBufferFromFile( const char *filename, CUtlMemory< byte > &buffer ) = 0;
 
 	//-----------------------------------------------------------------------------
 

@@ -23,6 +23,7 @@
 //#include "vgui_controls/HTML.h"
 #include "filesystem.h"
 #include "icommandline.h"
+#include "img_png_loader.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -725,14 +726,18 @@ bool CHudHintKeyDisplay::SetHintText( const char *text )
 
 					for (int i = 0; i < szStringList.Count(); i++)
 					{
+						iButtonIcons.AddToTail( vgui::surface()->CreateNewTextureID( true ) );
+
 						CUtlMemory< byte > image;
-						if ( !g_pSteamInput->GetPNGBufferFromFile( szStringList[i], image ) )
+						int w, h;
+						if ( !PNGtoRGBA( g_pFullFileSystem, szStringList[i], image, w, h ) )
 						{
 							Warning( "Can't find PNG buffer for %s\n", szStringList[i] );
 						}
-
-						iButtonIcons.AddToTail( vgui::surface()->CreateNewTextureID( true ) );
-						vgui::surface()->DrawSetTextureRGBA( iButtonIcons[i], image.Base(), iRealSize, iRealSize, true, false );
+						else
+						{
+							vgui::surface()->DrawSetTextureRGBA( iButtonIcons[i], image.Base(), iRealSize, iRealSize, true, false );
+						}
 
 						int i2 = m_pchBindingChoices[labelIdx].AddToTail();
 						m_pchBindingChoices[labelIdx][i2].i = iButtonIcons[i];
