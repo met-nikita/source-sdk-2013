@@ -5,22 +5,10 @@
 //=============================================================================//
 
 #include "img_jpeg_loader.h"
-#ifdef _WIN32
+#if defined(LINUX)
+#include <setjmp.h>
+#endif
 #include "jpeglib/jpeglib.h"
-#endif
-
-// jpeg.lib currently requires __iob_func, which was changed in newer toolsets and needs to be stubbed.
-#if _MSC_VER >= 1900
-
-#include <stdio.h>
-
-extern "C" FILE * __cdecl __iob_func(void)
-{
-	static FILE _iob[] = { *stdin, *stdout, *stderr };
-	return _iob;
-}
-
-#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
