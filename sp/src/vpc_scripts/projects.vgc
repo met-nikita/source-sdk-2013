@@ -21,6 +21,11 @@ $Project "client"
 	"game\client\client_ez2.vpc"	[($WIN32||$X360||$POSIX) && $EZ2]
 }
 
+$Project "expanded_steam"
+{
+	"expanded_steam\expanded_steam.vpc" [($WIN32||$X360||$POSIX) && $BUILD_EXPANDED_STEAM]
+}
+
 $Project "fgdlib"
 {
 	"fgdlib\fgdlib.vpc" [$WIN32]

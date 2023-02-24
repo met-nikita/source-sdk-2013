@@ -34,6 +34,10 @@
 #if !defined(NO_STEAM)
 #include "steam/steam_api.h"
 #endif
+
+#if defined(STEAM_INPUT)
+#include "expanded_steam/isteaminput.h"
+#endif
 #endif
 
 #include "vscript_singletons.h"
@@ -3268,6 +3272,15 @@ public:
 		return steamapicontext->SteamApps()->BIsAppInstalled( nAppID );
 	}
 
+#ifdef STEAM_INPUT
+	bool IsSteamRunningOnSteamDeck()
+	{
+		return g_pSteamInput->IsSteamRunningOnSteamDeck();
+	}
+#else
+	bool IsSteamRunningOnSteamDeck() { return false; }
+#endif
+
 } g_ScriptSteamAPI;
 
 BEGIN_SCRIPTDESC_ROOT_NAMED( CScriptSteamAPI, "CSteamAPI", SCRIPT_SINGLETON "" )
@@ -3280,6 +3293,152 @@ BEGIN_SCRIPTDESC_ROOT_NAMED( CScriptSteamAPI, "CSteamAPI", SCRIPT_SINGLETON "" )
 	DEFINE_SCRIPTFUNC( GetCurrentBetaName, "Gets the name of the user's current beta branch. In Source SDK Base 2013 Singleplayer, this will usually return 'upcoming'." )
 	//DEFINE_SCRIPTFUNC( IsSubscribedApp, "Returns true if the user is subscribed to the specified app ID." )
 	DEFINE_SCRIPTFUNC( IsAppInstalled, "Returns true if the user has the specified app ID installed on their computer." )
+	DEFINE_SCRIPTFUNC( IsSteamRunningOnSteamDeck, "Returns true if the game is running on a Steam Deck." )
+END_SCRIPTDESC();
+#endif // !NO_STEAM
+
+
+//=============================================================================
+//=============================================================================
+
+
+#if defined(STEAM_INPUT)
+//=============================================================================
+// Steam Input
+//
+// Note that this interacts with ISource2013SteamInput, not ISteamInput directly.
+//=============================================================================
+class CScriptSteamInput
+{
+public:
+	bool IsEnabled()
+	{
+		return g_pSteamInput->IsEnabled();
+	}
+
+	//-----------------------------------------------------------------------------
+
+	int GetActiveController()
+	{
+		return InputHandleToScript( g_pSteamInput->GetActiveController() );
+	}
+
+	int GetConnectedControllers( HSCRIPT hArray )
+	{
+		InputHandle_t inputHandles[STEAM_INPUT_MAX_COUNT];
+		int iNumHandles = g_pSteamInput->GetConnectedControllers( inputHandles );
+
+		for (int i = 0; i < iNumHandles; i++)
+		{
+			g_pScriptVM->ArrayAppend( hArray, InputHandleToScript( inputHandles[i] ) );
+		}
+
+		return iNumHandles;
+	}
+
+	const char *GetControllerName( int nController )
+	{
+		return g_pSteamInput->GetControllerName( ScriptToInputHandle( nController ) );
+	}
+
+	int GetControllerType( int nController )
+	{
+		return g_pSteamInput->GetControllerType( ScriptToInputHandle( nController ) );
+	}
+
+	//-----------------------------------------------------------------------------
+
+	bool UsingJoysticks()
+	{
+		return g_pSteamInput->UsingJoysticks();
+	}
+	
+	void SetRumble( int nController, float fLeftMotor, float fRightMotor )
+	{
+		g_pSteamInput->SetRumble( nController, fLeftMotor, fRightMotor );
+	}
+
+	//void StopRumble()
+	//{
+	//	g_pSteamInput->StopRumble();
+	//}
+
+	//-----------------------------------------------------------------------------
+	
+	void SetLEDColor( int nController, int r, int g, int b )
+	{
+		g_pSteamInput->SetLEDColor( ScriptToInputHandle( nController ), r, g, b );
+	}
+
+	void ResetLEDColor( int nController )
+	{
+		g_pSteamInput->ResetLEDColor( ScriptToInputHandle( nController ) );
+	}
+
+	//-----------------------------------------------------------------------------
+	
+	void GetButtonStringsForCommand( int iActionSet, const char *pszCommand, HSCRIPT hArray )
+	{
+		CUtlVector<const char *> szStringList;
+		g_pSteamInput->GetButtonStringsForCommand( pszCommand, szStringList, iActionSet );
+
+		for (int i = 0; i < szStringList.Count(); i++)
+		{
+			g_pScriptVM->ArrayAppend( hArray, szStringList[i] );
+		}
+	}
+
+	//-----------------------------------------------------------------------------
+
+	const char *RemapHudHint( const char *pszInputHint )
+	{
+		g_pSteamInput->RemapHudHint( &pszInputHint );
+		return pszInputHint;
+	}
+
+	//-----------------------------------------------------------------------------
+
+private:
+
+	// Squirrel does not support 64-bit integers, so this is used as a proxy.
+
+	int InputHandleToScript( InputHandle_t nHandle )
+	{
+		int nIndex = m_InputHandles.Find( nHandle );
+		if (nIndex != m_InputHandles.InvalidIndex())
+			return nIndex;
+		return m_InputHandles.AddToTail( nHandle );
+	}
+
+	InputHandle_t ScriptToInputHandle( int nIndex )
+	{
+		if (nIndex >= 0 && nIndex < m_InputHandles.Count())
+			return m_InputHandles[nIndex];
+		return 0;
+	}
+
+	CUtlVector<InputHandle_t> m_InputHandles;
+
+} g_ScriptSteamInput;
+
+BEGIN_SCRIPTDESC_ROOT_NAMED( CScriptSteamInput, "CSource2013SteamInput", SCRIPT_SINGLETON "" )
+	DEFINE_SCRIPTFUNC( IsEnabled, "Returns true if a Steam Input controller is active." )
+
+	DEFINE_SCRIPTFUNC( GetActiveController, "Returns a handle to the currently active controller." )
+	DEFINE_SCRIPTFUNC( GetConnectedControllers, "Appends all connected controller handles into the specified array. Returns the number of controllers connected." )
+	DEFINE_SCRIPTFUNC( GetControllerName, "Returns a shorthand string indicating the specified controller's name." )
+	DEFINE_SCRIPTFUNC( GetControllerType, "Returns the specified controller's direct enum value according to ESteamInputType." )
+
+	DEFINE_SCRIPTFUNC( UsingJoysticks, "Returns true if controller is using joysticks." )
+	DEFINE_SCRIPTFUNC( SetRumble, "Sets the specified controller's rumble on the left and right motor respectively." )
+	//DEFINE_SCRIPTFUNC( StopRumble, "Stops all controller rumbling." )
+
+	DEFINE_SCRIPTFUNC( SetLEDColor, "Sets the specified controller's LED color if it supports it." )
+	DEFINE_SCRIPTFUNC( ResetLEDColor, "Resets any modified LED color on the specified controller to default." )
+
+	DEFINE_SCRIPTFUNC( GetButtonStringsForCommand, "Appends localized button strings for the specified command into the third parameter as an array. First parameter is the action set and second parameter is the command." )
+
+	DEFINE_SCRIPTFUNC( RemapHudHint, "Remaps the input HUD hint if the controller should use a different one. See scripts/steaminput_hintremap.txt" )
 END_SCRIPTDESC();
 #endif // !NO_STEAM
 
@@ -3318,6 +3477,10 @@ void RegisterScriptSingletons()
 
 #if !defined(NO_STEAM)
 	g_pScriptVM->RegisterInstance( &g_ScriptSteamAPI, "steam" );
+#endif
+
+#if defined(STEAM_INPUT)
+	g_pScriptVM->RegisterInstance( &g_ScriptSteamInput, "steaminput" );
 #endif
 #endif
 
