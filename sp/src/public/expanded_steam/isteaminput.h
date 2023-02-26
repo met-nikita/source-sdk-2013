@@ -66,6 +66,8 @@ public:
 
 	virtual void InitSteamInput() = 0;
 
+	virtual void PostInit() = 0;
+
 	virtual void LevelInitPreEntity() = 0;
 
 	virtual void RunFrame( ActionSet_t &iActionSet ) = 0;
