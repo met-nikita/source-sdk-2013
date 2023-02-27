@@ -163,7 +163,6 @@ CON_COMMAND( pause_menu, "Shortcut to toggle pause menu" )
 static ConVar si_current_cfg( "si_current_cfg", "0", FCVAR_ARCHIVE, "Steam Input's current controller." );
 
 static ConVar si_force_glyph_controller( "si_force_glyph_controller", "-1", FCVAR_NONE, "Forces glyphs to translate to the specified ESteamInputType." );
-static ConVar si_default_glyph_controller( "si_default_glyph_controller", "0", FCVAR_NONE, "The default ESteamInputType to use when a controller's glyphs aren't available." );
 
 static ConVar si_use_glyphs( "si_use_glyphs", "1", FCVAR_NONE, "Whether or not to use controller glyphs for hints." );
 
@@ -193,6 +192,8 @@ public:
 
 	void InitSteamInput() override;
 	void InitActionManifest();
+
+	void PostInit() override;
 
 	void LevelInitPreEntity() override;
 
@@ -430,27 +431,6 @@ void CSource2013SteamInput::InitSteamInput()
 		Msg( "SteamInput has no action binds, will not run\n" );
 	}
 
-	if (!m_bEnabled)
-	{
-		if (SteamUtils()->IsSteamRunningOnSteamDeck())
-		{
-			InputHandle_t inputHandles[STEAM_INPUT_MAX_COUNT];
-			int iNumHandles = SteamInput()->GetConnectedControllers( inputHandles );
-			Msg( "On Steam Deck and number of controllers is %i\n", iNumHandles );
-
-			if (iNumHandles > 0)
-			{
-				DeckConnected( inputHandles[0] );
-			}
-		}
-		else if (si_current_cfg.GetString()[0] != '0')
-		{
-			Msg("Reverting leftover Steam Input cvars\n");
-			g_pEngineClient->ClientCmd_Unrestricted( "exec steam_uninput.cfg" );
-			g_pEngineClient->ClientCmd_Unrestricted( SteamInput_VarArgs( "exec steam_uninput_%s.cfg", si_current_cfg.GetString() ) );
-		}
-	}
-
 	LoadHintRemap( "scripts/steaminput_hintremap.txt" );
 
 	// Also load mod remap script
@@ -564,14 +544,42 @@ InputDigitalActionCommandBind_t *CSource2013SteamInput::FindActionBind( const ch
 	return NULL;
 }
 
-void CSource2013SteamInput::LevelInitPreEntity()
+//-------------------------------------------
+
+void CSource2013SteamInput::PostInit()
 {
-	if (IsEnabled())
+	if (!m_bEnabled)
+	{
+		if (SteamUtils()->IsSteamRunningOnSteamDeck())
+		{
+			InputHandle_t inputHandles[STEAM_INPUT_MAX_COUNT];
+			int iNumHandles = SteamInput()->GetConnectedControllers( inputHandles );
+			Msg( "On Steam Deck and number of controllers is %i\n", iNumHandles );
+
+			if (iNumHandles > 0)
+			{
+				DeckConnected( inputHandles[0] );
+			}
+		}
+		else if (si_current_cfg.GetString()[0] != '0')
+		{
+			Msg("Reverting leftover Steam Input cvars\n");
+			g_pEngineClient->ClientCmd_Unrestricted( "exec steam_uninput.cfg" );
+			g_pEngineClient->ClientCmd_Unrestricted( SteamInput_VarArgs( "exec steam_uninput_%s.cfg", si_current_cfg.GetString() ) );
+
+			si_current_cfg.SetValue( "0" );
+		}
+	}
+	else
 	{
 		// Sometimes, the archived value overwrites the cvar. This is a compromise to make sure that doesn't happen
 		ESteamInputType inputType = SteamInput()->GetInputTypeForHandle( m_nControllerHandle );
 		si_current_cfg.SetValue( IdentifyControllerParam( inputType ) );
 	}
+}
+
+void CSource2013SteamInput::LevelInitPreEntity()
+{
 }
 
 void CSource2013SteamInput::Shutdown()
@@ -719,9 +727,6 @@ void CSource2013SteamInput::DeckConnected( InputHandle_t nDeviceHandle )
 
 void CSource2013SteamInput::RunFrame( ActionSet_t &iActionSet )
 {
-	if (g_DigitalActionBinds.Count() == 0)
-		return;
-
 	SteamInput()->RunFrame();
 
 	static InputHandle_t inputHandles[STEAM_INPUT_MAX_COUNT];
@@ -735,6 +740,17 @@ void CSource2013SteamInput::RunFrame( ActionSet_t &iActionSet )
 		{
 			// No controllers available, disable Steam Input
 			InputDeviceDisconnected( m_nControllerHandle );
+		}
+		return;
+	}
+
+	if (g_DigitalActionBinds.Count() == 0)
+	{
+		if (iNumHandles > 0 && m_nControllerHandle == 0)
+		{
+			// A new controller may have been connected without proper Steam Input initialization, so restart it
+			Shutdown();
+			InitSteamInput();
 		}
 		return;
 	}
