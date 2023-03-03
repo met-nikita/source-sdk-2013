@@ -71,9 +71,29 @@ ConVar npc_combine_order_surrender_max_dist( "npc_combine_order_surrender_max_di
 ConVar npc_combine_order_surrender_min_tlk_surrender( "npc_combine_order_surrender_min_tlk_surrender", "2.0", FCVAR_NONE, "The minimum amount of time that must pass after a citizen speaks TLK_SURRENDER before being considered for surrenders, assuming they haven't already spoken TLK_BEG." );
 ConVar npc_combine_order_surrender_min_tlk_beg( "npc_combine_order_surrender_min_tlk_beg", "0.5", FCVAR_NONE, "The minimum amount of time that must pass after a citizen speaks TLK_BEG before being considered for surrenders, assuming they haven't already spoken TLK_SURRENDER." );
 
-ConVar	sv_squadmate_glow( "sv_squadmate_glow", "1", FCVAR_REPLICATED, "If 1, Combine soldier squadmates will glow when they are in the player's squad. The color of the glow represents their HP." );
-ConVar	sv_squadmate_glow_style( "sv_squadmate_glow_style", "1", FCVAR_REPLICATED, "Different colors for Combine squadmate glows. 0: Green means 100 HP, red means 0 HP\t1: White means 100 HP, red means 0 HP");
-ConVar	sv_squadmate_glow_alpha( "sv_squadmate_glow_alpha", "0.6", FCVAR_REPLICATED, "On a scale of 0-1, how much alpha should the squadmate glow have" );
+//--------------------------------------------------------------
+
+void CV_SquadmateGlowUpdate( IConVar *var, const char *pOldValue, float flOldValue )
+{
+	CAI_BaseNPC **ppAIs = g_AI_Manager.AccessAIs();
+	int nAIs = g_AI_Manager.NumAIs();
+
+	for ( int i = 0; i < nAIs; i++ )
+	{
+		CAI_BaseNPC *pNPC = ppAIs[ i ];
+
+		// Update glows on all soldier squadmates
+		if (pNPC->IsCommandable() && pNPC->IsInPlayerSquad())
+		{
+			CNPC_Combine *pCombine = dynamic_cast<CNPC_Combine *>(pNPC);
+			pCombine->UpdateSquadGlow();
+		}
+	}
+}
+
+ConVar	sv_squadmate_glow( "sv_squadmate_glow", "1", FCVAR_ARCHIVE, "If 1, Combine soldier squadmates will glow when they are in the player's squad. The color of the glow represents their HP.", CV_SquadmateGlowUpdate );
+ConVar	sv_squadmate_glow_style( "sv_squadmate_glow_style", "1", FCVAR_ARCHIVE, "Different colors for Combine squadmate glows. 0: Green means 100 HP, red means 0 HP\t1: White means 100 HP, red means 0 HP", CV_SquadmateGlowUpdate );
+ConVar	sv_squadmate_glow_alpha( "sv_squadmate_glow_alpha", "0.6", FCVAR_ARCHIVE, "On a scale of 0-1, how much alpha should the squadmate glow have", CV_SquadmateGlowUpdate );
 
 #define COMBINE_GLOW_STYLE_REDGREEN	0
 #define COMBINE_GLOW_STYLE_REDWHITE	1
