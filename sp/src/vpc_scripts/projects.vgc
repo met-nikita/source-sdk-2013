@@ -31,6 +31,14 @@ $Project "fgdlib"
 	"fgdlib\fgdlib.vpc" [$WIN32]
 }
 
+$Project "gamepadui"
+{
+	"game\gamepadui\gamepadui_hl2.vpc"		[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $HL2]
+	"game\gamepadui\gamepadui_episodic.vpc"	[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $EPISODIC]
+	"game\gamepadui\gamepadui_ez1.vpc"	[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $EZ1]
+	"game\gamepadui\gamepadui_ez2.vpc"	[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $EZ2]
+}
+
 $Project "game_shader_dx9"
 {
 	"materialsystem\stdshaders\game_shader_dx9_hl2.vpc" [$HL2]

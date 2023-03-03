@@ -45,6 +45,8 @@ $Configuration "Debug"
 
 		// Mapbase base definitions
 		$PreprocessorDefinitions		"$BASE;MAPBASE"		[$MAPBASE]
+		
+		$PreprocessorDefinitions		"$BASE;GAMEPADUI"	[$GAMEPADUI]
 	}
 }
 
@@ -63,6 +65,8 @@ $Configuration "Release"
 
 		// Mapbase base definitions
 		$PreprocessorDefinitions		"$BASE;MAPBASE"		[$MAPBASE]
+		
+		$PreprocessorDefinitions		"$BASE;GAMEPADUI"	[$GAMEPADUI]
 	}
 }
 
