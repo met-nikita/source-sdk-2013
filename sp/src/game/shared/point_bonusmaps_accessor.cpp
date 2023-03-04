@@ -25,8 +25,8 @@
 // See interface.h/.cpp for specifics:  basically this ensures that we actually Sys_UnloadModule the dll and that we don't call Sys_LoadModule 
 //  over and over again.
 static CDllDemandLoader g_GameUI( "GameUI" );
-#ifdef GAMEPADUI
-static CDllDemandLoader g_GamepadUI( "GamepadUI" );
+#if defined(GAMEPADUI) && defined(CLIENT_DLL)
+extern IGamepadUI *g_pGamepadUI;
 #endif
 
 #ifndef CLIENT_DLL
@@ -248,17 +248,10 @@ public:
 		}
 
 #if defined(GAMEPADUI) && defined(CLIENT_DLL)
-		// This is overridden by GamepadUI instead
-		CreateInterfaceFn gamepadUIFactory = g_GamepadUI.GetFactory();
-		if ( gameUIFactory )
+		if (g_pGamepadUI && sv_bonus_challenge.GetInt() != 0)
 		{
-			m_pGamepadUI = (IGamepadUI *) gamepadUIFactory(GAMEPADUI_INTERFACE_VERSION, NULL );
-		}
-		
-		if (m_pGamepadUI && sv_bonus_challenge.GetInt() != 0)
-		{
-			m_pGamepadUI->BonusMapChallengeNames( m_szChallengeFileName, m_szChallengeMapName, m_szChallengeName );
-			m_pGamepadUI->BonusMapChallengeObjectives( m_iBronze, m_iSilver, m_iGold );
+			g_pGamepadUI->BonusMapChallengeNames( m_szChallengeFileName, m_szChallengeMapName, m_szChallengeName );
+			g_pGamepadUI->BonusMapChallengeObjectives( m_iBronze, m_iSilver, m_iGold );
 			LoadBonusDataKV( m_szChallengeFileName );
 			m_bOverridingInterface = true;
 
