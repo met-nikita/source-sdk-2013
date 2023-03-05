@@ -293,6 +293,9 @@ private:
 
 	bool m_bIsGamepadUI;
 
+	// If true, Steam Input won't check for a controller during gameplay
+	bool m_bInvalidSteamInputAction;
+
 	//-------------------------------------------
 
 	enum
@@ -376,6 +379,7 @@ void CSource2013SteamInput::InitSteamInput()
 
 	m_bEnabled = false;
 	//SteamInput()->EnableDeviceCallbacks();
+	m_bInvalidSteamInputAction = false;
 
 	g_AS_GameControls		= SteamInput()->GetActionSetHandle( "GameControls" );
 	g_AS_VehicleControls	= SteamInput()->GetActionSetHandle( "VehicleControls" );
@@ -488,11 +492,10 @@ void CSource2013SteamInput::InitActionManifest()
 
 bool CSource2013SteamInput::LoadActionBinds( const char *pszFileName )
 {
-	bool bWarnMissingBinds = false;
 	{
-		// Only warn about missing binds if we have a connected controller
 		static InputHandle_t inputHandles[STEAM_INPUT_MAX_COUNT];
-		bWarnMissingBinds = (SteamInput()->GetConnectedControllers( inputHandles ) > 0);
+		if (SteamInput()->GetConnectedControllers( inputHandles ) <= 0)
+			return false;
 	}
 
 	KeyValues *pKV = new KeyValues("ActionBinds");
@@ -516,8 +519,10 @@ bool CSource2013SteamInput::LoadActionBinds( const char *pszFileName )
 			}
 			else
 			{
-				if (bWarnMissingBinds)
-					Warning("Invalid Steam Input action \"%s\"\n", pKVAction->GetName());
+				Warning("Invalid Steam Input action \"%s\", won't run Steam Input without manual restart\n", pKVAction->GetName());
+				m_bInvalidSteamInputAction = true;
+				pKV->deleteThis();
+				return false;
 			}
 
 			pKVAction = pKVAction->GetNextKey();
@@ -746,7 +751,7 @@ void CSource2013SteamInput::RunFrame( ActionSet_t &iActionSet )
 
 	if (g_DigitalActionBinds.Count() == 0)
 	{
-		if (iNumHandles > 0 && m_nControllerHandle == 0)
+		if (!m_bInvalidSteamInputAction && iNumHandles > 0 && m_nControllerHandle == 0)
 		{
 			// A new controller may have been connected without proper Steam Input initialization, so restart it
 			Shutdown();
