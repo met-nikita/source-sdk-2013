@@ -124,7 +124,22 @@ ConVar sv_infinite_aux_power("sv_infinite_aux_power", "0", FCVAR_CHEAT);
 #endif
 
 #ifdef EZ
-ConVar	sv_visible_command_point( "sv_visible_command_point", "1", FCVAR_REPLICATED );
+void CV_VisibleCommandPointChange( IConVar *var, const char *pOldValue, float flOldValue );
+ConVar	sv_visible_command_point( "sv_visible_command_point", "1", FCVAR_ARCHIVE, "", CV_VisibleCommandPointChange );
+
+void CV_VisibleCommandPointChange( IConVar *var, const char *pOldValue, float flOldValue )
+{
+	if (!sv_visible_command_point.GetBool())
+	{
+		// Remove any command points
+		CBaseEntity *pProp = gEntList.FindEntityByClassname( NULL, "prop_command_point" );
+		while (pProp)
+		{
+			UTIL_Remove( pProp );
+			pProp = gEntList.FindEntityByClassname( pProp, "prop_command_point" );
+		}
+	}
+}
 #endif
 
 ConVar autoaim_unlock_target( "autoaim_unlock_target", "0.8666" );

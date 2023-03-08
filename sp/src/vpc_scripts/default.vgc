@@ -23,6 +23,11 @@ $Conditional "SOURCESDK" "1"
 // (Be sure to change STEAMWORKS_VERSION in steamworks_update.vpc as well!)
 $Conditional BUILD_EXPANDED_STEAM	"0"
 
+// GAMEPADUI allows the client to hook into GamepadUI.
+// BUILD_GAMEPADUI includes GamepadUI projects in the code.
+$Conditional GAMEPADUI				"1"
+$Conditional BUILD_GAMEPADUI		"0"
+
 $Include "vpc_scripts\projects.vgc"
 $Include "vpc_scripts\groups.vgc"
 
