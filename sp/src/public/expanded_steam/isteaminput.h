@@ -40,6 +40,7 @@ struct InputDigitalActionBind_t
 	InputDigitalActionHandle_t handle = 0;
 	InputHandle_t controller = 0; // The last controller pressing if it is down
 	bool bDown = false;
+	bool bQueue = false;
 
 	virtual void OnDown() { ; }
 	virtual void OnUp() { ; }

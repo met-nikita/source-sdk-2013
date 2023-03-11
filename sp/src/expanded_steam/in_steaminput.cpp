@@ -53,7 +53,6 @@ char *SteamInput_VarArgs( const char *format, ... )
 //-------------------------------------------
 
 #define USE_HL2_INSTALLATION 1 // This attempts to obtain HL2's action manifest from the user's own HL2 or Portal installations
-#define MENU_ACTIONS_ARE_BINDS 1
 
 InputActionSetHandle_t g_AS_GameControls;
 InputActionSetHandle_t g_AS_VehicleControls;
@@ -120,7 +119,6 @@ InputAnalogActionHandle_t g_AA_Brake;
 
 //-------------------------------------------
 
-#if MENU_ACTIONS_ARE_BINDS
 InputDigitalActionBind_t g_DAB_MenuUp;
 InputDigitalActionBind_t g_DAB_MenuDown;
 InputDigitalActionBind_t g_DAB_MenuLeft;
@@ -131,16 +129,6 @@ InputDigitalActionBind_t g_DAB_MenuLB;
 InputDigitalActionBind_t g_DAB_MenuRB;
 InputDigitalActionBind_t g_DAB_MenuX;
 InputDigitalActionBind_t g_DAB_MenuY;
-#else
-InputDigitalActionHandle_t g_DA_MenuUp;
-InputDigitalActionHandle_t g_DA_MenuDown;
-InputDigitalActionHandle_t g_DA_MenuLeft;
-InputDigitalActionHandle_t g_DA_MenuRight;
-InputDigitalActionHandle_t g_DA_MenuSelect;
-InputDigitalActionHandle_t g_DA_MenuCancel;
-InputDigitalActionHandle_t g_DA_MenuLB;
-InputDigitalActionHandle_t g_DA_MenuRB;
-#endif
 
 InputAnalogActionHandle_t g_AA_Mouse;
 
@@ -230,13 +218,14 @@ public:
 	InputDigitalActionCommandBind_t *FindActionBind( const char *pszActionName );
 
 	bool TestActions( int iActionSet, InputHandle_t nController );
+	void DoActions( int iActionSet );
+	void TransitionActionSet( int iNewActionSet, int iOldActionSet );
 
 	void TestDigitalActionBind( InputHandle_t nController, InputDigitalActionBind_t &DigitalAction, bool &bActiveInput );
-#if MENU_ACTIONS_ARE_BINDS
-	void PressKeyFromDigitalActionHandle( InputHandle_t nController, InputDigitalActionBind_t &nHandle, ButtonCode_t nKey, bool &bActiveInput );
-#else
-	void PressKeyFromDigitalActionHandle( InputHandle_t nController, InputDigitalActionHandle_t nHandle, ButtonCode_t nKey, bool &bActiveInput );
-#endif
+	void SendDigitalActionBind( InputDigitalActionBind_t &DigitalAction );
+	void DeactivateDigitalActionBind( InputDigitalActionBind_t &DigitalAction );
+
+	void SendKeyFromDigitalActionHandle( InputDigitalActionBind_t &nHandle, ButtonCode_t nKey );
 
 	bool UsingJoysticks() override;
 	void GetJoystickValues( float &flForward, float &flSide, float &flPitch, float &flYaw,
@@ -408,7 +397,6 @@ void CSource2013SteamInput::InitSteamInput()
 		g_AA_Brake				= SteamInput()->GetAnalogActionHandle( "Brake" );
 		g_AA_Mouse				= SteamInput()->GetAnalogActionHandle( "Mouse" );
 
-#if MENU_ACTIONS_ARE_BINDS
 		g_DAB_MenuUp.handle		= SteamInput()->GetDigitalActionHandle( "menu_up" );
 		g_DAB_MenuDown.handle	= SteamInput()->GetDigitalActionHandle( "menu_down" );
 		g_DAB_MenuLeft.handle	= SteamInput()->GetDigitalActionHandle( "menu_left" );
@@ -419,16 +407,6 @@ void CSource2013SteamInput::InitSteamInput()
 		g_DAB_MenuY.handle		= SteamInput()->GetDigitalActionHandle( "menu_y" );
 		g_DAB_MenuLB.handle		= SteamInput()->GetDigitalActionHandle( "menu_lb" );
 		g_DAB_MenuRB.handle		= SteamInput()->GetDigitalActionHandle( "menu_rb" );
-#else
-		g_DA_MenuUp				= SteamInput()->GetDigitalActionHandle( "menu_up" );
-		g_DA_MenuDown			= SteamInput()->GetDigitalActionHandle( "menu_down" );
-		g_DA_MenuLeft			= SteamInput()->GetDigitalActionHandle( "menu_left" );
-		g_DA_MenuRight			= SteamInput()->GetDigitalActionHandle( "menu_right" );
-		g_DA_MenuSelect			= SteamInput()->GetDigitalActionHandle( "menu_select" );
-		g_DA_MenuCancel			= SteamInput()->GetDigitalActionHandle( "menu_cancel" );
-		g_DA_MenuLB				= SteamInput()->GetDigitalActionHandle( "menu_lb" );
-		g_DA_MenuRB				= SteamInput()->GetDigitalActionHandle( "menu_rb" );
-#endif
 	}
 	else
 	{
@@ -767,10 +745,12 @@ void CSource2013SteamInput::RunFrame( ActionSet_t &iActionSet )
 	m_analogMoveData = m_analogCameraData = InputAnalogActionData_t();
 
 	InputHandle_t iFirstActive = m_nControllerHandle;
+	bool bActiveInput = false;
 	for (int i = 0; i < iNumHandles; i++)
 	{
 		if (TestActions( iActionSet, inputHandles[i] ))
 		{
+			bActiveInput = true;
 			if (iFirstActive == m_nControllerHandle)
 				iFirstActive = inputHandles[i];
 		}
@@ -790,23 +770,35 @@ void CSource2013SteamInput::RunFrame( ActionSet_t &iActionSet )
 		}
 	}
 
-	m_iLastActionSet = iActionSet;
-
-	if (si_print_action_set.GetBool())
+	if (bActiveInput)
 	{
-		switch (iActionSet)
+		if (m_iLastActionSet != iActionSet)
 		{
-			case AS_GameControls:
-				Msg( "Steam Input: GameControls\n" );
-				break;
+			TransitionActionSet( iActionSet, m_iLastActionSet );
+		}
+		else
+		{
+			DoActions( iActionSet );
+		}
 
-			case AS_VehicleControls:
-				Msg( "Steam Input: VehicleControls\n" );
-				break;
+		m_iLastActionSet = iActionSet;
 
-			case AS_MenuControls:
-				Msg( "Steam Input: MenuControls\n" );
-				break;
+		if (si_print_action_set.GetBool())
+		{
+			switch (iActionSet)
+			{
+				case AS_GameControls:
+					Msg( "Steam Input: GameControls\n" );
+					break;
+
+				case AS_VehicleControls:
+					Msg( "Steam Input: VehicleControls\n" );
+					break;
+
+				case AS_MenuControls:
+					Msg( "Steam Input: MenuControls\n" );
+					break;
+			}
 		}
 	}
 }
@@ -969,63 +961,18 @@ bool CSource2013SteamInput::TestActions( int iActionSet, InputHandle_t nControll
 		{
 			SteamInput()->ActivateActionSet( nController, g_AS_MenuControls );
 
-			//if (!SteamInput()->BNewDataAvailable())
-			//	break;
-
-#if MENU_ACTIONS_ARE_BINDS
-			if (m_bIsGamepadUI)
-			{
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuUp, KEY_XBUTTON_UP, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuDown, KEY_XBUTTON_DOWN, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuLeft, KEY_XBUTTON_LEFT, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuRight, KEY_XBUTTON_RIGHT, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuSelect, KEY_XBUTTON_A, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuCancel, KEY_XBUTTON_B, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuX, KEY_XBUTTON_X, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuY, KEY_XBUTTON_Y, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuLB, KEY_XBUTTON_LEFT_SHOULDER, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuRB, KEY_XBUTTON_RIGHT_SHOULDER, bActiveInput );
-			}
-			else
-			{
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuUp, KEY_UP, bActiveInput ); // KEY_XBUTTON_UP
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuDown, KEY_DOWN, bActiveInput ); // KEY_XBUTTON_DOWN
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuLeft, KEY_LEFT, bActiveInput ); // KEY_XBUTTON_LEFT
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuRight, KEY_RIGHT, bActiveInput ); // KEY_XBUTTON_RIGHT
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuSelect, KEY_XBUTTON_A, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuCancel, KEY_XBUTTON_B, bActiveInput );
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuLB, KEY_XBUTTON_LEFT, bActiveInput ); // KEY_XBUTTON_LEFT_SHOULDER
-				PressKeyFromDigitalActionHandle( nController, g_DAB_MenuRB, KEY_XBUTTON_RIGHT, bActiveInput ); // KEY_XBUTTON_RIGHT_SHOULDER
-			}
-#else
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuUp, KEY_UP, bActiveInput ); // KEY_XBUTTON_UP
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuDown, KEY_DOWN, bActiveInput ); // KEY_XBUTTON_DOWN
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuLeft, KEY_LEFT, bActiveInput ); // KEY_XBUTTON_LEFT
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuRight, KEY_RIGHT, bActiveInput ); // KEY_XBUTTON_RIGHT
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuSelect, KEY_XBUTTON_A, bActiveInput );
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuCancel, KEY_XBUTTON_B, bActiveInput );
-			//PressKeyFromDigitalActionHandle( nController, g_DA_MenuX, KEY_X, bActiveInput );
-			//PressKeyFromDigitalActionHandle( nController, g_DA_MenuY, KEY_Y, bActiveInput );
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuLB, KEY_XBUTTON_LEFT, bActiveInput ); // KEY_XBUTTON_LEFT_SHOULDER
-			PressKeyFromDigitalActionHandle( nController, g_DA_MenuRB, KEY_XBUTTON_RIGHT, bActiveInput ); // KEY_XBUTTON_RIGHT_SHOULDER
-#endif
+			TestDigitalActionBind( nController, g_DAB_MenuUp, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuDown, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuLeft, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuRight, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuSelect, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuCancel, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuX, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuY, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuLB, bActiveInput );
+			TestDigitalActionBind( nController, g_DAB_MenuRB, bActiveInput );
 
 			TestDigitalActionBind( nController, *g_DAB_MenuPause, bActiveInput );
-
-			if (!m_bIsGamepadUI)
-			{
-				//InputDigitalActionData_t xData = SteamInput()->GetDigitalActionData( m_nControllerHandle, g_DAB_MenuX.handle );
-				InputDigitalActionData_t yData = SteamInput()->GetDigitalActionData( nController, g_DAB_MenuY.handle );
-
-				//if (xData.bState)
-				//	engine->ClientCmd_Unrestricted( "gamemenucommand OpenOptionsDialog\n" );
-
-				if (yData.bState)
-				{
-					g_pEngineClient->ClientCmd_Unrestricted( "gamemenucommand OpenOptionsDialog\n" );
-					bActiveInput = true;
-				}
-			}
 
 		} break;
 	}
@@ -1062,6 +1009,107 @@ bool CSource2013SteamInput::TestActions( int iActionSet, InputHandle_t nControll
 	return bActiveInput;
 }
 
+void CSource2013SteamInput::DoActions( int iActionSet )
+{
+	switch (iActionSet)
+	{
+		case AS_VehicleControls:
+		case AS_GameControls:
+		{
+			// Run commands for all digital actions
+			for (int i = 0; i < g_DigitalActionBinds.Count(); i++)
+			{
+				SendDigitalActionBind( g_DigitalActionBinds[i] );
+			}
+		} break;
+
+		case AS_MenuControls:
+		{
+			if (m_bIsGamepadUI)
+			{
+				SendKeyFromDigitalActionHandle( g_DAB_MenuUp, KEY_XBUTTON_UP );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuDown, KEY_XBUTTON_DOWN );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuLeft, KEY_XBUTTON_LEFT );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuRight, KEY_XBUTTON_RIGHT );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuSelect, KEY_XBUTTON_A );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuCancel, KEY_XBUTTON_B );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuX, KEY_XBUTTON_X );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuY, KEY_XBUTTON_Y );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuLB, KEY_XBUTTON_LEFT_SHOULDER );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuRB, KEY_XBUTTON_RIGHT_SHOULDER );
+			}
+			else
+			{
+				SendKeyFromDigitalActionHandle( g_DAB_MenuUp, KEY_UP ); // KEY_XBUTTON_UP
+				SendKeyFromDigitalActionHandle( g_DAB_MenuDown, KEY_DOWN ); // KEY_XBUTTON_DOWN
+				SendKeyFromDigitalActionHandle( g_DAB_MenuLeft, KEY_LEFT ); // KEY_XBUTTON_LEFT
+				SendKeyFromDigitalActionHandle( g_DAB_MenuRight, KEY_RIGHT ); // KEY_XBUTTON_RIGHT
+				SendKeyFromDigitalActionHandle( g_DAB_MenuSelect, KEY_XBUTTON_A );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuCancel, KEY_XBUTTON_B );
+				SendKeyFromDigitalActionHandle( g_DAB_MenuLB, KEY_XBUTTON_LEFT ); // KEY_XBUTTON_LEFT_SHOULDER
+				SendKeyFromDigitalActionHandle( g_DAB_MenuRB, KEY_XBUTTON_RIGHT ); // KEY_XBUTTON_RIGHT_SHOULDER
+			}
+
+			SendDigitalActionBind( *g_DAB_MenuPause );
+
+			if (!m_bIsGamepadUI)
+			{
+				if (g_DAB_MenuY.bDown && g_DAB_MenuY.bQueue)
+				{
+					g_pEngineClient->ClientCmd_Unrestricted( "gamemenucommand OpenOptionsDialog\n" );
+					g_DAB_MenuY.bQueue = false;
+				}
+			}
+
+		} break;
+	}
+}
+
+void CSource2013SteamInput::TransitionActionSet( int iNewActionSet, int iOldActionSet )
+{
+	if (iOldActionSet == AS_MenuControls)
+	{
+		// Deactivate all menu controls
+		DeactivateDigitalActionBind( g_DAB_MenuUp );
+		DeactivateDigitalActionBind( g_DAB_MenuDown );
+		DeactivateDigitalActionBind( g_DAB_MenuLeft );
+		DeactivateDigitalActionBind( g_DAB_MenuRight );
+		DeactivateDigitalActionBind( g_DAB_MenuSelect );
+		DeactivateDigitalActionBind( g_DAB_MenuCancel );
+		DeactivateDigitalActionBind( g_DAB_MenuX );
+		DeactivateDigitalActionBind( g_DAB_MenuY );
+		DeactivateDigitalActionBind( g_DAB_MenuLB );
+		DeactivateDigitalActionBind( g_DAB_MenuRB );
+		
+		// Stop queueing any actions which were immediately pressed after unpausing (i.e. pressing A to unpause shouldn't cause the player to jump immediately after)
+		for (int i = 0; i < g_DigitalActionBinds.Count(); i++)
+		{
+			g_DigitalActionBinds[i].bQueue = false;
+		}
+	}
+	else if (iNewActionSet == AS_MenuControls)
+	{
+		// Deactivate all regular actions
+		for (int i = 0; i < g_DigitalActionBinds.Count(); i++)
+		{
+			if (&g_DigitalActionBinds[i] != g_DAB_MenuPause)
+				DeactivateDigitalActionBind( g_DigitalActionBinds[i] );
+		}
+
+		// Stop queueing any actions which were immediately pressed after unpausing (i.e. pressing A to unpause shouldn't cause the player to jump immediately after)
+		g_DAB_MenuUp.bQueue = false;
+		g_DAB_MenuDown.bQueue = false;
+		g_DAB_MenuLeft.bQueue = false;
+		g_DAB_MenuRight.bQueue = false;
+		g_DAB_MenuSelect.bQueue = false;
+		g_DAB_MenuCancel.bQueue = false;
+		g_DAB_MenuX.bQueue = false;
+		g_DAB_MenuY.bQueue = false;
+		g_DAB_MenuLB.bQueue = false;
+		g_DAB_MenuRB.bQueue = false;
+	}
+}
+
 void CSource2013SteamInput::TestDigitalActionBind( InputHandle_t nController, InputDigitalActionBind_t &DigitalAction, bool &bActiveInput )
 {
 	InputDigitalActionData_t data = SteamInput()->GetDigitalActionData( nController, DigitalAction.handle );
@@ -1073,7 +1121,7 @@ void CSource2013SteamInput::TestDigitalActionBind( InputHandle_t nController, In
 		{
 			DigitalAction.controller = nController;
 			DigitalAction.bDown = true;
-			DigitalAction.OnDown();
+			DigitalAction.bQueue = true; //DigitalAction.OnDown();
 		}
 
 		if (DigitalAction.controller == nController)
@@ -1085,65 +1133,47 @@ void CSource2013SteamInput::TestDigitalActionBind( InputHandle_t nController, In
 		if (DigitalAction.bDown)
 		{
 			DigitalAction.bDown = false;
-			DigitalAction.OnUp();
+			DigitalAction.bQueue = true; //DigitalAction.OnUp();
+			bActiveInput = true;
 		}
 	}
 }
 
-#if MENU_ACTIONS_ARE_BINDS
-void CSource2013SteamInput::PressKeyFromDigitalActionHandle( InputHandle_t nController, InputDigitalActionBind_t &nHandle, ButtonCode_t nKey, bool &bActiveInput )
+void CSource2013SteamInput::SendDigitalActionBind( InputDigitalActionBind_t &DigitalAction )
 {
-	InputDigitalActionData_t data = SteamInput()->GetDigitalActionData( nController, nHandle.handle );
-
-	bool bSendKey = false;
-	if (data.bState)
+	if (DigitalAction.bQueue)
 	{
-		// Key is not down
-		if (!nHandle.bDown)
-		{
-			nHandle.controller = nController;
-			nHandle.bDown = true;
-			bSendKey = true;
-		}
+		if (DigitalAction.bDown)
+			DigitalAction.OnDown();
+		else
+			DigitalAction.OnUp();
 
-		if (nHandle.controller == nController)
-			bActiveInput = true;
+		DigitalAction.bQueue = false;
 	}
-	else if (nHandle.controller == nController)
+}
+
+void CSource2013SteamInput::DeactivateDigitalActionBind( InputDigitalActionBind_t &DigitalAction )
+{
+	if (DigitalAction.bDown)
 	{
-		// Key is already down
-		if (nHandle.bDown)
-		{
-			nHandle.bDown = false;
-			bSendKey = true;
-		}
+		DigitalAction.bDown = false;
+		DigitalAction.OnUp();
+		DigitalAction.bQueue = false;
 	}
-		
-	if (bSendKey)
+}
+
+void CSource2013SteamInput::SendKeyFromDigitalActionHandle( InputDigitalActionBind_t &nHandle, ButtonCode_t nKey )
+{
+	if (nHandle.bQueue)
 	{
 		if (nHandle.bDown)
 			vgui::ivgui()->PostMessage( vgui::input()->GetFocus(), new KeyValues( "KeyCodePressed", "code", nKey ), NULL );
 		else
 			vgui::ivgui()->PostMessage( vgui::input()->GetFocus(), new KeyValues( "KeyCodeReleased", "code", nKey ), NULL );
 	}
-}
-#else
-void CSource2013SteamInput::PressKeyFromDigitalActionHandle( InputDigitalActionHandle_t nHandle, ButtonCode_t nKey )
-{
-	InputDigitalActionData_t data = SteamInput()->GetDigitalActionData( m_nControllerHandle, nHandle );
 
-	/*if (data.bActive)
-	{
-		//g_pClientMode->GetViewport()->OnKeyCodePressed( nKey );
-
-		//InputEvent_t inputEvent;
-		//inputEvent.m_nType = IE_ButtonPressed;
-		//inputEvent.m_nData = nKey;
-		//inputEvent.m_nData2 = inputsystem->ButtonCodeToVirtualKey( nKey );
-		//inputsystem->PostUserEvent( inputEvent );
-	}*/
+	nHandle.bQueue = false;
 }
-#endif
 
 static inline bool IsRelativeAnalog( EInputSourceMode mode )
 {
