@@ -1192,12 +1192,12 @@ void CInput::CreateMove ( int sequence_number, float input_sample_frametime, boo
 	QAngle originalViewangles = viewangles;
 
 #ifdef STEAM_INPUT
-	ActionSet_t iActionSet = AS_MenuControls;
 	C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
 	if (pPlayer)
 	{
 		if (!engine->IsPaused() && !engine->IsLevelMainMenuBackground())
 		{
+			ActionSet_t iActionSet;
 			if (pPlayer->GetVehicle())
 			{
 				iActionSet = AS_VehicleControls;
@@ -1206,10 +1206,10 @@ void CInput::CreateMove ( int sequence_number, float input_sample_frametime, boo
 			{
 				iActionSet = AS_GameControls;
 			}
+
+			g_pSteamInput->RunFrame( iActionSet );
 		}
 	}
-
-	g_pSteamInput->RunFrame( iActionSet );
 #endif
 
 	if ( active || sv_noclipduringpause.GetInt() )
