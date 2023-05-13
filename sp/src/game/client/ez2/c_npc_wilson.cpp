@@ -8,6 +8,8 @@
 
 #include "cbase.h"
 #include "c_npc_wilson.h"
+#include "functionproxy.h"
+#include "materialsystem/imaterialvar.h"
 
 C_AI_TurretBase::C_AI_TurretBase()
 {
@@ -156,9 +158,17 @@ void C_AI_TurretBase::OnDataChanged( DataUpdateType_t type )
 	BaseClass::OnDataChanged( type );
 }
 
+
+ConVar npc_wilson_talk_glow_fade( "npc_wilson_talk_glow_fade", "0.1" );
+ConVar npc_wilson_talk_scale( "npc_wilson_talk_scale", "0.25" );
+ConVar npc_wilson_talk_min( "npc_wilson_talk_min", "0.75" );
+ConVar npc_wilson_talk_max( "npc_wilson_talk_max", "5.0" );
+ConVar npc_wilson_talk_start( "npc_wilson_talk_start", "1.0" );
+
 IMPLEMENT_CLIENTCLASS_DT( C_NPC_Wilson, DT_NPC_Wilson, CNPC_Wilson )
 	RecvPropBool( RECVINFO( m_bEyeLightEnabled ) ),
 	RecvPropInt( RECVINFO( m_iEyeLightBrightness ) ),
+	RecvPropBool( RECVINFO( m_bClosedIdle ) ),
 END_RECV_TABLE()
 
 BEGIN_PREDICTION_DATA( C_NPC_Wilson )
@@ -168,6 +178,7 @@ C_NPC_Wilson::C_NPC_Wilson()
 {
 	m_Glow.m_bDirectional = false;
 	m_Glow.m_bInSky = false;
+	m_flTalkGlow = 1.0f;
 }
 
 C_NPC_Wilson::~C_NPC_Wilson()
@@ -176,6 +187,19 @@ C_NPC_Wilson::~C_NPC_Wilson()
 
 void C_NPC_Wilson::Simulate( void )
 {
+	if (m_flTalkGlow > 1.01f)
+	{
+		m_flTalkGlow -= (npc_wilson_talk_glow_fade.GetFloat() * (m_flTalkGlow - 1.0f));
+	}
+	else if (m_flTalkGlow < 0.99f)
+	{
+		m_flTalkGlow += (npc_wilson_talk_glow_fade.GetFloat() * (abs(m_flTalkGlow) + 1.0f));
+	}
+	else if (m_flTalkGlow != 1.0f)
+	{
+		m_flTalkGlow = 1.0f;
+	}
+
 	BaseClass::Simulate();
 }
 
@@ -229,6 +253,104 @@ C_RopeKeyframe *C_NPC_Wilson::CreateRope( int iStartAttach, int iEndAttach )
 	pRope->SetSlack( 110 );
 	return pRope;
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *classes - 
+//			phoneme - 
+//			scale - 
+//			newexpression - 
+//-----------------------------------------------------------------------------
+void C_NPC_Wilson::AddViseme( Emphasized_Phoneme *classes, float emphasis_intensity, int phoneme, float scale, bool newexpression )
+{
+	int type;
+
+	// Setup weights for any emphasis blends
+	bool skip = SetupEmphasisBlend( classes, phoneme );
+	// Uh-oh, missing or unknown phoneme???
+	if ( skip )
+	{
+		return;
+	}
+		
+	// Compute blend weights
+	ComputeBlendedSetting( classes, emphasis_intensity );
+
+	for ( type = 0; type < NUM_PHONEME_CLASSES; type++ )
+	{
+		Emphasized_Phoneme *info = &classes[ type ];
+		if ( !info->valid || info->amount == 0.0f )
+			continue;
+
+		const flexsettinghdr_t *actual_flexsetting_header = info->base;
+		const flexsetting_t *pSetting = actual_flexsetting_header->pIndexedSetting( phoneme );
+		if (!pSetting)
+		{
+			continue;
+		}
+
+		flexweight_t *pWeights = NULL;
+
+		int truecount = pSetting->psetting( (byte *)actual_flexsetting_header, 0, &pWeights );
+		if ( pWeights )
+		{
+			float flPhonemes = npc_wilson_talk_start.GetFloat();
+			for ( int i = 0; i < truecount; i++)
+			{
+				// Translate to global controller number
+				//int j = FlexControllerLocalToGlobal( actual_flexsetting_header, pWeights->key );
+				flPhonemes += info->amount * scale * pWeights->weight * npc_wilson_talk_scale.GetFloat();
+				// Go to next setting
+				pWeights++;
+			}
+
+			// Lerp it
+			m_flTalkGlow = FLerp( npc_wilson_talk_min.GetFloat(), npc_wilson_talk_max.GetFloat(), flPhonemes / m_flTalkGlow );
+
+			Msg( "m_flTalkGlow: %f\n", m_flTalkGlow );
+		}
+	}
+}
+
+class CWilsonEyeMaterialProxy : public CResultProxy
+{
+public:
+	CWilsonEyeMaterialProxy()
+	{
+	}
+	virtual ~CWilsonEyeMaterialProxy()
+	{
+	}
+	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+	{
+		if (!CResultProxy::Init( pMaterial, pKeyValues ))
+			return false;
+
+		return true;
+	}
+	virtual void OnBind( void *pC_BaseEntity )
+	{
+		if (!pC_BaseEntity)
+			return;
+
+		C_BaseEntity *pEntity = BindArgToEntity( pC_BaseEntity );
+
+		// HACKHACK: The Wilson model may be used for dynamic props instead, so make sure it's actually him
+		if (FClassnameIs( pEntity, "class C_NPC_Wilson" ))
+		{
+			C_NPC_Wilson *pWilson = static_cast<C_NPC_Wilson*>(pEntity);
+			SetFloatResult( pWilson->m_flTalkGlow );
+
+			if (pWilson->m_flTalkGlow != 1.0f)
+				Msg( "Proxy is setting talk glow (%f)\n", pWilson->m_flTalkGlow );
+		}
+	}
+};
+
+EXPOSE_INTERFACE( CWilsonEyeMaterialProxy, IMaterialProxy, "WilsonEye" IMATERIAL_PROXY_INTERFACE_VERSION );
+
+//=======================================================================================================
+//=======================================================================================================
 
 // Currently only used on Arbeit turrets
 #define FLOOR_TURRET_CITIZEN_SPRITE_COLOR		255, 240, 0

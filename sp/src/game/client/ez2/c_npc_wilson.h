@@ -112,7 +112,11 @@ public:
 	void UpdateGlow( Vector &vVector, Vector &vecForward );
 	C_RopeKeyframe *CreateRope( int iStartAttach, int iEndAttach );
 
+	void AddViseme( Emphasized_Phoneme *classes, float emphasis_intensity, int phoneme, float scale, bool newexpression );
+
 	C_TurretGlowOverlay m_Glow;
+
+	float	m_flTalkGlow;
 };
 
 class C_NPC_Arbeit_FloorTurret : public C_AI_TurretBase
