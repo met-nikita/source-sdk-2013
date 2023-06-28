@@ -33,7 +33,6 @@ C_AI_TurretBase::~C_AI_TurretBase()
 	{
 		for (int i = 0; i < 4; i++)
 		{
-			DevMsg("Removing rope %i\n", i);
 			if (m_pRopes[i])
 				m_pRopes[i]->Remove();
 			m_pRopes[i] = NULL;
@@ -60,7 +59,6 @@ void C_AI_TurretBase::ClientThink( void )
 
 			for (int i = 0; i < 4; i++)
 			{
-				DevMsg("Creating rope %i\n", i);
 				m_pRopes[i] = CreateRope( m_iRopeStartAttachments[i], m_iRopeEndAttachments[i] );
 			}
 		}
@@ -69,7 +67,6 @@ void C_AI_TurretBase::ClientThink( void )
 	{
 		for (int i = 0; i < 4; i++)
 		{
-			DevMsg("Removing rope %i\n", i);
 			if (m_pRopes[i])
 				m_pRopes[i]->Remove();
 			m_pRopes[i] = NULL;
@@ -173,6 +170,8 @@ END_RECV_TABLE()
 
 BEGIN_PREDICTION_DATA( C_NPC_Wilson )
 END_PREDICTION_DATA()
+
+LINK_ENTITY_TO_CLASS( npc_wilson, C_NPC_Wilson )
 
 C_NPC_Wilson::C_NPC_Wilson()
 {
@@ -306,8 +305,6 @@ void C_NPC_Wilson::AddViseme( Emphasized_Phoneme *classes, float emphasis_intens
 
 			// Lerp it
 			m_flTalkGlow = FLerp( npc_wilson_talk_min.GetFloat(), npc_wilson_talk_max.GetFloat(), flPhonemes / m_flTalkGlow );
-
-			Msg( "m_flTalkGlow: %f\n", m_flTalkGlow );
 		}
 	}
 }
@@ -336,13 +333,10 @@ public:
 		C_BaseEntity *pEntity = BindArgToEntity( pC_BaseEntity );
 
 		// HACKHACK: The Wilson model may be used for dynamic props instead, so make sure it's actually him
-		if (FClassnameIs( pEntity, "class C_NPC_Wilson" ))
+		if (FClassnameIs( pEntity, "npc_wilson" ))
 		{
 			C_NPC_Wilson *pWilson = static_cast<C_NPC_Wilson*>(pEntity);
 			SetFloatResult( pWilson->m_flTalkGlow );
-
-			if (pWilson->m_flTalkGlow != 1.0f)
-				Msg( "Proxy is setting talk glow (%f)\n", pWilson->m_flTalkGlow );
 		}
 	}
 };
