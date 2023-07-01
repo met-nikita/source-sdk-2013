@@ -323,6 +323,9 @@ public:
 		if (!CResultProxy::Init( pMaterial, pKeyValues ))
 			return false;
 
+		// Scale is optional
+		m_Scale.Init( pMaterial, pKeyValues, "scale", 1.0f );
+
 		return true;
 	}
 	virtual void OnBind( void *pC_BaseEntity )
@@ -336,9 +339,26 @@ public:
 		if (FClassnameIs( pEntity, "npc_wilson" ))
 		{
 			C_NPC_Wilson *pWilson = static_cast<C_NPC_Wilson*>(pEntity);
-			SetFloatResult( pWilson->m_flTalkGlow );
+
+			float flScale = m_Scale.GetFloat();
+			if (flScale != 1.0f)
+			{
+				// Scale distance from 1.0
+				SetFloatResult( ((pWilson->m_flTalkGlow - 1.0f) * flScale) + 1.0f );
+			}
+			else
+			{
+				SetFloatResult( pWilson->m_flTalkGlow );
+			}
+		}
+		else
+		{
+			SetFloatResult( 1.0f );
 		}
 	}
+
+private:
+	CFloatInput	m_Scale;
 };
 
 EXPOSE_INTERFACE( CWilsonEyeMaterialProxy, IMaterialProxy, "WilsonEye" IMATERIAL_PROXY_INTERFACE_VERSION );
