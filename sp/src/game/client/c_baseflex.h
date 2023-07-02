@@ -273,7 +273,9 @@ protected:
 
 	Emphasized_Phoneme m_PhonemeClasses[ NUM_PHONEME_CLASSES ];
 
+#ifndef EZ2 // Wilson phoneme test
 private:
+#endif
 
 	C_BaseFlex( const C_BaseFlex & ); // not defined, not accessible
 
@@ -281,6 +283,9 @@ private:
 
 	void			ProcessVisemes( Emphasized_Phoneme *classes );
 	void			AddVisemesForSentence( Emphasized_Phoneme *classes, float emphasis_intensity, CSentence *sentence, float t, float dt, bool juststarted );
+#ifdef EZ2 // Wilson phoneme test
+	virtual
+#endif
 	void			AddViseme( Emphasized_Phoneme *classes, float emphasis_intensity, int phoneme, float scale, bool newexpression );
 	bool			SetupEmphasisBlend( Emphasized_Phoneme *classes, int phoneme );
 	void			ComputeBlendedSetting( Emphasized_Phoneme *classes, float emphasis_intensity );
