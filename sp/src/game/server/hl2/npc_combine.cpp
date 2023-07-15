@@ -1311,6 +1311,13 @@ void CNPC_Combine::InputAssault( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CNPC_Combine::InputHitByBugbait( inputdata_t &inputdata )
 {
+#ifdef EZ
+	// Ignore if the activator likes us
+	if (inputdata.pActivator && inputdata.pActivator->IsCombatCharacter() &&
+		inputdata.pActivator->MyCombatCharacterPointer()->IRelationType( this ) == D_LI)
+		return;
+#endif
+
 	SetCondition( COND_COMBINE_HIT_BY_BUGBAIT );
 }
 
