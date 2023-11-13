@@ -31,6 +31,7 @@
 #include "point_bonusmaps_accessor.h"
 #include "achievementmgr.h"
 #include "npc_husk_base.h"
+#include "ammodef.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -220,6 +221,10 @@ void CEZ2_Player::Precache( void )
 	PrecacheModel( "models/bad_cop.mdl" );
 	PrecacheScriptSound( "Player.Detonate" );
 	PrecacheScriptSound( "Player.DetonateFail" );
+
+	// Health Vial Backpack
+	PrecacheScriptSound("HealthVial.BackpackConsume");
+	PrecacheScriptSound("HealthVial.BackpackDeny");
 
 	if (GetBonusChallenge() == EZ_CHALLENGE_MASS || sv_bonus_challenge.GetInt() == EZ_CHALLENGE_MASS)
 	{
@@ -759,6 +764,13 @@ void CEZ2_Player::CheatImpulseCommands( int iImpulse )
 {
 	switch (iImpulse)
 	{
+	// Use healthvial
+	case 28:
+	{
+		UseHealthVial();
+		break;
+	}
+	// Detonate explosives
 	case 36:
 	{
 		DetonateExplosives();
@@ -797,6 +809,42 @@ void CEZ2_Player::DetonateExplosives()
 		// Play a 'failed to detonate' sound
 		EmitSound( "Player.DetonateFail" );
 	}
+}
+
+extern ConVar sk_healthvial;
+extern ConVar sk_healthvial_backpack;
+
+void CEZ2_Player::UseHealthVial()
+{
+	DevMsg("Player attempting to use health vial...\n");
+
+
+	if (sk_healthvial_backpack.GetBool() == false)
+	{
+		DevMsg("sk_healthvial_backpack is set to 0.\n");
+		return;
+	}
+
+	int iAmmoType = GetAmmoDef()->Index("item_healthvial");
+	if (GetAmmoCount(iAmmoType) > 0 && TakeHealth(sk_healthvial.GetFloat(), DMG_GENERIC))
+	{
+		RemoveAmmo(1, iAmmoType);
+
+		// Play sound for using health vial
+		EmitSound("HealthVial.BackpackConsume");
+	}
+	else
+	{
+		// Play a 'deny' sound
+		EmitSound("HealthVial.BackpackDeny");
+	}
+
+	// send a message to the client, to notify the hud of the loss
+	CSingleUserRecipientFilter user(this);
+	user.MakeReliable();
+	UserMessageBegin(user, "HealthVialConsumed");
+	WRITE_BOOL(true);
+	MessageEnd();
 }
 
 //-----------------------------------------------------------------------------

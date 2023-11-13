@@ -160,6 +160,7 @@ public:
 	// Override impulse commands for new detonation command
 	virtual void		CheatImpulseCommands( int iImpulse );
 	virtual void		DetonateExplosives();
+	virtual void		UseHealthVial();
 
 	// For more accurate representations of whether the player actually sees something
 	// (3D dot calculations instead of 2D dot calculations)

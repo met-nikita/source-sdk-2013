@@ -123,8 +123,8 @@ public:
 
 #ifdef EZ
 // E:Z needs a higher limit
-#define	MAX_AMMO_TYPES	36
-#define MAX_AMMO_SLOTS  36		// not really slots
+#define	MAX_AMMO_TYPES	64
+#define MAX_AMMO_SLOTS  64		// not really slots
 #else
 #define	MAX_AMMO_TYPES	32		// ???
 #define MAX_AMMO_SLOTS  32		// not really slots

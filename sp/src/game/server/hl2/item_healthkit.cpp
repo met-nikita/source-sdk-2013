@@ -12,12 +12,18 @@
 #include "in_buttons.h"
 #include "engine/IEngineSound.h"
 
+#ifdef EZ
+#include "ammodef.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 ConVar	sk_healthkit( "sk_healthkit","0" );		
 ConVar	sk_healthvial( "sk_healthvial","0" );		
 ConVar	sk_healthcharger( "sk_healthcharger","0" );		
+ConVar	sk_healthvial_backpack("sk_healthvial_backpack", "0");
+ConVar	sk_healthvial_max("sk_healthvial_max", "0");
 
 //-----------------------------------------------------------------------------
 // Small health kit. Heals the player when picked up.
@@ -113,6 +119,7 @@ void CHealthKit::Precache( void )
 		m_nSkin = 1;
 
 	PrecacheScriptSound( pTouchSounds[ GetEZVariant() ] );
+	PrecacheScriptSound( "HealthVial.BackpackPickup" );
 #else
 	PrecacheModel("models/items/healthkit.mdl");
 
@@ -205,6 +212,26 @@ public:
 
 	bool MyTouch( CBasePlayer *pPlayer )
 	{
+#ifdef EZ
+		if (sk_healthvial_backpack.GetBool())
+		{
+			int iAmmoType = GetAmmoDef()->Index("item_healthvial");
+			if (iAmmoType == -1)
+			{
+				Msg("ERROR: Attempting to give unknown ammo type (%s)\n", "item_healthvial");
+				return false;
+			}
+
+			if (pPlayer->GiveAmmo(1, iAmmoType, false))
+			{
+				CPASAttenuationFilter filter(pPlayer, "HealthVial.BackpackPickup");
+				EmitSound(filter, pPlayer->entindex(), "HealthVial.BackpackPickup");
+				UTIL_Remove(this);
+				return true;
+			}
+		}
+
+#endif
 #ifdef MAPBASE
 		if ( pPlayer->TakeHealth( GetItemAmount(), DMG_GENERIC ) )
 #else

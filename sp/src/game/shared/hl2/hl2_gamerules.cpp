@@ -2978,6 +2978,11 @@ CAmmoDef *GetAmmoDef()
 		def.AddAmmoType("762mm",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_762mm",		"sk_npc_dmg_762mm",		"sk_max_762mm",		BULLET_IMPULSE(200, 1225), 0 );
 #endif
 
+		// Uprising
+#ifdef EZ
+		def.AddAmmoType("item_healthvial", DMG_GENERIC, TRACER_NONE, "sk_healthvial", "sk_healthvial", "sk_healthvial_max", 0, 0);
+#endif
+
 	}
 
 	return &def;
