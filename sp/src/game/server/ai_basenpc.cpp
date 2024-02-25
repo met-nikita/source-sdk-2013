@@ -15276,6 +15276,17 @@ void CAI_BaseNPC::ParseScriptedNPCInteractions(void)
 								sInteraction.sTheirPhases[SNPCINT_EXIT].iszSequence = AllocPooledString(szValue);
 							else if (!Q_strncmp(szTheirName, "exit_activity", 13))
 								sInteraction.sTheirPhases[SNPCINT_EXIT].iActivity = GetOrRegisterActivity(szValue);
+#ifdef EZ
+							else if (!Q_strncmp(szTheirName, "healthfrac_commandable", 22))
+							{
+								float flRatio = atof( szValue );
+								if (flRatio <= 1.0f)
+								{
+									sInteraction.iFlags |= SCNPC_FLAG_TEST_SQUADMATE_HEALTH;
+									sInteraction.flHealthRatio = flRatio;
+								}
+							}
+#endif
 
 							// Add anything else to our miscellaneous criteria
 							else
