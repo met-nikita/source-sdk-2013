@@ -333,8 +333,6 @@ void CNPC_Gonome::Spawn()
 
 	// Separate convar for gonome look distance to make them "blind"
 	SetDistLook( sk_zombie_assassin_look_dist.GetFloat() );
-
-	m_poseArmsOut = LookupPoseParameter( "arms_out" );
 }
 
 //=========================================================
@@ -396,6 +394,16 @@ void CNPC_Gonome::Precache()
 	// Placeholder gib and soundscript
 	PrecacheParticleSystem( "glownome_explode" );
 	PrecacheScriptSound( "npc_zassassin.kickburst" );
+}
+
+//=========================================================
+// SetupGlobalModelData
+//=========================================================
+void CNPC_Gonome::SetupGlobalModelData()
+{
+	BaseClass::SetupGlobalModelData();
+
+	m_poseArmsOut = LookupPoseParameter( "arms_out" );
 }
 
 //---------------------------------------------------------
@@ -748,37 +756,6 @@ void CNPC_Gonome::IdleSound( void )
 }
 
 //=========================================================
-// PainSound 
-//=========================================================
-void CNPC_Gonome::PainSound( const CTakeDamageInfo &info )
-{
-	// Burning creatures shouldn't play pain sounds constantly
-	if ( !( IsOnFire() && info.GetDamageType() & DMG_BURN ) )
-	{
-		CPASAttenuationFilter filter( this );
-		EmitSound( filter, entindex(), "Gonome.Pain" );
-	}
-}
-
-//=========================================================
-// AlertSound
-//=========================================================
-void CNPC_Gonome::AlertSound( void )
-{
-	CPASAttenuationFilter filter( this );
-	EmitSound( filter, entindex(), "Gonome.Alert" );	
-}
-
-//=========================================================
-// DeathSound
-//=========================================================
-void CNPC_Gonome::DeathSound( const CTakeDamageInfo &info )
-{
-	CPASAttenuationFilter filter( this );
-	EmitSound( filter, entindex(), "Gonome.Die" );	
-}
-
-//=========================================================
 // AttackSound
 //=========================================================
 void CNPC_Gonome::AttackSound( void )
@@ -794,15 +771,6 @@ void CNPC_Gonome::GrowlSound( void )
 {
 	CPASAttenuationFilter filter( this );
 	EmitSound( filter, entindex(), "Gonome.Growl" );
-}
-
-//=========================================================
-// Found Enemy
-//=========================================================
-void CNPC_Gonome::FoundEnemySound(void)
-{
-	CPASAttenuationFilter filter(this);
-	EmitSound(filter, entindex(), "Gonome.FoundEnemy");
 }
 
 //=========================================================
