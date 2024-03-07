@@ -1793,6 +1793,16 @@ CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, con
 	pRagdoll->CollisionProp()->SetCollisionBounds( mins, maxs );
 
 #ifdef MAPBASE
+	// If this was a NPC running a dynamic interaction, disable collisions with the interaction partner
+	if (pAnimating->IsNPC() /*&& pAnimating->MyNPCPointer()->IsRunningDynamicInteraction()*/)
+	{
+		CAI_BaseNPC *pNPC = pAnimating->MyNPCPointer();
+		if (pNPC->GetInteractionPartner() && pNPC->GetInteractionPartner()->VPhysicsGetObject())
+		{
+			PhysDisableEntityCollisions( pRagdoll, pNPC->GetInteractionPartner() );
+		}
+	}
+
 	variant_t variant;
 	variant.SetEntity(pRagdoll);
 	pAnimating->FireNamedOutput("OnServerRagdoll", variant, pRagdoll, pAnimating);
