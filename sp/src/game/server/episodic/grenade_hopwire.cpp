@@ -77,11 +77,13 @@ ConVar hopwire_schlorp_small_mass( "hopwire_schlorp_small_mass", "30" );
 ConVar hopwire_schlorp_medium_mass( "hopwire_schlorp_medium_mass", "100" );
 ConVar hopwire_schlorp_large_mass( "hopwire_schlorp_large_mass", "350" );
 ConVar hopwire_schlorp_huge_mass( "hopwire_schlorp_huge_mass", "600" );
+ConVar hopwire_timer("hopwire_timer", "2.0");
 
 ConVar stasis_freeze_player("stasis_freeze_player", "1");
-ConVar stasis_radius("stasis_radius", "128");
+ConVar stasis_radius("stasis_radius", "256");
 ConVar stasis_strength("stasis_strength", "150");
 ConVar stasis_duration("stasis_duration", "3.0");
+ConVar stasis_timer("stasis_timer", "0.25");
 
 // Move this elsewhere if this concept is expanded
 ConVar ez2_spoilers_enabled( "ez2_spoilers_enabled", "0", FCVAR_NONE, "Enables the you-know-whats and you-know-whos that shouldn't shown in streams, but might make accidental cameos. This is on by default as a precaution." );
@@ -2239,6 +2241,7 @@ BEGIN_DATADESC( CGrenadeHopwire )
 
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTimer", InputSetTimer ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DetonateImmediately", InputDetonateImmediately),
 
 	DEFINE_THINKFUNC( DelayThink ),
 	DEFINE_THINKFUNC( SpriteOff ),
@@ -2325,16 +2328,28 @@ void CGrenadeHopwire::Precache( void )
 #ifndef EZ2	
 	PrecacheModel( DENSE_BALL_MODEL );
 #else
-	PrecacheScriptSound( "WeaponXenGrenade.Explode" );
-	PrecacheScriptSound( "WeaponXenGrenade.SpawnXenPC" );
-	PrecacheScriptSound( "WeaponXenGrenade.Blip" );
-	PrecacheScriptSound( "WeaponXenGrenade.Hop" );
+	switch (GetHopwireStyle())
+	{
+	case HOPWIRE_STASIS:
+		PrecacheScriptSound("WeaponStasisGrenade.Explode");
+		PrecacheScriptSound("WeaponStasisGrenade.Blip");
+		PrecacheScriptSound("WeaponStasisGrenade.Hop");
+		break;
+	default:
+		PrecacheScriptSound("WeaponXenGrenade.Explode");
+		PrecacheScriptSound("WeaponXenGrenade.SpawnXenPC");
+		PrecacheScriptSound("WeaponXenGrenade.Blip");
+		PrecacheScriptSound("WeaponXenGrenade.Hop");
 
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Huge" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Large" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Medium" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Small" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Tiny" );
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Huge");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Large");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Medium");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Small");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Tiny");
+		break;
+	}
+
+
 
 	PrecacheParticleSystem( "xenpc_spawn" );
 
@@ -2383,11 +2398,35 @@ void CGrenadeHopwire::InputSetTimer( inputdata_t &inputdata )
 
 void CGrenadeHopwire::DelayThink()
 {
+#ifdef EZ2
+	int i_ColorRed = 255;
+	int i_ColorGreen = 255;
+	int i_ColorBlue = 255;
+	int i_ColorAlpha = 255;
+
+	switch (GetHopwireStyle())
+	{
+		case HOPWIRE_STASIS:
+			i_ColorRed = 0;
+			i_ColorGreen = 200;
+			break;
+		default:
+			i_ColorRed = 0;
+			i_ColorBlue = 0;
+			break;
+	}
+
+#endif
+
 	if( gpGlobals->curtime > m_flDetonateTime )
 	{
 		if (m_pMainGlow)
 		{
+#ifndef EZ2
 			m_pMainGlow->SetTransparency( kRenderTransAdd, 0, 255, 0, 255, kRenderFxNoDissipation );
+#else
+			m_pMainGlow->SetTransparency( kRenderTransAdd, i_ColorRed, i_ColorGreen, i_ColorBlue, i_ColorAlpha, kRenderFxNoDissipation );
+#endif
 			m_pMainGlow->SetBrightness( 255 );
 			m_pMainGlow->TurnOn();
 			SetContextThink( NULL, TICK_NEVER_THINK, g_SpriteOffContext );
@@ -2432,6 +2471,19 @@ void CGrenadeHopwire::SpriteOff()
 		m_pMainGlow->TurnOff();
 }
 
+void CGrenadeHopwire::BlipSound()
+{
+	switch (GetHopwireStyle())
+	{
+	case HOPWIRE_STASIS:
+		EmitSound("WeaponStasisGrenade.Blip");
+		break;
+	default:
+		EmitSound("WeaponXenGrenade.Blip");
+		break;
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -2449,6 +2501,25 @@ void CGrenadeHopwire::OnRestore( void )
 //-----------------------------------------------------------------------------
 void CGrenadeHopwire::CreateEffects( void )
 {
+#ifdef EZ2
+	int i_ColorRed = 255;
+	int i_ColorGreen = 255;
+	int i_ColorBlue = 255;
+	int i_ColorAlpha = 255;
+
+	switch (GetHopwireStyle())
+	{
+	case HOPWIRE_STASIS:
+		i_ColorRed = 0;
+		i_ColorGreen = 200;
+		break;
+	default:
+		i_ColorRed = 0;
+		break;
+	}
+
+#endif
+
 	// Start up the eye glow
 	m_pMainGlow = CSprite::SpriteCreate( "sprites/redglow2.vmt", GetLocalOrigin(), false );
 
@@ -2458,7 +2529,13 @@ void CGrenadeHopwire::CreateEffects( void )
 	{
 		m_pMainGlow->FollowEntity( this );
 		m_pMainGlow->SetAttachment( this, nAttachment );
+
+#ifndef EZ2
 		m_pMainGlow->SetTransparency( kRenderGlow, 0, 255, 255, 255, kRenderFxNoDissipation );
+#else
+		m_pMainGlow->SetTransparency( kRenderGlow, i_ColorRed, i_ColorGreen, i_ColorBlue, i_ColorAlpha, kRenderFxNoDissipation );
+#endif
+
 		m_pMainGlow->SetBrightness( 192 );
 		m_pMainGlow->SetScale( 0.5f );
 		m_pMainGlow->SetGlowProxySize( 4.0f );
@@ -2637,10 +2714,19 @@ void CGrenadeHopwire::Detonate( void )
 		GetThrower()->DispatchInteraction( g_interactionXenGrenadeHop, this, GetThrower() );
 	}
 
-	EmitSound("WeaponXenGrenade.Explode");
-	SetModel( szWorldModelOpen );
+	switch (GetHopwireStyle())
+	{
+		case HOPWIRE_STASIS:
+			SetModel(szWorldModelOpen);
 
-	EmitSound( "WeaponXenGrenade.Hop" );
+			EmitSound("WeaponStasisGrenade.Hop");
+			break;
+		default:
+			EmitSound("WeaponXenGrenade.Explode");
+			SetModel(szWorldModelOpen);
+
+			EmitSound("WeaponXenGrenade.Hop");
+	}
 
 	//Find out how tall the ceiling is and always try to hop halfway
 	trace_t	tr;
@@ -2849,6 +2935,11 @@ CStasisVortexController *CStasisVortexController::Create( const Vector &origin, 
 
 	// Start the vortex working
 	pVortex->StartPull( origin, radius, strength, duration );
+
+	trace_t	tr;
+	AI_TraceLine(origin + Vector(0, 0, 1), origin - Vector(0, 0, 128), MASK_SOLID_BRUSHONLY, pVortex, COLLISION_GROUP_NONE, &tr);
+
+	UTIL_DecalTrace(&tr, "StasisGrenade.Splash");
 
 	return pVortex;
 }
@@ -3173,11 +3264,14 @@ void CGrenadeStasis::CombatThink( void )
 	SetAbsVelocity( vec3_origin );
 	SetMoveType( MOVETYPE_NONE );
 
+	// Stasis grenades play explosion sound when the vortex is created
+	EmitSound("WeaponStasisGrenade.Explode");
+
 	m_hVortexController = CStasisVortexController::Create( GetAbsOrigin(), stasis_radius.GetFloat(), stasis_strength.GetFloat(), stasis_duration.GetFloat(), this );
 
 	// Start our client-side effect
 	EntityMessageBegin( this, true );
-	WRITE_BYTE( 0 );
+	WRITE_BYTE( 3 );
 	MessageEnd();
 
 	// Begin to stop in two seconds
