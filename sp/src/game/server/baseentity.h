@@ -142,6 +142,7 @@ enum Class_T
 	CLASS_RACE_X,
 	CLASS_COMBINE_NEMESIS,
 	CLASS_ARBEIT_TECH,
+	CLASS_COMBINE_HUSK,
 #endif
 	NUM_AI_CLASSES
 };
@@ -158,6 +159,9 @@ enum EZ_VARIANT
 	EZ_VARIANT_TEMPORAL,		// Affected by temporal anomalies. Used by temporal crabs.
 	EZ_VARIANT_ARBEIT,			// Property of Arbeit Communications. Used for Arbeit stuff that isn't covered in goo.
 	EZ_VARIANT_BLOODLION,		// Thirsty for blood. Used by the Nova Prospekt antlions from E:Z2 Chapter 1.
+
+	EZ_VARIANT_ATHENAEUM,		// Servants of the Athenaeum.
+	EZ_VARIANT_ASH,				// Residents of the Ashlands.
 
 	EZ_VARIANT_COUNT, // Keep this at the end
 };
@@ -1483,6 +1487,11 @@ public:
 	void					SetGroundEntity( CBaseEntity *ground );
 	CBaseEntity				*GetGroundEntity( void );
 	CBaseEntity				*GetGroundEntity( void ) const { return const_cast<CBaseEntity *>(this)->GetGroundEntity(); }
+	
+#ifdef MAPBASE_VSCRIPT
+	HSCRIPT ScriptGetGroundEntity();
+	void ScriptSetGroundEntity( HSCRIPT hGroundEnt );
+#endif
 
 	// Gets the velocity we impart to a player standing on us
 	virtual void			GetGroundVelocityToApply( Vector &vecGroundVel ) { vecGroundVel = vec3_origin; }
@@ -1613,7 +1622,7 @@ public:
 		float flVolume, soundlevel_t iSoundlevel, int iFlags = 0, int iPitch = PITCH_NORM,
 		const Vector *pOrigin = NULL, const Vector *pDirection = NULL, bool bUpdatePositions = true, float soundtime = 0.0f
 #ifdef MAPBASE
-		, int iSpecialDSP = 0, int iSpeakerIndex = 0 // Needed for env_microphone
+		, int iSpecialDSP = 0, int iSpeakerIndex = -1 // Needed for env_microphone
 #endif
 		);
 

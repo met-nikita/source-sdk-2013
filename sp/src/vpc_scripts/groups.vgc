@@ -23,12 +23,20 @@ $Group "game"
 	"tier1"
 	"vgui_controls"
 	"vscript"
+	"expanded_steam"
 	"responserules"
+	"gamepadui"
+}
+
+$Group "shaderdlls"
+{
+	"game_shader_dx9"
 }
 
 $Group "shaders"
 {
 	"game_shader_dx9"
+	"mathlib"
 }
 
 $Group "everything"
@@ -59,6 +67,8 @@ $Group "everything"
 	"vtfdiff"
 	"vvis_dll"
 	"vvis_launcher"
+	"expanded_steam"
+	"gamepadui"
 }
 
 $Group "dedicated"
@@ -80,5 +90,14 @@ $Group "maptools"
 	"raytrace"
 	"tier1"
 	"vscript"
+}
+
+$Group "gamepadui"
+{
+	"mathlib"
+	"tier1"
+	"vgui_controls"
+	"expanded_steam"
+	"gamepadui"
 }
 

@@ -204,6 +204,12 @@ int ACT_HEADCRAB_CEILING_DETACH;
 int ACT_HEADCRAB_CEILING_FALL;
 int ACT_HEADCRAB_CEILING_LAND;
 
+#ifdef EZ2
+//=========================================================
+// Interactions
+//=========================================================
+int g_interactionHeadcrabJump;
+#endif
 
 //-----------------------------------------------------------------------------
 // Skill settings.
@@ -714,6 +720,10 @@ void CBaseHeadcrab::HandleAnimEvent( animevent_t *pEvent )
 			// we jump at. Jump at our enemy's eyes.
 			m_vecCommittedJumpPos = pEnemy->EyePosition();
 			m_bCommittedToJump = true;
+
+#ifdef EZ2
+			pEnemy->DispatchInteraction( g_interactionHeadcrabJump, NULL, this );
+#endif
 		}
 
 		return;
@@ -2669,6 +2679,12 @@ void CHeadcrab::Precache( void )
 		case EZ_VARIANT_ARBEIT:
 			PrecacheModel( "models/arbeitcrabclassic.mdl" );
 			break;
+		case EZ_VARIANT_ATHENAEUM:
+			PrecacheModel( "models/athenaeumcrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_ASH:
+			PrecacheModel( "models/ashcrabclassic.mdl" );
+			break;
 		default:
 			PrecacheModel( DefaultOrCustomModel( "models/headcrabclassic.mdl" ) );
 			break;
@@ -2707,6 +2723,12 @@ void CHeadcrab::Spawn( void )
 			break;
 		case EZ_VARIANT_ARBEIT:
 			SetModel( "models/arbeitcrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_ATHENAEUM:
+			SetModel( "models/athenaeumcrabclassic.mdl" );
+			break;
+		case EZ_VARIANT_ASH:
+			SetModel( "models/ashcrabclassic.mdl" );
 			break;
 		default:
 			SetModel( DefaultOrCustomModel( "models/headcrabclassic.mdl" ) );
@@ -2840,6 +2862,12 @@ void CFastHeadcrab::Precache( void )
 	case EZ_VARIANT_ARBEIT:
 		PrecacheModel( "models/arbeitcrab.mdl" );
 		break;
+	case EZ_VARIANT_ATHENAEUM:
+		PrecacheModel( "models/athenaeumcrab.mdl" );
+		break;
+	case EZ_VARIANT_ASH:
+		PrecacheModel( "models/ashcrab.mdl" );
+		break;
 	default:
 		PrecacheModel( DefaultOrCustomModel( "models/headcrab.mdl" ) );
 		break;
@@ -2876,6 +2904,12 @@ void CFastHeadcrab::Spawn( void )
 			break;
 		case EZ_VARIANT_ARBEIT:
 			SetModel( "models/arbeitcrab.mdl" );
+			break;
+		case EZ_VARIANT_ATHENAEUM:
+			SetModel( "models/athenaeumcrab.mdl" );
+			break;
+		case EZ_VARIANT_ASH:
+			SetModel( "models/ashcrab.mdl" );
 			break;
 		default:
 			SetModel( DefaultOrCustomModel( "models/headcrab.mdl" ) );
@@ -4188,6 +4222,10 @@ void CBlackHeadcrab::HandleAnimEvent( animevent_t *pEvent )
 			// we jump at. Jump at our enemy's eyes.
 			m_vecCommittedJumpPos = pEnemy->EyePosition();
 			m_bCommittedToJump = true;
+
+#ifdef EZ2
+			pEnemy->DispatchInteraction( g_interactionHeadcrabJump, NULL, this );
+#endif
 		}
  
 		return;
@@ -4444,6 +4482,10 @@ AI_BEGIN_CUSTOM_NPC( npc_headcrab, CBaseHeadcrab )
 	DECLARE_ANIMEVENT( AE_HEADCRAB_BURROW_IN_FINISH )
 	DECLARE_ANIMEVENT( AE_HEADCRAB_BURROW_OUT )
 	DECLARE_ANIMEVENT( AE_HEADCRAB_CEILING_DETACH )
+
+#ifdef EZ2
+	DECLARE_INTERACTION( g_interactionHeadcrabJump )
+#endif
 	
 	//=========================================================
 	// > SCHED_HEADCRAB_RANGE_ATTACK1

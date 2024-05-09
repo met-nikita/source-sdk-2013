@@ -12,12 +12,18 @@
 #include "in_buttons.h"
 #include "engine/IEngineSound.h"
 
+#ifdef EZ
+#include "ammodef.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 ConVar	sk_healthkit( "sk_healthkit","0" );		
 ConVar	sk_healthvial( "sk_healthvial","0" );		
 ConVar	sk_healthcharger( "sk_healthcharger","0" );		
+ConVar	sk_healthvial_backpack("sk_healthvial_backpack", "0");
+ConVar	sk_healthvial_max("sk_healthvial_max", "0");
 
 //-----------------------------------------------------------------------------
 // Small health kit. Heals the player when picked up.
@@ -65,6 +71,9 @@ const char *CHealthKit::pModelNames[EZ_VARIANT_COUNT] = {
 	"models/items/arbeit/healthkit.mdl", // Skin 1
 	"models/items/temporal/healthkit.mdl",
 	"models/items/arbeit/healthkit.mdl",
+	"models/items/blood/healthkit.mdl",
+	"models/items/athenaeum/healthkit.mdl",
+	"models/items/ash/healthkit.mdl",
 };
 
 const char *CHealthKit::pTouchSounds[EZ_VARIANT_COUNT] = {
@@ -73,6 +82,9 @@ const char *CHealthKit::pTouchSounds[EZ_VARIANT_COUNT] = {
 	"HealthKit_Rad.Touch",
 	"HealthKit_Temporal.Touch",
 	"HealthKit_Arbeit.Touch",
+	"HealthKit_Blood.Touch",
+	"HealthKit_Athenaeum.Touch",
+	"HealthKit_Ash.Touch",
 };
 #endif
 
@@ -107,6 +119,7 @@ void CHealthKit::Precache( void )
 		m_nSkin = 1;
 
 	PrecacheScriptSound( pTouchSounds[ GetEZVariant() ] );
+	PrecacheScriptSound( "HealthVial.BackpackPickup" );
 #else
 	PrecacheModel("models/items/healthkit.mdl");
 
@@ -199,6 +212,26 @@ public:
 
 	bool MyTouch( CBasePlayer *pPlayer )
 	{
+#ifdef EZ
+		if (sk_healthvial_backpack.GetBool())
+		{
+			int iAmmoType = GetAmmoDef()->Index("item_healthvial");
+			if (iAmmoType == -1)
+			{
+				Msg("ERROR: Attempting to give unknown ammo type (%s)\n", "item_healthvial");
+				return false;
+			}
+
+			if (pPlayer->GiveAmmo(1, iAmmoType, false))
+			{
+				CPASAttenuationFilter filter(pPlayer, "HealthVial.BackpackPickup");
+				EmitSound(filter, pPlayer->entindex(), "HealthVial.BackpackPickup");
+				UTIL_Remove(this);
+				return true;
+			}
+		}
+
+#endif
 #ifdef MAPBASE
 		if ( pPlayer->TakeHealth( GetItemAmount(), DMG_GENERIC ) )
 #else
@@ -268,6 +301,9 @@ const char *CHealthVial::pModelNames[EZ_VARIANT_COUNT] = {
 	"models/items/arbeit/healthvial.mdl", // Skin 1
 	"models/items/temporal/healthvial.mdl",
 	"models/items/arbeit/healthvial.mdl",
+	"models/items/blood/healthvial.mdl",
+	"models/items/athenaeum/healthvial.mdl",
+	"models/items/ash/healthvial.mdl",
 };
 
 const char *CHealthVial::pTouchSounds[EZ_VARIANT_COUNT] = {
@@ -276,6 +312,9 @@ const char *CHealthVial::pTouchSounds[EZ_VARIANT_COUNT] = {
 	"HealthVial_Rad.Touch",
 	"HealthVial_Temporal.Touch",
 	"HealthVial_Arbeit.Touch",
+	"HealthVial_Blood.Touch",
+	"HealthVial_Athenaeum.Touch",
+	"HealthVial_Ash.Touch",
 };
 #endif
 

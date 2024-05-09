@@ -15,6 +15,9 @@
 #include "filesystem.h"
 #include "saverestore.h"
 #endif
+#ifdef GAMEPADUI
+#include "../gamepadui/igamepadui.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -22,6 +25,9 @@
 // See interface.h/.cpp for specifics:  basically this ensures that we actually Sys_UnloadModule the dll and that we don't call Sys_LoadModule 
 //  over and over again.
 static CDllDemandLoader g_GameUI( "GameUI" );
+#if defined(GAMEPADUI) && defined(CLIENT_DLL)
+extern IGamepadUI *g_pGamepadUI;
+#endif
 
 #ifndef CLIENT_DLL
 
@@ -241,6 +247,23 @@ public:
 			m_pGameUI = (IGameUI *) gameUIFactory(GAMEUI_INTERFACE_VERSION, NULL );
 		}
 
+#if defined(GAMEPADUI) && defined(CLIENT_DLL)
+		if (g_pGamepadUI && sv_bonus_challenge.GetInt() != 0)
+		{
+			g_pGamepadUI->BonusMapChallengeNames( m_szChallengeFileName, m_szChallengeMapName, m_szChallengeName );
+			g_pGamepadUI->BonusMapChallengeObjectives( m_iBronze, m_iSilver, m_iGold );
+			LoadBonusDataKV( m_szChallengeFileName );
+			m_bOverridingInterface = true;
+
+			//VerifyChallengeValues( sv_bonus_challenge.GetInt() );
+
+			// Get them onto the server
+			engine->ClientCmd_Unrestricted( VarArgs( "_set_sv_bonus %i \"%s\" \"%s\" \"%s\" %i %i %i\n",
+				sv_bonus_challenge.GetInt(), m_szChallengeFileName, m_szChallengeMapName, m_szChallengeName,
+				m_iBronze, m_iSilver, m_iGold ) );
+		}
+		else
+#endif
 		// Get the GameUI's values to override its interface (covers cases where GameUI's challenge information has desynced)
 		if (m_pGameUI)
 		{
@@ -644,7 +667,7 @@ public:
 
 	bool OverridingInterface() { return m_bOverridingInterface; }
 
-	void VerifyChallengeValues( int iTrueChallenge )
+	void VerifyChallengeValues( int iTrueChallenge, bool bOverride = false )
 	{
 		// Use sv_bonus_challenge to find this map and challenge in the file
 		for (KeyValues *pBDMap = m_pKV_CurrentBonusData; pBDMap != NULL; pBDMap = pBDMap->GetNextKey())
@@ -670,7 +693,7 @@ public:
 				// Begin overriding GameUI
 				m_bOverridingInterface = true;
 
-				if (pGameUIChallenge != pConVarChallenge && pConVarChallenge)
+				if ((pGameUIChallenge != pConVarChallenge || bOverride) && pConVarChallenge)
 				{
 					// This indicates there was a desync within GameUI
 
@@ -692,11 +715,25 @@ public:
 		}
 	}
 
+	void SetCustomBonusMapChallengeNames( const char *pchFileName, const char *pchMapName, const char *pchChallengeName )
+	{
+		Q_strncpy( m_szChallengeFileName, pchFileName, sizeof( m_szChallengeFileName ) );
+		Q_strncpy( m_szChallengeMapName, pchMapName, sizeof( m_szChallengeMapName ) );
+		Q_strncpy( m_szChallengeName, pchChallengeName, sizeof( m_szChallengeName ) );
+		m_bOverridingInterface = true;
+	}
+
 	void CustomBonusMapChallengeNames( char *pchFileName, char *pchMapName, char *pchChallengeName )
 	{
 		Q_strncpy( pchFileName, m_szChallengeFileName, sizeof( m_szChallengeFileName ) );
 		Q_strncpy( pchMapName, m_szChallengeMapName, sizeof( m_szChallengeMapName ) );
 		Q_strncpy( pchChallengeName, m_szChallengeName, sizeof( m_szChallengeName ) );
+	}
+
+	void SetCustomBonusMapChallengeObjectives( int iBronze, int iSilver, int iGold )
+	{
+		m_iBronze = iBronze; m_iSilver = iSilver; m_iGold = iGold;
+		m_bOverridingInterface = true;
 	}
 
 	void CustomBonusMapChallengeObjectives( int &iBronze, int &iSilver, int &iGold )
@@ -813,6 +850,9 @@ private:
 	KeyValues	*m_pKV_SaveData;
 
 	IGameUI *m_pGameUI;
+#ifdef GAMEPADUI
+	IGamepadUI *m_pGamepadUI;
+#endif
 };
 
 CCustomBonusMapSystem	g_CustomBonusMapSystem;
@@ -870,6 +910,24 @@ void ResolveCustomBonusChallenge( CBasePlayer *pPlayer )
 {
 	g_CustomBonusMapSystem.ResolveCustomBonusChallenge( pPlayer );
 }
+
+//------------------------------------------------------------------------------------
+
+void CC_SetSVBonus( const CCommand &args )
+{
+	sv_bonus_challenge.SetValue( args.Arg( 1 ) );
+
+	// m_szChallengeFileName, m_szChallengeMapName, m_szChallengeName
+	g_CustomBonusMapSystem.SetCustomBonusMapChallengeNames( args.Arg( 2 ), args.Arg( 3 ), args.Arg( 4 ) );
+	g_CustomBonusMapSystem.SetCustomBonusMapChallengeObjectives( atoi( args.Arg( 5 ) ), atoi( args.Arg( 6 ) ), atoi( args.Arg( 7 ) ) );
+	g_CustomBonusMapSystem.LoadBonusDataKV( args.Arg( 2 ) );
+
+	Msg( "Challenge: %s, file name: %s, map name: %s, challenge name: %s\n", args.Arg( 1 ), args.Arg( 2 ), args.Arg( 3 ), args.Arg( 4 ) );
+
+	//g_CustomBonusMapSystem.VerifyChallengeValues( sv_bonus_challenge.GetInt(), true );
+}
+static ConCommand _set_sv_bonus("_set_sv_bonus", CC_SetSVBonus, "", FCVAR_HIDDEN);
+
 #endif
 
 //-----------------------------------------------------------------------------

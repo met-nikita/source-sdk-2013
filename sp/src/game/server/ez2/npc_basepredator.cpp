@@ -10,11 +10,12 @@
 //=============================================================================//
 
 #include "cbase.h"
-#include "AI_Hint.h"
-#include "AI_Senses.h"
+#include "ai_hint.h"
+#include "ai_senses.h"
 #include "npc_basepredator.h"
 #include "ai_localnavigator.h"
 #include "fire.h"
+#include "npcevent.h"
 #ifdef EZ2
 #include "npc_wilson.h"
 #include "hl2_gamerules.h"
@@ -40,6 +41,14 @@ int ACT_EAT;
 int ACT_EXCITED;
 int ACT_DETECT_SCENT;
 int ACT_INSPECT_FLOOR;
+
+//---------------------------------------------------------
+// Animation events
+//---------------------------------------------------------
+int AE_PREDATOR_EAT;
+int AE_PREDATOR_EAT_NOATTACK;
+int AE_PREDATOR_GIB_INTERACTION_PARTNER;
+int AE_PREDATOR_SWALLOW_INTERACTION_PARTNER;
 
 //---------------------------------------------------------
 // Save/Restore
@@ -142,6 +151,8 @@ void CNPC_BasePredator::OnRestore()
 void CNPC_BasePredator::SetupGlobalModelData()
 {
 	CollisionProp()->SetSurroundingBoundsType( USE_HITBOXES );
+
+	m_nAttachForward = LookupAttachment( "forward" );
 }
 
 //-----------------------------------------------------------------------------
@@ -207,7 +218,7 @@ void CNPC_BasePredator::FoundEnemySound( void )
 	if (gpGlobals->curtime >= m_nextSoundTime)
 	{
 		EmitSound( UTIL_VarArgs( "%s.FoundEnemy", GetSoundscriptClassname() ) );
-		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
+		m_nextSoundTime	= gpGlobals->curtime + random->RandomFloat( 1.5, 3.0 );
 	}
 }
 
@@ -219,7 +230,7 @@ void CNPC_BasePredator::GrowlSound( void )
 	if (gpGlobals->curtime >= m_nextSoundTime)
 	{
 		EmitSound( UTIL_VarArgs( "%s.Growl", GetSoundscriptClassname() ) );
-		m_nextSoundTime	= gpGlobals->curtime + random->RandomInt( 1.5, 3.0 );
+		m_nextSoundTime	= gpGlobals->curtime + random->RandomFloat( 1.5, 3.0 );
 	}
 }
 
@@ -320,6 +331,14 @@ void CNPC_BasePredator::GatherConditions( void )
 	BaseClass::GatherConditions();
 }
 
+void CNPC_BasePredator::OnScheduleChange( void )
+{
+	BaseClass::OnScheduleChange();
+
+	if (m_bFiredEatEvent)
+		m_bFiredEatEvent = false;
+}
+
 //=========================================================
 // Show effects when this predator regains health
 // TODO Should this apply to ALL NPCs?
@@ -368,6 +387,25 @@ float CNPC_BasePredator::MaxYawSpeed( void )
 	}
 
 	return flYS;
+}
+
+//=========================================================
+//  Weapon_ShootPosition
+// 
+// This allows the predator's body/mouth to turn using the "forward" attachment as a pivot.
+// Use bits_CAP_AIM_GUN to enable.
+//=========================================================
+Vector CNPC_BasePredator::Weapon_ShootPosition( void )
+{
+	if (m_nAttachForward > -1 && !(CapabilitiesGet() & bits_CAP_WEAPON_RANGE_ATTACK1))
+	{
+		Vector vecOrigin;
+		QAngle angDir;
+		GetAttachment( m_nAttachForward, vecOrigin, angDir );
+		return vecOrigin;
+	}
+
+	return BaseClass::Weapon_ShootPosition();
 }
 
 //=========================================================
@@ -470,6 +508,99 @@ bool CNPC_BasePredator::ShouldImmediatelyAttackObstructions()
 	return true;
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Used by attacks which can push NPCs
+//-----------------------------------------------------------------------------
+bool CNPC_BasePredator::ShouldApplyHitVelocityToTarget( CBaseEntity *pHurt ) const
+{
+	if (pHurt->IsCombatCharacter())
+	{
+		if (pHurt->IsNPC())
+		{
+			// Do not push NPCs in scripts
+			if (pHurt->MyNPCPointer()->m_NPCState == NPC_STATE_SCRIPT)
+				return false;
+		}
+
+		return true;
+	}
+
+	if (pHurt->GetMoveType() == MOVETYPE_VPHYSICS)
+		return true;
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Finds the direction from the target entity to the nearest interaction
+// it can perform (usually so that we can push someone towards it)
+//-----------------------------------------------------------------------------
+bool CNPC_BasePredator::GetNearestInteractionDir( CAI_BaseNPC *pHurt, Vector &vecDir )
+{
+	Vector vecTranslation;
+	if ( GetMyNearestInteractionTranslation( pHurt, vecTranslation ) )
+	{
+		// Get the direction to the translation
+		vecDir = (vecTranslation - pHurt->GetAbsOrigin());
+		return true;
+	}
+
+	if ( !IsPrey( pHurt ) )
+	{
+		// If this is another predator, then check if the enemy has a valid interaction on *us*
+		if (const CNPC_BasePredator *pPredator = dynamic_cast<const CNPC_BasePredator *>(pHurt))
+		{
+			if (pPredator->GetMyNearestInteractionTranslation( this, vecTranslation ))
+			{
+				// Push them in the direction in which they'd be able to perform the interaction
+				vecDir = (pHurt->GetAbsOrigin() - vecTranslation);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Finds the direction from the target entity to the nearest interaction
+// it can perform (usually so that we can push someone towards it)
+//-----------------------------------------------------------------------------
+bool CNPC_BasePredator::GetMyNearestInteractionTranslation( const CAI_BaseNPC *pHurt, Vector &vecTranslation ) const
+{
+	// If we have a valid interaction on this enemy, push it towards where we can perform the closest one
+	const ScriptedNPCInteraction_t *pClosestInteraction = NULL;
+	float flClosestInteractionDistSqr = FLT_MAX;
+	for ( int i = 0; i < m_ScriptedInteractions.Count(); i++ )
+	{
+		const ScriptedNPCInteraction_t *pInteraction = &m_ScriptedInteractions[i];
+
+		// NOTE: InteractionIsAllowed() may check for a health ratio, so instead of just ignoring the interaction when we can't do it yet,
+		// we can use attacks to get them closer to the right position.
+		if ( !pInteraction->bValidOnCurrentEnemy || pInteraction->flDelay > gpGlobals->curtime /*|| !InteractionIsAllowed( pHurt->MyNPCPointer(), pInteraction )*/ )
+			continue;
+		
+		// For now, just check closeness to us since this is a melee attack anyway
+		float flDistSqr = pInteraction->vecRelativeOrigin.LengthSqr();
+		if ( flDistSqr < flClosestInteractionDistSqr )
+		{
+			pClosestInteraction = pInteraction;
+			flClosestInteractionDistSqr = flDistSqr;
+		}
+	}
+
+	if ( pClosestInteraction )
+	{
+		// Get the translation of the relative matrix
+		VMatrix matLocalToWorld;
+		MatrixMultiply( EntityToWorldTransform(), pClosestInteraction->matDesiredLocalToWorld, matLocalToWorld );
+		vecTranslation = matLocalToWorld.GetTranslation();
+		return true;
+	}
+
+	return false;
+}
+
 //=========================================================
 // SetYawSpeed - allows each sequence to have a different
 // turn rate associated with it.
@@ -517,8 +648,13 @@ int CNPC_BasePredator::RangeAttack1Conditions( float flDot, float flDist )
 //=========================================================
 int CNPC_BasePredator::MeleeAttack1Conditions( float flDot, float flDist )
 {
-	if (GetEnemy()->m_iHealth <= GetWhipDamage() && flDist <= 85 && flDot >= 0.7)
+	CBaseEntity *pEnemy = GetEnemy();
+	if (pEnemy->m_iHealth <= GetWhipDamage() && flDist <= 85 && flDot >= 0.7)
 	{
+		float flZDiff = ( pEnemy->GetAbsOrigin().z - GetAbsOrigin().z );
+		if ( flZDiff >= GetMeleeZRange( pEnemy ) || flZDiff <= -GetMeleeZRangeBelow( pEnemy ) )
+			return COND_NONE;
+
 		return (COND_CAN_MELEE_ATTACK1);
 	}
 
@@ -535,7 +671,14 @@ int CNPC_BasePredator::MeleeAttack1Conditions( float flDot, float flDist )
 int CNPC_BasePredator::MeleeAttack2Conditions( float flDot, float flDist )
 {
 	if (flDist <= 85 && flDot >= 0.7 && !HasCondition( COND_CAN_MELEE_ATTACK1 ))		// The player & predator (bullsquid) can be as much as their bboxes 
+	{
+		CBaseEntity *pEnemy = GetEnemy();
+		float flZDiff = ( pEnemy->GetAbsOrigin().z - GetAbsOrigin().z );
+		if ( flZDiff >= GetMeleeZRange( pEnemy ) || flZDiff <= -GetMeleeZRangeBelow( pEnemy ) )
+			return COND_NONE;
+
 		return (COND_CAN_MELEE_ATTACK2);
+	}
 
 	return(COND_NONE);
 }
@@ -580,6 +723,8 @@ void CNPC_BasePredator::Event_Killed( const CTakeDamageInfo & info )
 
 void CNPC_BasePredator::RemoveIgnoredConditions( void )
 {
+	BaseClass::RemoveIgnoredConditions();
+
 	if (m_flHungryTime > gpGlobals->curtime)
 		ClearCondition( COND_PREDATOR_SMELL_FOOD );
 
@@ -710,9 +855,6 @@ void CNPC_BasePredator::OnFed()
 
 	// Fire output
 	m_OnFed.FireOutput( this, this );
-
-	// Damage props underneath this predator
-	EatAttack();
 }
 
 //-----------------------------------------------------------------------------
@@ -986,7 +1128,15 @@ void CNPC_BasePredator::StartTask( const Task_t *pTask )
 
 	case TASK_PREDATOR_REGEN:
 	{
-		OnFed();
+		// Trigger if animation event hasn't already
+		if (!m_bFiredEatEvent)
+		{
+			OnFed();
+
+			// Damage props underneath this predator
+			EatAttack();
+		}
+
 		TaskComplete();
 		break;
 	}
@@ -1113,8 +1263,9 @@ int CNPC_BasePredator::SelectSchedule( void )
 		// No longer dormant
 		m_bDormant = false;
 
-		if ( HasCondition( COND_LIGHT_DAMAGE ) || HasCondition( COND_HEAVY_DAMAGE ) )
+		if ( (HasCondition( COND_LIGHT_DAMAGE ) || HasCondition( COND_HEAVY_DAMAGE )) && gpGlobals->curtime - GetLastEnemyTime() > 5.0f )
 		{
+			// Hop if we suddenly take damage after not seeing an enemy for 5 seconds
 			return SCHED_PREDATOR_HURTHOP;
 		}
 	}
@@ -1261,8 +1412,8 @@ NPC_STATE CNPC_BasePredator::SelectIdealState( void )
 	{
 	case NPC_STATE_COMBAT:
 	{
-		// COMBAT goes to ALERT upon death of enemy
-		if ( GetEnemy() != NULL && ( HasCondition( COND_LIGHT_DAMAGE ) || HasCondition( COND_HEAVY_DAMAGE ) ) && IsPrey( GetEnemy() ) )
+		// m_flLastHurtTime is not assigned when attacked by a prey, so this check ensures they were last attacked by a non-prey rather than a prey
+		if ( GetEnemy() != NULL && ( HasCondition( COND_LIGHT_DAMAGE ) || HasCondition( COND_HEAVY_DAMAGE ) ) && IsPrey( GetEnemy() ) && gpGlobals->curtime - m_flLastHurtTime < 1.0f )
 		{
 			// if the predator has a prey enemy and something hurts it, it's going to forget about the prey for a while.
 			SetEnemy( NULL );
@@ -1380,8 +1531,14 @@ bool CNPC_BasePredator::HandleInteraction( int interactionType, void *data, CBas
 {
 	if ( interactionType == g_interactionXenGrenadeCreate )
 	{
-		InputSetWanderAlways( inputdata_t() );
-		InputEnableSpawning( inputdata_t() );
+		{
+			inputdata_t dummy;
+			InputSetWanderAlways( dummy );
+		}
+		{
+			inputdata_t dummy;
+			InputEnableSpawning( dummy );
+		}
 		if ( !m_bIsBaby )
 		{
 			// Xen predators come into the world ready to spawn.
@@ -1410,6 +1567,56 @@ bool CNPC_BasePredator::HandleInteraction( int interactionType, void *data, CBas
 	return BaseClass::HandleInteraction(interactionType, data, sourceEnt);
 }
 #endif
+
+//-----------------------------------------------------------------------------
+// Purpose :
+// Input   :
+// Output  :
+//-----------------------------------------------------------------------------
+void CNPC_BasePredator::HandleAnimEvent( animevent_t *pEvent )
+{
+	if (pEvent->type & AE_TYPE_NEWEVENTSYSTEM)
+	{
+		if ( pEvent->event == AE_PREDATOR_EAT || pEvent->event == AE_PREDATOR_EAT_NOATTACK )
+		{
+			OnFed();
+
+			// Damage props underneath this predator
+			if (pEvent->event != AE_PREDATOR_EAT_NOATTACK)
+				EatAttack();
+
+			m_bFiredEatEvent = true;
+		}
+		else if ( pEvent->event == AE_PREDATOR_GIB_INTERACTION_PARTNER || pEvent->event == AE_PREDATOR_SWALLOW_INTERACTION_PARTNER )
+		{
+			// If we're currently interacting with an enemy, eat them
+			CAI_BaseNPC *pInteractionPartner = GetInteractionPartner();
+			if ( pInteractionPartner )
+			{
+				CTakeDamageInfo info = CTakeDamageInfo( this, this, pInteractionPartner->GetMaxHealth(), DMG_PREVENT_PHYSICS_FORCE );
+
+				if ( pEvent->event == AE_PREDATOR_SWALLOW_INTERACTION_PARTNER )
+				{
+					// Make them disappear
+					info.AddDamageType( DMG_REMOVENORAGDOLL );
+				}
+				else
+				{
+					info.AddDamageType( DMG_ALWAYSGIB );
+				}
+
+				pInteractionPartner->TakeDamage( info );
+
+				OnFed();
+				//m_bFiredEatEvent = true;
+			}
+		}
+		else
+			BaseClass::HandleAnimEvent( pEvent );
+	}
+	else
+		BaseClass::HandleAnimEvent( pEvent );
+}
 
 
 //------------------------------------------------------------------------------
@@ -1541,6 +1748,11 @@ AI_BEGIN_CUSTOM_NPC( npc_predator, CNPC_BasePredator )
 	DECLARE_ACTIVITY( ACT_EXCITED )
 	DECLARE_ACTIVITY( ACT_DETECT_SCENT )
 	DECLARE_ACTIVITY( ACT_INSPECT_FLOOR )
+
+	DECLARE_ANIMEVENT( AE_PREDATOR_EAT )
+	DECLARE_ANIMEVENT( AE_PREDATOR_EAT_NOATTACK )
+	DECLARE_ANIMEVENT( AE_PREDATOR_GIB_INTERACTION_PARTNER )
+	DECLARE_ANIMEVENT( AE_PREDATOR_SWALLOW_INTERACTION_PARTNER )
 
 	//=========================================================
 	// > SCHED_PREDATOR_HURTHOP

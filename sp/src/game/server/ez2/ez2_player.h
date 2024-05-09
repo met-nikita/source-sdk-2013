@@ -160,6 +160,7 @@ public:
 	// Override impulse commands for new detonation command
 	virtual void		CheatImpulseCommands( int iImpulse );
 	virtual void		DetonateExplosives();
+	virtual void		UseHealthVial();
 
 	// For more accurate representations of whether the player actually sees something
 	// (3D dot calculations instead of 2D dot calculations)
@@ -413,6 +414,39 @@ protected:
 	CHandle<CEZ2_Player> m_hOuter;
 
 	DEFINE_CUSTOM_AI;
+};
+
+//-----------------------------------------------------------------------------
+// Purpose: Mapper-controlled detonatable object
+//-----------------------------------------------------------------------------
+class CPointDetonatable : public CBaseEntity
+{
+public:
+	DECLARE_CLASS( CPointDetonatable, CBaseEntity );
+	DECLARE_DATADESC();
+	DECLARE_SERVERCLASS();
+
+	CPointDetonatable();
+	~CPointDetonatable();
+
+	void			Spawn();
+	int				UpdateTransmitState();
+	void			VerifyGlowTarget( CBaseEntity *pActivator, CBaseEntity *pCaller );
+
+	void			InputEnable( inputdata_t &inputdata );
+	void			InputDisable( inputdata_t &inputdata );
+	void			InputSetGlowTarget( inputdata_t &inputdata );
+	void			InputDetonate( inputdata_t &inputdata );
+
+	CNetworkVar( bool, m_bDisabled );
+
+	string_t		m_iszThrower;
+	CNetworkHandle( CBaseCombatCharacter, m_hThrower );
+
+	string_t		m_iszGlowTarget;
+	CNetworkHandle( CBaseEntity, m_hGlowTarget );
+
+	COutputEvent	m_OnDetonate;
 };
 
 //-----------------------------------------------------------------------------

@@ -21,9 +21,22 @@ $Project "client"
 	"game\client\client_ez2.vpc"	[($WIN32||$X360||$POSIX) && $EZ2]
 }
 
+$Project "expanded_steam"
+{
+	"expanded_steam\expanded_steam.vpc" [($WIN32||$X360||$POSIX) && $BUILD_EXPANDED_STEAM]
+}
+
 $Project "fgdlib"
 {
 	"fgdlib\fgdlib.vpc" [$WIN32]
+}
+
+$Project "gamepadui"
+{
+	"game\gamepadui\gamepadui_hl2.vpc"		[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $HL2]
+	"game\gamepadui\gamepadui_episodic.vpc"	[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $EPISODIC]
+	"game\gamepadui\gamepadui_ez1.vpc"	[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $EZ1]
+	"game\gamepadui\gamepadui_ez2.vpc"	[($WIN32||$LINUX) && $BUILD_GAMEPADUI && $EZ2]
 }
 
 $Project "game_shader_dx9"

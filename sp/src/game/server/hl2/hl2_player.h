@@ -15,6 +15,9 @@
 #include "simtimer.h"
 #include "soundenvelope.h"
 #ifdef EZ
+#include "ai_basenpc.h"
+#include "ai_condition.h"
+#include "ai_npcstate.h"
 #include "ai_squad.h"
 #endif
 
@@ -208,8 +211,11 @@ public:
 
 	void		OnDropSatchel( CBaseEntity *pSatchel );
 	void		OnSetupTripmine( CBaseEntity *pTripmine );
+	void		OnSetupDetonatable( CBaseEntity *pDetonatable );
 	void		OnSatchelExploded( CBaseEntity *pSatchel, CBaseEntity *pAttacker );
 	void		OnTripmineExploded( CBaseEntity *pTripmine, CBaseEntity *pAttacker );
+	void		OnDetonatableExploded( CBaseEntity *pDetonatable, CBaseEntity *pAttacker );
+	void		OnDetonatableDisabled( CBaseEntity *pDetonatable );
 #endif
 
 	// Apply a battery
@@ -415,7 +421,9 @@ protected:
 
 #ifdef EZ2
 	virtual void		HandleKickAttack();
+	virtual void		TraceKick( trace_t &tr, const Vector &vecAim );
 	virtual void		TraceKickAttack( CBaseEntity* pKickedEntity = NULL );
+	virtual bool		TryRagdollKickedEnemy(CBaseEntity* pKickedEntity, trace_t* tr, CTakeDamageInfo* dmgInfo, CBaseEntity* pKickingEntity);
 
 	void  HandleKickAnimation( void );
 	void  StartKickAnimation( void );
@@ -469,6 +477,7 @@ private:
 #ifdef EZ2
 	CUtlVector<CBaseEntity*>	m_hActiveSatchels;
 	CUtlVector<CBaseEntity*>	m_hActiveTripmines;
+	CUtlVector<CBaseEntity*>	m_hActiveDetonatables;
 #endif
 
 	Vector				m_vecMissPositions[16];
@@ -564,21 +573,21 @@ public:
 
 	virtual bool	IsSilentCommandable() { return true; }
 
-	virtual bool TargetOrder( CBaseEntity *pTarget, CAI_BaseNPC **Allies, int numAllies ) { OnTargetOrder(); ClearCommandGoal(); ClearCondition( COND_RECEIVED_ORDERS ); return true; }
+	virtual bool TargetOrder( CBaseEntity *pTarget, CAI_BaseNPC **Allies, int numAllies ) { this->OnTargetOrder(); this->ClearCommandGoal(); this->ClearCondition( COND_RECEIVED_ORDERS ); return true; }
 
 	virtual CAI_BaseNPC *GetSquadCommandRepresentative()
 	{
 		// Look through the squad and find the first member that isn't silent
-		if ( m_pSquad )
+		if ( this->m_pSquad )
 		{
 			AISquadIter_t iter;
-			CAI_BaseNPC *pSquadmate = m_pSquad->GetFirstMember( &iter );
+			CAI_BaseNPC *pSquadmate = this->m_pSquad->GetFirstMember( &iter );
 			while ( pSquadmate )
 			{
-				if (pSquadmate->IsCommandable() && !pSquadmate->IsSilentCommandable())
+				if ( pSquadmate->IsCommandable() && !pSquadmate->IsSilentCommandable() )
 					return pSquadmate->GetSquadCommandRepresentative();
 
-				pSquadmate = m_pSquad->GetNextMember( &iter );
+				pSquadmate = this->m_pSquad->GetNextMember( &iter );
 			}
 		}
 
@@ -588,24 +597,19 @@ public:
 	}
 
 	// Override with commander interrupt conditions
-	virtual bool CanOrdersInterrupt() { return GetState() != NPC_STATE_COMBAT; }
+	virtual bool CanOrdersInterrupt() { return this->GetState() != NPC_STATE_COMBAT; }
 
 	void BuildScheduleTestBits( void )
 	{
 		BASE_NPC::BuildScheduleTestBits();
 
-		if (CanOrdersInterrupt())
+		if ( this->CanOrdersInterrupt() )
 		{
-			SetCustomInterruptCondition( COND_RECEIVED_ORDERS );
+			this->SetCustomInterruptCondition( COND_RECEIVED_ORDERS );
 		}
 	}
 
-	bool HaveCommandGoal() const
-	{
-		if (GetCommandGoal() != vec3_invalid)
-			return true;
-		return false;
-	}
+	bool HaveCommandGoal() const { return this->GetCommandGoal() != vec3_invalid; }
 };
 #endif
 

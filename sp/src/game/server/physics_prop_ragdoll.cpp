@@ -1793,6 +1793,16 @@ CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, con
 	pRagdoll->CollisionProp()->SetCollisionBounds( mins, maxs );
 
 #ifdef MAPBASE
+	// If this was a NPC running a dynamic interaction, disable collisions with the interaction partner
+	if (pAnimating->IsNPC() /*&& pAnimating->MyNPCPointer()->IsRunningDynamicInteraction()*/)
+	{
+		CAI_BaseNPC *pNPC = pAnimating->MyNPCPointer();
+		if (pNPC->GetInteractionPartner() && pNPC->GetInteractionPartner()->VPhysicsGetObject())
+		{
+			PhysDisableEntityCollisions( pRagdoll, pNPC->GetInteractionPartner() );
+		}
+	}
+
 	variant_t variant;
 	variant.SetEntity(pRagdoll);
 	pAnimating->FireNamedOutput("OnServerRagdoll", variant, pRagdoll, pAnimating);
@@ -1991,6 +2001,23 @@ void CRagdollProp::GetAngleOverrideFromCurrentState( char *pOut, int size )
 		Q_strncat( pOut, str, size, COPY_ALL_CHARACTERS );
 	}
 }
+
+#ifdef EZ2
+bool CRagdollProp::IsMotionEnabled(void)
+{
+	for (int iRagdoll = 0; iRagdoll < m_ragdoll.listCount; ++iRagdoll)
+	{
+		IPhysicsObject* pPhysicsObject = m_ragdoll.list[iRagdoll].pObject;
+		if (pPhysicsObject != NULL && !pPhysicsObject->IsMotionEnabled())
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+#endif
+
 
 void CRagdollProp::DisableMotion( void )
 {

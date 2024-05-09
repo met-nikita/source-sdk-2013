@@ -21,6 +21,11 @@
 #include "hud.h"
 #include "hudelement.h"
 #include "vgui_int.h"
+#ifdef STEAM_INPUT
+#include "expanded_steam/isteaminput.h"
+#include "fmtstr.h"
+#include "img_png_loader.h"
+#endif
 
 #include "hud_macros.h"
 #include "iclientmode.h"
@@ -89,6 +94,10 @@ ConVar locator_split_len( "locator_split_len", "0.5f", FCVAR_CHEAT );
 extern ConVar gameinstructor_default_bindingcolor;
 #endif
 
+#ifdef STEAM_INPUT
+void GetLocatorPanelButtonFont( vgui::HFont &font, vgui::HScheme &pScheme );
+#endif
+
 
 //------------------------------------
 CLocatorTarget::CLocatorTarget( void )
@@ -100,6 +109,20 @@ CLocatorTarget::CLocatorTarget( void )
 	PrecacheMaterial("vgui/hud/icon_arrow_up");
 	PrecacheMaterial("vgui/hud/icon_arrow_down");
 	PrecacheMaterial("vgui/hud/icon_arrow_plain");
+}
+
+//------------------------------------
+CLocatorTarget::~CLocatorTarget( void )
+{
+#ifdef STEAM_INPUT
+	if (m_bBindingChoicesWereAllocated)
+	{
+		for (int i = 0; i < MAX_LOCATOR_BINDINGS_SHOWN; i++)
+		{
+			delete m_pchBindingChoices[i];
+		}
+	}
+#endif
 }
 
 //------------------------------------
@@ -192,6 +215,17 @@ void CLocatorTarget::Deactivate( bool bNoFade )
 
 		m_wszCaption.RemoveAll();
 		m_wszCaption.AddToTail( (wchar_t)0 );
+
+#ifdef STEAM_INPUT
+		if (m_bBindingChoicesWereAllocated)
+		{
+			for (int i = 0; i < MAX_LOCATOR_BINDINGS_SHOWN; i++)
+			{
+				delete m_pchBindingChoices[ i ];
+			}
+			m_bBindingChoicesWereAllocated = false;
+		}
+#endif
 	}
 	else if ( !( m_iEffectsFlags & LOCATOR_ICON_FX_FADE_OUT ) )
 	{
@@ -291,6 +325,14 @@ void CLocatorTarget::SetCaptionText( const char *pszText, const char *pszParam )
 		wchar_t wszParamBuff[ 128 ];
 		wchar_t *pLocalizedParam = NULL;
 
+#ifdef STEAM_INPUT
+		if (g_pSteamInput->IsEnabled())
+		{
+			// Remap the hint if needed
+			g_pSteamInput->RemapHudHint( &pszParam );
+		}
+#endif
+
 		if ( pszParam[ 0 ] == '#' )
 		{
 			pLocalizedParam = g_pVGuiLocalize->Find( pszParam );
@@ -323,6 +365,14 @@ void CLocatorTarget::SetCaptionText( const char *pszText, const char *pszParam )
 	{
 		wchar_t wszTextBuff[ 128 ];
 		wchar_t *pLocalizedText = NULL;
+
+#ifdef STEAM_INPUT
+		if (g_pSteamInput->IsEnabled())
+		{
+			// Remap the hint if needed
+			g_pSteamInput->RemapHudHint( &pszText );
+		}
+#endif
 
 		if ( pszText[ 0 ] == '#' )
 		{
@@ -519,6 +569,92 @@ void CLocatorTarget::SetBinding( const char *pszBinding )
 
 	pchToken = nexttoken( szToken, pchToken, ';', sizeof( szToken ) );
 
+#ifdef STEAM_INPUT
+	if (m_bBindingChoicesWereAllocated)
+	{
+		for (int i = 0; i < MAX_LOCATOR_BINDINGS_SHOWN; i++)
+		{
+			delete m_pchBindingChoices[ i ];
+		}
+		m_bBindingChoicesWereAllocated = false;
+	}
+
+	if (m_ButtonIcons.Count() > 0)
+	{
+		for (int i = m_ButtonIcons.Count()-1; i >= 0; i--)
+		{
+			vgui::surface()->DestroyTextureID( m_ButtonIcons[i] );
+			m_ButtonIcons.FastRemove( i );
+		}
+	}
+
+	if (g_pSteamInput->IsEnabled())
+	{
+		// Each string should start NULL for the code below
+		for (int i = 0; i < MAX_LOCATOR_BINDINGS_SHOWN; i++)
+		{
+			m_pchBindingChoices[ i ] = NULL;
+		}
+
+		while ( pchToken )
+		{
+			// Get the first parameter
+			vgui::HFont hFont;
+			vgui::HScheme hScheme;
+			GetLocatorPanelButtonFont( hFont, hScheme );
+			float fontTall = vgui::surface()->GetFontTall( hFont );
+			m_iButtonSize = vgui::scheme()->GetProportionalScaledValueEx( hScheme, Lerp( 0.5f, fontTall, 20.0f ) ); // TODO: More manageable value?
+
+			int iRealSize = m_iButtonSize;
+			CUtlVector <const char *> szStringList;
+			CUtlVector <int> iButtonIcons;
+			g_pSteamInput->GetGlyphPNGsForCommand( szStringList, szToken, iRealSize );
+
+			int iButtonIconCount = szStringList.Count();
+			if (iButtonIconCount > 0)
+			{
+				for (int i = 0; i < iButtonIconCount; i++)
+				{
+					iButtonIcons.AddToTail( vgui::surface()->CreateNewTextureID( true ) );
+
+					CUtlMemory< byte > image;
+					int w, h;
+					if ( !PNGtoRGBA( g_pFullFileSystem, szStringList[i], image, w, h ) )
+					{
+						Warning( "Can't find PNG buffer for %s\n", szStringList[i] );
+					}
+					else
+					{
+						vgui::surface()->DrawSetTextureRGBA( iButtonIcons[i], image.Base(), w, h, true, false );
+					}
+
+					//Msg( "Hint PNG: \"%s\" (%i)\n", szStringList[i], iButtonIcons[i] );
+				}
+				
+				while ( m_iBindingChoicesCount < MAX_LOCATOR_BINDINGS_SHOWN )
+				{
+					m_pchBindingChoices[ m_iBindingChoicesCount ]			= (new CNumStr( iButtonIcons[m_iBindingChoicesCount % iButtonIconCount] ))->String();
+					m_iBindChoicesOriginalToken[ m_iBindingChoicesCount ]	= nOriginalToken;
+					++m_iBindingChoicesCount;
+				}
+
+				m_ButtonIcons.AddVectorToTail( iButtonIcons );
+				m_bBindingChoicesWereAllocated = true;
+			}
+			else
+			{
+				Warning( "No button PNGs found for \"%s\"\n", szToken );
+			}
+
+			nOriginalToken++;
+			pchToken = nexttoken( szToken, pchToken, ';', sizeof( szToken ) );
+		}
+
+		m_pulseStart = gpGlobals->curtime;
+		return;
+	}
+#endif
+
 	while ( pchToken )
 	{
 		// Get the first parameter
@@ -549,7 +685,11 @@ const char *CLocatorTarget::UseBindingImage( char *pchIconTextureName, size_t bu
 {
 	if ( m_iBindingChoicesCount <= 0 )
 	{
+#ifdef STEAM_INPUT
+		if ( IsX360() || g_pSteamInput->IsEnabled() )
+#else
 		if ( IsX360() )
+#endif
 		{
 			Q_strncpy( pchIconTextureName, "icon_blank", bufSize );
 		}
@@ -568,7 +708,11 @@ const char *CLocatorTarget::UseBindingImage( char *pchIconTextureName, size_t bu
 	// We counted at least one binding... this should not be NULL!
 	Assert( pchBinding );
 
+#ifdef STEAM_INPUT
+	if ( IsX360() || g_pSteamInput->IsEnabled() )
+#else
 	if ( IsX360() )
+#endif
 	{
 		// Use a blank background for the button icons
 		Q_strncpy( pchIconTextureName, "icon_blank", bufSize );
@@ -736,6 +880,10 @@ public:
 	void	AnimateIconPosition( int flags, int *x, int *y );
 	void	AnimateIconAlpha( int flags, int *alpha, float fadeStart );
 
+#ifdef STEAM_INPUT
+	vgui::HFont GetButtonFont() { return m_hButtonFont; }
+#endif
+
 private:
 
 	CPanelAnimationVar( vgui::HFont, m_hCaptionFont, "font", "InstructorTitle" );
@@ -776,6 +924,14 @@ inline CLocatorPanel * GetPlayerLocatorPanel()
 	Assert( s_pLocatorPanel );
 	return s_pLocatorPanel;
 }
+
+#ifdef STEAM_INPUT
+void GetLocatorPanelButtonFont( vgui::HFont &font, vgui::HScheme &pScheme )
+{
+	font = s_pLocatorPanel->GetButtonFont();
+	pScheme = s_pLocatorPanel->GetScheme();
+}
+#endif
 
 
 //-----------------------------------------------------------------------------
@@ -2051,6 +2207,20 @@ void CLocatorPanel::DrawBindingName( CLocatorTarget *pTarget, const char *pchBin
 		vgui::surface()->DrawSetTextPos( x - (iWidth>>1) - 1, y - (fontTall >>1) - 1 );
 		vgui::surface()->DrawUnicodeString( wszCaption );
 	}
+#ifdef STEAM_INPUT
+	else if ( g_pSteamInput->IsEnabled() )
+	{
+		// Draw the image
+		int iLargeIconShift = MAX( 0, pTarget->m_iButtonSize - ( ScreenWidth() * ICON_SIZE + ICON_GAP + ICON_GAP ) );
+
+		vgui::surface()->DrawSetColor( Color( 255, 255, 255, pTarget->m_alpha ) );
+		vgui::surface()->DrawSetTexture( atoi( pchBindingName ) );
+
+		x -= (pTarget->m_iButtonSize >> 1) - iLargeIconShift;
+		y -= (pTarget->m_iButtonSize >> 1);
+		vgui::surface()->DrawTexturedRect( x, y, x + pTarget->m_iButtonSize, y + pTarget->m_iButtonSize );
+	}
+#endif
 	else
 	{
 		// Draw the caption

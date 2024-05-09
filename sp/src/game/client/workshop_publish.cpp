@@ -36,25 +36,11 @@
 #include "steam/steam_api.h"
 #include "clientsteamcontext.h"
 
-#ifdef _WIN32
-#include "jpeglib/jpeglib.h"
-//#include "libpng/png.h"
-#endif
+#include "img_jpeg_loader.h"
+#include "img_png_loader.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-
-#ifdef JPEG_LIB_VERSION
-bool JPEGtoRGBA( const char *filename, CUtlMemory< byte > &buffer, int &width, int &height );
-bool JPEGtoRGBA( CUtlBuffer &fileBuffer, CUtlMemory< byte > &buffer, int &width, int &height );
-#endif
-
-#ifdef PNG_LIBPNG_VER
-bool PNGtoRGBA( const char *filename, CUtlMemory< byte > &buffer, int &width, int &height );
-bool PNGtoRGBA( CUtlBuffer &fileBuffer, CUtlMemory< byte > &buffer, int &width, int &height );
-#endif
-
 
 
 static const int g_nTagsGridRowCount = 3;
@@ -381,11 +367,19 @@ public:
 
 	void SetJPEGImage( const char *filename )
 	{
-#ifdef JPEG_LIB_VERSION
+		if ( !JPEGSupported() )
+		{
+			if ( g_pFullFileSystem->FileExists( filename ) )
+			{
+				m_bLoading = true;
+			}
+			return;
+		}
+
 		int imageWidth, imageHeight;
 		CUtlMemory< byte > image;
 
-		if ( JPEGtoRGBA( filename, image, imageWidth, imageHeight ) )
+		if ( JPEGtoRGBA( g_pFullFileSystem, filename, image, imageWidth, imageHeight ) )
 		{
 			SetImageRGBA( image.Base(), imageWidth, imageHeight );
 			DevMsg( "Loaded jpeg %dx%d '%s'\n", imageWidth, imageHeight, V_GetFileName( filename ) );
@@ -394,17 +388,16 @@ public:
 		{
 			RemoveImage();
 		}
-#else
-		if ( g_pFullFileSystem->FileExists( filename ) )
-		{
-			m_bLoading = true;
-		}
-#endif
 	}
 
 	void SetJPEGImage( CUtlBuffer &fileBuffer )
 	{
-#ifdef JPEG_LIB_VERSION
+		if ( !JPEGSupported() )
+		{
+			m_bLoading = true;
+			return;
+		}
+
 		int imageWidth, imageHeight;
 		CUtlMemory< byte > image;
 
@@ -417,18 +410,23 @@ public:
 		{
 			RemoveImage();
 		}
-#else
-		m_bLoading = true;
-#endif
 	}
 
 	void SetPNGImage( const char *filename )
 	{
-#ifdef PNG_LIBPNG_VER
+		if ( !PNGSupported() )
+		{
+			if ( g_pFullFileSystem->FileExists( filename ) )
+			{
+				m_bLoading = true;
+			}
+			return;
+		}
+
 		int imageWidth, imageHeight;
 		CUtlMemory< byte > image;
 
-		if ( PNGtoRGBA( filename, image, imageWidth, imageHeight ) )
+		if ( PNGtoRGBA( g_pFullFileSystem, filename, image, imageWidth, imageHeight ) )
 		{
 			SetImageRGBA( image.Base(), imageWidth, imageHeight );
 			DevMsg( "Loaded png %dx%d '%s'\n", imageWidth, imageHeight, V_GetFileName( filename ) );
@@ -437,17 +435,16 @@ public:
 		{
 			RemoveImage();
 		}
-#else
-		if ( g_pFullFileSystem->FileExists( filename ) )
-		{
-			m_bLoading = true;
-		}
-#endif
 	}
 
 	void SetPNGImage( CUtlBuffer &fileBuffer )
 	{
-#ifdef PNG_LIBPNG_VER
+		if ( !PNGSupported() )
+		{
+			m_bLoading = true;
+			return;
+		}
+
 		int imageWidth, imageHeight;
 		CUtlMemory< byte > image;
 
@@ -460,9 +457,6 @@ public:
 		{
 			RemoveImage();
 		}
-#else
-		m_bLoading = true;
-#endif
 	}
 
 private:
@@ -573,288 +567,6 @@ private:
 	int m_panelWide;
 	int m_panelTall;
 };
-
-
-#ifdef JPEG_LIB_VERSION
-struct JpegErrorHandler_t
-{
-	struct jpeg_error_mgr mgr;
-	jmp_buf jmp;
-};
-
-void JpegErrorExit( j_common_ptr cinfo )
-{
-	char msg[ JMSG_LENGTH_MAX ];
-	(cinfo->err->format_message)( cinfo, msg );
-	Warning( "%s\n", msg );
-
-	longjmp( ((JpegErrorHandler_t*)(cinfo->err))->jmp, 1 );
-}
-
-// Read JPEG from CUtlBuffer
-struct JpegSourceMgr_t : jpeg_source_mgr
-{
-	// See libjpeg.txt, jdatasrc.c
-
-	static void _init_source(j_decompress_ptr cinfo) {}
-	static void _term_source(j_decompress_ptr cinfo) {}
-	static boolean _fill_input_buffer(j_decompress_ptr cinfo) { return 0; }
-	static void _skip_input_data( j_decompress_ptr cinfo, long num_bytes )
-	{
-		JpegSourceMgr_t *src = (JpegSourceMgr_t*)cinfo->src;
-		src->next_input_byte += (size_t)num_bytes;
-		src->bytes_in_buffer -= (size_t)num_bytes;
-	}
-
-	void SetSourceMgr( j_decompress_ptr cinfo, CUtlBuffer *pBuffer )
-	{
-		cinfo->src = this;
-		init_source = _init_source;
-		fill_input_buffer = _fill_input_buffer;
-		skip_input_data = _skip_input_data;
-		resync_to_restart = jpeg_resync_to_restart;
-		term_source = _term_source;
-
-		bytes_in_buffer = pBuffer->TellMaxPut();
-		next_input_byte = (const JOCTET*)pBuffer->Base();
-	}
-};
-
-//
-// Read a JPEG image from file into buffer as RGBA.
-//
-bool JPEGtoRGBA( const char *filename, CUtlMemory< byte > &buffer, int &width, int &height )
-{
-	// Read the whole image to memory
-	CUtlBuffer fileBuffer;
-
-	if ( !g_pFullFileSystem->ReadFile( filename, NULL, fileBuffer ) )
-	{
-		Warning( "Failed to read JPEG file (%s)\n", filename );
-		return false;
-	}
-
-	return JPEGtoRGBA( fileBuffer, buffer, width, height );
-}
-
-//
-// TODO: Error codes
-//
-bool JPEGtoRGBA( CUtlBuffer &fileBuffer, CUtlMemory< byte > &buffer, int &width, int &height )
-{
-	Assert( sizeof(JSAMPLE) == sizeof(byte) );
-	Assert( !buffer.IsReadOnly() );
-
-	struct jpeg_decompress_struct cinfo;
-	struct JpegErrorHandler_t jerr;
-	JpegSourceMgr_t src_mgr;
-
-	cinfo.err = jpeg_std_error( &jerr.mgr );
-	jerr.mgr.error_exit = JpegErrorExit;
-
-	if ( setjmp( jerr.jmp ) )
-	{
-		jpeg_destroy_decompress( &cinfo );
-		return false;
-	}
-
-	jpeg_create_decompress( &cinfo );
-	src_mgr.SetSourceMgr( &cinfo, &fileBuffer );
-
-	if ( jpeg_read_header( &cinfo, TRUE ) != JPEG_HEADER_OK )
-	{
-		Warning( "Bad JPEG signature\n" );
-		jpeg_destroy_decompress( &cinfo );
-		return false;
-	}
-
-	if ( !jpeg_start_decompress( &cinfo ) )
-	{
-		jpeg_destroy_decompress( &cinfo );
-		return false;
-	}
-
-	int image_width = width = cinfo.output_width;
-	int image_height = height = cinfo.output_height;
-	int image_components = cinfo.output_components + 1; // RGB + A
-
-	if ( image_components != 4 )
-	{
-		Warning( "JPEG is not RGB\n" );
-		jpeg_destroy_decompress( &cinfo );
-		return false;
-	}
-
-	buffer.Init( 0, image_components * image_width * image_height );
-
-	while ( cinfo.output_scanline < cinfo.output_height )
-	{
-		JSAMPROW pRow = buffer.Base() + image_components * image_width * cinfo.output_scanline;
-		jpeg_read_scanlines( &cinfo, &pRow, 1 );
-
-		// Expand RGB to RGBA
-		for ( int i = image_width; i--; )
-		{
-			pRow[i*4+0] = pRow[i*3+0];
-			pRow[i*4+1] = pRow[i*3+1];
-			pRow[i*4+2] = pRow[i*3+2];
-			pRow[i*4+3] = 0xFF;
-		}
-	}
-
-	jpeg_finish_decompress( &cinfo );
-	jpeg_destroy_decompress( &cinfo );
-
-	Assert( jerr.mgr.num_warnings == 0 );
-	return true;
-}
-#endif
-
-#ifdef PNG_LIBPNG_VER
-void ReadPNG_CUtlBuffer( png_structp png_ptr, png_bytep data, size_t length )
-{
-	if ( !png_ptr )
-		return;
-
-	CUtlBuffer *pBuffer = (CUtlBuffer *)png_get_io_ptr( png_ptr );
-
-	if ( (size_t)pBuffer->TellMaxPut() < ( (size_t)pBuffer->TellGet() + length ) ) // CUtlBuffer::CheckGet()
-	{
-		//png_error( png_ptr, "read error" );
-		png_longjmp( png_ptr, 1 );
-	}
-
-	pBuffer->Get( data, length );
-}
-
-//
-// Read a PNG image from file into buffer as RGBA.
-//
-bool PNGtoRGBA( const char *filename, CUtlMemory< byte > &buffer, int &width, int &height )
-{
-	// Read the whole image to memory
-	CUtlBuffer fileBuffer;
-
-	if ( !g_pFullFileSystem->ReadFile( filename, NULL, fileBuffer ) )
-	{
-		Warning( "Failed to read PNG file (%s)\n", filename );
-		return false;
-	}
-
-	return PNGtoRGBA( fileBuffer, buffer, width, height );
-}
-
-//
-// TODO: Error codes
-//
-bool PNGtoRGBA( CUtlBuffer &fileBuffer, CUtlMemory< byte > &buffer, int &width, int &height )
-{
-	if ( png_sig_cmp( (png_const_bytep)fileBuffer.Base(), 0, 8 ) )
-	{
-		Warning( "Bad PNG signature\n" );
-		return false;
-	}
-
-	png_bytepp row_pointers = NULL;
-
-	png_structp png_ptr = png_create_read_struct( png_get_libpng_ver(NULL), NULL, NULL, NULL );
-	png_infop info_ptr = png_create_info_struct( png_ptr );
-
-	if ( !info_ptr || !png_ptr )
-	{
-		Warning( "Out of memory reading PNG\n" );
-		png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
-		return false;
-	}
-
-	if ( setjmp( png_jmpbuf( png_ptr ) ) )
-	{
-		Warning( "Failed to read PNG\n" );
-		png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
-		if ( row_pointers )
-			free( row_pointers );
-		return false;
-	}
-
-	png_set_read_fn( png_ptr, &fileBuffer, ReadPNG_CUtlBuffer );
-	png_read_info( png_ptr, info_ptr );
-
-	png_uint_32 image_width, image_height;
-	int bit_depth, color_type;
-
-	png_get_IHDR( png_ptr, info_ptr, &image_width, &image_height, &bit_depth, &color_type, NULL, NULL, NULL );
-
-	width = image_width;
-	height = image_height;
-
-	// expand palette images to RGB, low-bit-depth grayscale images to 8 bits,
-	// transparency chunks to full alpha channel; strip 16-bit-per-sample
-	// images to 8 bits per sample; and convert grayscale to RGB[A]
-
-	if ( color_type == PNG_COLOR_TYPE_PALETTE )
-		png_set_expand(png_ptr);
-	if ( color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8 )
-		png_set_expand(png_ptr);
-	if ( png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS) )
-		png_set_expand(png_ptr);
-#ifdef PNG_READ_16_TO_8_SUPPORTED
-	if ( bit_depth == 16 )
-	#ifdef PNG_READ_SCALE_16_TO_8_SUPPORTED
-		png_set_scale_16(png_ptr);
-	#else
-		png_set_strip_16(png_ptr);
-	#endif
-#endif
-	if ( color_type == PNG_COLOR_TYPE_GRAY ||
-		color_type == PNG_COLOR_TYPE_GRAY_ALPHA )
-		png_set_gray_to_rgb(png_ptr);
-
-	// Expand RGB to RGBA
-	if ( color_type == PNG_COLOR_TYPE_RGB )
-		png_set_filler( png_ptr, 0xffff, PNG_FILLER_AFTER );
-
-	png_read_update_info( png_ptr, info_ptr );
-
-	png_uint_32 rowbytes = png_get_rowbytes( png_ptr, info_ptr );
-	int channels = (int)png_get_channels( png_ptr, info_ptr );
-
-	if ( channels != 4 )
-	{
-		Warning( "PNG is not RGBA\n" );
-		png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
-		return false;
-	}
-
-	if ( image_height > ((size_t)(-1)) / rowbytes )
-	{
-		Warning( "PNG data buffer would be too large\n" );
-		png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
-		return false;
-	}
-
-	buffer.Init( 0, rowbytes * image_height );
-	row_pointers = (png_bytepp)malloc( image_height * sizeof(png_bytep) );
-
-	Assert( buffer.Base() && row_pointers );
-
-	if ( !row_pointers )
-	{
-		png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
-		return false;
-	}
-
-	for ( png_uint_32 i = 0; i < image_height; ++i )
-		row_pointers[i] = buffer.Base() + i*rowbytes;
-
-	png_read_image( png_ptr, row_pointers );
-	//png_read_end( png_ptr, NULL );
-
-	png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
-	free( row_pointers );
-
-	return true;
-}
-#endif
 
 
 // Most recent to oldest
@@ -1186,7 +898,7 @@ void CWorkshopPublishDialog::OnSteamUGCQueryCompleted( SteamUGCQueryCompleted_t 
 
 		if ( details.m_eResult != k_EResultOK )
 		{
-			Warning( "GetQueryUGCResult() failed [%i]\n", i, details.m_eResult );
+			Warning( "GetQueryUGCResult() failed [%i]\n", details.m_eResult );
 			continue;
 		}
 

@@ -121,6 +121,7 @@ enum Hint_e
 	HINT_BEAST_HOME = 2000,
 	HINT_BEAST_FRUSTRATION,
 	HINT_SURRENDER_IDLE_DEST,
+	HINT_TACTICAL_VANTAGE_POINT, // Less confusing successor to HINT_TACTICAL_ENEMY_DISADVANTAGED because E:Z2 already uses ENEMY_DISADVANTAGED differently
 #endif
 
 #ifdef MAPBASE
@@ -128,6 +129,7 @@ enum Hint_e
 	// (these start at a high number to avoid potential conflicts with mod hints)
 
 	HINT_TACTICAL_COVER_CUSTOM = 10000,	// Cover node with a custom hint activity (NPCs can take cover and reload here while playing said activity)
+	HINT_TACTICAL_GRENADE_THROW,		// Pre-determined position for NPCs to throw grenades at when their target in combat is near it
 #endif
 };
 const char *GetHintTypeDescription( Hint_e iHintType );
@@ -332,6 +334,9 @@ public:
 	void				FixupTargetNode();
 	void				NPCStartedUsing( CAI_BaseNPC *pNPC );
 	void				NPCStoppedUsing( CAI_BaseNPC *pNPC );
+#ifdef MAPBASE
+	void				FireScriptEvent( int nEvent );
+#endif
 
 	HintIgnoreFacing_t	GetIgnoreFacing() const			{ return m_NodeData.fIgnoreFacing; }
 
@@ -393,6 +398,10 @@ private:
 	COutputEHANDLE		m_OnNPCStoppedUsing;	// Triggered when an NPC has finished using this node.
 	float				m_nodeFOV;
 	Vector				m_vecForward;
+
+#ifdef MAPBASE
+	COutputEvent m_OnScriptEvent[8];
+#endif
 
 	// The next hint in list of all hints
 	friend class CAI_HintManager;

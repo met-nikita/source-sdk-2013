@@ -56,6 +56,10 @@ void RegisterUserMessages( void )
 	usermessages->Register( "SLAMExploded", 1 );
 #endif
 
+#ifdef EZ
+	usermessages->Register("HealthVialConsumed", 1);
+#endif
+
 #ifndef _X360
 	// NVNT register haptic user messages
 	RegisterHapticMessages();

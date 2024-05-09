@@ -19,6 +19,15 @@ $Games
 // Makes the VPC scripts work in the SDK's context
 $Conditional "SOURCESDK" "1"
 
+// Adds expanded_steam to game projects so that its source code can be built. Only use with updated Steamworks API headers.
+// (Be sure to change STEAMWORKS_VERSION in steamworks_update.vpc as well!)
+$Conditional BUILD_EXPANDED_STEAM	"0"
+
+// GAMEPADUI allows the client to hook into GamepadUI.
+// BUILD_GAMEPADUI includes GamepadUI projects in the code.
+$Conditional GAMEPADUI				"1"
+$Conditional BUILD_GAMEPADUI		"0"
+
 $Include "vpc_scripts\projects.vgc"
 $Include "vpc_scripts\groups.vgc"
 

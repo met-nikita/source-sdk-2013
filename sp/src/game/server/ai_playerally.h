@@ -137,6 +137,13 @@
 #define TLK_TGCATCHUP 	"TLK_TGCATCHUP"
 #define TLK_TGENDTOUR 	"TLK_TGENDTOUR"
 
+#ifdef MAPBASE
+// Additional concepts for companions in mods
+#define TLK_TAKING_FIRE	"TLK_TAKING_FIRE"	// Someone fired at me (regardless of whether I was hit)
+#define TLK_NEW_ENEMY	"TLK_NEW_ENEMY"		// A new enemy appeared while combat was already in progress
+#define TLK_COMBAT_IDLE	"TLK_COMBAT_IDLE"	// Similar to TLK_ATTACKING, but specifically for when *not* currently attacking (e.g. when in cover or reloading)
+#endif
+
 #ifdef EZ
 // Entropy : Zero 2 Citizen contexts
 #define TLK_SURRENDER		"TLK_SURRENDER"	// Citizen just dropped their weapon in fear
@@ -342,10 +349,18 @@ public:
 	virtual bool		CanFlinch( void );
 #endif
 
+#ifdef EZ2
+	bool		HandleInteraction(int interactionType, void* data, CBaseCombatCharacter* sourceEnt);
+#endif
+
 	//---------------------------------
 	// Combat
 	//---------------------------------
 	void		OnKilledNPC( CBaseCombatCharacter *pKilled );
+
+#ifdef MAPBASE
+	void		OnEnemyRangeAttackedMe( CBaseEntity *pEnemy, const Vector &vecDir, const Vector &vecEnd );
+#endif
 
 	//---------------------------------
 	// Damage handling
@@ -368,6 +383,11 @@ public:
 
 	CBaseEntity *FindSpeechTarget( int flags );
 	virtual bool IsValidSpeechTarget( int flags, CBaseEntity *pEntity );
+
+#ifdef EZ2
+	// Used by Wilson camera targets
+	virtual const Vector &GetSpeechTargetSearchOrigin() { return GetAbsOrigin(); }
+#endif
 	
 	CBaseEntity *GetSpeechTarget()								{ return m_hTalkTarget.Get(); }
 	void		SetSpeechTarget( CBaseEntity *pSpeechTarget ) 	{ m_hTalkTarget = pSpeechTarget; }
@@ -435,6 +455,9 @@ public:
 	
 	bool		ShouldSpeakRandom( AIConcept_t concept, int iChance );
 	bool		IsAllowedToSpeak( AIConcept_t concept, bool bRespondingToPlayer = false );
+#ifdef MAPBASE
+	bool		IsAllowedToSpeakFollowup( AIConcept_t concept, CBaseEntity *pIssuer, bool bSpecific );
+#endif
 	virtual bool SpeakIfAllowed( AIConcept_t concept, const char *modifiers = NULL, bool bRespondingToPlayer = false, char *pszOutResponseChosen = NULL, size_t bufsize = 0 );
 #ifdef MAPBASE
 	virtual bool SpeakIfAllowed( AIConcept_t concept, AI_CriteriaSet& modifiers, bool bRespondingToPlayer = false, char *pszOutResponseChosen = NULL, size_t bufsize = 0 );

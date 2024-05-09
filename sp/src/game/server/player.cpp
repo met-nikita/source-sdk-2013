@@ -101,6 +101,9 @@
 
 ConVar autoaim_max_dist( "autoaim_max_dist", "2160" ); // 2160 = 180 feet
 ConVar autoaim_max_deflect( "autoaim_max_deflect", "0.99" );
+#ifdef STEAM_INPUT
+ConVar player_x360_weapon_select_hints( "player_x360_weapon_select_hints", "0" );
+#endif
 
 #ifdef CSTRIKE_DLL
 ConVar	spec_freeze_time( "spec_freeze_time", "5.0", FCVAR_CHEAT | FCVAR_REPLICATED, "Time spend frozen in observer freeze cam." );
@@ -656,8 +659,14 @@ void CBasePlayer::CreateHandModel(int index, int iOtherVm)
 {
 	Assert(index >= 0 && index < MAX_VIEWMODELS && iOtherVm >= 0 && iOtherVm < MAX_VIEWMODELS );
 
-	if (GetViewModel(index))
+	if (GetViewModel( index ))
+	{
+		// This can happen if the player respawns
+		// Don't draw unless we're already using a hands weapon
+		if ( !GetActiveWeapon() || !GetActiveWeapon()->UsesHands() )
+			GetViewModel( index )->AddEffects( EF_NODRAW );
 		return;
+	}
 
 	CBaseViewModel *vm = (CBaseViewModel *)CreateEntityByName("hand_viewmodel");
 	if (vm)
@@ -1729,6 +1738,15 @@ void CBasePlayer::RemoveAllItems( bool removeSuit )
 	Weapon_SetLast( NULL );
 	RemoveAllWeapons();
  	RemoveAllAmmo();
+
+#ifdef MAPBASE
+	// Hide hand viewmodel
+	CBaseViewModel *vm = GetViewModel( 1 );
+	if ( vm )
+	{
+		vm->AddEffects( EF_NODRAW );
+	}
+#endif
 
 	if ( removeSuit )
 	{
@@ -7185,7 +7203,7 @@ bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon)
 			{
 				//Weapon_EquipAmmoOnly( pWeapon );
 
-				// I'm too lazy to make my own version of Weapon_EquipAmmoOnly that doesn't check if we already have the weapon first 
+				// Weapon_EquipAmmoOnly checks the array again, which isn't necessary here
 				int	primaryGiven	= (pWeapon->UsesClipsForAmmo1()) ? pWeapon->m_iClip1 : pWeapon->GetPrimaryAmmoCount();
 				int secondaryGiven	= (pWeapon->UsesClipsForAmmo2()) ? pWeapon->m_iClip2 : pWeapon->GetSecondaryAmmoCount();
 
@@ -7253,7 +7271,11 @@ bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon)
 		{
 #ifdef HL2_DLL
 
+#ifdef STEAM_INPUT
+			if ( IsX360() || player_x360_weapon_select_hints.GetBool() )
+#else
 			if ( IsX360() )
+#endif
 			{
 				CFmtStr hint;
 				hint.sprintf( "#valve_hint_select_%s", pWeapon->GetClassname() );
@@ -7918,6 +7940,93 @@ void CBasePlayer::ResetAutoaim( void )
 	}
 	m_fOnTarget = false;
 }
+
+#ifdef MAPBASE
+ConVar  player_debug_probable_aim_target( "player_debug_probable_aim_target", "0", FCVAR_CHEAT, "" );
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CBaseEntity *CBasePlayer::GetProbableAimTarget( const Vector &vecSrc, const Vector &vecDir )
+{
+	trace_t tr;
+	CBaseEntity *pIgnore = NULL;
+	if (IsInAVehicle())
+		pIgnore = GetVehicleEntity();
+
+	CTraceFilterSkipTwoEntities traceFilter( this, pIgnore, COLLISION_GROUP_NONE );
+
+	// Based on dot product and distance
+	// If we aim directly at something, only return it if there's not a larger entity slightly off-center
+	// Should be weighted based on whether an entity is a NPC, etc.
+	CBaseEntity *pBestEnt = NULL;
+	float flBestWeight = 0.0f;
+	for (CBaseEntity *pEntity = UTIL_EntitiesInPVS( this, NULL ); pEntity; pEntity = UTIL_EntitiesInPVS( this, pEntity ))
+	{
+		// Combat characters can be unviewable if they just died
+		if (!pEntity->IsViewable() && !pEntity->IsCombatCharacter())
+			continue;
+
+		if (pEntity == this || pEntity->GetMoveParent() == this || pEntity == GetVehicleEntity())
+			continue;
+
+		Vector vecEntDir = (pEntity->EyePosition() - vecSrc);
+		float flDot = DotProduct( vecEntDir.Normalized(), vecDir);
+
+		if (flDot < m_flFieldOfView)
+			continue;
+
+		// Make sure we can see it
+		UTIL_TraceLine( vecSrc, pEntity->EyePosition(), MASK_SHOT, &traceFilter, &tr );
+		if (tr.m_pEnt != pEntity)
+		{
+			if (pEntity->IsCombatCharacter())
+			{
+				// Trace between centers as well just in case our eyes are blocked
+				UTIL_TraceLine( WorldSpaceCenter(), pEntity->WorldSpaceCenter(), MASK_SHOT, &traceFilter, &tr );
+				if (tr.m_pEnt != pEntity)
+					continue;
+			}
+			else
+				continue;
+		}
+
+		float flWeight = flDot - (vecEntDir.LengthSqr() / Square( 2048.0f ));
+
+		if (pEntity->IsCombatCharacter())
+		{
+			// Hostile NPCs are more likely targets
+			if (IRelationType( pEntity ) <= D_FR)
+				flWeight += 0.5f;
+		}
+		else if (pEntity->GetFlags() & FL_AIMTARGET)
+		{
+			// FL_AIMTARGET is often used for props like explosive barrels
+			flWeight += 0.25f;
+		}
+
+		if (player_debug_probable_aim_target.GetBool())
+		{
+			float flWeightClamped = 1.0f - RemapValClamped( flWeight, -2.0f, 2.0f, 0.0f, 1.0f );
+			pEntity->EntityText( 0, UTIL_VarArgs( "%f", flWeight ), 2.0f, flWeightClamped * 255.0f, 255.0f, flWeightClamped * 255.0f, 255 );
+		}
+
+		if (flWeight > flBestWeight)
+		{
+			pBestEnt = pEntity;
+			flBestWeight = flWeight;
+		}
+	}
+	
+	if (player_debug_probable_aim_target.GetBool())
+	{
+		Msg( "Best probable aim target is %s\n", pBestEnt->GetDebugName() );
+		NDebugOverlay::EntityBounds( pBestEnt, 255, 100, 0, 0, 2.0f );
+	}
+
+	return pBestEnt;
+}
+#endif
 
 // ==========================================================================
 //	> Weapon stuff

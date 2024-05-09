@@ -33,7 +33,7 @@ static CUtlSymbolTable g_ScriptSymbols(0, 128, true);
 
 #ifdef MAPBASE
 // Allows animation sequences to be overridden by map-specific files
-extern bool g_bUsingCustomHudAnimations;
+bool g_bUsingCustomHudAnimations = false;
 #endif
 
 // singleton accessor for animation controller for use by the vgui controls
@@ -357,7 +357,12 @@ bool AnimationController::ParseScriptFile(char *pMem, int length)
 
 		// get the open brace or a conditional
 		pMem = ParseFile(pMem, token, NULL);
+#ifdef MAPBASE
+		// Fixes ! conditionals
+		if ( Q_stristr( token, "[$" ) || Q_stristr( token, "[!$" ) )
+#else
 		if ( Q_stristr( token, "[$" ) )
+#endif
 		{
 			bAccepted = EvaluateConditional( token );
 
@@ -622,7 +627,12 @@ bool AnimationController::ParseScriptFile(char *pMem, int length)
 			
 			// Look ahead one token for a conditional
 			char *peek = ParseFile(pMem, token, NULL);
+#ifdef MAPBASE
+			// Fixes ! conditionals
+			if ( Q_stristr( token, "[$" ) || Q_stristr( token, "[!$" ) )
+#else
 			if ( Q_stristr( token, "[$" ) )
+#endif
 			{
 				if ( !EvaluateConditional( token ) )
 				{

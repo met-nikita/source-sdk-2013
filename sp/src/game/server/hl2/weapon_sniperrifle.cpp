@@ -13,10 +13,10 @@
 //=============================================================================//
 
 #include "cbase.h"
-#include "NPCEvent.h"
+#include "npcevent.h"
 #include "basehlcombatweapon.h"
 #include "basecombatcharacter.h"
-#include "AI_BaseNPC.h"
+#include "ai_basenpc.h"
 #include "player.h"
 #include "gamerules.h"				// For g_pGameRules
 #include "in_buttons.h"
@@ -112,7 +112,7 @@ public:
 
 	void Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
 
-#ifdef MAPBSAE
+#ifdef MAPBASE
 	virtual acttable_t		*GetBackupActivityList() { return GetAR2Acttable(); }
 	virtual int				GetBackupActivityListCount() { return GetAR2ActtableCount(); }
 #endif

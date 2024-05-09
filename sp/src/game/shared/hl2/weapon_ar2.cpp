@@ -452,7 +452,7 @@ void CWeaponAR2::DelayedAttack( void )
 
 	pOwner->SnapEyeAngles( angles );
 #endif
-	pOwner->ViewPunch( QAngle( random->RandomInt( -8, -12 ), random->RandomInt( 1, 2 ), 0 ) );
+	pOwner->ViewPunch( QAngle( random->RandomInt( -12, -8 ), random->RandomInt( 1, 2 ), 0 ) );
 
 #ifndef EZ1
 	// Decrease ammo

@@ -107,6 +107,10 @@ int g_interactionMetrocopIdleChatter = 0;
 int g_interactionMetrocopClearSentenceQueues = 0;
 
 extern int g_interactionHitByPlayerThrownPhysObj;
+#ifdef EZ2
+extern int g_interactionStasisGrenadeFreeze;
+extern int g_interactionStasisGrenadeUnfreeze;
+#endif
 
 ConVar	sk_metropolice_stitch_reaction( "sk_metropolice_stitch_reaction","1.0");
 ConVar	sk_metropolice_stitch_tight_hitcount( "sk_metropolice_stitch_tight_hitcount","2");
@@ -262,6 +266,7 @@ BEGIN_DATADESC( CNPC_MetroPolice )
 #endif
 #ifdef EZ
 	DEFINE_INPUTFUNC( FIELD_VOID, "TriggerIdleQuestion", InputTriggerIdleQuestion ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "HitByBugbait", InputHitByBugbait ),
 #endif
 	
 	DEFINE_USEFUNC( PrecriminalUse ),
@@ -3079,6 +3084,19 @@ void CNPC_MetroPolice::InputTriggerIdleQuestion( inputdata_t &inputdata )
 		}
 	}
 }
+
+//-----------------------------------------------------------------------------
+// We were hit by bugbait
+//-----------------------------------------------------------------------------
+void CNPC_MetroPolice::InputHitByBugbait( inputdata_t &inputdata )
+{
+	// Ignore if the activator likes us
+	if (inputdata.pActivator && inputdata.pActivator->IsCombatCharacter() &&
+		inputdata.pActivator->MyCombatCharacterPointer()->IRelationType( this ) == D_LI)
+		return;
+
+	SetCondition( COND_METROPOLICE_HIT_BY_BUGBAIT );
+}
 #endif
 
 
@@ -3715,6 +3733,21 @@ bool CNPC_MetroPolice::HandleInteraction(int interactionType, void *data, CBaseC
 		return true;
 	}
 
+#ifdef EZ2
+	if (interactionType == g_interactionStasisGrenadeFreeze)
+	{
+		CapabilitiesRemove(bits_CAP_TURN_HEAD);
+		// Handle unfreeze normally
+		return false;
+	}
+	else if (interactionType == g_interactionStasisGrenadeUnfreeze)
+	{
+		CapabilitiesAdd(bits_CAP_TURN_HEAD);
+		// Handle unfreeze normally
+		return false;
+	}
+#endif
+
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
 }
 
@@ -3731,7 +3764,11 @@ Activity CNPC_MetroPolice::NPC_TranslateActivity( Activity newActivity )
 	// If we're shoving, see if we should be more forceful in doing so
 	if ( newActivity == ACT_PUSH_PLAYER )
 	{
+#ifdef MAPBASE
+		if ( m_nNumWarnings >= METROPOLICE_MAX_WARNINGS && Weapon_TranslateActivity( ACT_MELEE_ATTACK1, NULL ) == ACT_MELEE_ATTACK_SWING )
+#else
 		if ( m_nNumWarnings >= METROPOLICE_MAX_WARNINGS )
+#endif
 			return ACT_MELEE_ATTACK1;
 	}
 
@@ -5032,6 +5069,21 @@ int CNPC_MetroPolice::SelectSchedule( void )
 		return SCHED_METROPOLICE_BURNING_STAND;
 	}
 
+#ifdef EZ
+	// If we're hit by bugbait, thrash around
+	if ( HasCondition( COND_METROPOLICE_HIT_BY_BUGBAIT ) )
+	{
+		// Don't do this if we're mounting a func_tank
+		if ( m_FuncTankBehavior.IsMounted() == true )
+		{
+			m_FuncTankBehavior.Dismount();
+		}
+
+		ClearCondition( COND_METROPOLICE_HIT_BY_BUGBAIT );
+		return SCHED_METROPOLICE_BUGBAIT_DISTRACTION;
+	}
+#endif
+
 	// React to being struck by a physics object
 	if ( HasCondition( COND_METROPOLICE_PHYSOBJECT_ASSAULT ) )
 	{
@@ -5237,6 +5289,12 @@ int CNPC_MetroPolice::SelectSchedule( void )
 				nSched = SelectScheduleInvestigateSound();
 				if ( nSched != SCHED_NONE )
 					return nSched;
+
+#ifdef EZ2
+				nSched = SelectAlertSchedule();
+				if ( nSched != SCHED_NONE )
+					return nSched;
+#endif
 			}
 			break;
 
@@ -6130,6 +6188,10 @@ void CNPC_MetroPolice::BuildScheduleTestBits( void )
 		ClearCustomInterruptCondition( COND_CAN_RANGE_ATTACK2 );
 	}
 #endif
+
+#ifdef EZ
+	SetCustomInterruptCondition( COND_METROPOLICE_HIT_BY_BUGBAIT );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -6448,6 +6510,9 @@ AI_BEGIN_CUSTOM_NPC( npc_metropolice, CNPC_MetroPolice )
 	DECLARE_CONDITION( COND_METROPOLICE_PLAYER_TOO_CLOSE );
 	DECLARE_CONDITION( COND_METROPOLICE_CHANGE_BATON_STATE );
 	DECLARE_CONDITION( COND_METROPOLICE_PHYSOBJECT_ASSAULT );
+#ifdef EZ
+	DECLARE_CONDITION( COND_METROPOLICE_HIT_BY_BUGBAIT );
+#endif
 
 
 	//=========================================================
@@ -7137,6 +7202,21 @@ DEFINE_SCHEDULE
  ""
  "	Interrupts"
  "		COND_TOO_CLOSE_TO_ATTACK"
+ )
+#endif
+
+#ifdef EZ
+ DEFINE_SCHEDULE
+ (
+ SCHED_METROPOLICE_BUGBAIT_DISTRACTION,
+
+ "	Tasks"
+ "		TASK_STOP_MOVING		0"
+ "		TASK_RESET_ACTIVITY		0"
+ "		TASK_PLAY_SEQUENCE		ACTIVITY:ACT_IDLE_ON_FIRE"
+ ""
+ "	Interrupts"
+ ""
  )
 #endif
 

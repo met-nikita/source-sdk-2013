@@ -248,12 +248,17 @@ void CCrossbowBolt::Precache( void )
 
 	// This is used by C_TEStickyBolt, despte being different from above!!!
 #ifndef EZ
-	PrecacheModel( "models/crossbow_bolt.mdl" );
+	PrecacheModel( BOLT_MODEL );
 #else
 	if ( GetModelName() == NULL_STRING )
-		SetModel( BOLT_MODEL );
-
-	PrecacheModel( STRING( GetModelName() ) );
+	{
+		PrecacheModel(BOLT_MODEL);
+		SetModel(BOLT_MODEL);
+	}
+	else
+	{
+		PrecacheModel( STRING( GetModelName() ) );
+	}
 #endif
 
 	PrecacheModel( "sprites/light_glow02_noz.vmt" );
@@ -789,6 +794,16 @@ acttable_t	CWeaponCrossbow::m_acttable[] =
 };
 
 IMPLEMENT_ACTTABLE(CWeaponCrossbow);
+
+acttable_t* GetCrossbowActtable()
+{
+	return CWeaponCrossbow::m_acttable;
+}
+
+int GetCrossbowActtableCount()
+{
+	return ARRAYSIZE(CWeaponCrossbow::m_acttable);
+}
 #endif
 
 //-----------------------------------------------------------------------------

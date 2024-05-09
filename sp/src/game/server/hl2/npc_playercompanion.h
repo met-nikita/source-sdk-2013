@@ -172,6 +172,7 @@ public:
 	
 	Activity		TranslateActivityReadiness( Activity activity );
 	Activity		NPC_TranslateActivity( Activity eNewActivity );
+	void			OnChangeActivity( Activity eNewActivity );
 	void 			HandleAnimEvent( animevent_t *pEvent );
 	bool			HandleInteraction(int interactionType, void *data, CBaseCombatCharacter* sourceEnt);
 
@@ -250,6 +251,7 @@ public:
 
 	virtual void	Event_Killed( const CTakeDamageInfo &info );
 	virtual void	Event_KilledOther( CBaseEntity *pVictim, const CTakeDamageInfo &info );
+	virtual void	EnemyIgnited( CAI_BaseNPC *pVictim );
 	virtual void	DoCustomCombatAI( void );
 #endif
 

@@ -16,6 +16,9 @@
 extern ConVar hopwire_trap;
 
 #ifdef EZ2
+extern ConVar hopwire_timer;
+extern ConVar stasis_timer;
+
 enum HopwireStyle {
 	HOPWIRE_XEN = 0,
 	HOPWIRE_STASIS
@@ -86,7 +89,8 @@ public:
 	bool	CanConsumeEntity( CBaseEntity *pEnt );
 
 	void	InputDetonate( inputdata_t &inputdata ) { StartPull( GetAbsOrigin(), m_flRadius, m_flStrength, m_flEndTime ); }
-	void	InputFakeSpawnEntity( inputdata_t &inputdata ) { inputdata.value.Entity() ? TrySpawnRecipeNPC( inputdata.value.Entity(), false ) : Warning("Warning: FakeSpawnEntity cannot spawn null entity\n"); }
+
+	void	InputFakeSpawnEntity( inputdata_t &inputdata ) { inputdata.value.Entity() ? (void)TrySpawnRecipeNPC( inputdata.value.Entity(), false ) : Warning("Warning: FakeSpawnEntity cannot spawn null entity\n"); }
 	void	InputCreateXenLife( inputdata_t &inputdata ) { CreateXenLife(); }
 
 	void	SetNodeRadius( float flRadius ) { m_flNodeRadius = flRadius; }
@@ -185,6 +189,8 @@ private:
 	void	FreezePlayersInRange( void );
 	void    UnfreezeNPCThink( void );
 	void	UnfreezePhysicsObjectThink( void );
+
+	bool	m_bFreezingPlayer;
 };
 #endif
 
@@ -207,11 +213,19 @@ public:
 
 	void	DelayThink();
 	void	SpriteOff();
-	void	BlipSound() { EmitSound( "WeaponXenGrenade.Blip" ); }
+	void	BlipSound();
 	void	OnRestore( void );
 	void	CreateEffects( void );
 
 	void	InputSetTimer( inputdata_t &inputdata );
+
+#ifdef EZ
+	virtual void InputDetonateImmediately(inputdata_t& inputdata) { 
+				SetThink(&CGrenadeHopwire::CombatThink);
+				SetNextThink(gpGlobals->curtime);
+				EmitSound("WeaponXenGrenade.Explode"); // Start explosion sound again in case the grenade never hopped
+	}
+#endif
 
 	virtual void	EndThink( void );		// Last think before going away
 	virtual void	CombatThink( void );	// Makes the main explosion go off
@@ -260,6 +274,11 @@ public:
 
 	virtual void	EndThink( void );		// Last think before going away
 	virtual void	CombatThink( void );	// Makes the main explosion go off
+
+	virtual void InputDetonateImmediately(inputdata_t& inputdata) {
+		SetThink(&CGrenadeStasis::CombatThink);
+		SetNextThink(gpGlobals->curtime);
+	}
 
 };
 

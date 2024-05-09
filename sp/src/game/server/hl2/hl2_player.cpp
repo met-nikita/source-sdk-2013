@@ -63,6 +63,7 @@
 
 #ifdef EZ2
 #include "ez2/ez2_player.h"
+#include "CRagdollMagnet.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -125,7 +126,22 @@ ConVar sv_infinite_aux_power("sv_infinite_aux_power", "0", FCVAR_CHEAT);
 #endif
 
 #ifdef EZ
-ConVar	sv_visible_command_point( "sv_visible_command_point", "1", FCVAR_REPLICATED );
+void CV_VisibleCommandPointChange( IConVar *var, const char *pOldValue, float flOldValue );
+ConVar	sv_visible_command_point( "sv_visible_command_point", "1", FCVAR_ARCHIVE, "", CV_VisibleCommandPointChange );
+
+void CV_VisibleCommandPointChange( IConVar *var, const char *pOldValue, float flOldValue )
+{
+	if (!sv_visible_command_point.GetBool())
+	{
+		// Remove any command points
+		CBaseEntity *pProp = gEntList.FindEntityByClassname( NULL, "prop_command_point" );
+		while (pProp)
+		{
+			UTIL_Remove( pProp );
+			pProp = gEntList.FindEntityByClassname( pProp, "prop_command_point" );
+		}
+	}
+}
 #endif
 
 ConVar autoaim_unlock_target( "autoaim_unlock_target", "0.8666" );
@@ -136,6 +152,8 @@ ConVar sv_infinite_sprint_power( "sv_infinite_sprint_power", "1", FCVAR_CHEAT );
 ConVar sv_infinite_flashlight_power( "sv_infinite_flashlight_power", "0", FCVAR_CHEAT );
 ConVar sv_player_death_smell( "sv_player_death_smell", "1", FCVAR_REPLICATED );
 ConVar sv_player_kick_attack_enabled( "sv_player_kick_attack_enabled", "1", FCVAR_REPLICATED );
+ConVar sv_player_kick_attack_ragdolls("sv_player_kick_attack_ragdolls", "0", FCVAR_REPLICATED);
+ConVar sv_player_kick_attack_ragdoll_magnet_angle("sv_player_kick_attack_ragdoll_magnet_angle", "65", FCVAR_REPLICATED);
 ConVar sv_player_stomp_tiny_hull( "sv_player_stomp_tiny_hull", "0", FCVAR_REPLICATED, "Should a kick attack be dispatched to NPCs with tiny hulls when the player stands on top of them?" );
 ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "1", FCVAR_REPLICATED);
 ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "0", FCVAR_REPLICATED);
@@ -146,6 +164,7 @@ ConVar sv_player_hands_modelname( "sv_player_hands_modelname", "models/weapons/e
 ConVar sv_player_kick_default_modelname( "sv_player_kick_default_modelname", "models/weapons/ez2/v_kick.mdl", FCVAR_REPLICATED, "Default filename of model to use for kick animation - can be overridden in map" );
 ConVar sv_pulsepistol_battery_pickup( "sv_pulsepistol_battery_pickup", "1", FCVAR_REPLICATED, "Picks up extra pulse pistols as armor batteries" );
 ConVar sv_pulsepistol_battery_pickup_amount( "sv_pulsepistol_battery_pickup_amount", "0.4", FCVAR_REPLICATED, "What percentage of sk_battery should be provided by extra pulse pistols" );
+ConVar sv_zoom_always_toggles( "sv_zoom_always_toggles", "0", FCVAR_ARCHIVE, "Zoom key toggles zooming" );
 #else
 ConVar sv_command_viewmodel_anims("sv_command_viewmodel_anims", "0", FCVAR_REPLICATED);
 ConVar sv_disallow_zoom_fire("sv_disallow_zoom_fire", "1", FCVAR_REPLICATED);
@@ -682,6 +701,7 @@ END_DATADESC()
 // Interactions
 //-----------------------------------------------------------------------------
 	int g_interactionBadCopKick = 0;
+	int g_interactionBadCopKickWarn = 0;
 	int g_interactionBadCopOrderSurrender = 0;
 #endif
 
@@ -790,6 +810,11 @@ void CHL2_Player::Precache( void )
 	{
 		g_interactionBadCopKick = CBaseCombatCharacter::GetInteractionID();
 	}
+	
+	if ( g_interactionBadCopKickWarn == 0 )
+	{
+		g_interactionBadCopKickWarn = CBaseCombatCharacter::GetInteractionID();
+	}
 
 	// Interactions
 	if (g_interactionBadCopOrderSurrender == 0)
@@ -820,6 +845,16 @@ void CHL2_Player::CheckSuitZoom( void )
 	//Adrian - No zooming without a suit!
 	if ( IsSuitEquipped() )
 	{
+#ifdef EZ2
+		if ( sv_zoom_always_toggles.GetBool() )
+		{
+			if ( m_afButtonPressed & IN_ZOOM )
+			{
+				ToggleZoom();
+			}
+		}
+		else
+#endif
 		if ( m_afButtonReleased & IN_ZOOM )
 		{
 			StopZooming();
@@ -1539,7 +1574,8 @@ Activity CHL2_Player::Weapon_TranslateActivity( Activity baseAct, bool *pRequire
 	
 #if EXPANDED_HL2DM_ACTIVITIES
 	// +USE activities
-	if ( m_hUseEntity && player_use_anim_enabled.GetBool() )
+	// HACKHACK: Make sure m_hUseEntity is a pickup controller first
+	if ( m_hUseEntity && m_hUseEntity->ClassMatches("player_pickup") && player_use_anim_enabled.GetBool())
 	{
 		CBaseEntity* pHeldEnt = GetPlayerHeldEntity( this );
 		float flMass = pHeldEnt ?
@@ -2003,7 +2039,7 @@ bool CHL2_Player::CommanderFindGoal( commandgoal_t *pGoal )
 	// Get either our +USE entity or the gravity gun entity
 	CBaseEntity *pHeldEntity = GetPlayerHeldEntity(this);
 	if ( !pHeldEntity )
-		PhysCannonGetHeldEntity( GetActiveWeapon() );
+		pHeldEntity = PhysCannonGetHeldEntity( GetActiveWeapon() );
 
 	CTraceFilterSkipTwoEntities filter( this, pHeldEntity, COLLISION_GROUP_INTERACTIVE_DEBRIS );
 #else
@@ -4349,6 +4385,17 @@ void CHL2_Player::UpdateClientData( void )
 		}
 	}
 	m_HL2Local.m_iTripmineCount = m_hActiveTripmines.Count();
+
+	if (m_hActiveDetonatables.Count() > 0)
+	{
+		// Clean up nonexistent detonatables
+		for (int i = m_hActiveDetonatables.Count()-1; i >= 0; i--)
+		{
+			if (m_hActiveDetonatables[i] == NULL || m_hActiveDetonatables[i]->IsMarkedForDeletion())
+				m_hActiveDetonatables.Remove( i );
+		}
+	}
+	m_HL2Local.m_iDetonatableCount = m_hActiveDetonatables.Count();
 #endif
 
 	BaseClass::UpdateClientData();
@@ -4377,6 +4424,13 @@ void CHL2_Player::OnRestore()
 		pGrenade = static_cast<CBaseGrenade*>(pEntity);
 		if (pGrenade->GetThrower() == this)
 			m_hActiveTripmines.AddToTail( pEntity );
+	}
+
+	while ((pEntity = gEntList.FindEntityByClassname( pEntity, "point_detonatable" )) != NULL)
+	{
+		CPointDetonatable *pDetonatable = static_cast<CPointDetonatable*>(pEntity);
+		if (!pDetonatable->m_bDisabled && pDetonatable->m_hThrower.Get() == this)
+			m_hActiveDetonatables.AddToTail( pEntity );
 	}
 #endif
 }
@@ -4728,6 +4782,17 @@ void CHL2_Player::HandleKickAttack()
 		EmitSound( "EZ2Player.KickSwing" );
 
 		StartKickAnimation();
+
+		// Tell any NPC in front of me that I'm kicking
+		Vector vecAim = BaseClass::GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+
+		trace_t tr;
+		TraceKick( tr, vecAim );
+
+		if (tr.m_pEnt)
+		{
+			tr.m_pEnt->DispatchInteraction( g_interactionBadCopKickWarn, NULL, this );
+		}
 	}
 	else if ( m_bKickWeaponLowered && gpGlobals->curtime <= m_flNextKickAttack)
 	{
@@ -4747,13 +4812,10 @@ void CHL2_Player::HandleKickAttack()
 static const Vector g_kickMins( -KICK_HULL_DIM, -KICK_HULL_DIM, -KICK_HULL_DIM );
 static const Vector g_kickMaxs( KICK_HULL_DIM, KICK_HULL_DIM, KICK_HULL_DIM );
 
-void CHL2_Player::TraceKickAttack( CBaseEntity* pKickedEntity )
+void CHL2_Player::TraceKick( trace_t &tr, const Vector &vecAim )
 {
 	Vector vecSrc = GetFlags() & FL_DUCKING ? EyePosition() : EyePosition() - Vector(0, 0, 32);
-	Vector vecAim = BaseClass::GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
 	Vector vecEnd = EyePosition() + (vecAim * 80);
-
-	trace_t tr;
 
 	UTIL_TraceLine( vecSrc, vecEnd, MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &tr );
 
@@ -4780,13 +4842,21 @@ void CHL2_Player::TraceKickAttack( CBaseEntity* pKickedEntity )
 			}
 		}
 	}
+}
+
+void CHL2_Player::TraceKickAttack( CBaseEntity* pKickedEntity )
+{
+	Vector vecAim = BaseClass::GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+
+	trace_t tr;
+	TraceKick( tr, vecAim );
 
 	if ( pKickedEntity == NULL )
 	{
 		pKickedEntity = tr.m_pEnt;
 	}
 
-	if ( pKickedEntity != NULL )
+	if ( pKickedEntity != NULL && pKickedEntity->CanBeHitByMeleeAttack( this ) )
 	{
 		float dmg = sk_plr_dmg_kick.GetFloat();
 		int dmgType = DMG_CLUB;
@@ -4799,7 +4869,7 @@ void CHL2_Player::TraceKickAttack( CBaseEntity* pKickedEntity )
 
 		// Try to dispatch an interaction
 		KickInfo_t kickInfo( &tr, &dmgInfo );
-		if ( !pKickedEntity->DispatchInteraction( g_interactionBadCopKick, &kickInfo, this ) )
+		if ( !TryRagdollKickedEnemy(pKickedEntity, &tr, &dmgInfo, this) && !pKickedEntity->DispatchInteraction( g_interactionBadCopKick, &kickInfo, this ) )
 		{
 			if (pKickedEntity->m_takedamage == DAMAGE_NO && pKickedEntity->GetParent())
 			{
@@ -4871,6 +4941,71 @@ void CHL2_Player::TraceKickAttack( CBaseEntity* pKickedEntity )
 	}
 }
 
+// TODO - Consider replacing this with a base class function to handle "fall damage". Maybe a unique interaction? That way grenades, dispel attacks, etc could ragdolls enemies near magnets
+bool CHL2_Player::TryRagdollKickedEnemy(CBaseEntity* pKickedEntity, trace_t* tr, CTakeDamageInfo* dmgInfo, CBaseEntity* pKickingEntity)
+{
+	if (!sv_player_kick_attack_ragdolls.GetBool())
+	{
+		return false;
+	}
+
+	if (pKickedEntity->MyNPCPointer() == NULL)
+	{
+		return false;
+	}
+
+	// If the victim does not have a humanoid or small hull, short circuit
+	if (pKickedEntity->MyNPCPointer()->GetHullType() >= HULL_WIDE_SHORT)
+	{
+		return false;
+	}
+
+	if (!pKickedEntity->MyNPCPointer()->CanBecomeRagdoll() || !pKickedEntity->MyNPCPointer()->CanBecomeServerRagdoll())
+	{
+		return false;
+	}
+
+	// If the victim has more than 100 HP, short circuit
+	if (GetHealth() > 100)
+	{
+		return false;
+	}
+
+	CRagdollMagnet* pMagnet = CRagdollMagnet::FindBestMagnet(pKickedEntity);
+	if (pMagnet)
+	{
+		DevMsg("Found ragdoll magnet for kicked NPC!\n");
+		// Send the damage to the recipient
+		Vector vecAim = BaseClass::GetAutoaimVector(AUTOAIM_SCALE_DEFAULT);
+		VectorNormalize(vecAim);
+
+		Vector magnetVector = pMagnet->GetForceVector(pKickedEntity);
+		VectorNormalize(magnetVector);
+
+		float aimMagnetDotProduct = DotProduct(vecAim, magnetVector);
+		float angleDifference = AngleNormalize(RAD2DEG(acos(aimMagnetDotProduct / (vecAim.Length() * magnetVector.Length()))));
+
+		DevMsg("Ragdoll magnet vector and aiming vector dot product: %f\n", aimMagnetDotProduct);
+		DevMsg("Ragdoll magnet vector is %f degrees off from kick angle\n" , angleDifference);
+
+		// Retrace the kick vector so the kick goes towards the ragdoll magnet
+		trace_t magnetTrace;
+		UTIL_TraceLine(tr->startpos, pMagnet->GetAbsOrigin(), MASK_SHOT_HULL, this, COLLISION_GROUP_NONE, &magnetTrace);
+
+		if (angleDifference < sv_player_kick_attack_ragdoll_magnet_angle.GetInt())
+		{
+			DevMsg("Kicked NPC will be ragdolled\n");
+			dmgInfo->SetDamage(pKickedEntity->GetHealth());
+			pKickedEntity->DispatchTraceAttack(*dmgInfo, pMagnet->GetForceVector(pKickedEntity), &magnetTrace);
+
+			ApplyMultiDamage();
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void CHL2_Player::StartKickAnimation( void )
 {
 	MDLCACHE_CRITICAL_SECTION();
@@ -4938,6 +5073,12 @@ void CHL2_Player::OnSetupTripmine( CBaseEntity *pTripmine )
 	m_hActiveTripmines.AddToTail( pTripmine );
 }
 
+void CHL2_Player::OnSetupDetonatable( CBaseEntity *pDetonatable )
+{
+	//Msg( "OnSetupDetonatable\n" );
+	m_hActiveDetonatables.AddToTail( pDetonatable );
+}
+
 void CHL2_Player::OnSatchelExploded( CBaseEntity *pSatchel, CBaseEntity *pAttacker )
 {
 	// send a message to the client, to notify the hud of the loss
@@ -4960,6 +5101,23 @@ void CHL2_Player::OnTripmineExploded( CBaseEntity *pTripmine, CBaseEntity *pAtta
 	MessageEnd();
 
 	m_hActiveTripmines.FindAndRemove( pTripmine );
+}
+
+void CHL2_Player::OnDetonatableExploded( CBaseEntity *pDetonatable, CBaseEntity *pAttacker )
+{
+	// send a message to the client, to notify the hud of the loss
+	CSingleUserRecipientFilter user( this );
+	user.MakeReliable();
+	UserMessageBegin( user, "SLAMExploded" );
+		WRITE_BOOL( pAttacker != this );
+	MessageEnd();
+
+	m_hActiveDetonatables.FindAndRemove( pDetonatable );
+}
+
+void CHL2_Player::OnDetonatableDisabled( CBaseEntity *pDetonatable )
+{
+	m_hActiveDetonatables.FindAndRemove( pDetonatable );
 }
 #endif
 

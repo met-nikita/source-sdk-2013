@@ -268,8 +268,8 @@ public:
 				this->m_bSilenced = true;
 			}
 
-			this->m_flNextSecondaryAttack = gpGlobals->curtime + SequenceDuration();
-			this->m_flNextPrimaryAttack = gpGlobals->curtime + SequenceDuration();
+			this->m_flNextSecondaryAttack = gpGlobals->curtime + this->SequenceDuration();
+			this->m_flNextPrimaryAttack = gpGlobals->curtime + this->SequenceDuration();
 		}
 	}
 
@@ -304,6 +304,7 @@ public:
 	}
 #endif
 
+#ifdef GAME_DLL
 	void InputSetSilencer( inputdata_t &inputdata )
 	{
 		this->m_bSilenced = inputdata.value.Bool();
@@ -313,6 +314,7 @@ public:
 	{
 		this->m_bSilenced = !this->m_bSilenced;
 	}
+#endif
 
 public:
 	CNetworkVar( bool, m_bCanToggleSilencer );
@@ -437,6 +439,7 @@ public:
 		//this->m_flSoonestPrimaryAttack = gpGlobals->curtime + this->SequenceDuration(); // TODO: Proper cooldown?
 	}
 
+#ifdef GAME_DLL
 	void InputSetBurstMode( inputdata_t &inputdata )
 	{
 		m_bInBurstMode = inputdata.value.Bool();
@@ -446,6 +449,7 @@ public:
 	{
 		m_bInBurstMode = !m_bInBurstMode;
 	}
+#endif
 
 	virtual void ItemPostFrame(void)
 	{
@@ -544,7 +548,7 @@ public:
 		if (this->CanUseScope() == false)
 			return;
 
-		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+		CBasePlayer *pPlayer = ToBasePlayer( this->GetOwner() );
 
 		if (pPlayer->m_afButtonPressed & IN_ATTACK2)
 		{
@@ -623,7 +627,7 @@ public:
 			}
 		}
 
-		WeaponSound( SPECIAL3 );
+		this->WeaponSound( SPECIAL3 );
 
 		// Scope overlay handled by CBase_CSS_HL2_SniperRifle
 	}

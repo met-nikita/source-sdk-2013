@@ -77,6 +77,13 @@ ConVar hopwire_schlorp_small_mass( "hopwire_schlorp_small_mass", "30" );
 ConVar hopwire_schlorp_medium_mass( "hopwire_schlorp_medium_mass", "100" );
 ConVar hopwire_schlorp_large_mass( "hopwire_schlorp_large_mass", "350" );
 ConVar hopwire_schlorp_huge_mass( "hopwire_schlorp_huge_mass", "600" );
+ConVar hopwire_timer("hopwire_timer", "2.0");
+
+ConVar stasis_freeze_player("stasis_freeze_player", "1");
+ConVar stasis_radius("stasis_radius", "256");
+ConVar stasis_strength("stasis_strength", "150");
+ConVar stasis_duration("stasis_duration", "3.0");
+ConVar stasis_timer("stasis_timer", "0.25");
 
 // Move this elsewhere if this concept is expanded
 ConVar ez2_spoilers_enabled( "ez2_spoilers_enabled", "0", FCVAR_NONE, "Enables the you-know-whats and you-know-whos that shouldn't shown in streams, but might make accidental cameos. This is on by default as a precaution." );
@@ -99,6 +106,7 @@ int g_interactionXenGrenadeHop			= 0;
 int g_interactionXenGrenadeRagdoll      = 0;
 
 int	g_interactionStasisGrenadeFreeze	= 0;
+int	g_interactionStasisGrenadeUnfreeze  = 0;
 #endif
 
 #ifdef EZ2
@@ -110,6 +118,7 @@ extern void GetXenGrenadeResponseFromSystem( char *szResponse, size_t szResponse
 #define XEN_GRENADE_RECIPE_SCRIPT "scripts/talker/xen_grenade_recipes.txt"
 
 static const Color XenColor = Color(0, 255, 0, 255);
+template<class ... Args> void XenGrenadeDebugMsg( PRINTF_FORMAT_STRING const char *szMsg, Args ... args ) FMTFUNCTION( 1, 0 );
 template<class ... Args> void XenGrenadeDebugMsg( const char *szMsg, Args ... args )
 {
 	if (!g_debug_hopwire.GetBool())
@@ -1716,8 +1725,14 @@ bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool 
 	if (pPredator != NULL)
 	{
 		pPredator->SetIsBaby( isBaby );
-		pPredator->InputSetWanderAlways( inputdata_t() );
-		pPredator->InputEnableSpawning( inputdata_t() );
+		{
+			inputdata_t dummy;
+			pPredator->InputSetWanderAlways( dummy );
+		}
+		{
+			inputdata_t dummy;
+			pPredator->InputEnableSpawning( dummy );
+		}
 		if ( !isBaby )
 		{
 			// Xen bullsquids come into the world ready to spawn.
@@ -1758,7 +1773,7 @@ bool CGravityVortexController::TryCreateComplexNPC( const char *className, bool 
 	CHL2_Player *pPlayer = (CHL2_Player *)UTIL_GetLocalPlayer();
 	if ( pPredator == NULL && pPlayer != NULL )
 	{
-		DevMsg( "Updating xenpc '%s' enemy memory \n", baseNPC->GetDebugName(), squadname );
+		DevMsg( "Updating xenpc '%s' enemy memory \n", baseNPC->GetDebugName() );
 		baseNPC->UpdateEnemyMemory( pPlayer, pPlayer->GetAbsOrigin(), this );
 	}
 
@@ -2227,6 +2242,7 @@ BEGIN_DATADESC( CGrenadeHopwire )
 
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTimer", InputSetTimer ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DetonateImmediately", InputDetonateImmediately),
 
 	DEFINE_THINKFUNC( DelayThink ),
 	DEFINE_THINKFUNC( SpriteOff ),
@@ -2246,7 +2262,9 @@ BEGIN_DATADESC( CStasisVortexController )
 
 DEFINE_THINKFUNC( PullThink ),
 DEFINE_THINKFUNC( UnfreezePhysicsObjectThink ),
-DEFINE_THINKFUNC( UnfreezeNPCThink )
+DEFINE_THINKFUNC( UnfreezeNPCThink ),
+
+DEFINE_FIELD( m_bFreezingPlayer, FIELD_BOOLEAN )
 
 END_DATADESC()
 
@@ -2311,16 +2329,28 @@ void CGrenadeHopwire::Precache( void )
 #ifndef EZ2	
 	PrecacheModel( DENSE_BALL_MODEL );
 #else
-	PrecacheScriptSound( "WeaponXenGrenade.Explode" );
-	PrecacheScriptSound( "WeaponXenGrenade.SpawnXenPC" );
-	PrecacheScriptSound( "WeaponXenGrenade.Blip" );
-	PrecacheScriptSound( "WeaponXenGrenade.Hop" );
+	switch (GetHopwireStyle())
+	{
+	case HOPWIRE_STASIS:
+		PrecacheScriptSound("WeaponStasisGrenade.Explode");
+		PrecacheScriptSound("WeaponStasisGrenade.Blip");
+		PrecacheScriptSound("WeaponStasisGrenade.Hop");
+		break;
+	default:
+		PrecacheScriptSound("WeaponXenGrenade.Explode");
+		PrecacheScriptSound("WeaponXenGrenade.SpawnXenPC");
+		PrecacheScriptSound("WeaponXenGrenade.Blip");
+		PrecacheScriptSound("WeaponXenGrenade.Hop");
 
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Huge" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Large" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Medium" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Small" );
-	PrecacheScriptSound( "WeaponXenGrenade.Schlorp_Tiny" );
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Huge");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Large");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Medium");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Small");
+		PrecacheScriptSound("WeaponXenGrenade.Schlorp_Tiny");
+		break;
+	}
+
+
 
 	PrecacheParticleSystem( "xenpc_spawn" );
 
@@ -2337,9 +2367,11 @@ void CGrenadeHopwire::Precache( void )
 		g_interactionXenGrenadeRagdoll = CBaseCombatCharacter::GetInteractionID();
 
 		g_interactionStasisGrenadeFreeze = CBaseCombatCharacter::GetInteractionID();
+		g_interactionStasisGrenadeUnfreeze = CBaseCombatCharacter::GetInteractionID();
 	}
 
-	VerifyXenRecipeManager( GetClassname() );
+	if (GetHopwireStyle() == HOPWIRE_XEN)
+		VerifyXenRecipeManager( GetClassname() );
 #endif
 
 	BaseClass::Precache();
@@ -2368,11 +2400,35 @@ void CGrenadeHopwire::InputSetTimer( inputdata_t &inputdata )
 
 void CGrenadeHopwire::DelayThink()
 {
+#ifdef EZ2
+	int i_ColorRed = 255;
+	int i_ColorGreen = 255;
+	int i_ColorBlue = 255;
+	int i_ColorAlpha = 255;
+
+	switch (GetHopwireStyle())
+	{
+		case HOPWIRE_STASIS:
+			i_ColorRed = 0;
+			i_ColorGreen = 200;
+			break;
+		default:
+			i_ColorRed = 0;
+			i_ColorBlue = 0;
+			break;
+	}
+
+#endif
+
 	if( gpGlobals->curtime > m_flDetonateTime )
 	{
 		if (m_pMainGlow)
 		{
+#ifndef EZ2
 			m_pMainGlow->SetTransparency( kRenderTransAdd, 0, 255, 0, 255, kRenderFxNoDissipation );
+#else
+			m_pMainGlow->SetTransparency( kRenderTransAdd, i_ColorRed, i_ColorGreen, i_ColorBlue, i_ColorAlpha, kRenderFxNoDissipation );
+#endif
 			m_pMainGlow->SetBrightness( 255 );
 			m_pMainGlow->TurnOn();
 			SetContextThink( NULL, TICK_NEVER_THINK, g_SpriteOffContext );
@@ -2417,6 +2473,19 @@ void CGrenadeHopwire::SpriteOff()
 		m_pMainGlow->TurnOff();
 }
 
+void CGrenadeHopwire::BlipSound()
+{
+	switch (GetHopwireStyle())
+	{
+	case HOPWIRE_STASIS:
+		EmitSound("WeaponStasisGrenade.Blip");
+		break;
+	default:
+		EmitSound("WeaponXenGrenade.Blip");
+		break;
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -2434,6 +2503,25 @@ void CGrenadeHopwire::OnRestore( void )
 //-----------------------------------------------------------------------------
 void CGrenadeHopwire::CreateEffects( void )
 {
+#ifdef EZ2
+	int i_ColorRed = 255;
+	int i_ColorGreen = 255;
+	int i_ColorBlue = 255;
+	int i_ColorAlpha = 255;
+
+	switch (GetHopwireStyle())
+	{
+	case HOPWIRE_STASIS:
+		i_ColorRed = 0;
+		i_ColorGreen = 200;
+		break;
+	default:
+		i_ColorRed = 0;
+		break;
+	}
+
+#endif
+
 	// Start up the eye glow
 	m_pMainGlow = CSprite::SpriteCreate( "sprites/redglow2.vmt", GetLocalOrigin(), false );
 
@@ -2443,7 +2531,13 @@ void CGrenadeHopwire::CreateEffects( void )
 	{
 		m_pMainGlow->FollowEntity( this );
 		m_pMainGlow->SetAttachment( this, nAttachment );
+
+#ifndef EZ2
 		m_pMainGlow->SetTransparency( kRenderGlow, 0, 255, 255, 255, kRenderFxNoDissipation );
+#else
+		m_pMainGlow->SetTransparency( kRenderGlow, i_ColorRed, i_ColorGreen, i_ColorBlue, i_ColorAlpha, kRenderFxNoDissipation );
+#endif
+
 		m_pMainGlow->SetBrightness( 192 );
 		m_pMainGlow->SetScale( 0.5f );
 		m_pMainGlow->SetGlowProxySize( 4.0f );
@@ -2622,10 +2716,19 @@ void CGrenadeHopwire::Detonate( void )
 		GetThrower()->DispatchInteraction( g_interactionXenGrenadeHop, this, GetThrower() );
 	}
 
-	EmitSound("WeaponXenGrenade.Explode");
-	SetModel( szWorldModelOpen );
+	switch (GetHopwireStyle())
+	{
+		case HOPWIRE_STASIS:
+			SetModel(szWorldModelOpen);
 
-	EmitSound( "WeaponXenGrenade.Hop" );
+			EmitSound("WeaponStasisGrenade.Hop");
+			break;
+		default:
+			EmitSound("WeaponXenGrenade.Explode");
+			SetModel(szWorldModelOpen);
+
+			EmitSound("WeaponXenGrenade.Hop");
+	}
 
 	//Find out how tall the ceiling is and always try to hop halfway
 	trace_t	tr;
@@ -2835,6 +2938,11 @@ CStasisVortexController *CStasisVortexController::Create( const Vector &origin, 
 	// Start the vortex working
 	pVortex->StartPull( origin, radius, strength, duration );
 
+	trace_t	tr;
+	AI_TraceLine(origin + Vector(0, 0, 1), origin - Vector(0, 0, 128), MASK_SOLID_BRUSHONLY, pVortex, COLLISION_GROUP_NONE, &tr);
+
+	UTIL_DecalTrace(&tr, "StasisGrenade.Splash");
+
 	return pVortex;
 }
 
@@ -2904,42 +3012,36 @@ void CStasisVortexController::PullThink( void )
 		// Reset ragdoll
 		pRagdoll = NULL;
 
-		// Freeze NPCs by stopping their think function
-		if (pEnts[i]->MyCombatCharacterPointer())
+		// Freeze NPCs
+		if (pEnts[i]->MyNPCPointer())
 		{
-			// If this NPC has already been frozen, don't refreeze
-			if (pEnts[i]->GetNextThink() == TICK_NEVER_THINK)
+			// If this NPC is in the freeze schedule, set it's think to the end of the vortex
+			if (pEnts[i]->MyNPCPointer()->IsCurSchedule(SCHED_NPC_FREEZE, false))
 			{
+				pEnts[i]->SetNextThink(MAX(pEnts[i]->GetNextThink(), m_flEndTime - TICK_INTERVAL));
+				pEnts[i]->SetAbsVelocity(vec3_origin);
 				continue;
 			}
 
-			if (pEnts[i]->MyNPCPointer())
-			{			
-				pEnts[i]->MyNPCPointer()->SetCondition( COND_NPC_FREEZE );
-				pEnts[i]->MyNPCPointer()->TaskInterrupt();
-			}
+			pEnts[i]->MyNPCPointer()->SetCondition(COND_NPC_FREEZE);
+			pEnts[i]->MyNPCPointer()->TaskInterrupt();
 
-			pEnts[i]->SetContextThink( &CStasisVortexController::UnfreezeNPCThink, m_flEndTime, "StasisGrenadeUnfreeze" );
-
-			// Don't cancel the think function until the NPC picks up SCHED_NPC_FREEZE
-			if (pEnts[i]->MyNPCPointer() && !(pEnts[i]->MyNPCPointer()->IsCurSchedule(SCHED_NPC_FREEZE, false)))
-				continue;
-
-			pEnts[i]->SetNextThink( TICK_NEVER_THINK );
-			DevMsg( "NPC '%s' caught in stasis field! Thinking stopped\n", pEnts[i]->GetDebugName() );
+			// Add tick interval to the unfreeze time to make sure that the unfreeze is after the end time
+			pEnts[i]->SetContextThink(&CStasisVortexController::UnfreezeNPCThink, m_flEndTime + TICK_INTERVAL, "StasisGrenadeUnfreeze");
 
 			continue;
 		}
 
 		if (FClassnameIs( pEnts[i], "prop_ragdoll" ))
 		{
-			pRagdoll = dynamic_cast< CRagdollProp* >(this);
+			pRagdoll = dynamic_cast< CRagdollProp* >(pEnts[i]);
 		}
 
-		if (pRagdoll)
+		if (pRagdoll && pRagdoll->IsMotionEnabled())
 		{
 			pRagdoll->DisableMotion();
-			pRagdoll->SetContextThink( &CStasisVortexController::UnfreezePhysicsObjectThink, m_flEndTime, "StasisGrenadeUnfreeze" );
+			// Add tick interval to the unfreeze time to make sure that the unfreeze is after the end time
+			pEnts[i]->SetContextThink( &CStasisVortexController::UnfreezePhysicsObjectThink, m_flEndTime + TICK_INTERVAL, "StasisGrenadeUnfreeze" );
 			continue;
 		}
 
@@ -2959,7 +3061,8 @@ void CStasisVortexController::PullThink( void )
 
 		pPhysObject->EnableMotion(false);
 		pPhysObject->EnableGravity( false );
-		pEnts[i]->SetContextThink( &CStasisVortexController::UnfreezePhysicsObjectThink, m_flEndTime, "StasisGrenadeUnfreeze" );
+		// Add tick interval to the unfreeze time to make sure that the unfreeze is after the end time
+		pEnts[i]->SetContextThink( &CStasisVortexController::UnfreezePhysicsObjectThink, m_flEndTime + TICK_INTERVAL, "StasisGrenadeUnfreeze" );
 	}
 
 	// Keep going if need-be
@@ -3003,11 +3106,14 @@ void CStasisVortexController::UnfreezeNPCThink( void )
 	if (MyNPCPointer() == NULL)
 		return;
 
-	MyNPCPointer()->TaskInterrupt();
+	// Dispatch interaction. Skip unfreezing if it returns true
+	if (MyNPCPointer()->DispatchInteraction(g_interactionStasisGrenadeUnfreeze, NULL, GetThrower()))
+	{
+		return;
+	}
+
 	MyNPCPointer()->ClearCondition( COND_NPC_FREEZE );
 	MyNPCPointer()->SetCondition( COND_NPC_UNFREEZE );
-	MyNPCPointer()->Think();
-	SetNextThink( gpGlobals->curtime );
 }
 
 //-----------------------------------------------------------------------------
@@ -3019,14 +3125,17 @@ void CStasisVortexController::UnfreezePhysicsObjectThink( void )
 
 	SetContextThink( NULL, TICK_NEVER_THINK, "StasisGrenadeUnfreeze" );
 
-	if (FClassnameIs( this, "prop_ragdoll" ))
+	if (FClassnameIs( GetBaseEntity(), "prop_ragdoll"))
 	{
-		pRagdoll = dynamic_cast< CRagdollProp* >(this);
+		pRagdoll = dynamic_cast< CRagdollProp* >(GetBaseEntity());
 	}
 
 	if (pRagdoll)
 	{
-		pRagdoll->InputEnableMotion( inputdata_t() );
+		inputdata_t ragdollData;
+		ragdollData.value.SetFloat(0.1f);
+		pRagdoll->InputEnableMotion(ragdollData);
+		pRagdoll->InputStartRadgollBoogie(ragdollData);
 		return;
 	}
 
@@ -3052,7 +3161,7 @@ void CStasisVortexController::StartPull( const Vector &origin, float radius, flo
 	m_flStrength= strength;
 
 	// Play a danger sound throughout the duration of the vortex so that NPCs run away
-	CSoundEnt::InsertSound ( SOUND_DANGER, GetAbsOrigin(), radius, duration, this );
+	CSoundEnt::InsertSound ( SOUND_DANGER, GetAbsOrigin(), radius * 1.25f, duration * 1.25f, this );
 
 	SetDefLessFunc( m_SpawnList );
 	m_SpawnList.EnsureCapacity( 16 );
@@ -3063,6 +3172,8 @@ void CStasisVortexController::StartPull( const Vector &origin, float radius, flo
 	SetNextThink( gpGlobals->curtime + 0.1f );
 }
 
+#define STASIS_MOVEMENT_SPEED 0.101123f // HACKHACK - the speed value is something no one would use in a speedmod
+
 //-----------------------------------------------------------------------------
 // Purpose: Causes players within the radius to be frozen
 //-----------------------------------------------------------------------------
@@ -3070,6 +3181,18 @@ void CStasisVortexController::FreezePlayersInRange( void )
 {
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 	if (!pPlayer || !pPlayer->VPhysicsGetObject())
+		return;
+
+	// If we are currently freezing the player, reset for this function
+	if (m_bFreezingPlayer && pPlayer->GetLaggedMovementValue() == STASIS_MOVEMENT_SPEED)
+	{
+		pPlayer->SetLaggedMovementValue(1.0f);
+	}
+
+	m_bFreezingPlayer = false;
+
+	// Don't try to freeze the player if the vortex is collapsing
+	if (m_flEndTime <= gpGlobals->curtime)
 		return;
 
 	Vector	vecForce = GetAbsOrigin() - pPlayer->WorldSpaceCenter();
@@ -3096,33 +3219,17 @@ void CStasisVortexController::FreezePlayersInRange( void )
 		return;
 
 	// Don't pull unless convar set
-	if (!hopwire_pull_player.GetBool())
+	if (!stasis_freeze_player.GetBool())
 		return;
 
 	// Don't pull noclipping players
 	if (pPlayer->GetMoveType() == MOVETYPE_NOCLIP)
 		return;
 
-	float mass = pPlayer->VPhysicsGetObject()->GetMass();
-	float playerForce = m_flStrength * 0.05f;
-
-	if (m_flPullFadeTime > 0.0f)
+	if (pPlayer->GetLaggedMovementValue() == 1.0f)
 	{
-		playerForce *= ((gpGlobals->curtime - m_flStartTime) / m_flPullFadeTime);
-	}
-
-	// Find the pull force
-	// NOTE: We might want to make this non-linear to give more of a "grace distance"
-	vecForce *= (1.0f - (dist / m_flRadius)) * playerForce * mass;
-	vecForce[2] *= 0.025f;
-
-	pPlayer->SetBaseVelocity( vecForce );
-	pPlayer->AddFlag( FL_BASEVELOCITY );
-
-	// Make sure the player moves
-	if (vecForce.z > 0 && (pPlayer->GetFlags() & FL_ONGROUND))
-	{
-		pPlayer->SetGroundEntity( NULL );
+		m_bFreezingPlayer = true;
+		pPlayer->SetLaggedMovementValue(STASIS_MOVEMENT_SPEED);
 	}
 }
 
@@ -3159,11 +3266,14 @@ void CGrenadeStasis::CombatThink( void )
 	SetAbsVelocity( vec3_origin );
 	SetMoveType( MOVETYPE_NONE );
 
-	m_hVortexController = CStasisVortexController::Create( GetAbsOrigin(), hopwire_radius.GetFloat(), hopwire_strength.GetFloat(), hopwire_duration.GetFloat(), this );
+	// Stasis grenades play explosion sound when the vortex is created
+	EmitSound("WeaponStasisGrenade.Explode");
+
+	m_hVortexController = CStasisVortexController::Create( GetAbsOrigin(), stasis_radius.GetFloat(), stasis_strength.GetFloat(), stasis_duration.GetFloat(), this );
 
 	// Start our client-side effect
 	EntityMessageBegin( this, true );
-	WRITE_BYTE( 0 );
+	WRITE_BYTE( 3 );
 	MessageEnd();
 
 	// Begin to stop in two seconds

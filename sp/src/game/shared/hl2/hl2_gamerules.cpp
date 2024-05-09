@@ -693,6 +693,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_ANTLION,			CLASS_RACE_X,		D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_ANTLION,			CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_ANTLION,			CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship(CLASS_ANTLION,			CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -736,6 +737,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BARNACLE, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BARNACLE, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BARNACLE, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BARNACLE, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -776,6 +778,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BULLSEYE, CLASS_RACE_X, D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BULLSEYE, CLASS_COMBINE_NEMESIS, D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BULLSEYE, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_BULLSEYE, CLASS_COMBINE_HUSK, D_NU, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -821,6 +824,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_BULLSQUID,			CLASS_PLAYER_ALLY,		D_HT, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_BULLSQUID,			CLASS_PLAYER_ALLY_VITAL,D_HT, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_BULLSQUID,			CLASS_HACKED_ROLLERMINE,D_HT, 0);
+		CBaseCombatCharacter::SetDefaultRelationship(CLASS_BULLSQUID,			CLASS_COMBINE_HUSK,		D_HT, 0);
 
 		// ------------------------------------------------------------
 		//	> CLASS_CITIZEN_PASSIVE
@@ -868,6 +872,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_PASSIVE, CLASS_ALIEN_FLORA, D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_PASSIVE, CLASS_COMBINE_NEMESIS, D_FR, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_PASSIVE, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_PASSIVE, CLASS_COMBINE_HUSK, D_FR, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -912,6 +917,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_REBEL, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_REBEL, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_REBEL, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CITIZEN_REBEL, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -956,6 +962,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1000,6 +1007,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_GUNSHIP, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_GUNSHIP, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_GUNSHIP, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_GUNSHIP, CLASS_COMBINE_HUSK, D_FR, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1048,6 +1056,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUNTER, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUNTER, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUNTER, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUNTER, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1092,6 +1101,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CONSCRIPT, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CONSCRIPT, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CONSCRIPT, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_CONSCRIPT, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1133,6 +1143,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_FLARE, CLASS_RACE_X, D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_FLARE, CLASS_COMBINE_NEMESIS, D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_FLARE, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_FLARE, CLASS_COMBINE_HUSK, D_NU, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1173,6 +1184,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HEADCRAB, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HEADCRAB, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HEADCRAB, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HEADCRAB, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1213,6 +1225,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HOUNDEYE, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HOUNDEYE, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HOUNDEYE, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HOUNDEYE, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1266,6 +1279,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MANHACK, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MANHACK, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MANHACK, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MANHACK, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1310,6 +1324,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_METROPOLICE, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_METROPOLICE, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_METROPOLICE, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_METROPOLICE, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1354,6 +1369,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MILITARY, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MILITARY, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MILITARY, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MILITARY, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1394,6 +1410,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MISSILE, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MISSILE, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MISSILE, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_MISSILE, CLASS_COMBINE_HUSK, D_NU, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1433,6 +1450,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_NONE, CLASS_RACE_X, D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_NONE, CLASS_COMBINE_NEMESIS, D_NU, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_NONE, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_NONE, CLASS_COMBINE_HUSK, D_NU, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1481,6 +1499,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_PLAYER,			CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_PLAYER,			CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_PLAYER,			CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship(CLASS_PLAYER,			CLASS_COMBINE_HUSK, D_HT, 0 );
 #else
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_PLAYER,			CLASS_NONE,				D_NU, 0);			
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_PLAYER,			CLASS_PLAYER,			D_NU, 0);			
@@ -1556,6 +1575,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1602,6 +1622,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY_VITAL, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY_VITAL, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY_VITAL, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PLAYER_ALLY_VITAL, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1646,6 +1667,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_SCANNER, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_SCANNER, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_SCANNER, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_SCANNER, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1690,6 +1712,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_STALKER, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_STALKER, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_STALKER, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_STALKER, CLASS_COMBINE_HUSK, D_NU, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1734,6 +1757,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_VORTIGAUNT, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_VORTIGAUNT, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_VORTIGAUNT, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_VORTIGAUNT, CLASS_COMBINE_HUSK, D_FR, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1774,6 +1798,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ZOMBIE, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ZOMBIE, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ZOMBIE, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ZOMBIE, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1818,6 +1843,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PROTOSNIPER, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PROTOSNIPER, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PROTOSNIPER, CLASS_ARBEIT_TECH, D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_PROTOSNIPER, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1861,6 +1887,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_EARTH_FAUNA, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_EARTH_FAUNA, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_EARTH_FAUNA, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_EARTH_FAUNA, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 		// ------------------------------------------------------------
@@ -1909,6 +1936,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HACKED_ROLLERMINE, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HACKED_ROLLERMINE, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HACKED_ROLLERMINE, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_HACKED_ROLLERMINE, CLASS_COMBINE_HUSK, D_HT, 0 );
 #endif
 
 
@@ -1950,6 +1978,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_PREDATOR, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_PREDATOR, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_PREDATOR, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_PREDATOR, CLASS_COMBINE_HUSK, D_HT, 0 );
 
 		// ------------------------------------------------------------
 		//	> CLASS_ALIEN_FAUNA
@@ -1991,6 +2020,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FAUNA, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FAUNA, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FAUNA, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FAUNA, CLASS_COMBINE_HUSK, D_HT, 0 );
 
 		// ------------------------------------------------------------
 		//	> CLASS_ALIEN_FLORA
@@ -2032,6 +2062,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FLORA, CLASS_RACE_X, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FLORA, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FLORA, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ALIEN_FLORA, CLASS_COMBINE_HUSK, D_HT, 0 );
 
 		// ------------------------------------------------------------
 		//	> CLASS_RACE_X
@@ -2070,6 +2101,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_RACE_X, CLASS_RACE_X, D_LI, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_RACE_X, CLASS_COMBINE_NEMESIS, D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_RACE_X, CLASS_ARBEIT_TECH, D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_RACE_X, CLASS_COMBINE_HUSK, D_HT, 0 );
 
 		// ------------------------------------------------------------
 		//	> CLASS_COMBINE_NEMESIS
@@ -2108,6 +2140,7 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_RACE_X,			D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_COMBINE_NEMESIS,	D_LI, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_ARBEIT_TECH,		D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_NEMESIS,		CLASS_COMBINE_HUSK,		D_FR, 0 );
 
 		// ------------------------------------------------------------
 		//	> CLASS_ARBEIT_TECH
@@ -2146,6 +2179,46 @@ ConVar  alyx_darkness_force( "alyx_darkness_force", "0", FCVAR_CHEAT | FCVAR_REP
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ARBEIT_TECH,			CLASS_RACE_X,			D_HT, 0 );
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ARBEIT_TECH,			CLASS_COMBINE_NEMESIS,	D_LI, 0 ); // Arbeit turrets are neutral to nemesis
 		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ARBEIT_TECH,			CLASS_ARBEIT_TECH,		D_LI, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_ARBEIT_TECH,			CLASS_COMBINE_HUSK,		D_LI, 0 );
+
+		// ------------------------------------------------------------
+		//	> CLASS_COMBINE_HUSK
+		// ------------------------------------------------------------
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_NONE,				D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_PLAYER,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_ANTLION,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_BARNACLE,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_BULLSEYE,			D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_BULLSQUID,		D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_CITIZEN_PASSIVE,	D_HT, 0 );	
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_CITIZEN_REBEL,	D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_COMBINE,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_COMBINE_GUNSHIP,	D_FR, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_COMBINE_HUNTER,	D_FR, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_CONSCRIPT,		D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_FLARE,			D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_HEADCRAB,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_HOUNDEYE,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_MANHACK,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_METROPOLICE,		D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_MILITARY,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_MISSILE,			D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_SCANNER,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_STALKER,			D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_VORTIGAUNT,		D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_ZOMBIE,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_PROTOSNIPER,		D_FR, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_EARTH_FAUNA,		D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_PLAYER_ALLY,		D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_PLAYER_ALLY_VITAL,D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_HACKED_ROLLERMINE,D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_ALIEN_PREDATOR,	D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_ALIEN_FAUNA,		D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_ALIEN_FLORA,		D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_RACE_X,			D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_COMBINE_NEMESIS,	D_HT, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_ARBEIT_TECH,		D_NU, 0 );
+		CBaseCombatCharacter::SetDefaultRelationship( CLASS_COMBINE_HUSK,			CLASS_COMBINE_HUSK,		D_NU, 0 );
 #endif
 
 	}
@@ -2899,7 +2972,7 @@ CAmmoDef *GetAmmoDef()
 		def.AddAmmoType("CombineCannon",	DMG_BULLET,					TRACER_LINE,			"sk_npc_dmg_gunship_to_plr", "sk_npc_dmg_gunship", NULL, 1.5 * 750 * 12, 0 ); // hit like a 1.5kg weight at 750 ft/s
 		def.AddAmmoType("AirboatGun",		DMG_AIRBOAT,				TRACER_LINE,			"sk_plr_dmg_airboat",		"sk_npc_dmg_airboat",		NULL,					BULLET_IMPULSE(10, 600), 0 );
 			
-#ifdef EZ1
+#ifdef EZ
 		// Entropy Zero
 		def.AddAmmoType("Manhack", DMG_BURN, TRACER_NONE, 0, 0, 2, 0, 0);
 #endif
@@ -2983,6 +3056,11 @@ CAmmoDef *GetAmmoDef()
 		def.AddAmmoType("357SIG",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_357sig",	"sk_npc_dmg_357sig",	"sk_max_357sig",	BULLET_IMPULSE(200, 1225), 0 );
 		def.AddAmmoType("556mm",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_556mm",		"sk_npc_dmg_556mm",		"sk_max_556mm",		BULLET_IMPULSE(200, 1225), 0 );
 		def.AddAmmoType("762mm",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_762mm",		"sk_npc_dmg_762mm",		"sk_max_762mm",		BULLET_IMPULSE(200, 1225), 0 );
+#endif
+
+		// Uprising
+#ifdef EZ
+		def.AddAmmoType("item_healthvial", DMG_GENERIC, TRACER_NONE, "sk_healthvial", "sk_healthvial", "sk_healthvial_max", 0, 0);
 #endif
 
 	}

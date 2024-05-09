@@ -143,6 +143,8 @@ public:
 
 	float MaxYawSpeed ( void );
 
+	Vector	Weapon_ShootPosition( void );
+
 	virtual void BuildScheduleTestBits();
 	virtual bool OnObstructionPreSteer( AILocalMoveGoal_t *pMoveGoal, float distClear, AIMoveResult_t *pResult );
 
@@ -150,10 +152,14 @@ public:
 	virtual int MeleeAttack1Conditions( float flDot, float flDist );
 	virtual int MeleeAttack2Conditions( float flDot, float flDist );
 
+	virtual bool CanStartDynamicInteractionDuringMelee() { return true; }
+
 	virtual float GetMaxSpitWaitTime( void ) { return 0.0f; };
 	virtual float GetMinSpitWaitTime( void ) { return 0.0f; };
 	virtual float GetBiteDamage( void ) { return 0.0f; };
 	virtual float GetWhipDamage( void ) { return 0.0f; };
+	virtual float GetMeleeZRange( CBaseEntity *pEnemy ) { return GetHullHeight(); };
+	virtual float GetMeleeZRangeBelow( CBaseEntity *pEnemy ) { return pEnemy->IsNPC() ? pEnemy->MyNPCPointer()->GetHullHeight() * 0.75f : (pEnemy->EyePosition().z - pEnemy->GetAbsOrigin().z); };
 	virtual float GetSprintDistance( void ) { return 256.0f; };
 	virtual float GetEatInCombatPercentHealth( void ) { return 1.0f; };
 
@@ -172,6 +178,8 @@ public:
 	virtual void OnFed();
 	virtual CBaseEntity *	BiteAttack( float flDist, const Vector &mins, const Vector &maxs ) { return NULL; }
 	virtual void			EatAttack();
+	bool		GetNearestInteractionDir( CAI_BaseNPC *pHurt, Vector &vecDir );
+	bool		GetMyNearestInteractionTranslation( const CAI_BaseNPC *pHurt, Vector &vecTranslation ) const;
 
 	virtual bool IsPrey( CBaseEntity* pTarget ) { return false; } // Override this method to choose an NPC to get excited about - like bullsquids with headcrabs
 	virtual bool IsSameSpecies( CBaseEntity* pTarget ) { return Classify() == pTarget->Classify(); } // Is this NPC the same species as me?
@@ -182,6 +190,7 @@ public:
 	virtual bool ShouldAttackObstruction( CBaseEntity *pEntity );
 	virtual bool ShouldImmediatelyAttackObstructions(); // If true, NPCs will immediately attack obstructions instead of waiting for the pathfinder to find a way around
 	virtual bool ShouldMeleeDamageAnyNPC() { return IsCurSchedule( SCHED_PREDATOR_ATTACK_TARGET, false ); }
+	virtual bool ShouldApplyHitVelocityToTarget( CBaseEntity *pHurt ) const;
 
 	virtual bool IsBaby() { return m_bIsBaby; };
 	virtual void SetIsBaby( bool bIsBaby ) { m_bIsBaby = bIsBaby; };
@@ -202,6 +211,7 @@ public:
 	virtual int SelectFailSchedule( int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode );
 	virtual int SelectBossSchedule( void );
 	virtual int TranslateSchedule( int scheduleType );
+	virtual void OnScheduleChange();
 
 	virtual void	GatherConditions( void );
 
@@ -221,6 +231,8 @@ public:
 #ifdef EZ2
 	virtual bool	HandleInteraction( int interactionType, void *data, CBaseCombatCharacter* sourceEnt );
 #endif
+
+	virtual void	HandleAnimEvent( animevent_t *pEvent );
 
 	DEFINE_CUSTOM_AI;
 
@@ -247,6 +259,8 @@ protected:
 
 	virtual void PredMsg( const tchar * pMsg ); // Print a message to the developer console
 	float m_flNextPredMsgTime; // Don't print messages constantly
+
+	bool m_bFiredEatEvent; // Whether or not this predator fired the eat animation event
 
 public:
 	void			InputSpawnNPC( inputdata_t &inputdata );
@@ -276,6 +290,8 @@ protected:
 
 private:
 	float m_nextSoundTime;
+
+	int m_nAttachForward;
 };
 
 #endif // NPC_BASEPREDATOR_H

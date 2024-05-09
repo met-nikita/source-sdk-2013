@@ -69,7 +69,7 @@ public:
 	CNPC_Manhack();
 	~CNPC_Manhack();
 
-	Class_T	CNPC_Manhack::Classify(void);
+	Class_T			Classify(void);
 
 	bool			CorpseGib( const CTakeDamageInfo &info );
 	void			Event_Dying(void);
@@ -205,6 +205,14 @@ public:
 
 #ifdef EZ2
 	void		TurnIntoNemesis() { m_bNemesis = true; }
+
+	void		InputSetNemesisManhack( inputdata_t &inputdata )
+	{
+		// Turn the sprites off and on again so their colors will change.
+		KillSprites(0.0f);
+		m_bNemesis = inputdata.value.Bool();
+		StartEye();
+	}
 #endif
 
 	DEFINE_CUSTOM_AI;

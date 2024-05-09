@@ -34,8 +34,12 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+#ifdef EZ2
+// This is here for easy access to gameinfo.txt
+ConVar ez2_version( "ez2_version", "", FCVAR_REPLICATED );
+#endif
+
 #define GENERIC_MANIFEST_FILE "scripts/mapbase_default_manifest.txt"
-#define GENERIC_MANIFEST_FILE_ADDON "scripts/mapbase_default_manifest_addon.txt"
 
 #ifdef CLIENT_DLL
 #define AUTOLOADED_MANIFEST_FILE VarArgs("maps/%s_manifest.txt", g_MapName)
@@ -52,8 +56,6 @@ ConVar mapbase_load_default_manifest("mapbase_load_default_manifest", "1", FCVAR
 #ifdef GAME_DLL
 // This constant should change with each Mapbase update
 ConVar mapbase_version( "mapbase_version", MAPBASE_VERSION, FCVAR_NONE, "The version of Mapbase currently being used in this mod's server.dll" );
-
-ConVar mapbase_load_addon_manifest( "mapbase_load_addon_manifest", "0", FCVAR_NONE, "Allows manifests from \"addon\" path IDs to be loaded." );
 
 ConVar mapbase_flush_talker("mapbase_flush_talker", "1", FCVAR_NONE, "Normally, when a map with custom talker files is unloaded, the response system resets to rid itself of the custom file(s). Turn this convar off to prevent that from happening.");
 
@@ -75,12 +77,10 @@ extern bool LoadCustomXenRecipeFile(const char *scriptfile);
 // This constant should change with each Mapbase update
 ConVar mapbase_version_client( "mapbase_version_client", MAPBASE_VERSION, FCVAR_NONE, "The version of Mapbase currently being used in this mod's client.dll" );
 
-ConVar mapbase_load_addon_manifest( "mapbase_load_addon_manifest_client", "0", FCVAR_NONE, "Allows manifests from \"addon\" path IDs to be loaded on the client." );
-
 // This is from the vgui_controls library
 extern vgui::HScheme g_iCustomClientSchemeOverride;
 
-bool g_bUsingCustomHudAnimations = false;
+extern bool g_bUsingCustomHudAnimations;
 bool g_bUsingCustomHudLayout = false;
 #endif
 
@@ -204,6 +204,10 @@ public:
 					CommandLine()->AppendParm( pKey->GetName(), pKey->GetString() );
 				}
 			}
+
+#ifdef EZ2
+			ez2_version.SetValue( gameinfo->GetString( "ez2_version" ) );
+#endif
 		}
 		gameinfo->deleteThis();
 
@@ -257,6 +261,22 @@ public:
 			g_iDefaultHandsSkin = gameinfo->GetInt( "player_default_hands_skin", 0 );
 			g_iDefaultHandsBody = gameinfo->GetInt( "player_default_hands_body", 0 );
 #endif
+
+#ifdef EZ2
+			if (ez2_version.GetString()[0] == '\0')
+			{
+				// There wasn't a version number in gameinfo, fall back to the old localized stamp
+				static const char *pszToken = "#EZ2_Version_Stamp";
+				const char *pszVersion = g_pVGuiLocalize->FindAsUTF8( pszToken );
+				if (pszVersion != pszToken)
+				{
+					ez2_version.SetValue( pszVersion );
+#ifdef GAME_DLL
+					Msg( "ez2_version falling back to #EZ2_Version_Stamp (%s)\n", ez2_version.GetString() );
+#endif
+				}
+			}
+#endif
 		}
 		gameinfo->deleteThis();
 
@@ -285,37 +305,6 @@ public:
 		{
 			// Load the generic script instead.
 			ParseGenericManifest();
-		}
-
-		// Load addon manifests if we should
-		if (mapbase_load_addon_manifest.GetBool())
-		{
-			char searchPaths[4096];
-			filesystem->GetSearchPath( "ADDON", true, searchPaths, sizeof( searchPaths ) );
-
-			for ( char *path = strtok( searchPaths, ";" ); path; path = strtok( NULL, ";" ) )
-			{
-				char pathName[MAX_PATH];
-				V_StripTrailingSlash( path );
-				V_FileBase( path, pathName, sizeof( pathName ) );
-
-				KeyValues *pKV = new KeyValues( "DefaultAddonManifest" );
-
-				char manifestName[MAX_PATH];
-				V_snprintf( manifestName, sizeof( manifestName ), "%s_mapbase_manifest.txt", pathName );
-				if (filesystem->FileExists( manifestName, "ADDON" ))
-				{
-					if (pKV->LoadFromFile( filesystem, manifestName ))
-						AddManifestFile( pKV, pathName, false );
-				}
-				else
-				{
-					if (pKV->LoadFromFile( filesystem, GENERIC_MANIFEST_FILE_ADDON ))
-						AddManifestFile( pKV, pathName, true );
-				}
-
-				pKV->deleteThis();
-			}
 		}
 
 #ifdef GAME_DLL

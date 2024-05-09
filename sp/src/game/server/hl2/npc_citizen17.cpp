@@ -32,7 +32,7 @@
 #endif
 
 #ifdef EZ
-#include "ieffects.h"
+#include "IEffects.h"
 #include "particle_parse.h"
 #include "RagdollBoogie.h"
 #endif
@@ -170,7 +170,7 @@ enum SquadSlot_T
 #ifdef EZ
 	SQUAD_SLOT_CITIZEN_INVESTIGATE,
 	SQUAD_SLOT_CITIZEN_ADVANCE
-#endif EZ
+#endif
 };
 
 const float HEAL_MOVE_RANGE = 30*12;
@@ -517,7 +517,6 @@ ScriptHook_t	CNPC_Citizen::g_Hook_SelectModel;
 
 BEGIN_ENT_SCRIPTDESC( CNPC_Citizen, CAI_BaseActor, "npc_citizen from Half-Life 2" )
 
-	DEFINE_SCRIPTFUNC( IsMedic, "Returns true if this citizen is a medic." )
 	DEFINE_SCRIPTFUNC( IsAmmoResupplier, "Returns true if this citizen is an ammo resupplier." )
 	DEFINE_SCRIPTFUNC( CanHeal, "Returns true if this citizen is a medic or ammo resupplier currently able to heal/give ammo." )
 
@@ -2505,7 +2504,7 @@ int CNPC_Citizen::TranslateWillpowerSchedule(int scheduleType)
 		CBaseEntity * pEnemy = GetEnemy();
 
 		if (pEnemy && ai_debug_willpower.GetBool())
-			DevMsg(UTIL_VarArgs("%s reloading. Distance to enemy: %f\n", GetDebugName(), (pEnemy->GetAbsOrigin() - GetAbsOrigin()).Length()));
+			DevMsg("%s reloading. Distance to enemy: %f\n", GetDebugName(), (pEnemy->GetAbsOrigin() - GetAbsOrigin()).Length());
 
 		// Interrupt reload with melee if possible
 		if (HasCondition(COND_CAN_MELEE_ATTACK1)) {
@@ -2518,7 +2517,7 @@ int CNPC_Citizen::TranslateWillpowerSchedule(int scheduleType)
 			)
 		{
 			if (ai_debug_willpower.GetBool())
-				DevMsg(UTIL_VarArgs("%s out of ammo! Charging to enemy at distance: %f\n", GetDebugName(), (pEnemy->GetAbsOrigin() - GetAbsOrigin()).Length()));
+				DevMsg("%s out of ammo! Charging to enemy at distance: %f\n", GetDebugName(), (pEnemy->GetAbsOrigin() - GetAbsOrigin()).Length());
 			return SCHED_CHASE_ENEMY;
 		}
 
@@ -2779,7 +2778,7 @@ bool CNPC_Citizen::FindEnemyCoverTarget(void)
 	if (traceLength > ai_min_suppression_distance.GetFloat() && tr.fraction >= ai_suppression_distance_ratio.GetFloat())
 	{
 		if (ai_debug_rebel_suppressing_fire.GetBool())
-			DevMsg(UTIL_VarArgs("NPC_Citizen::FindEnemyCoverTarget: %s found enemy cover target at range: %f\n", GetDebugName(), traceLength));
+			DevMsg("NPC_Citizen::FindEnemyCoverTarget: %s found enemy cover target at range: %f\n", GetDebugName(), traceLength);
 		m_vecDecoyObjectTarget = targetpos;
 		m_vecDecoyObjectTarget.x += RandomInt( -16, 16 );
 		m_vecDecoyObjectTarget.y += RandomInt( -16, 16 );
@@ -2787,7 +2786,7 @@ bool CNPC_Citizen::FindEnemyCoverTarget(void)
 		return true;
 	}
 	else if (ai_debug_rebel_suppressing_fire.GetBool()) {
-		DevMsg(UTIL_VarArgs("NPC_Citizen::FindEnemyCoverTarget: %s failed to use suppressing fire at range: %f\n", GetDebugName(), traceLength));
+		DevMsg("NPC_Citizen::FindEnemyCoverTarget: %s failed to use suppressing fire at range: %f\n", GetDebugName(), traceLength);
 	}
 
 	return false;
