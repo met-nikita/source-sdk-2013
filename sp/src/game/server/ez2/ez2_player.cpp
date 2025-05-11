@@ -2749,9 +2749,6 @@ void CAI_PlayerNPCDummy::Spawn( void )
 
 int CAI_PlayerNPCDummy::Save(ISave &save)
 {
-	//non-host players need some different way of saving
-	if (!GetOuter() || GetOuter()->entindex() != 1)
-		return 0;
 	if (!BaseClass::Save(save))
 		return 0;
 

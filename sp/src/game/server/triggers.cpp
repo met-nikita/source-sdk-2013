@@ -1775,10 +1775,6 @@ void CChangeLevel::WarnAboutActiveLead( void )
 	}
 }
 
-#if ENGINE_DLL_HACK == 1
-ConVar sv_coop_smooth_transitions("sv_coop_smooth_transitions", "1", FCVAR_REPLICATED, "Enables smooth single-player like level transitions");
-#endif
-
 void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 {
 	CBaseEntity	*pLandmark;
@@ -1859,26 +1855,7 @@ void CChangeLevel::ChangeLevelNow( CBaseEntity *pActivator )
 	// If we're debugging, don't actually change level
 	if ( g_debug_transitions.GetInt() == 0 )
 	{
-#if defined( _WIN32 ) && ENGINE_DLL_HACK == 1
-		if (sv_coop_smooth_transitions.GetInt() == 1)
-		{
-			//delete all player entities except listen server player to avoid issues
-			for (int i = 2; i <= gpGlobals->maxClients; i++)
-			{
-				CBasePlayer *pPlayer = UTIL_PlayerByIndex(i);
-				if (!pPlayer)
-					continue;
-				UTIL_RemoveImmediate(pPlayer);
-			}
-			engine->ChangeLevel(st_szNextMap, st_szNextSpot);
-		}
-		else
-		{
-			engine->ChangeLevel(st_szNextMap, NULL);
-		}
-#else
 		engine->ChangeLevel(st_szNextMap, NULL);
-#endif
 	}
 	else
 	{
@@ -1933,16 +1910,7 @@ void CChangeLevel::TouchChangeLevel( CBaseEntity *pOther )
 		if (!allPlayersIn)
 			return;
 	}
-#if ENGINE_DLL_HACK == 1
-	else
-	{
-		if (sv_coop_smooth_transitions.GetInt() == 1)
-		{
-			if (pPlayer->entindex() != 1) //host player MUST be the one inside changelevel trigger
-				return;
-		}
-	}
-#endif
+
 	if( pPlayer->IsSinglePlayerGameEnding() )
 	{
 		// Some semblance of deceleration, but allow player to fall normally.
