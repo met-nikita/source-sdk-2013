@@ -956,7 +956,9 @@ bool CNPC_Combine::ShouldLookForBetterWeapon()
 				// I'm happy with my current weapon. Don't search now.
 				// If you ask the code to defer, you must have set m_flNextWeaponSearchTime to when
 				// you next want to try to search.
-				//Assert( m_flNextWeaponSearchTime != flOldWeaponSearchTime );
+#ifdef DBGFLAG_ASSERT
+				Assert( m_flNextWeaponSearchTime != flOldWeaponSearchTime );
+#endif
 				return false;
 			}
 		}

@@ -1435,25 +1435,31 @@ void CWeaponPulsePistol::StartChargeEffects()
 			m_hChargeSprite->SetOwnerEntity(pOwner);
 			m_hChargeSprite->SetPlayerSimulated(pOwner);
 #ifndef CLIENT_DLL
-		m_hChargeSprite->SetAsTemporary();
+			m_hChargeSprite->SetAsTemporary();
 #endif
 			m_hChargeSprite->SetAttachment(pOwner->GetViewModel(), 1);
 			m_hChargeSprite->SetTransparency(kRenderTransAdd, 255, 255, 255, 255, kRenderFxNone);
 			m_hChargeSprite->SetBrightness(0, 0.1f);
 			m_hChargeSprite->SetScale(0.05f, 0.05f);
-		m_hChargeSprite->TurnOn();
+			m_hChargeSprite->TurnOn();
 
-		if (IsDualWielding())
-		{
-			m_hChargeSprite2 = CSprite::SpriteCreate( "effects/fluttercore.vmt", GetAbsOrigin(), false );
-
-			m_hChargeSprite2->SetAsTemporary();
-			m_hChargeSprite2->SetAttachment( pOwner->GetViewModel(), 3 );
-			m_hChargeSprite2->SetTransparency( kRenderTransAdd, 255, 255, 255, 255, kRenderFxNone );
-			m_hChargeSprite2->SetBrightness( 0, 0.1f );
-			m_hChargeSprite2->SetScale( 0.05f, 0.05f );
-			m_hChargeSprite2->TurnOn();
-		}
+			if (IsDualWielding())
+			{
+				m_hChargeSprite2 = SPRITE_CREATE_PREDICTABLE( "effects/fluttercore.vmt", GetAbsOrigin(), false );
+				if (m_hChargeSprite2)
+				{
+					m_hChargeSprite->SetOwnerEntity(pOwner);
+					m_hChargeSprite->SetPlayerSimulated(pOwner);
+#ifndef CLIENT_DLL
+					m_hChargeSprite2->SetAsTemporary();
+#endif
+					m_hChargeSprite2->SetAttachment(pOwner->GetViewModel(), 3);
+					m_hChargeSprite2->SetTransparency(kRenderTransAdd, 255, 255, 255, 255, kRenderFxNone);
+					m_hChargeSprite2->SetBrightness(0, 0.1f);
+					m_hChargeSprite2->SetScale(0.05f, 0.05f);
+					m_hChargeSprite2->TurnOn();
+				}
+			}
 	}
 }
 }
@@ -1491,7 +1497,11 @@ void CWeaponPulsePistol::KillChargeEffects()
 
 	if (m_hChargeSprite2 != NULL)
 	{
+#ifndef CLIENT_DLL
 		UTIL_Remove( m_hChargeSprite2 );
+#else
+		m_hChargeSprite2->Remove();
+#endif
 		m_hChargeSprite2 = NULL;
 	}
 }
