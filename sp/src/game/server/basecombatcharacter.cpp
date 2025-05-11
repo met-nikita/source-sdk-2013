@@ -210,6 +210,15 @@ BEGIN_ENT_SCRIPTDESC( CBaseCombatCharacter, CBaseFlex, "The base class shared by
 	DEFINE_SCRIPTFUNC( EyeDirection2D, "Get the eyes' 2D direction." )
 	DEFINE_SCRIPTFUNC( EyeDirection3D, "Get the eyes' 3D direction." )
 
+	DEFINE_SCRIPTFUNC( LastHitGroup, "Get the last hitgroup." )
+
+#ifdef GLOWS_ENABLE
+	DEFINE_SCRIPTFUNC( AddGlowEffect, "" )
+	DEFINE_SCRIPTFUNC( RemoveGlowEffect, "" )
+	DEFINE_SCRIPTFUNC( IsGlowEffectActive, "" )
+	DEFINE_SCRIPTFUNC( SetGlowColor, "" )
+#endif
+
 	// 
 	// Hooks
 	// 
@@ -1647,6 +1656,15 @@ void CBaseCombatCharacter::FixupBurningServerRagdoll( CBaseEntity *pRagdoll )
 	}
 }
 
+inline bool CBaseCombatCharacter::ShouldFadeServerRagdolls() const
+{
+#ifdef MAPBASE
+	return IsNPC() ? HasSpawnFlags( SF_NPC_FADE_CORPSE ) : true;
+#else
+	return true;
+#endif
+}
+
 bool CBaseCombatCharacter::BecomeRagdollBoogie( CBaseEntity *pKiller, const Vector &forceVector, float duration, int flags )
 {
 	Assert( CanBecomeRagdoll() );
@@ -1655,7 +1673,7 @@ bool CBaseCombatCharacter::BecomeRagdollBoogie( CBaseEntity *pKiller, const Vect
 
 	info.SetDamageForce( forceVector );
 
-	CBaseEntity *pRagdoll = CreateServerRagdoll( this, 0, info, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
+	CBaseEntity *pRagdoll = CreateServerRagdoll( this, 0, info, COLLISION_GROUP_INTERACTIVE_DEBRIS, ShouldFadeServerRagdolls() );
 
 	pRagdoll->SetCollisionBounds( CollisionProp()->OBBMins(), CollisionProp()->OBBMaxs() );
 
@@ -1678,7 +1696,7 @@ CBaseEntity *CBaseCombatCharacter::BecomeRagdollBoogie( CBaseEntity *pKiller, co
 
 	info.SetDamageForce( forceVector );
 
-	CBaseEntity *pRagdoll = CreateServerRagdoll( this, 0, info, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
+	CBaseEntity *pRagdoll = CreateServerRagdoll( this, 0, info, COLLISION_GROUP_INTERACTIVE_DEBRIS, ShouldFadeServerRagdolls() );
 
 	pRagdoll->SetCollisionBounds( CollisionProp()->OBBMins(), CollisionProp()->OBBMaxs() );
 
@@ -1763,7 +1781,7 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 #endif
 		// in single player create ragdolls on the server when the player hits someone
 		// with their vehicle - for more dramatic death/collisions
-		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, info2, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
+		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, info2, COLLISION_GROUP_INTERACTIVE_DEBRIS, ShouldFadeServerRagdolls() );
 		FixupBurningServerRagdoll( pRagdoll );
 #ifdef EZ
 		m_hDeathRagdoll = pRagdoll;
@@ -1780,7 +1798,7 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 	// Burning corpses are server-side in episodic, if we're in darkness mode
 	if ( IsOnFire() && HL2GameRules()->IsAlyxInDarknessMode() )
 	{
-		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_DEBRIS );
+		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_DEBRIS, ShouldFadeServerRagdolls() );
 		FixupBurningServerRagdoll( pRagdoll );
 #ifdef EZ
 		m_hDeathRagdoll = pRagdoll;
@@ -1804,7 +1822,7 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 			return false;
 
 		//FIXME: This is fairly leafy to be here, but time is short!
-		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
+		CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, ShouldFadeServerRagdolls() );
 		FixupBurningServerRagdoll( pRagdoll );
 #ifdef EZ
 		m_hDeathRagdoll = pRagdoll;
@@ -1818,7 +1836,7 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 
 	if( hl2_episodic.GetBool() && Classify() == CLASS_PLAYER_ALLY_VITAL )
 	{
-		CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
+		CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, ShouldFadeServerRagdolls() );
 		RemoveDeferred();
 		return true;
 	}
@@ -2459,6 +2477,14 @@ void CBaseCombatCharacter::Weapon_HandleEquip( CBaseCombatWeapon *pWeapon )
 				if (pWeapon->GetSlot() == m_hMyWeapons[i]->GetSlot() &&
 					pWeapon->GetPosition() == m_hMyWeapons[i]->GetPosition())
 				{
+#ifdef EZ2
+					if (Weapon_EquipDual( pWeapon, m_hMyWeapons[i] ))
+					{
+						// Weapon has been merged with the existing weapon
+						return;
+					}
+#endif
+
 					// Replace our existing weapon in this slot
 					Weapon_Drop(m_hMyWeapons[i]);
 					{

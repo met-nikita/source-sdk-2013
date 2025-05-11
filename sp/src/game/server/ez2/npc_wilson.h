@@ -106,7 +106,9 @@ public:
 	bool			FVisible( CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL );
 	bool			FVisible( const Vector &vecTarget, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL );
 	CWilsonCamera*	GetCameraForTarget( CBaseEntity *pTarget );
+	CWilsonCamera*	GetCameraForTarget( const Vector &vecTarget );
 
+	virtual Vector	EarPosition( void );			// position of ears
 	bool			QueryHearSound( CSound *pSound );
 
 	// Wilson hardly cares about his NPC state because he's just a vessel for choreography and player attachment, not a useful combat ally.
@@ -163,6 +165,18 @@ public:
 
 	void			RefreshCameraTargets();
 	const Vector&	GetSpeechTargetSearchOrigin();
+	const Vector&	GetAbsOriginForSpeech( CBaseEntity *pSpeechTarget );
+	const Vector&	GetWorldSpaceCenterForSpeech( CBaseEntity *pSpeechTarget );
+	const Vector	GetEyePositionForSpeech( CBaseEntity *pSpeechTarget );
+
+	bool			ValidEyeTarget( const Vector &lookTargetPos );
+	bool			ValidHeadTarget( const Vector &lookTargetPos );
+	float			HeadTargetValidity( const Vector &lookTargetPos );
+	bool			HeadTargetPosOverride( const Vector &vecTargetPos, Vector &vecDir, float &flDist );
+	bool			HeadAngleOverride( QAngle &vTargetAngles );
+	float			GetHeadDebounce( void ) { return 0.5f; } // how much of previous head turn to use
+
+	bool			PickTacticalLookTarget( AILookTargetArgs_t *pArgs );
 
 	void			InputEnableMotion( inputdata_t &inputdata );
 	void			InputDisableMotion( inputdata_t &inputdata );

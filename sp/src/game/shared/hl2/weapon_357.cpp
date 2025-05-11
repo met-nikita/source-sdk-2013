@@ -117,12 +117,6 @@ public:
 	virtual void			SetActivity( Activity act, float duration );
 
 	bool				CanDualWield() const { return true; }
-	CBaseAnimating		*GetLeftHandGun() const { return m_hLeftHandGun; }
-	void				SetLeftHandGun( CBaseAnimating *pGun ) { m_hLeftHandGun = pGun; }
-
-private:
-
-	CHandle<CBaseAnimating> m_hLeftHandGun;
 #endif
 };
 

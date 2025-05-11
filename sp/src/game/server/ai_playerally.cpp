@@ -14,6 +14,7 @@
 #include "gameinterface.h"
 #ifdef MAPBASE
 #include "mapbase/matchers.h"
+#include "ai_memory.h"
 #endif
 #ifdef EZ2
 #include "ez2/ai_concept_response.h"
@@ -138,6 +139,8 @@ ConceptInfo_t g_ConceptInfos[] =
 	{ 	TLK_TAKING_FIRE,		SPEECH_IMPORTANT,-1,	-1,		-1,		-1,		 -1,	-1,		AICF_DEFAULT,	},
 	{ 	TLK_NEW_ENEMY,			SPEECH_IMPORTANT,-1,	-1,		-1,		-1,		 -1,	-1,		AICF_DEFAULT,	},
 	{ 	TLK_COMBAT_IDLE,		SPEECH_IMPORTANT,-1,	-1,		-1,		-1,		 -1,	-1,		AICF_DEFAULT,	},
+	{ 	TLK_LOSTENEMY,			SPEECH_IMPORTANT,-1,	-1,		-1,		-1,		 -1,	-1,		AICF_DEFAULT,	},
+	{ 	TLK_REFINDENEMY,		SPEECH_IMPORTANT,-1,	-1,		-1,		-1,		 -1,	-1,		AICF_DEFAULT,	},
 #endif
 
 #ifdef EZ
@@ -478,9 +481,17 @@ void CAI_PlayerAlly::GatherConditions( void )
 	{
 				
 		bool bPlayerIsLooking = false;
+#ifdef EZ2
+		if ( ( pLocalPlayer->GetAbsOrigin() - GetAbsOriginForSpeech( pLocalPlayer ) ).Length2DSqr() < Square(TALKER_STARE_DIST) )
+#else
 		if ( ( pLocalPlayer->GetAbsOrigin() - GetAbsOrigin() ).Length2DSqr() < Square(TALKER_STARE_DIST) )
+#endif
 		{
+#ifdef EZ2
+			if ( pLocalPlayer->FInViewCone( GetEyePositionForSpeech( pLocalPlayer ) ) )
+#else
 			if ( pLocalPlayer->FInViewCone( EyePosition() ) )
+#endif
 			{
 				if ( pLocalPlayer->GetSmoothedVelocity().LengthSqr() < Square( 100 ) )
 					bPlayerIsLooking = true;
@@ -781,7 +792,7 @@ bool CAI_PlayerAlly::SelectAlertSpeech( AISpeechSelection_t *pSelection )
 	// NPCs can comment on smells in EZ2
 	if ( pSmellTarget && HasCondition( COND_SMELL ) && GetBestScent() && GetExpresser() && GetExpresser()->CanSpeakConcept( TLK_SMELL ) )
 	{
-		if( SelectSpeechResponse( TLK_SMELL, UTIL_VarArgs("distancetosmell:%f", GetAbsOrigin().DistTo( GetBestScent()->GetSoundReactOrigin() ) ), pSmellTarget, pSelection ) )
+		if( SelectSpeechResponse( TLK_SMELL, UTIL_VarArgs("distancetosmell:%f", GetAbsOriginForSpeech( pSmellTarget ).DistTo( GetBestScent()->GetSoundReactOrigin() ) ), pSmellTarget, pSelection ) )
 			return true;
 	}
 #endif
@@ -1405,7 +1416,11 @@ void CAI_PlayerAlly::OnEnemyRangeAttackedMe( CBaseEntity *pEnemy, const Vector &
 		AI_CriteriaSet modifiers;
 		ModifyOrAppendEnemyCriteria( modifiers, pEnemy );
 
+#ifdef EZ2
+		Vector vecEntDir = (pEnemy->EyePosition() - GetEyePositionForSpeech(pEnemy));
+#else
 		Vector vecEntDir = (pEnemy->EyePosition() - EyePosition());
+#endif
 		float flDot = DotProduct( vecEntDir.Normalized(), vecDir );
 		modifiers.AppendCriteria( "shot_dot", CNumStr( flDot ) );
 
@@ -1553,6 +1568,28 @@ void CAI_PlayerAlly::PainSound( const CTakeDamageInfo &info )
 {
 	SpeakIfAllowed( TLK_WOUND );
 }
+
+#ifdef MAPBASE
+//-----------------------------------------------------------------------------
+void CAI_PlayerAlly::LostEnemySound( CBaseEntity *pEnemy )
+{
+	AI_CriteriaSet modifiers;
+	ModifyOrAppendEnemyCriteria( modifiers, pEnemy );
+
+	modifiers.AppendCriteria( "lastseenenemy", gpGlobals->curtime - GetEnemies()->LastTimeSeen( pEnemy ) );
+
+	SpeakIfAllowed( TLK_LOSTENEMY, modifiers );
+}
+
+//-----------------------------------------------------------------------------
+void CAI_PlayerAlly::FoundEnemySound( CBaseEntity *pEnemy )
+{
+	AI_CriteriaSet modifiers;
+	ModifyOrAppendEnemyCriteria( modifiers, pEnemy );
+
+	SpeakIfAllowed( TLK_REFINDENEMY, modifiers );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Implemented to look at talk target

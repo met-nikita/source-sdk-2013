@@ -82,6 +82,10 @@ ConVar npc_wilson_depressing_death("npc_wilson_depressing_death", "0", FCVAR_NON
 ConVar npc_wilson_clearance_speed_threshold( "npc_wilson_clearance_speed_threshold", "250.0", FCVAR_NONE, "The speed at which Will-E starts to think he's gonna get knocked off if approaching a surface." );
 ConVar npc_wilson_clearance_debug( "npc_wilson_clearance_debug", "0", FCVAR_NONE, "Debugs Will-E's low clearance detection." );
 
+ConVar npc_wilson_camera_look_scale_pitch( "npc_wilson_camera_look_scale_pitch", "0.025", FCVAR_NONE, "How much to scale Wilson's eye movements when looking at a target through a camera." );
+ConVar npc_wilson_camera_look_scale_yaw( "npc_wilson_camera_look_scale_yaw", "0.05", FCVAR_NONE, "How much to scale Wilson's eye movements when looking at a target through a camera." );
+ConVar npc_wilson_camera_look_scale_roll( "npc_wilson_camera_look_scale_roll", "0.1", FCVAR_NONE, "How much to scale Wilson's eye movements when looking at a target through a camera." );
+
 static const char *g_DamageZapContext = "DamageZapEffect";
 static const char *g_AutoSetLocatorContext = "AutoSetLocator";
 
@@ -289,6 +293,12 @@ void CNPC_Wilson::Spawn()
 	CapabilitiesAdd( /*bits_CAP_TURN_HEAD |*/ bits_CAP_ANIMATEDFACE );
 
 	CapabilitiesAdd( bits_CAP_SQUAD );
+
+	if ( LookupAttachment( "forward" ) > 0 )
+	{
+		// If we have the "forward" attachment, we can turn our head
+		CapabilitiesAdd( bits_CAP_TURN_HEAD );
+	}
 
 	// Add to the player's squad if we have no squad name
 	if (!GetSquad())
@@ -951,7 +961,7 @@ void CNPC_Wilson::GatherEnemyConditions( CBaseEntity *pEnemy )
 
 	if ( GetLastEnemyTime() == 0 || gpGlobals->curtime - GetLastEnemyTime() > 30 )
 	{
-		if ( HasCondition( COND_SEE_ENEMY ) && (WorldSpaceCenter() - pEnemy->WorldSpaceCenter()).LengthSqr() <= Square(384.0f) && pEnemy->Classify() != CLASS_BULLSEYE )
+		if ( HasCondition( COND_SEE_ENEMY ) && (GetWorldSpaceCenterForSpeech( pEnemy ) - pEnemy->WorldSpaceCenter()).LengthSqr() <= Square(384.0f) && pEnemy->Classify() != CLASS_BULLSEYE )
 		{
 			AI_CriteriaSet modifiers;
 
@@ -1050,7 +1060,7 @@ void CNPC_Wilson::OnFriendDamaged( CBaseCombatCharacter *pSquadmate, CBaseEntity
 	if ( pAttacker )
 	{
 		CBasePlayer *pPlayer = AI_GetSinglePlayer();
-		if ( pPlayer && ( pPlayer->GetAbsOrigin().AsVector2D() - GetAbsOrigin().AsVector2D() ).LengthSqr() < Square( 25*12 ) && IsAllowedToSpeak( TLK_WATCHOUT ) )
+		if ( pPlayer && ( pPlayer->GetAbsOrigin().AsVector2D() - GetAbsOriginForSpeech( pPlayer ).AsVector2D() ).LengthSqr() < Square( 25*12 ) && IsAllowedToSpeak( TLK_WATCHOUT ) )
 		{
 			if ( !pPlayer->FInViewCone( pAttacker ) )
 			{
@@ -1342,6 +1352,39 @@ CWilsonCamera *CNPC_Wilson::GetCameraForTarget( CBaseEntity *pTarget )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Gets the first camera which can see the target
+//-----------------------------------------------------------------------------
+CWilsonCamera *CNPC_Wilson::GetCameraForTarget( const Vector &vecTarget )
+{
+	FOR_EACH_VEC( m_hCameraTargets, i )
+	{
+		if ( !m_hCameraTargets[i]->IsEnabled() )
+			continue;
+
+		if ( m_hCameraTargets[i]->FInViewCone( vecTarget ) && m_hCameraTargets[i]->FVisible( vecTarget ) )
+			return m_hCameraTargets[i];
+	}
+
+	return NULL;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Position of ears
+//-----------------------------------------------------------------------------
+Vector CNPC_Wilson::EarPosition( void )
+{
+	if ( m_bSeeThroughPlayer )
+	{
+		// Bad Cop has special ears
+		CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+		if (pPlayer)
+			return pPlayer->EarPosition();
+	}
+
+	return BaseClass::EarPosition();
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Return true if this NPC can hear the specified sound
 //-----------------------------------------------------------------------------
 bool CNPC_Wilson::QueryHearSound( CSound *pSound )
@@ -1445,7 +1488,7 @@ bool CNPC_Wilson::DoCustomSpeechAI()
 			}
 
 			// If we're in a vehicle, use the vehicle's origin instead
-			Vector vecSearchOrigin = m_hAttachedVehicle ? m_hAttachedVehicle->GetAbsOrigin() : GetAbsOrigin();
+			Vector vecSearchOrigin = m_hAttachedVehicle ? m_hAttachedVehicle->GetAbsOrigin() : GetAbsOriginForSpeech( pPlayer );
 			float flDistSqr = (vecSearchOrigin - pPlayer->GetAbsOrigin()).LengthSqr();
 			if (flDistSqr >= Square( 300 ))
 			{
@@ -1514,6 +1557,14 @@ bool CNPC_Wilson::DoIdleSpeechAI( AISpeechSelection_t *pSelection, int iState )
 				pTarget->GetAmmoCount( pWeapon->GetPrimaryAmmoType() ) )
 			{
 				if ( SelectSpeechResponse( TLK_PLRELOAD, NULL, pTarget, pSelection ) )
+					return true;
+			}
+
+			// From SelectIdleSpeech()
+			// This was implemented for Axon Pariah, although it can be used with turret Wilson too.
+			if ( GetTimePlayerStaring() > 6 && GetSmoothedVelocity().IsZero() )
+			{
+				if ( SelectSpeechResponse( TLK_STARE, NULL, pTarget, pSelection ) )
 					return true;
 			}
 
@@ -1878,7 +1929,7 @@ void CNPC_Wilson::ModifyOrAppendCriteria(AI_CriteriaSet& set)
 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
 	if (pPlayer)
 	{
-		set.AppendCriteria( "wilson_distance", CFmtStrN<32>( "%f.3", (GetAbsOrigin() - pPlayer->GetAbsOrigin()).Length() ) );
+		set.AppendCriteria( "wilson_distance", CFmtStrN<32>( "%f.3", (GetAbsOriginForSpeech( pPlayer ) - pPlayer->GetAbsOrigin()).Length() ) );
 
 		if (pPlayer->IsInAVehicle())
 		{
@@ -2012,8 +2063,8 @@ bool CNPC_Wilson::IsOkToSpeak( ConceptCategory_t category, bool fRespondingToPla
 	}
 	else
 	{
-		// If we're not responding to the player, don't talk if running a logic_choreo
-		if ( IsRunningScriptedSceneAndNotPaused( this, false ) )
+		// If we're not responding to the player, don't talk if running a non-instanced logic_choreo OR an instanced logic_choreo with speech in it
+		if ( IsRunningScriptedSceneAndNotPaused( this ) || IsRunningScriptedSceneWithSpeechAndNotPaused( this, false ) )
 		{
 			return false;
 		}
@@ -2107,6 +2158,217 @@ const Vector &CNPC_Wilson::GetSpeechTargetSearchOrigin()
 	}
 
 	return BaseClass::GetSpeechTargetSearchOrigin();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+const Vector &CNPC_Wilson::GetAbsOriginForSpeech( CBaseEntity *pSpeechTarget )
+{
+	CWilsonCamera *pNearestCamera = GetCameraForTarget( pSpeechTarget );
+	if (!pNearestCamera)
+		return BaseClass::GetAbsOriginForSpeech( pSpeechTarget );
+
+	return pNearestCamera->GetAbsOrigin();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+const Vector &CNPC_Wilson::GetWorldSpaceCenterForSpeech( CBaseEntity *pSpeechTarget )
+{
+	CWilsonCamera *pNearestCamera = GetCameraForTarget( pSpeechTarget );
+	if (!pNearestCamera)
+		return BaseClass::GetWorldSpaceCenterForSpeech( pSpeechTarget );
+
+	return pNearestCamera->WorldSpaceCenter();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+const Vector CNPC_Wilson::GetEyePositionForSpeech( CBaseEntity *pSpeechTarget )
+{
+	CWilsonCamera *pNearestCamera = GetCameraForTarget( pSpeechTarget );
+	if (!pNearestCamera)
+		return BaseClass::GetEyePositionForSpeech( pSpeechTarget );
+
+	return pNearestCamera->EyePosition();
+}
+
+#define MIN_LOOK_TARGET_DIST 1.0f
+#define MAX_FULL_LOOK_TARGET_DIST 10.0f
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns true if target is in legal range of eye movement for the current head position
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::ValidEyeTarget(const Vector &lookTargetPos)
+{
+	if (!m_bOmniscient)
+		return BaseClass::ValidEyeTarget( lookTargetPos );
+
+	CWilsonCamera *pNearestCamera = GetCameraForTarget( lookTargetPos );
+	if (!pNearestCamera)
+		return BaseClass::ValidEyeTarget( lookTargetPos );
+
+	// Just use head target code for now
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns true if target is in legal range of possible head movements
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::ValidHeadTarget(const Vector &lookTargetPos)
+{
+	if (!m_bOmniscient)
+		return BaseClass::ValidEyeTarget( lookTargetPos );
+
+	CWilsonCamera *pNearestCamera = GetCameraForTarget( lookTargetPos );
+	if (!pNearestCamera)
+		return BaseClass::ValidEyeTarget( lookTargetPos );
+
+	Vector vFacing;
+	pNearestCamera->GetVectors( &vFacing, NULL, NULL );
+
+	Vector lookTargetDir = lookTargetPos - pNearestCamera->EyePosition();
+	float flDist = VectorNormalize(lookTargetDir);
+
+	if (flDist < MIN_LOOK_TARGET_DIST)
+	{
+		return false;
+	}
+
+	// Only look if it doesn't crank my head too far
+	float dotPr = DotProduct(lookTargetDir, vFacing);
+	if (dotPr > 0 && fabs( lookTargetDir.z ) < 0.7) // +- 90 degrees side to side, +- 45 up/down
+	{
+		return true;
+	}
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns how much to try to look at the target
+//-----------------------------------------------------------------------------
+float CNPC_Wilson::HeadTargetValidity(const Vector &lookTargetPos)
+{
+	if (!m_bOmniscient)
+		return BaseClass::ValidEyeTarget( lookTargetPos );
+
+	CWilsonCamera *pNearestCamera = GetCameraForTarget( lookTargetPos );
+	if (!pNearestCamera)
+		return BaseClass::ValidEyeTarget( lookTargetPos );
+
+	Vector vFacing;
+	pNearestCamera->GetVectors( &vFacing, NULL, NULL );
+
+	Vector lookTargetDir = lookTargetPos - pNearestCamera->EyePosition();
+	float flDist = lookTargetDir.Length2D();
+	VectorNormalize(lookTargetDir);
+
+	if (flDist <= MIN_LOOK_TARGET_DIST)
+	{
+		return 0;
+	}
+
+	// Only look if it doesn't crank my head too far
+	float dotPr = DotProduct(lookTargetDir, vFacing);
+	// only look if target is within +-135 degrees
+	// scale 1..-0.707 == 1..1,  -.707..-1 == 1..0
+	// 	X * b + b = 1 == 1 / (X + 1) = b, 3.4142
+	float flInterest = clamp( 3.4142f + 3.4142f * dotPr, 0.f, 1.f );
+
+	// stop looking when point too close 
+	if (flDist < MAX_FULL_LOOK_TARGET_DIST)
+	{
+		flInterest = flInterest * (flDist - MIN_LOOK_TARGET_DIST ) / (MAX_FULL_LOOK_TARGET_DIST - MIN_LOOK_TARGET_DIST);
+	}
+
+	return flInterest;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Overrides head target parameters
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::HeadTargetPosOverride( const Vector &vecTargetPos, Vector &vecDir, float &flDist )
+{
+	if (!m_bOmniscient)
+		return BaseClass::HeadTargetPosOverride( vecTargetPos, vecDir, flDist );
+
+	CWilsonCamera *pNearestCamera = GetCameraForTarget( vecTargetPos );
+	if (!pNearestCamera)
+		return BaseClass::HeadTargetPosOverride( vecTargetPos, vecDir, flDist );
+
+	// Translate this target position from the camera to Wilson's actual entity
+	matrix3x4_t matCameraToTarget, matTargetToCamera;
+	matrix3x4_t matWorldToTarget(
+		1.0f, 0.0f, 0.0f, -vecTargetPos.x,
+		0.0f, 1.0f, 0.0f, -vecTargetPos.y,
+		0.0f, 0.0f, 1.0f, -vecTargetPos.z );
+	ConcatTransforms( matWorldToTarget, pNearestCamera->EntityToWorldTransform(), matCameraToTarget );
+	MatrixInvert( matCameraToTarget, matTargetToCamera );
+
+	matrix3x4_t matWilson;
+	GetAttachment( LookupAttachment( "forward" ), matWilson );
+
+	matrix3x4_t matTargetToWilson;
+	ConcatTransforms( matWilson, matTargetToCamera, matTargetToWilson );
+
+	Vector vecOrigin;
+	MatrixGetColumn( matTargetToWilson, 3, vecOrigin );
+
+	vecDir = vecOrigin - EyePosition();
+	flDist = VectorNormalize( vecDir );
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Overrides head target parameters
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::HeadAngleOverride( QAngle &vTargetAngles )
+{
+	if (!m_bOmniscient)
+		return BaseClass::HeadAngleOverride( vTargetAngles );
+
+	vTargetAngles -= EyeAngles();
+
+	vTargetAngles.x *= npc_wilson_camera_look_scale_pitch.GetFloat();
+	vTargetAngles.y *= npc_wilson_camera_look_scale_yaw.GetFloat();
+	vTargetAngles.z *= npc_wilson_camera_look_scale_roll.GetFloat();
+
+	vTargetAngles += EyeAngles();
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CNPC_Wilson::PickTacticalLookTarget( AILookTargetArgs_t *pArgs )
+{
+	if (BaseClass::PickTacticalLookTarget( pArgs ))
+	{
+		return true;
+	}
+
+	if ( HasCondition( COND_SEE_PLAYER ) )
+	{
+		// 1/3rd chance to look at player
+		if (random->RandomInt( 0, 2 ) == 0)
+		{
+			pArgs->flDuration = RandomFloat( 3.0f, 5.0f );
+			if (GetState() == NPC_STATE_ALERT)
+				pArgs->flDuration *= 0.5f;
+
+			pArgs->flInfluence = 0.5f;
+			pArgs->hTarget = AI_GetSinglePlayer();
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 //-----------------------------------------------------------------------------
